@@ -1,0 +1,33 @@
+{
+  "name": "@mizan/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "5.2.2",
+    "@mizan/shared": "workspace:*",
+    "@tanstack/react-query": "5.100.11",
+    "@tanstack/react-query-devtools": "5.100.11",
+    "@tanstack/react-router": "1.170.4",
+    "ai": "catalog:",
+    "hono": "4.12.21",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "react-hook-form": "7.76.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.0",
+    "@tanstack/router-vite-plugin": "1.167.6",
+    "@vitejs/plugin-react": "6.0.2",
+    "tailwindcss": "4.3.0",
+    "typescript": "6.0.3",
+    "vite": "8.0.13"
+  }
+}
