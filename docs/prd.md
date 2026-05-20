@@ -1925,3 +1925,45 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 **Observability:**
 - Langfuse Vercel AI SDK instrumentation: https://github.com/langfuse/langfuse-docs (context7 `/langfuse/langfuse-docs`)
 - Langfuse self-hosting (Docker): https://langfuse.com/self-hosting
+
+## 14. Git workflow + contribution policy
+
+### Branches
+
+- **`main`** — production / canonical branch. Default branch on GitHub. Protected: no direct pushes.
+- **`staging`** — pre-production integration branch. Protected: no direct pushes.
+
+No long-lived feature branches. No `develop`. No release branches. Two protected lanes only.
+
+### Flow (every change, no exceptions)
+
+```
+feat/<short-name>  ───PR──►  staging  ───PR──►  main
+```
+
+1. Create a feature branch off `staging`: `git checkout staging && git pull && git checkout -b feat/<name>`
+2. Push the feature branch, open a PR against `staging`
+3. CI gates run on the PR: `bun run lint && bun run knip && bun run typecheck && bun run test`. All four MUST pass.
+4. Merge to `staging` (squash or rebase merge; never plain merge commit)
+5. When `staging` is ready to release: open a PR `staging → main`. CI re-runs. Merge.
+6. Production deploy fires from `main` (Phase 10 of the build; production deploys only after `main` accepts the release PR)
+
+**Forbidden:**
+- Direct push to `main` (enforced by GitHub branch protection)
+- Direct push to `staging` (enforced by GitHub branch protection)
+- Merging your own PR without CI green
+- Force-push to `main` or `staging`
+- Bypassing required reviews (where configured)
+
+### Contribution attribution
+
+- **Sole contributor: Lahfir.** No other contributors are credited anywhere in the codebase or its surfaces — commits, PRs, code comments, READMEs, `package.json` (`author: "Lahfir"`; no `contributors` array), CHANGELOGs, release notes, docs.
+- Co-author trailers (`Co-Authored-By:`) are forbidden. AI attribution markers (`Generated with Claude Code`, etc.) are forbidden.
+- Every commit appears as authored solely by Lahfir.
+
+### Commit message convention
+
+- Conventional commits encouraged but not enforced: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`, `perf:`
+- Subject line ≤72 chars
+- Body explains the WHY, not the WHAT (the diff shows the what)
+- No trailers other than `Refs: #<issue>` or `Closes: #<issue>` when applicable
