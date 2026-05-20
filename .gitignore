@@ -1,0 +1,48 @@
+# Agent context files (local only, never committed)
+CLAUDE.md
+AGENTS.md
+
+# docs/ — only ship prd.md + solutions/ to the repo
+/docs/*
+!/docs/prd.md
+!/docs/solutions/
+!/docs/solutions/**
+
+# Bun (bun.lockb IS committed per Bun convention)
+node_modules/
+.bun/
+bun-debug.log*
+
+# Build / dist
+dist/
+build/
+.wrangler/
+.vite/
+.turbo/
+.dev.vars
+.dev.vars.*
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test / coverage
+coverage/
+.nyc_output/
+.vitest-cache/
+
+# Local Langfuse data (Docker volumes)
+docker/langfuse-db-data/
+
+# Logs
+*.log
+logs/
