@@ -114,7 +114,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **In scope:**
 
 *Monorepo scaffolding:*
-- `bun init` at `/Users/lahfir/Documents/Projects/mizan/`
+- `bun init` at the repo root
 - Root `package.json` w/ `"workspaces": ["apps/*", "packages/*"]` + scripts (`dev`, `build`, `test`, `lint`, `format`, `typecheck`, `eval`)
 - Workspace dirs created: `apps/worker`, `apps/web`, `packages/db`, `packages/mastra`, `packages/shared`, `packages/eval`
 - Each workspace has its own `package.json` w/ scoped name (`@mizan/worker`, `@mizan/web`, `@mizan/db`, `@mizan/mastra`, `@mizan/shared`, `@mizan/eval`) + `tsconfig.json` extending root `tsconfig.base.json`
@@ -126,19 +126,28 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - `wrangler r2 bucket create mizan-uploads`
 - `wrangler vectorize create-index mizan-policy-corpus --dimensions=1536 --metric=cosine`
 - `wrangler queues create mizan-brief-jobs` + `wrangler queues create mizan-brief-jobs-dlq`
-- `apps/worker/wrangler.jsonc` w/ all bindings + `compatibility_date` pinned + `nodejs_compat` flag + `observability: { enabled: true }` + `assets` binding for `apps/web/dist`
+- `apps/worker/wrangler.jsonc` w/ all bindings + `compatibility_date` pinned + `compatibility_flags: ["nodejs_compat", "nodejs_compat_populate_process_env"]` (Mastra's canonical pair) + `observability: { enabled: true }` + `assets` binding for `apps/web/dist`
 
 *Dependencies (Bun, scoped per workspace):*
 - `apps/worker`: `hono`, `mastra`, `@mastra/cloudflare-d1`, `@mastra/hono`, `@mastra/ai-sdk`, `@mastra/observability`, `ai`, `@ai-sdk/anthropic`, `@ai-sdk/openai`, `@openrouter/ai-sdk-provider`, `better-auth`, `better-auth-cloudflare`, `@better-auth/drizzle-adapter`, `drizzle-orm`, `zod`, `@mizan/db: workspace:*`, `@mizan/mastra: workspace:*`, `@mizan/shared: workspace:*`
-- `apps/web`: `react`, `react-dom`, `vite`, `@vitejs/plugin-react`, `ai` (for `useChat`), `tailwindcss`, `@mizan/shared: workspace:*`; shadcn deps after `npx shadcn@latest init`
+- `apps/web`: `react`, `react-dom`, `vite`, `@vitejs/plugin-react`, `ai` (for `useChat`), `tailwindcss`, `@tailwindcss/vite` (Tailwind 4 Vite plugin — replaces the legacy PostCSS pipeline), `@mizan/shared: workspace:*`; shadcn deps after `bunx shadcn@latest init`
 - `packages/db`: `drizzle-orm`, `drizzle-kit`, `@better-auth/cli`
 - `packages/mastra`: `mastra`, `@mastra/cloudflare-d1`, `@mastra/observability`, `ai`, `@ai-sdk/*`, `zod`
 - `packages/shared`: `zod`
 - `packages/eval`: `vitest`, `@mizan/mastra: workspace:*`
-- Root devDeps: `oxlint`, `@oxc-project/oxfmt`, `knip`, `lefthook` (or `husky`), `typescript`, `vitest`, `@cloudflare/vitest-pool-workers`, `@cloudflare/workers-types`, `wrangler`, `tsx`
+- Root devDeps: `oxlint`, `oxfmt`, `knip`, `lefthook`, `typescript`, `vitest`, `@cloudflare/vitest-pool-workers`, `@cloudflare/workers-types`, `wrangler`, `tsx`, `@socketsecurity/bun-security-scanner`
 
 *Tooling config (root):*
-- `oxlint --init` → `.oxlintrc.json` w/ plugins `["typescript", "import", "unicorn", "oxc", "react"]`, `env: { browser: true, node: true, worker: true }`, and the FULL non-negotiable rule set from `~/Documents/Projects/personal/CLAUDE.md`:
+- `bunfig.toml` (repo root) — supply-chain security stack (see §12 Bun workspaces for the canonical shape):
+  - `[install] exact = true` — pin exact versions in `package.json`; no caret ranges
+  - `[install] saveTextLockfile = true` — text JSONC lockfile (`bun.lock`); never the legacy binary `bun.lockb`
+  - `[install] minimumReleaseAge = 1209600` — 14-day bake period before any new version installs
+  - `[install] minimumReleaseAgeExcludes = ["typescript", "@types/node", "@cloudflare/workers-types", "wrangler", "@socketsecurity/bun-security-scanner"]` — scanner is on the exclude list so its own emergency updates bypass the 14-day bake (threat intel itself can't lag the attack window)
+  - `[install] ignoreScripts = true` — lifecycle scripts blocked unless package is in `trustedDependencies`
+  - `[install] registry = "https://registry.npmjs.org"` — registry locked explicitly
+  - `[install.security] scanner = "@socketsecurity/bun-security-scanner"` — Bun 1.3 Security Scanner API; blocks installs of malicious / hijacked packages
+- Root `package.json` includes `"packageManager": "bun@<exact-version>"`, `"engines": { "bun": ">=1.3.11" }`, and `"trustedDependencies": []` (empty by default; additions require PR review)
+- `oxlint --init` → `.oxlintrc.json` w/ plugins `["typescript", "import", "unicorn", "oxc", "react"]`, `env: { browser: true, node: true, worker: true }`, and the FULL non-negotiable rule set from this repo's `CLAUDE.md` (§7 / Non-Negotiable Coding Principles):
   - `max-lines: ["error", 400]`
   - `max-lines-per-function: ["error", 50]`
   - `@typescript-eslint/no-explicit-any: error`
@@ -151,16 +160,19 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
   - Overrides for `**/*.test.ts` + `**/tests/**` relax only `@typescript-eslint/no-explicit-any` + `no-unsafe-assignment`
 - `tsconfig.base.json` w/ `"strict": true`, `"noUncheckedIndexedAccess": true`, `"exactOptionalPropertyTypes": true`, `"moduleResolution": "bundler"`, paths for `@mizan/*` mapping to workspace srcs
 - `knip.json` w/ workspace entry points (`apps/worker/src/index.ts`, `apps/web/src/main.tsx`); ignore lists for legitimate test-only false positives
-- Pre-commit hook (lefthook or husky) runs:
+- `renovate.json` w/ `"minimumReleaseAge": "14 days"`, `"rangeStrategy": "pin"`, `"internalChecksFilter": "strict"`, vulnerability alerts bypass the bake period
+- Pre-commit hook (lefthook) runs in parallel:
   - `bun run lint` (oxlint)
   - `bun run typecheck` (tsc --noEmit per workspace)
   - `bun run knip` (dead-code check)
+  - `bun audit --audit-level=high --prod` (block on HIGH/CRITICAL CVEs)
   - Grep belt-and-braces: fails commit if any non-test file contains `as any`, `as unknown`, `: any` (outside test overrides), `// TODO\|FIXME\|HACK\|XXX`, or `// @ts-nocheck`
-- `apps/web/components.json` after `bunx shadcn@latest init` (Tailwind base config emitted)
+- Pre-push hook (lefthook) runs `bun --filter '*' test`
+- `apps/web/components.json` after `bunx shadcn@latest init` (Tailwind 4 base config emitted; uses `@tailwindcss/vite` plugin, not the legacy PostCSS pipeline)
 
 *Initial code:*
 - `apps/worker/src/index.ts` Hono app w/ `GET /health` returning `{ status: "ok", bindings: ["DB","R2_BUCKET","VECTORIZE","KV","BRIEF_QUEUE"], runtime: "cloudflare-workers" }`
-- `apps/web/src/main.tsx` blank Vite + React + Tailwind skeleton; one shadcn `<Button>` rendered as smoke
+- `apps/web/src/main.tsx` blank Vite + React + Tailwind 4 skeleton (Tailwind 4 via `@tailwindcss/vite` plugin, CSS-first `@theme` block in `apps/web/src/index.css`, no `tailwind.config.ts`, no `postcss.config.mjs`); one shadcn `<Button>` rendered as smoke
 - `apps/worker/tests/health.test.ts` Vitest spec against Miniflare confirming `/health` returns 200 + all bindings present in env
 
 *Other:*
@@ -172,31 +184,45 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** `bun --filter @mizan/worker dev` boots Worker; `curl localhost:8787/health` returns 200 with binding inventory. `bun --filter @mizan/web dev` boots Vite client showing the shadcn Button. `bun run lint` passes. `bun run format` runs cleanly. `bun --filter @mizan/worker test` passes the smoke test.
 
 **Acceptance criteria:**
-- `bun install` resolves all deps; `bun.lockb` written and committed
+- `bun install` resolves all deps with the Socket security scanner active and reports clean; `bun.lock` (text JSONC) written and committed
+- `bun install --frozen-lockfile --no-cache` exits 0 on a clean clone (CI gate)
+- `bun audit --audit-level=high` exits 0 (no HIGH or CRITICAL CVEs)
 - `bun --filter @mizan/worker dev` boots without errors
 - `/health` confirms every binding is present
 - `bun --filter @mizan/web dev` boots Vite at `localhost:5173` rendering shadcn Button
 - `bun run lint` exits 0 (oxlint w/ full non-negotiable rule set active)
 - `bun run typecheck` exits 0 (tsc --noEmit per workspace, strict + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`)
 - `bun run knip` exits 0 (no dead code in scaffold)
-- `bun run format` exits 0
+- `bun run format:check` exits 0
 - `bun --filter '*' test` runs the smoke test green
-- Pre-commit hook installed and active: a deliberate `// TODO` in any source file fails the commit
+- `bunfig.toml` present at repo root with the §6 Phase 0 / §12 Bun workspaces canonical settings (scanner + minimumReleaseAge + ignoreScripts + exact + saveTextLockfile + registry lock)
+- `lefthook.yml` present; `bunx lefthook install` writes `.git/hooks/pre-commit` + `.git/hooks/pre-push`
+- Pre-commit hook installed and active: a deliberate `// TODO` in any source file fails the commit; a deliberate `as any` in any non-test source file fails the commit
+- `renovate.json` present and valid (`bunx renovate-config-validator`)
 - `docker compose -f docker/docker-compose.langfuse.yml up -d` starts Langfuse at `http://localhost:3001` (verify only; tear down after)
 - **NO production `wrangler deploy` in this phase.** Only `wrangler dev` (local Miniflare).
 
 **Implementation notes:**
-- `bun.lockb` IS committed (per Bun convention) — `.gitignore` enforces this
+- `bun.lock` (text JSONC) IS committed — Bun 1.2+ default lockfile format. The legacy binary `bun.lockb` MUST NOT be committed; `.gitignore` enforces this defensively.
+- Every dependency installed at its absolute latest version (resolved via `bun pm view <pkg> version`) and pinned exact (no caret ranges) by `install.exact = true`. Reproducibility is non-negotiable.
+- Bun version pinned via `"packageManager": "bun@<exact-version>"`; CI uses `oven-sh/setup-bun` w/ `bun-version-file: package.json` to match exactly.
+- Supply-chain security stack is layered: Socket scanner blocks malicious installs → `minimumReleaseAge: 1209600` (14 days) blocks unseasoned versions → `ignoreScripts = true` blocks lifecycle code → `trustedDependencies` is the explicit allowlist for any required postinstall → `bun audit` gates pre-commit + CI → `bun install --frozen-lockfile --no-cache` in CI → Renovate `minimumReleaseAge: "14 days"` keeps the upgrade cadence consistent with the install policy.
 - Root `package.json` scripts use `bun --filter`:
   - `"dev": "bun --filter '*' dev"` (parallel dev servers)
   - `"build": "bun --filter '*' build"`
   - `"test": "bun --filter '*' test"`
   - `"lint": "oxlint"`
   - `"format": "oxfmt --write ."`
+  - `"format:check": "oxfmt --check ."`
   - `"typecheck": "bun --filter '*' typecheck"`
-- Pin `compatibility_date` to today's date; bump deliberately
-- `nodejs_compat` flag required for Mastra
+  - `"audit": "bun audit --audit-level=high"`
+  - `"audit:prod": "bun audit --audit-level=high --prod"`
+  - `"knip": "knip"`
+- Pin `compatibility_date` to `2026-05-19` (the date Phase 0 ships); bump deliberately
+- `compatibility_flags: ["nodejs_compat", "nodejs_compat_populate_process_env"]` — exact pair Mastra's `CloudflareDeployer` generates; `nodejs_compat` at compat date 2026-05-19 implicitly activates `nodejs_compat_v2` semantics (do NOT add a literal `nodejs_compat_v2` string)
 - DO NOT commit `.dev.vars` — gitignored
+- Lefthook installs hooks via `bunx lefthook install` AFTER `bun install` (lefthook's own postinstall is blocked by `ignoreScripts = true`); document this in README.md
+- If the Socket scanner's package itself has a postinstall, audit the script before adding `@socketsecurity/bun-security-scanner` to `trustedDependencies` (do not blanket-trust the scanner just because the scanner is itself a security tool)
 
 **Tests (per §7.11):**
 - Unit: trivial — health check route returns expected shape (Vitest in `apps/worker/tests/`)
@@ -809,9 +835,9 @@ The entire stack lives on Cloudflare. One platform, one CLI (`wrangler`), one bi
 | Background / async | **Cloudflare Queues** | Native producer + consumer-Worker model; `max_batch_size` + `max_concurrency` controls; at-least-once delivery; dead-letter queue. See §7.8 for the ingestion pattern. |
 | Orchestration | **Mastra** | TS-native; built-in eval primitives; first-class HITL via `.suspend()` / `.resume()`; official Cloudflare deployer + D1 storage adapter (`@mastra/cloudflare-d1`); Hono adapter (`@mastra/hono`); RAG primitives (`MDocument` + `ModelRouterEmbeddingModel`); observability via `@mastra/observability`. **When NOT to use:** single-shot prompts get no benefit from orchestration overhead — those go direct via AI SDK. |
 | Repo layout | **Bun workspaces monorepo** | `apps/worker` (Cloudflare Worker) + `apps/web` (Vite + React + shadcn client) + `packages/db` + `packages/mastra` + `packages/shared` + `packages/eval`. Cross-workspace deps via `workspace:*`. Scripts orchestrated via `bun --filter '<pattern>' <script>`. |
-| Package manager | **Bun** | `bun install` (lockfile is `bun.lockb`, committed); `bun add <pkg>` per-workspace; `bun --filter` for cross-workspace orchestration. First-class workspace support, faster install + run than npm/pnpm. |
+| Package manager | **Bun** | `bun install` (lockfile is `bun.lock` text JSONC, committed; Bun 1.2+ default); `bun add <pkg>` per-workspace; `bun --filter` for cross-workspace orchestration. First-class workspace support, faster install + run than npm/pnpm. Supply-chain security stack (`bunfig.toml` + Socket scanner + `minimumReleaseAge` + `ignoreScripts` + `bun audit`) per §12 Bun workspaces. |
 | Lint | **oxlint** | Rust-based linter (oxc-project); ~50–100× faster than ESLint. Root `.oxlintrc.json` with `typescript`/`import`/`unicorn`/`oxc`/`react` plugins; per-workspace overrides via `overrides[]`. Test files override `@typescript-eslint/no-explicit-any: off`. Scaffolded via `oxlint --init`. CI: `bun run lint`. |
-| Format | **oxfmt** (`@oxc-project/oxfmt`) | Rust-based formatter, oxlint's companion. `bun run format`. Single command across monorepo. No Prettier. |
+| Format | **oxfmt** | Rust-based formatter, oxlint's companion. npm package name is `oxfmt`. `bun run format`. Single command across monorepo. No Prettier. |
 | Bundler/deploy CLI | `wrangler` (lives in `apps/worker`) | `bun --filter @mizan/worker dev` / `... deploy`. One command for dev + deploy + secrets + bindings. |
 
 ### Data + Storage (all Cloudflare-native, zero external dependencies)
@@ -1485,11 +1511,14 @@ tests/
 
 ```
 mizan/
-├── .gitignore                          # CLAUDE.md, AGENTS.md, docs/* (except prd.md + solutions/), bun cache, .dev.vars
+├── .gitignore                          # CLAUDE.md, AGENTS.md, docs/* (except prd.md + solutions/), bun cache, .dev.vars, bun.lockb defensively
 ├── .oxlintrc.json                      # root oxlint config (typescript/import/unicorn/oxc/react plugins + overrides for tests)
 ├── .oxfmt.json                         # oxfmt config (optional, defaults are sensible)
-├── bun.lockb                           # COMMITTED (Bun convention)
-├── package.json                        # root: { "private": true, "workspaces": ["apps/*", "packages/*"], scripts: dev/build/test/lint/format/typecheck/eval }
+├── bunfig.toml                         # supply-chain security stack: scanner, minimumReleaseAge=14d, ignoreScripts, exact, saveTextLockfile, registry lock
+├── bun.lock                            # COMMITTED — text JSONC lockfile (Bun 1.2+ default; bun.lockb binary format is deprecated and MUST NOT be committed)
+├── lefthook.yml                        # pre-commit (lint/typecheck/knip/audit/grep) + pre-push (test)
+├── renovate.json                       # 14-day bake period, exact-pin range strategy, vulnerability bypass
+├── package.json                        # root: { "private": true, "packageManager": "bun@<exact>", "engines.bun": ">=1.3.11", "workspaces": ["apps/*", "packages/*"], "trustedDependencies": [], scripts: dev/build/test/lint/format/typecheck/audit/knip/eval }
 ├── tsconfig.base.json                  # extended by every workspace tsconfig.json
 ├── README.md
 ├── .env.example
@@ -1532,12 +1561,11 @@ mizan/
 │       │                               #       react-hook-form, @hookform/resolvers, zod, tailwindcss,
 │       │                               #       better-auth (client export), @mizan/shared
 │       ├── tsconfig.json
-│       ├── vite.config.ts              # @tanstack/router-vite-plugin for file-based routes
-│       ├── tailwind.config.ts
-│       ├── postcss.config.mjs
+│       ├── vite.config.ts              # @tanstack/router-vite-plugin + @tailwindcss/vite (Tailwind 4 — no PostCSS, no tailwind.config.ts)
 │       ├── components.json             # shadcn config (generated by `bunx shadcn init`)
 │       ├── index.html
 │       └── src/
+│           ├── index.css               # Tailwind 4 entry: `@import "tailwindcss"` + `@theme` token block (CSS-first config — no tailwind.config.ts)
 │           ├── main.tsx                # <QueryClientProvider> + <RouterProvider> + theme + <Toaster>
 │           ├── routes/                 # TanStack Router file-based routes
 │           │   ├── __root.tsx          # layout shell + Sidebar/Topbar
@@ -1630,12 +1658,27 @@ mizan/
         └── deploy.yml                  # manual / tag-based wrangler deploy
 ```
 
-**Root `package.json` scripts (canonical):**
+**Root `package.json` (canonical):**
 ```jsonc
 {
   "name": "mizan",
+  "version": "0.0.0",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "packageManager": "bun@1.3.11",
+  "engines": { "bun": ">=1.3.11" },
+  "workspaces": {
+    "packages": ["apps/*", "packages/*"],
+    "catalog": {
+      "ai": "<latest-pinned>",
+      "zod": "<latest-pinned>",
+      "@ai-sdk/anthropic": "<latest-pinned>",
+      "@ai-sdk/openai": "<latest-pinned>",
+      "@ai-sdk/provider": "<latest-pinned>",
+      "@openrouter/ai-sdk-provider": "<latest-pinned>",
+      "@cloudflare/workers-types": "<latest-pinned>"
+    }
+  },
+  "trustedDependencies": [],
   "scripts": {
     "dev": "bun --filter '*' dev",
     "build": "bun --filter '*' build",
@@ -1644,12 +1687,69 @@ mizan/
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "typecheck": "bun --filter '*' typecheck",
+    "audit": "bun audit --audit-level=high",
+    "audit:prod": "bun audit --audit-level=high --prod",
+    "knip": "knip",
     "eval": "bun --filter @mizan/eval eval",
     "deploy": "bun --filter @mizan/worker deploy",
     "db:generate": "bun --filter @mizan/db generate",
     "db:migrate:local": "bun --filter @mizan/worker exec wrangler d1 migrations apply DATABASE --local",
     "db:migrate:prod": "bun --filter @mizan/worker exec wrangler d1 migrations apply DATABASE --remote",
     "auth:generate": "bun --filter @mizan/db exec @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y"
+  }
+}
+```
+
+**Root `bunfig.toml` (canonical — supply-chain security stack):**
+```toml
+[install]
+exact = true
+saveTextLockfile = true
+minimumReleaseAge = 1209600
+minimumReleaseAgeExcludes = ["typescript", "@types/node", "@cloudflare/workers-types", "wrangler"]
+ignoreScripts = true
+registry = "https://registry.npmjs.org"
+
+[install.security]
+scanner = "@socketsecurity/bun-security-scanner"
+```
+
+Note: `@socketsecurity/bun-security-scanner` is itself listed in `minimumReleaseAgeExcludes` so threat-intel updates can ship faster than the project-wide 14-day bake. Every other package is bake-gated.
+
+**Root `lefthook.yml` (canonical):**
+```yaml
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      run: bun run lint
+    typecheck:
+      run: bun run typecheck
+    knip:
+      run: bun run knip
+    audit:
+      run: bun audit --audit-level=high --prod
+    forbidden-patterns:
+      run: |
+        ! git diff --cached --name-only -z | xargs -0 grep -lE '(^|[^/])as any\b|as unknown\b|: any\b|// (TODO|FIXME|HACK|XXX)|// @ts-nocheck' --exclude='*.test.ts' --exclude-dir=tests
+pre-push:
+  commands:
+    test:
+      run: bun --filter '*' test
+```
+
+**Root `renovate.json` (canonical):**
+```jsonc
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "minimumReleaseAge": "14 days",
+  "internalChecksFilter": "strict",
+  "rangeStrategy": "pin",
+  "schedule": ["after 9am on monday"],
+  "vulnerabilityAlerts": {
+    "minimumReleaseAge": "0 days",
+    "schedule": ["at any time"]
   }
 }
 ```
@@ -1693,8 +1793,8 @@ mizan/
 {
   "name": "mizan",
   "main": "src/index.ts",
-  "compatibility_date": "2026-05-01",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_date": "2026-05-19",
+  "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
   "d1_databases": [
     { "binding": "DB", "database_name": "mizan", "database_id": "<uuid>", "migrations_dir": "../../packages/db/migrations" }
   ],
@@ -1798,14 +1898,22 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 - **`pendingComponent` for loader latency.** Show shadcn `<Skeleton>` while loaders resolve; never blank screens
 - **No `<Link>` outside the router.** All in-app navigation goes through `<Link>` or `router.navigate(...)`; never raw `<a href>` for internal routes
 
-### Bun workspaces
+### Bun workspaces + supply-chain security
 
-- **Lockfile committed:** `bun.lockb` is committed (Bun convention); CI runs `bun install --frozen-lockfile` to reject lockfile drift
+- **Lockfile committed:** `bun.lock` (text JSONC, Bun 1.2+ default) is committed; CI runs `bun install --frozen-lockfile --no-cache` to reject lockfile drift and defeat any poisoned local cache. The legacy binary `bun.lockb` is NOT committed and is `.gitignore`'d defensively. Migrate any existing `bun.lockb` once via `bun install --save-text-lockfile --frozen-lockfile --lockfile-only` then `rm bun.lockb`.
+- **Exact-pin versions:** `install.exact = true` in `bunfig.toml` so `package.json` records exact versions, never caret ranges. Upgrades are deliberate Renovate PRs, never accidental.
+- **Bun runtime pinned:** `"packageManager": "bun@<exact>"` + `"engines.bun": ">=1.3.11"` in root `package.json`; CI uses `oven-sh/setup-bun` w/ `bun-version-file: package.json` so every machine runs identical Bun.
 - **Cross-workspace deps via `workspace:*`:** never use file paths or version pins for sibling packages. `"@mizan/db": "workspace:*"` is the contract
 - **Scripts use `bun --filter`:** root scripts orchestrate; `bun --filter '*' test` runs every workspace's test in parallel respecting dep order. Never `cd packages/X && bun ...` in scripts when `--filter` does it cleanly
 - **No `node_modules` in workspaces:** Bun hoists; only root `node_modules` exists. Don't fight it
-- **Catalogs (Bun 1.1+):** if multiple workspaces depend on the same exact `ai` + `zod` version, define a `"catalog"` in root `package.json` and reference via `"catalog:"` in workspaces. Stops version drift across packages
+- **Catalogs (Bun 1.1+):** define `"catalog"` in root `package.json` for any dep shared across workspaces (`ai`, `zod`, `@ai-sdk/*`, `@cloudflare/workers-types`) and reference via `"catalog:"` in workspaces. Stops version drift across packages.
 - **Scoped names:** every workspace package is `@mizan/<name>` — predictable, namespaced, never conflicts with public packages
+- **`minimumReleaseAge = 1209600` (14 days):** blocks any version published <14 days ago — the bake period defeats the rapid-publish supply-chain attack pattern (Shai-Hulud variants). `minimumReleaseAgeExcludes = ["typescript", "@types/node", "@cloudflare/workers-types", "wrangler"]` for packages where rapid releases are normal and the maintainer surface is well-known.
+- **`ignoreScripts = true`:** Bun already blocks dependency lifecycle scripts by default; this also blocks the project's own. `trustedDependencies` in `package.json` is the explicit allowlist — additions require PR review and a JSDoc justification linking to the audited postinstall script.
+- **`install.security.scanner = "@socketsecurity/bun-security-scanner"`:** Bun 1.3 Security Scanner API wired to Socket's threat intel feed. Disables auto-install, scans every package against malware / typosquat / hijacked-maintainer signals before linking. Catches threats `bun audit` (npm advisories only) misses.
+- **`registry = "https://registry.npmjs.org"` locked:** defends against accidental alt-registry pulls and bunfig override attacks.
+- **`bun audit --audit-level=high` gates:** pre-commit runs `--prod` (skip dev-only CVEs to avoid blocking reviewer work); CI runs full audit. Both exit 1 on any HIGH/CRITICAL finding. Use `--ignore <CVE>` only via a tracked allowlist with a remediation deadline.
+- **Renovate cadence matches install policy:** `minimumReleaseAge: "14 days"`, `rangeStrategy: "pin"`, `internalChecksFilter: "strict"`. Vulnerability alerts bypass the bake period (`minimumReleaseAge: "0 days"` for `vulnerabilityAlerts`). Auto-merge OFF — every Renovate PR is reviewed.
 
 ### oxlint + oxfmt
 
@@ -1846,7 +1954,7 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 
 - **Bindings, not env vars:** D1, R2, Vectorize, KV, Queue all accessed via `env.BINDING` — type-checked via `Env` interface. Secrets only via `wrangler secret put` (never `vars`).
 - **Compatibility date pinned:** `compatibility_date` in `wrangler.jsonc` is explicit; do not drift; bump deliberately with changelog review.
-- **`nodejs_compat` flag:** enabled because Mastra and some AI SDK paths use Node built-ins (Buffer, crypto in older code paths).
+- **`nodejs_compat` + `nodejs_compat_populate_process_env` flags:** the canonical pair Mastra's `CloudflareDeployer` generates. `nodejs_compat` is the umbrella flag (not deprecated); at `compatibility_date` ≥ 2024-09-23 it implicitly activates `nodejs_compat_v2` semantics — DO NOT add a literal `nodejs_compat_v2` string (non-standard against Mastra's tested config). Enables Buffer, crypto, process, stream, util for Mastra + AI SDK paths.
 - **D1 schema migrations:** drizzle-kit only; one migration per logical change; use `wrangler d1 migrations create` to scaffold; never run raw SQL in prod.
 - **D1 read performance:** indexes on every column used in WHERE / ORDER BY; D1 enforces 32MB row limit and 500MB DB max — split blobs into R2.
 - **R2 access:** use the binding (`env.R2_BUCKET.get(key)`) inside the Worker; never expose R2 URLs directly to clients — use signed URLs OR proxy through the Worker with auth check.
