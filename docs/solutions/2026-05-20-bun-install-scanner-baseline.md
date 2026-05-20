@@ -219,10 +219,10 @@ date supported by this server binary is "2026-05-11".`
 
 `docker compose -f docker/docker-compose.langfuse.yml up -d` started the
 `mizan-langfuse-db` Postgres container healthy; the `mizan-langfuse` web
-container failed to bind port 3001 on this dev machine because something
+container failed to bind port 3010 on this dev machine because something
 else was already listening on that port. The compose file itself validates
 clean (`docker compose ... config` exits 0); the conflict is
-machine-specific. Future contributor either frees 3001 or overrides the
+machine-specific. Future contributor either frees 3010 or overrides the
 port mapping locally.
 
 ## Where this goes next

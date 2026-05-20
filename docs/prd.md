@@ -210,7 +210,7 @@ _Other:_
 - `lefthook.yml` present; `bunx lefthook install` writes `.git/hooks/pre-commit` + `.git/hooks/pre-push`
 - Pre-commit hook installed and active: a deliberate `// TODO` in any source file fails the commit; a deliberate `as any` in any non-test source file fails the commit
 - `renovate.json` present and valid (`bunx renovate-config-validator`)
-- `docker compose -f docker/docker-compose.langfuse.yml up -d` starts Langfuse at `http://localhost:3001` (verify only; tear down after)
+- `docker compose -f docker/docker-compose.langfuse.yml up -d` starts Langfuse at `http://localhost:3010` (verify only; tear down after)
 - **NO production `wrangler deploy` in this phase.** Only `wrangler dev` (local Miniflare).
 
 **Implementation notes:**
@@ -830,7 +830,7 @@ _Brief streaming UI:_
 - Tool-level observation: every Mastra tool with an LLM body opens its own `startObservation(toolName, { ..., asType: "tool" })` and ends with `usageDetails`; the trace tree renders `brief.generate → step → tool → llm-generation` automatically
 - `experimental_telemetry` on EVERY AI SDK call per the Phase 2 contract — verified by a CI grep gate (`grep -rL "experimental_telemetry" packages/mastra/src/steps/` should return zero matches; every step file must contain the literal)
 - `models.json` for Langfuse self-hosted to cover the Phase 0-resolved model list (`claude-haiku-4-5`, `claude-opus-4-7`, `gpt-4o`, `gpt-4o-mini`, `anthropic/claude-3.7-sonnet` via OpenRouter); checked into `docker/langfuse-models.json` and seeded into the Langfuse project on first run
-- Local Langfuse instance accessible at `http://localhost:3001`; project + API keys pre-seeded for the demo via a one-shot init script (`scripts/seed-langfuse.ts`); credentials surface in `.dev.vars`
+- Local Langfuse instance accessible at `http://localhost:3010`; project + API keys pre-seeded for the demo via a one-shot init script (`scripts/seed-langfuse.ts`); credentials surface in `.dev.vars`
 
 **Out of scope:** Production Langfuse, drift alerts, cost-regression dashboard (Phase 9 owns regression), eval harness (Phase 9), polish (Phase 10).
 
@@ -838,7 +838,7 @@ _Brief streaming UI:_
 
 **Acceptance criteria:**
 
-- `docker compose -f docker/docker-compose.langfuse.yml up -d` brings Langfuse up at localhost:3001 with project pre-seeded
+- `docker compose -f docker/docker-compose.langfuse.yml up -d` brings Langfuse up at localhost:3010 with project pre-seeded
 - Trigger a brief via wrangler dev → trace appears in dashboard within seconds (≤ 3s typical, ≤ 10s p95)
 - Trace tree shows: `brief.generate` root span → workflow steps (`extract*`, `matchPolicy`, `composeBrief`, `awaitReviewerAction`, `recordAction`) → tool spans (`ocr.extract-id`, `reverseImageMock.lookup`, `registryLookup.query`, etc.) → LLM generations w/ token + cost
 - Token + cost visible per generation; aggregate cost per brief computed by Langfuse (verified ±5% vs `@mizan/eval` cost ledger in Phase 9)
@@ -859,7 +859,7 @@ _Brief streaming UI:_
 
 - Unit: telemetry-config helper (returns correct shape based on `LANGFUSE_HOST` presence)
 - Integration: trigger a brief → assert trace ID present in response headers (Langfuse exporter sets a trace ID); manual eyeballing of trace tree
-- E2E (Playwright): Playwright opens `http://localhost:3001` → asserts a trace exists for the most recent caseId
+- E2E (Playwright): Playwright opens `http://localhost:3010` → asserts a trace exists for the most recent caseId
 
 ---
 
@@ -1033,7 +1033,7 @@ The entire stack lives on Cloudflare. One platform, one CLI (`wrangler`), one bi
 | LLM providers    | **Anthropic + OpenAI + OpenRouter** via factory                                     | Single `getModel(provider, model)` returns `withMastra(providerImpl(model), {memory, processors})` — same code path for all providers; swap by env var or per-request override                                                                                                               |
 | Vision/OCR       | Same provider via vision-capable model                                              | No separate OCR vendor (Claude vision or GPT-4o vision); minimize external APIs                                                                                                                                                                                                              |
 | Embeddings       | `ModelRouterEmbeddingModel('openai/text-embedding-3-small')` or provider equivalent | Provider-agnostic via Mastra's model router                                                                                                                                                                                                                                                  |
-| AI observability | **`@mastra/observability` → Langfuse self-hosted (local Docker, NOT deployed)**     | Mastra ships traces, logs, and auto-extracted metrics (token + cost) to Langfuse out of the box. Local Docker compose runs Langfuse + Postgres; Worker points `LANGFUSE_HOST` at `http://localhost:3001` in dev only. Demo video shows the trace tree per brief. Zero production dependency. |
+| AI observability | **`@mastra/observability` → Langfuse self-hosted (local Docker, NOT deployed)**     | Mastra ships traces, logs, and auto-extracted metrics (token + cost) to Langfuse out of the box. Local Docker compose runs Langfuse + Postgres; Worker points `LANGFUSE_HOST` at `http://localhost:3010` in dev only. Demo video shows the trace tree per brief. Zero production dependency. |
 
 ### Eval + CI
 
@@ -1175,12 +1175,12 @@ services:
   langfuse:
     image: langfuse/langfuse:latest
     depends_on: [langfuse-db]
-    ports: ["3001:3000"]
+    ports: ["3010:3000"]
     environment:
       DATABASE_URL: postgresql://postgres:postgres@langfuse-db:5432/postgres
       NEXTAUTH_SECRET: dev-secret
       SALT: dev-salt
-      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_URL: http://localhost:3010
       TELEMETRY_ENABLED: "false"
 volumes: { langfuse_db_data: {} }
 ```
@@ -1194,7 +1194,7 @@ import { LangfuseExporter } from "langfuse-vercel";
 registerOTel({
   serviceName: "mizan",
   traceExporter: new LangfuseExporter({
-    baseUrl: env.LANGFUSE_HOST, // http://localhost:3001 in dev; absent in prod
+    baseUrl: env.LANGFUSE_HOST, // http://localhost:3010 in dev; absent in prod
     environment: env.NODE_ENV,
   }),
 });
