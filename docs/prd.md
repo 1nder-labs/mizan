@@ -150,14 +150,14 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - `oxlint --init` → `.oxlintrc.json` w/ plugins `["typescript", "import", "unicorn", "oxc", "react"]`, `env: { browser: true, node: true, worker: true }`, and the FULL non-negotiable rule set from this repo's `CLAUDE.md` (§7 / Non-Negotiable Coding Principles):
   - `max-lines: ["error", 400]`
   - `max-lines-per-function: ["error", 50]`
-  - `@typescript-eslint/no-explicit-any: error`
-  - `@typescript-eslint/consistent-type-assertions: ["error", { assertionStyle: "never" }]`
-  - `@typescript-eslint/no-unsafe-assignment: error`
-  - `@typescript-eslint/no-unsafe-argument: error`
-  - `@typescript-eslint/no-unsafe-return: error`
+  - `typescript/no-explicit-any: error`
+  - `typescript/consistent-type-assertions: ["error", { assertionStyle: "never" }]`
+  - `typescript/no-unsafe-assignment: error`
+  - `typescript/no-unsafe-argument: error`
+  - `typescript/no-unsafe-return: error`
   - `typescript/no-floating-promises: error`
   - `no-warning-comments: ["error", { terms: ["TODO", "FIXME", "HACK", "XXX"], location: "anywhere" }]`
-  - Overrides for `**/*.test.ts` + `**/tests/**` relax only `@typescript-eslint/no-explicit-any` + `no-unsafe-assignment`
+  - Overrides for `**/*.test.ts` + `**/tests/**` relax only `typescript/no-explicit-any` + `no-unsafe-assignment`
 - `tsconfig.base.json` w/ `"strict": true`, `"noUncheckedIndexedAccess": true`, `"exactOptionalPropertyTypes": true`, `"moduleResolution": "bundler"`, paths for `@mizan/*` mapping to workspace srcs
 - `knip.json` w/ workspace entry points (`apps/worker/src/index.ts`, `apps/web/src/main.tsx`); ignore lists for legitimate test-only false positives
 - `renovate.json` w/ `"minimumReleaseAge": "14 days"`, `"rangeStrategy": "pin"`, `"internalChecksFilter": "strict"`, vulnerability alerts bypass the bake period
@@ -836,7 +836,7 @@ The entire stack lives on Cloudflare. One platform, one CLI (`wrangler`), one bi
 | Orchestration | **Mastra** | TS-native; built-in eval primitives; first-class HITL via `.suspend()` / `.resume()`; official Cloudflare deployer + D1 storage adapter (`@mastra/cloudflare-d1`); Hono adapter (`@mastra/hono`); RAG primitives (`MDocument` + `ModelRouterEmbeddingModel`); observability via `@mastra/observability`. **When NOT to use:** single-shot prompts get no benefit from orchestration overhead — those go direct via AI SDK. |
 | Repo layout | **Bun workspaces monorepo** | `apps/worker` (Cloudflare Worker) + `apps/web` (Vite + React + shadcn client) + `packages/db` + `packages/mastra` + `packages/shared` + `packages/eval`. Cross-workspace deps via `workspace:*`. Scripts orchestrated via `bun --filter '<pattern>' <script>`. |
 | Package manager | **Bun** | `bun install` (lockfile is `bun.lock` text JSONC, committed; Bun 1.2+ default); `bun add <pkg>` per-workspace; `bun --filter` for cross-workspace orchestration. First-class workspace support, faster install + run than npm/pnpm. Supply-chain security stack (`bunfig.toml` + Socket scanner + `minimumReleaseAge` + `ignoreScripts` + `bun audit`) per §12 Bun workspaces. |
-| Lint | **oxlint** | Rust-based linter (oxc-project); ~50–100× faster than ESLint. Root `.oxlintrc.json` with `typescript`/`import`/`unicorn`/`oxc`/`react` plugins; per-workspace overrides via `overrides[]`. Test files override `@typescript-eslint/no-explicit-any: off`. Scaffolded via `oxlint --init`. CI: `bun run lint`. |
+| Lint | **oxlint** | Rust-based linter (oxc-project); ~50–100× faster than ESLint. Root `.oxlintrc.json` with `typescript`/`import`/`unicorn`/`oxc`/`react` plugins; per-workspace overrides via `overrides[]`. Test files override `typescript/no-explicit-any: off`. Scaffolded via `oxlint --init`. CI: `bun run lint`. |
 | Format | **oxfmt** | Rust-based formatter, oxlint's companion. npm package name is `oxfmt`. `bun run format`. Single command across monorepo. No Prettier. |
 | Bundler/deploy CLI | `wrangler` (lives in `apps/worker`) | `bun --filter @mizan/worker dev` / `... deploy`. One command for dev + deploy + secrets + bindings. |
 
@@ -1771,7 +1771,7 @@ pre-push:
     {
       "files": ["**/*.test.ts", "**/*.test.tsx", "**/tests/**/*.ts"],
       "rules": {
-        "@typescript-eslint/no-explicit-any": "off",
+        "typescript/no-explicit-any": "off",
         "typescript/no-unsafe-assignment": "off"
       }
     },
@@ -1918,7 +1918,7 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 ### oxlint + oxfmt
 
 - **Single root config:** `.oxlintrc.json` at the repo root; per-workspace overrides via the `overrides[]` block in the same file. No `.oxlintrc` per workspace — keeps config drift out
-- **Test-file relaxation:** `overrides` for `**/*.test.ts` + `**/tests/**` relax `@typescript-eslint/no-explicit-any` + `typescript/no-unsafe-assignment`. Tests deserve looser rules; production code does not
+- **Test-file relaxation:** `overrides` for `**/*.test.ts` + `**/tests/**` relax `typescript/no-explicit-any` + `typescript/no-unsafe-assignment`. Tests deserve looser rules; production code does not
 - **Worker vs browser env:** `apps/worker/**` overrides to `env: { worker: true, node: false, browser: false }`; `apps/web/**` overrides to `env: { browser: true, node: false, worker: false }`. Catches misuse of `window` in worker code + Workers APIs in browser code
 - **`oxlint --init` once at bootstrap, then commit:** never auto-regenerate; humans edit the config
 - **CI gate:** `bun run lint` MUST pass before merge. No warnings-as-warnings escape hatch — promote critical rules to `error`
