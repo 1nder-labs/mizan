@@ -1,0 +1,53 @@
+{
+  "name": "mizan",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "bun@1.3.11",
+  "engines": {
+    "bun": ">=1.3.11"
+  },
+  "workspaces": {
+    "packages": ["apps/*", "packages/*"],
+    "catalog": {
+      "ai": "6.0.185",
+      "zod": "4.4.3",
+      "@ai-sdk/anthropic": "3.0.78",
+      "@ai-sdk/openai": "3.0.64",
+      "@ai-sdk/provider": "3.0.10",
+      "@openrouter/ai-sdk-provider": "2.9.0",
+      "@cloudflare/workers-types": "4.20260519.1"
+    }
+  },
+  "trustedDependencies": [],
+  "scripts": {
+    "dev": "bun --filter '*' dev",
+    "build": "bun --filter '*' build",
+    "test": "bun --filter '*' test",
+    "lint": "oxlint",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "typecheck": "bun --filter '*' typecheck",
+    "audit": "bun audit --audit-level=high",
+    "audit:prod": "bun audit --audit-level=high --prod",
+    "knip": "knip",
+    "eval": "bun --filter @mizan/eval eval",
+    "deploy": "bun --filter @mizan/worker deploy",
+    "db:generate": "bun --filter @mizan/db generate",
+    "db:migrate:local": "bun --filter @mizan/worker exec wrangler d1 migrations apply DATABASE --local",
+    "db:migrate:prod": "bun --filter @mizan/worker exec wrangler d1 migrations apply DATABASE --remote",
+    "auth:generate": "bun --filter @mizan/db exec @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.16.7",
+    "@cloudflare/workers-types": "4.20260519.1",
+    "@socketsecurity/bun-security-scanner": "latest",
+    "knip": "6.14.1",
+    "lefthook": "2.1.8",
+    "oxfmt": "0.51.0",
+    "oxlint": "1.66.0",
+    "tsx": "4.22.3",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6",
+    "wrangler": "4.93.0"
+  }
+}
