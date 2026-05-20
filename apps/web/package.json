@@ -7,34 +7,24 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 4173",
-    "typecheck": "tsc --noEmit --build tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@hookform/resolvers": "5.2.2",
-    "@mizan/shared": "workspace:*",
     "@radix-ui/react-slot": "1.2.4",
-    "@tanstack/react-query": "5.100.11",
-    "@tanstack/react-query-devtools": "5.100.11",
-    "@tanstack/react-router": "1.170.4",
-    "ai": "catalog:",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
-    "hono": "4.12.21",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "react-hook-form": "7.76.0",
-    "tailwind-merge": "3.6.0",
-    "zod": "catalog:"
+    "tailwind-merge": "3.5.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "4.3.0",
-    "@tanstack/router-vite-plugin": "1.167.6",
-    "@types/node": "25.9.1",
-    "@types/react": "19.2.15",
+    "@tailwindcss/vite": "4.2.4",
+    "@types/node": "25.6.0",
+    "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "6.0.2",
-    "tailwindcss": "4.3.0",
+    "@vitejs/plugin-react": "6.0.1",
+    "tailwindcss": "4.2.4",
     "typescript": "6.0.3",
-    "vite": "8.0.13"
+    "vite": "8.0.10"
   }
 }

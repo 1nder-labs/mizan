@@ -7,19 +7,6 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
-  "dependencies": {
-    "@ai-sdk/anthropic": "catalog:",
-    "@ai-sdk/openai": "catalog:",
-    "@ai-sdk/provider": "catalog:",
-    "@mastra/cloudflare-d1": "1.0.6",
-    "@mastra/observability": "1.12.0",
-    "@mizan/db": "workspace:*",
-    "@mizan/shared": "workspace:*",
-    "@openrouter/ai-sdk-provider": "catalog:",
-    "ai": "catalog:",
-    "mastra": "1.9.3",
-    "zod": "catalog:"
-  },
   "devDependencies": {
     "typescript": "6.0.3"
   }

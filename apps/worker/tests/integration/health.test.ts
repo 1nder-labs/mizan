@@ -1,7 +1,4 @@
-import {
-  createExecutionContext,
-  waitOnExecutionContext,
-} from "cloudflare:test";
+import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import worker from "../../src/index.ts";
@@ -22,7 +19,14 @@ describe("GET /health", () => {
     expect(body).toHaveProperty("bindings");
     expect(body).toEqual(
       expect.objectContaining({
-        bindings: expect.arrayContaining(["DB", "R2_BUCKET", "VECTORIZE", "KV", "BRIEF_QUEUE", "ASSETS"]),
+        bindings: expect.arrayContaining([
+          "DB",
+          "R2_BUCKET",
+          "VECTORIZE",
+          "KV",
+          "BRIEF_QUEUE",
+          "ASSETS",
+        ]),
       }),
     );
   });

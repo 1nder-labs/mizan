@@ -26,7 +26,6 @@
     "sourceMap": true,
     "noEmit": true,
 
-    "baseUrl": ".",
     "paths": {
       "@mizan/db": ["./packages/db/src/index.ts"],
       "@mizan/db/*": ["./packages/db/src/*"],

@@ -2,6 +2,7 @@
   "name": "@mizan/worker",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
@@ -9,32 +10,13 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "catalog:",
-    "@ai-sdk/openai": "catalog:",
-    "@ai-sdk/provider": "catalog:",
-    "@better-auth/drizzle-adapter": "1.6.11",
-    "@mastra/ai-sdk": "1.4.2",
-    "@mastra/cloudflare-d1": "1.0.6",
-    "@mastra/hono": "1.4.17",
-    "@mastra/observability": "1.12.0",
-    "@mizan/db": "workspace:*",
-    "@mizan/mastra": "workspace:*",
-    "@mizan/shared": "workspace:*",
-    "@openrouter/ai-sdk-provider": "catalog:",
-    "ai": "catalog:",
-    "better-auth": "1.6.11",
-    "better-auth-cloudflare": "0.3.0",
-    "drizzle-orm": "0.45.2",
-    "hono": "4.12.21",
-    "mastra": "1.9.3",
-    "zod": "catalog:"
+    "hono": "4.12.18"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "0.16.7",
+    "@cloudflare/vitest-pool-workers": "0.16.0",
     "@cloudflare/workers-types": "catalog:",
-    "@hono/zod-validator": "0.8.0",
     "typescript": "6.0.3",
-    "vitest": "4.1.6",
-    "wrangler": "4.93.0"
+    "vitest": "4.1.5",
+    "wrangler": "4.88.0"
   }
 }

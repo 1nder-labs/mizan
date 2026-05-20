@@ -25,7 +25,7 @@ export default defineProject({
       remoteBindings: false,
       wrangler: { configPath: "./wrangler.jsonc" },
       miniflare: {
-        assets: { binding: "ASSETS" },
+        assets: { binding: "ASSETS", directory: "." },
       },
     }),
   ],

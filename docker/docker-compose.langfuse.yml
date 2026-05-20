@@ -1,6 +1,9 @@
+name: mizan-langfuse
+
 services:
   langfuse-db:
     image: postgres:16-alpine
+    container_name: mizan-langfuse-db
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: postgres
@@ -16,6 +19,7 @@ services:
 
   langfuse:
     image: langfuse/langfuse:2
+    container_name: mizan-langfuse
     restart: unless-stopped
     depends_on:
       langfuse-db:

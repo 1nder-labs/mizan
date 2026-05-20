@@ -15,6 +15,7 @@ Internal AI review-brief tool for LaunchGood's Trust & Safety / Zakat team. Take
 ## 1. Problem
 
 LaunchGood's 10-person team manually reviews campaigns across 155 countries. Per campaign, a reviewer:
+
 - Opens the admin tool, reads the story
 - Opens the organizer profile in a separate tab, eyeballs uploaded ID + bank statement
 - Opens LaunchGood Zakat Policy in another tab, re-reads relevant clauses
@@ -42,6 +43,7 @@ Estimated ~12 minutes per engaged-with campaign. Ramadan stress (~2× volume, $4
 The "problem" it solves (Zakat review brief generation) is real and grounded in LaunchGood's published policy + support center — but the deliverable is a recruiter-evaluatable artifact, not a production rollout. If hired, the same substrate extends to other internal workflows; that extension is not in this PRD's scope.
 
 Skills the demo must visibly prove:
+
 - Orchestration — Mastra multi-step workflow with branching + suspend/resume
 - RAG — Vectorize-backed retrieval over LaunchGood's published policy
 - Tool use — typed tools called inside Mastra steps (doc extractors, registry lookups, drafted-message generator)
@@ -99,13 +101,15 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** Bun workspaces monorepo scaffolded with `apps/worker` + `apps/web` + 4 packages; all Cloudflare bindings provisioned via CLI; oxlint + oxfmt configured; hello-world Hono route + Vitest smoke test green. Nothing else.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] §7 Stack decisions — every binding + package + tooling choice pinned (Bun, oxlint, oxfmt, workspace layout)
 - [ ] §10 Concrete file layout — the monorepo tree this phase scaffolds
 - [ ] §11 wrangler.jsonc shape — copy binding skeleton into `apps/worker/wrangler.jsonc`
 - [ ] §12 Best-practices checklist — Cloudflare section + Bun workspaces gotchas
 
 **Force-read (external via context7 — MUST query before implementing):**
-- [ ] context7 `/oven-sh/bun` — query: "workspaces setup in root package.json; bun install behavior; bun --filter for cross-workspace scripts; workspace:* dependency syntax"
+
+- [ ] context7 `/oven-sh/bun` — query: "workspaces setup in root package.json; bun install behavior; bun --filter for cross-workspace scripts; workspace:\* dependency syntax"
 - [ ] context7 `/websites/oxc_rs_guide_usage` — query: "oxlint --init scaffolding; .oxlintrc.json config reference with plugins (typescript, import, unicorn, oxc, react); overrides for test files; running oxlint via bun"
 - [ ] context7 `/mastra-ai/mastra` — query: "minimum project setup; Mastra instance with D1Store on Cloudflare Workers"
 - [ ] Cloudflare docs (`cloudflare:cloudflare` skill, `references/wrangler`) — query: "wrangler d1 create, wrangler kv namespace create, wrangler r2 bucket create, wrangler vectorize create-index --dimensions=1536 --metric=cosine, wrangler queues create commands; assets binding for SPA in apps/web"
@@ -113,14 +117,16 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 
 **In scope:**
 
-*Monorepo scaffolding:*
+_Monorepo scaffolding:_
+
 - `bun init` at the repo root
 - Root `package.json` w/ `"workspaces": ["apps/*", "packages/*"]` + scripts (`dev`, `build`, `test`, `lint`, `format`, `typecheck`, `eval`)
 - Workspace dirs created: `apps/worker`, `apps/web`, `packages/db`, `packages/mastra`, `packages/shared`, `packages/eval`
 - Each workspace has its own `package.json` w/ scoped name (`@mizan/worker`, `@mizan/web`, `@mizan/db`, `@mizan/mastra`, `@mizan/shared`, `@mizan/eval`) + `tsconfig.json` extending root `tsconfig.base.json`
 - Cross-workspace deps via `"@mizan/db": "workspace:*"` etc.
 
-*Cloudflare bindings provisioning (CLI):*
+_Cloudflare bindings provisioning (CLI):_
+
 - `wrangler d1 create mizan` → paste UUID into `apps/worker/wrangler.jsonc`
 - `wrangler kv namespace create mizan-kv` → paste ID
 - `wrangler r2 bucket create mizan-uploads`
@@ -128,7 +134,8 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - `wrangler queues create mizan-brief-jobs` + `wrangler queues create mizan-brief-jobs-dlq`
 - `apps/worker/wrangler.jsonc` w/ all bindings + `compatibility_date` pinned + `compatibility_flags: ["nodejs_compat", "nodejs_compat_populate_process_env"]` (Mastra's canonical pair) + `observability: { enabled: true }` + `assets` binding for `apps/web/dist`
 
-*Dependencies (Bun, scoped per workspace):*
+_Dependencies (Bun, scoped per workspace):_
+
 - `apps/worker`: `hono`, `mastra`, `@mastra/cloudflare-d1`, `@mastra/hono`, `@mastra/ai-sdk`, `@mastra/observability`, `ai`, `@ai-sdk/anthropic`, `@ai-sdk/openai`, `@openrouter/ai-sdk-provider`, `better-auth`, `better-auth-cloudflare`, `@better-auth/drizzle-adapter`, `drizzle-orm`, `zod`, `@mizan/db: workspace:*`, `@mizan/mastra: workspace:*`, `@mizan/shared: workspace:*`
 - `apps/web`: `react`, `react-dom`, `vite`, `@vitejs/plugin-react`, `ai` (for `useChat`), `tailwindcss`, `@tailwindcss/vite` (Tailwind 4 Vite plugin — replaces the legacy PostCSS pipeline), `@mizan/shared: workspace:*`; shadcn deps after `bunx shadcn@latest init`
 - `packages/db`: `drizzle-orm`, `drizzle-kit`, `@better-auth/cli`
@@ -137,7 +144,8 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - `packages/eval`: `vitest`, `@mizan/mastra: workspace:*`
 - Root devDeps: `oxlint`, `oxfmt`, `knip`, `lefthook`, `typescript`, `vitest`, `@cloudflare/vitest-pool-workers`, `@cloudflare/workers-types`, `wrangler`, `tsx`, `@socketsecurity/bun-security-scanner`
 
-*Tooling config (root):*
+_Tooling config (root):_
+
 - `bunfig.toml` (repo root) — supply-chain security stack (see §12 Bun workspaces for the canonical shape):
   - `[install] exact = true` — pin exact versions in `package.json`; no caret ranges
   - `[install] saveTextLockfile = true` — text JSONC lockfile (`bun.lock`); never the legacy binary `bun.lockb`
@@ -170,12 +178,14 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - Pre-push hook (lefthook) runs `bun --filter '*' test`
 - `apps/web/components.json` after `bunx shadcn@latest init` (Tailwind 4 base config emitted; uses `@tailwindcss/vite` plugin, not the legacy PostCSS pipeline)
 
-*Initial code:*
+_Initial code:_
+
 - `apps/worker/src/index.ts` Hono app w/ `GET /health` returning `{ status: "ok", bindings: ["DB","R2_BUCKET","VECTORIZE","KV","BRIEF_QUEUE"], runtime: "cloudflare-workers" }`
 - `apps/web/src/main.tsx` blank Vite + React + Tailwind 4 skeleton (Tailwind 4 via `@tailwindcss/vite` plugin, CSS-first `@theme` block in `apps/web/src/index.css`, no `tailwind.config.ts`, no `postcss.config.mjs`); one shadcn `<Button>` rendered as smoke
 - `apps/worker/tests/health.test.ts` Vitest spec against Miniflare confirming `/health` returns 200 + all bindings present in env
 
-*Other:*
+_Other:_
+
 - `docker/docker-compose.langfuse.yml` (NOT yet wired — file present only)
 - `README.md` skeleton + `.env.example` + `.dev.vars.example`
 
@@ -184,6 +194,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** `bun --filter @mizan/worker dev` boots Worker; `curl localhost:8787/health` returns 200 with binding inventory. `bun --filter @mizan/web dev` boots Vite client showing the shadcn Button. `bun run lint` passes. `bun run format` runs cleanly. `bun --filter @mizan/worker test` passes the smoke test.
 
 **Acceptance criteria:**
+
 - `bun install` resolves all deps with the Socket security scanner active and reports clean; `bun.lock` (text JSONC) written and committed
 - `bun install --frozen-lockfile --no-cache` exits 0 on a clean clone (CI gate)
 - `bun audit --audit-level=high` exits 0 (no HIGH or CRITICAL CVEs)
@@ -203,6 +214,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - **NO production `wrangler deploy` in this phase.** Only `wrangler dev` (local Miniflare).
 
 **Implementation notes:**
+
 - `bun.lock` (text JSONC) IS committed — Bun 1.2+ default lockfile format. The legacy binary `bun.lockb` MUST NOT be committed; `.gitignore` enforces this defensively.
 - Every dependency installed at its absolute latest version (resolved via `bun pm view <pkg> version`) and pinned exact (no caret ranges) by `install.exact = true`. Reproducibility is non-negotiable.
 - Bun version pinned via `"packageManager": "bun@<exact-version>"`; CI uses `oven-sh/setup-bun` w/ `bun-version-file: package.json` to match exactly.
@@ -225,6 +237,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - If the Socket scanner's package itself has a postinstall, audit the script before adding `@socketsecurity/bun-security-scanner` to `trustedDependencies` (do not blanket-trust the scanner just because the scanner is itself a security tool)
 
 **Tests (per §7.11):**
+
 - Unit: trivial — health check route returns expected shape (Vitest in `apps/worker/tests/`)
 - Integration (Vitest + Miniflare): all bindings accessible in env
 - Lint: `bun run lint` is the bar — fails the build on any oxlint error
@@ -237,6 +250,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** Drizzle schema for the entire domain; better-auth-cloudflare wired with two roles; signup/signin/role-gating verified end-to-end via curl. No business logic yet.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] Phase 0 — Phase 1 builds on the bootstrapped project; do not re-bootstrap
 - [ ] §7 Stack decisions (Auth + UI subsection) — better-auth-cloudflare pattern + Hono per-request init contract
 - [ ] §7.10 Idempotency — Layer 1 (HTTP `Idempotency-Key`) middleware ships in this phase
@@ -244,6 +258,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - [ ] §12 Best-practices checklist — better-auth section in full (per-request init, server-side getSession only, schema merge, declarative role gating, CSRF, rate limit)
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] context7 `/zpg6/better-auth-cloudflare` — query: "withCloudflare({d1, kv, r2}) full setup; createAuth dual-mode for CLI schema gen + runtime; Hono per-request middleware; emailAndPassword config; rateLimit config"
 - [ ] context7 `/better-auth/better-auth` — query: "schema generation via @better-auth/cli generate; merging generated schema with domain Drizzle tables; session.create.before vs user.create.after hooks"
 - [ ] Cloudflare docs (`cloudflare:cloudflare` skill, `references/d1`) — query: "drizzle-kit generate + wrangler d1 migrations create + wrangler d1 migrations apply --local workflow"
@@ -251,6 +266,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - [ ] context7 `/drizzle-team/drizzle-orm` — query: "drizzle-zod: createSelectSchema, createInsertSchema, createUpdateSchema; refinement overrides; z.infer for TS types"
 
 **In scope:**
+
 - Drizzle schema design at `src/db/schema.ts`:
   - `cases` table — `id` (UUID PK), `status` (enum), `category`, `geography`, `claimed_zakat_category`, `current_run_id`, `brief_partial_json`, `created_at`, `updated_at`, `created_by`
   - `briefs` table — `id`, `case_id` FK, `run_id`, `recommendation`, `confidence`, `composed_at`, `payload_json`
@@ -281,6 +297,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** `curl` against running Worker can sign up, sign in, fetch session, hit role-gated routes. Schema deployed to local D1.
 
 **Acceptance criteria:**
+
 - `wrangler d1 migrations apply --local` succeeds; D1 has all tables
 - `POST /api/auth/sign-up/email` creates a user
 - `POST /api/auth/sign-in/email` returns a session
@@ -289,6 +306,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - `Idempotency-Key` middleware: POST twice with same key → second returns `Idempotency-Replay: true` + identical body
 
 **Implementation notes:**
+
 - NEVER use a module-singleton `auth`; env bindings are per-request on Workers
 - Use `session.create.before` hook NOT `user.create.after` for any session-level data injection (documented past pitfall causing redirect loops)
 - D1 doesn't support RLS — enforce tenant/role checks in middleware + queries
@@ -296,6 +314,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - Idempotency keys stored in KV with 24h TTL; key = client-supplied UUID v4
 
 **Tests (per §7.11):**
+
 - Unit: `requireRole` middleware factory (mocked session); Idempotency-Key middleware (mocked KV); Drizzle schema shape (compile-time TS check via `expectTypeOf`)
 - Integration (Vitest + Miniflare): full auth flow (signup → signin → session lookup → signout) against real D1 + KV bindings; role gating; Idempotency-Key replay
 - E2E: skipped this phase
@@ -307,17 +326,20 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** Mastra workflow generates structured briefs for the 5 documentary-bucket seeded cases. No UI — output is JSON. This is the LLM-core proof.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] §7.5 Architecture detail — Mode A streaming pattern (used here, even though there's no UI yet — endpoint streams JSON via SSE)
 - [ ] §7.6 LLM Provider Factory — every LLM call routes through `getModel({provider, model})`; no direct provider imports
 - [ ] §7.11 Testing — unit + integration contract for steps, schemas, workflow runs
 - [ ] §12 Best-practices checklist — Vercel AI SDK section in full (zod no .min/.max for strict providers, clamp post-parse, abort signals, telemetry on every call, provider abstraction discipline)
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] context7 `/mastra-ai/mastra` — query: "createWorkflow + createStep with zod input/output schemas; D1Store storage adapter wiring on Cloudflare Workers; workflow.createRun().stream() vs .start()"
 - [ ] context7 `/vercel/ai` — query: "generateObject with zod schema; multimodal vision input from Uint8Array buffer; experimental_telemetry config; abort signals"
 - [ ] context7 `/mastra-ai/mastra` — query: "toAISdkStream({from: 'workflow', version: 'v6'}) from @mastra/ai-sdk; createUIMessageStream + createUIMessageStreamResponse from ai package"
 
 **In scope:**
+
 - LLM provider factory at `src/mastra/models/factory.ts`: `getModel({provider, model})` returning `withMastra(providerImpl(model), opts)` for Anthropic / OpenAI / OpenRouter
 - Mastra instance at `src/mastra/index.ts` w/ `D1Store({binding: env.DB})`
 - Mastra workflow at `src/mastra/workflows/brief.workflow.ts` w/ steps wired via `.then()`:
@@ -340,6 +362,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** `POST /api/cases/:caseId/brief` with `Accept: text/event-stream` streams a full brief for any of the 5 seeded cases. JSON-only output. wrangler dev demo via curl + httpie.
 
 **Acceptance criteria:**
+
 - All 5 documentary seeded cases produce a structured brief
 - Document extractors pull ≥90% of structured fields on seed set
 - Brief includes: `recommendation`, `missing_docs[]`, `reviewer_questions[]`, `extracted_claims{}`, `confidence`
@@ -347,12 +370,88 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - `c.req.raw.signal` passed through every `generateObject` call (verified by integration test that aborts mid-call)
 
 **Implementation notes:**
+
 - zod schemas: NO `.min()` / `.max()` / `.regex()` on Anthropic/OpenAI strict-mode fields — clamp + validate post-parse in TypeScript helpers (`src/lib/clamp.ts`)
 - Multimodal input as `Uint8Array` buffers (not base64) to save Workers memory
-- Each step takes `runtimeContext` w/ `caseId` + `runId`; passes through to telemetry metadata (even if Langfuse not yet wired — set the contract now)
 - Small/fast models (`claude-haiku-4-5`, `gpt-4o-mini`) for deterministic extractions; reasoning model only for `composeBrief`
+- **Langfuse observability contract (wired here, dashboarded in Phase 8):** every LLM call in Phase 2 ships with the full Langfuse-compatible telemetry envelope so Phase 8 only has to start the local stack + set `LANGFUSE_HOST` to light up the trace tree. Pattern is verified against `/langfuse/langfuse-docs` 2026-05.
+
+  **(1) Root span wraps each workflow run.** At the top of `POST /api/cases/:id/brief`, open a manual root span via `startObservation` from `@langfuse/tracing` BEFORE the Mastra `workflow.createRun()` call:
+
+  ```ts
+  import { startObservation } from "@langfuse/tracing";
+  const runId = crypto.randomUUID(); // UUID v4; v7 if/when Workers support it
+  const rootSpan = startObservation("brief.generate", {
+    input: { caseId, category, geography },
+    // Grouping fields go ON THE SPAN, not in metadata — these are first-class
+    // Langfuse filter dimensions in 2026-05 UI:
+  });
+  rootSpan.update({
+    sessionId: runtimeContext.sessionId ?? undefined,
+    userId: runtimeContext.reviewerId ?? undefined,
+  });
+  // ... Mastra run inside this span context ...
+  rootSpan.update({ output: brief }).end();
+  await langfuseSpanProcessor.forceFlush(); // mandatory on Workers
+  ```
+
+  Every nested AI SDK call inside this root span auto-attaches as a child via the OTel parent context. Token usage rolls up per node in the Langfuse UI automatically.
+
+  **(2) `runtimeContext` carries the IDs that aren't grouping dimensions.** Lock this shape at Phase 2: `{ runId: string, caseId: string, reviewerId: string | null, sessionId: string | null }`. `runId` is for our own logs + the eval cost ledger; `caseId` is the business join key; `reviewerId` + `sessionId` flow into the Langfuse span as `userId` + `sessionId`.
+
+  **(3) `experimental_telemetry` on EVERY `generateObject` / `generateText` / `streamObject` / `streamText` call:**
+
+  ```ts
+  experimental_telemetry: {
+    isEnabled: !!env.LANGFUSE_HOST,
+    functionId: `${stepName}.${callPurpose}`,                // "extractCreatorIdDoc.parse-name"
+    metadata: {
+      sessionId: runtimeContext.sessionId ?? undefined,      // Langfuse-recognized
+      userId: runtimeContext.reviewerId ?? undefined,        // Langfuse-recognized
+      tags: ["mizan", category, geography],                  // Langfuse-recognized; filter chips
+      caseId: runtimeContext.caseId,                         // custom
+      runId: runtimeContext.runId,                           // custom; correlates with our cost ledger
+      stepId: stepName,                                      // custom
+      provider, model,                                       // custom; powers Langfuse cost extraction
+    },
+  }
+  ```
+
+  The fields `sessionId`, `userId`, `tags` are the Langfuse-recognized grouping keys — verified via the langfuse-vercel docs (`/langfuse/langfuse-docs`). Do NOT invent keys like `langfuseTraceId` or `langfuseUpdateParent`; trace grouping happens via the OTel parent context (the root span from rule 1), not via metadata keys.
+
+  **(4) Tool calls get per-tool token attribution automatically when wrapped in their own observation:** for any Mastra tool that invokes an LLM, wrap the tool body with `rootSpan.startObservation(toolName, { input, asType: "tool" })` and end it with `output + usageDetails`. The nested LLM call inside the tool body inherits the tool's span context, so token usage rolls up per tool in the Langfuse trace tree:
+
+  ```ts
+  const toolObs = parentSpan.startObservation(
+    "ocr.extract-id",
+    { input: { docKey } },
+    { asType: "tool" },
+  );
+  const result = await generateObject({ ...experimental_telemetry });
+  toolObs
+    .update({
+      output: result.object,
+      usageDetails: {
+        input: result.usage.promptTokens,
+        output: result.usage.completionTokens,
+        total: result.usage.totalTokens,
+      },
+    })
+    .end();
+  ```
+
+  **(5) Provider factory is the single injection point.** `getModel({provider, model})` in `packages/mastra/src/models/factory.ts` wires the Langfuse OTel exporter via `withMastra` opts — and ONLY there. Grep gate: zero `langfuse-vercel` imports outside the factory file. Single injection keeps the provider abstraction clean and guarantees every model produced anywhere in the codebase is traceable without per-step wiring.
+
+  **(6) Sampling:** `LangfuseExporter({ sampleRate: 1.0, environment: "development" | "production" })` registered once at boot via `registerOTel` from `@vercel/otel`. Dev defaults to 100%; prod default also 100% for Phase 10; tune down only if Langfuse storage becomes a cost concern (revisit in Phase 10 ops review).
+
+  **(7) `forceFlush` mandatory on Workers.** Workers are short-lived; the OTel exporter must be drained before the request handler returns or spans are lost. Helper at `packages/mastra/src/observability/flush.ts` exports `flushLangfuse(): Promise<void>` that calls `langfuseSpanProcessor.forceFlush()`; every Hono route that creates LLM-bearing work calls it in a `c.executionCtx.waitUntil(...)` so the response isn't blocked on the flush.
+
+  **(8) Reviewer-action continuation (forward-compat for Phase 7):** Phase 7's `recordAction` step opens its own `startObservation("reviewer.action", { ..., asType: "event" })` as a child of the SAME root span identified by `runId`. The HITL pause + resume + final action all live on one trace because the same OTel parent context is propagated through `workflow.suspend()` / `workflow.resume()`. Mechanism: Mastra's D1Store persists the OTel trace context alongside the workflow state. Verify in Phase 7 integration test that a suspend+resume produces ONE Langfuse trace, not two.
+
+  **(9) Cost extraction.** Each `generation` span auto-gets cost computed from `model` + `usageDetails`. Langfuse maintains a per-provider pricing table; for self-hosted, drop a `models.json` into the Langfuse project to keep cost accurate for `claude-haiku-4-5`, `gpt-4o-mini`, `claude-opus-4-7`, etc. The `@mizan/eval` cost ledger asserts (in Phase 9) that per-run cost reported by Langfuse matches the eval-side ledger within 5%.
 
 **Tests (per §7.11):**
+
 - Unit: every zod schema (good + bad inputs); provider factory env-var routing; clamp helpers; classifyCampaign deterministic logic
 - Integration (Vitest + Miniflare): Mastra workflow end-to-end on 5 seeded cases w/ mocked LLM responses (deterministic canned outputs); abort signal propagation
 - Eval (smoke): 1 documentary case via `npm run eval` w/ real LLM — assert recommendation = READY_FOR_REVIEW
@@ -364,17 +463,20 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** Policy retrieval against LaunchGood's published Zakat + Safety policy via Vectorize. Brief composer cites specific policy clauses.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] Phase 2 — Phase 3 ADDS a step to Phase 2's workflow; do not refactor existing steps
 - [ ] §7 Stack decisions (Data + Storage subsection) — Vectorize direct-binding pattern (Mastra RAG primitives produce embeddings; persistence via Workers binding)
 - [ ] §11 wrangler.jsonc shape — Vectorize binding must be active w/ dim=1536
 - [ ] §12 Best-practices checklist — Cloudflare section (Vectorize dim immutable, index creation, embedding regeneration policy)
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] context7 `/mastra-ai/mastra` — query: "MDocument.fromText() + .chunk({strategy: 'recursive', size, overlap}); ModelRouterEmbeddingModel('openai/text-embedding-3-small') + embedMany pipeline"
 - [ ] Cloudflare docs (`cloudflare:cloudflare` skill, `references/vectorize`) — query: "Vectorize binding env.VECTORIZE.upsert + .query API; metadata filter; topK pagination; index creation w/ correct dimensions"
 - [ ] context7 `/vercel/ai` — query: "embedMany batch embedding; structured output that includes citation arrays referencing retrieved chunks"
 
 **In scope:**
+
 - Policy corpus at `src/corpus/`:
   - `zakat-policy.json` — chunked from launchgood.com/zakatpolicy w/ stable IDs
   - `safety-policy.json` — chunked from launchgood.com/safety
@@ -395,18 +497,21 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** All 5 documentary cases now produce briefs that cite specific LaunchGood policy clauses. Vectorize index populated with policy corpus chunks.
 
 **Acceptance criteria:**
+
 - `scripts/embed-corpus.ts` populates Vectorize index successfully
 - All 5 cases include at least 2 cited policy clauses in `policy_citations[]`
 - Cited clauseId matches a real corpus chunk (no hallucinated citations)
 - Vectorize query returns relevant clauses on the seeded test queries (manual eyeballing on the seed set)
 
 **Implementation notes:**
+
 - Vectorize index dim 1536 MUST match `text-embedding-3-small` output; mismatched dim = silent failure at upsert
 - Corpus chunks have stable `clauseId` (e.g., `zakat.3.1.a`); citations reference clauseId not vector position
 - Vectorize is eventually consistent; wait briefly after upsert before query in tests
 - Re-embedding triggered only on corpus version bump (policy version stored in metadata)
 
 **Tests (per §7.11):**
+
 - Unit: corpus chunking strategy (size + overlap); citation extraction from LLM response (cited clauseId must exist in corpus)
 - Integration (Vitest + Miniflare): `embed-corpus.ts` populates Vectorize; matchPolicy step retrieves expected clauses for a known query
 - Eval (smoke): 1 documentary case via `npm run eval` — assert policy_citations[] non-empty
@@ -418,17 +523,20 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** Trust signal extraction across identity / track-record / geography / social / photo / story / vouching. Forced ESCALATE rule for unverifiable cases. 3 community-vouching cases route correctly.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] Phase 2 — workflow being extended, not rewritten
 - [ ] Phase 1 — `signals` table already exists in schema; new columns may be needed via migration
 - [ ] §7.11 Testing — every new signal extractor + forced-ESCALATE rule gets unit tests
 - [ ] §12 Best-practices checklist — Vercel AI SDK section (structured output discipline)
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] context7 `/mastra-ai/mastra` — query: "adding workflow steps that read prior step outputs via context; conditional branching in workflows; .branch() or runtime context patterns"
 - [ ] context7 `/vercel/ai` — query: "generateObject with discriminated-union zod schemas (enum + structured payload); structured output for enum classification tasks"
 - [ ] Cloudflare docs (`cloudflare:cloudflare` skill, `references/d1`) — query: "drizzle-kit migrations on existing D1 schema; wrangler d1 migrations apply for schema changes mid-development"
 
 **In scope:**
+
 - Drizzle migration adding columns to `signals` table (if needed): `signal_type`, `payload_json` (already exists; verify shape)
 - New Mastra workflow steps:
   - `photoSignal` — extracts EXIF presence/absence on uploaded photos; mocks reverse-image-search w/ realistic JSON shape; mocks AI-gen detection
@@ -447,18 +555,21 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** All 8 seeded cases (5 documentary + 3 community-vouching) produce structured briefs with trust signal stack populated. Unverifiable cases visibly route to ESCALATE.
 
 **Acceptance criteria:**
+
 - All 3 community-vouching cases route to ESCALATE
 - Brief explicitly says "no documentary verification path; trust = vouching strength" when applicable
 - Forced-ESCALATE rule unit-testable in isolation (no LLM dependency)
 - Drafted-organizer-message text names specific missing items per policy
 
 **Implementation notes:**
+
 - `forcedEscalateGate` runs AFTER `composeBrief` if `composeBrief` proposed APPROVE — overrides it to ESCALATE. AI proposal + deterministic override = clean human/AI boundary signal in the demo video
 - Mocked reverse-image-search returns shape: `{ hits: Array<{ url: string; confidence: number }>; checked_at: string }`
 - Mocked AI-gen detection returns shape: `{ probability: enum, model: 'mock-v1' }` — clamp probability via post-parse helper
 - `classifyVouchingChain` uses discriminated-union zod schema so the `partner_org_name` field is required only when structure is `individual-via-partner-org` or `org-direct`
 
 **Tests (per §7.11):**
+
 - Unit: `forcedEscalateGate` predicate (truth-table tests); `classifyVouchingChain` schema validation; drafted-message template name-matching
 - Integration: workflow runs against 3 community-vouching cases; signals table populated end-to-end
 - Eval (smoke): 1 community-vouching case via `npm run eval` — assert ESCALATE
@@ -470,17 +581,20 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** New cases enqueued via producer endpoint; consumer Worker processes up to `max_concurrency=3` in parallel with idempotent redelivery handling.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] §7.5 Architecture detail — Mode B background path
 - [ ] §7.8 Ingestion queue — full pattern with wrangler config + producer/consumer code
 - [ ] §7.10 Idempotency — Layers 2 (producer guard) + 3 (consumer idempotency) ship in this phase; runId-pinning pattern
 - [ ] §11 wrangler.jsonc shape — Queue producers + consumers config + DLQ
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] Cloudflare docs (`cloudflare:cloudflare` skill, `references/queues`) — query: "wrangler.jsonc producers + consumers + max_batch_size + max_concurrency + max_retries + dead_letter_queue + retry_delay; MessageBatch.messages msg.ack() + msg.retry()"
 - [ ] context7 `/mastra-ai/mastra` — query: "workflow.createRun({runId}) — pinning runId for durable persistence; redelivery resumes from last persisted step"
 - [ ] Cloudflare docs (`cloudflare:cloudflare` skill, `references/workers`) — query: "ExportedHandler with both fetch and queue exports; single Worker handles both HTTP and Queue consumer"
 
 **In scope:**
+
 - `wrangler.jsonc` Queue producer + consumer config (per §7.8); `max_batch_size: 1` (each brief is heavy); `max_concurrency: 3`; `max_retries: 3`; DLQ
 - Producer endpoint `POST /api/cases/:id/brief` updated:
   - If `Accept: text/event-stream` → Mode A (Phase 2 path, unchanged)
@@ -496,6 +610,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** Enqueue 10 cases via `for i in {1..10}; do curl -X POST -H 'Accept: application/json' ... ; done` → consumer processes 3 concurrently, queue drains correctly.
 
 **Acceptance criteria:**
+
 - 3 cases process concurrently when `max_concurrency: 3`
 - 4th case waits in queue until a slot frees
 - Send same queue message twice → consumer ack's second without re-running the workflow
@@ -503,12 +618,14 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - Idempotency-guarded producer: same `POST` with active run → returns existing run state, does not double-enqueue
 
 **Implementation notes:**
+
 - `runId` generated at enqueue via `crypto.randomUUID()`; passed to consumer; passed to `workflow.createRun({runId})` — Mastra's durable persistence key
 - Atomic D1 claim: drizzle update with status guard (`WHERE status IN ('QUEUED')`); returning rows >0 means claim succeeded
 - DO NOT delete the message on failure — `msg.retry()` until max_retries, then DLQ catches
 - Mode A streaming path remains the default UX; Mode B is for batch / background / disconnected scenarios
 
 **Tests (per §7.11):**
+
 - Unit: idempotency-guard predicate (active run detection); D1 claim query mocked
 - Integration (Vitest + Miniflare): producer enqueues; consumer pulls; redelivery idempotent; DLQ catches max-retries-exceeded
 - E2E: skipped this phase (no UI yet)
@@ -520,6 +637,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** `apps/web` ships: TanStack Router routes (`/login`, `/queue`, `/case/:caseId`), shadcn UI primitives, end-to-end-typed Hono RPC client, React Query owning all REST state, RHF for forms, `useChat` (AI SDK) for the Mode A streaming brief. Reviewer logs in, sees queue, opens case, brief streams live.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] Phase 1 — auth + session shape; `auth-client` from better-auth React lib
 - [ ] Phase 2 — Mode A streaming endpoint contract
 - [ ] §7 Stack decisions (Auth + UI subsection) — shadcn components + TanStack Query/Router + Hono RPC + RHF rows
@@ -529,35 +647,40 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - [ ] §12 Best-practices checklist — better-auth (declarative role gating) + Vercel AI SDK (`useChat`) + TanStack Query + RHF subsections
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] context7 `/tanstack/query` — query: "QueryClient setup; QueryClientProvider; useQuery + useMutation hooks v5 API; queryKey conventions; staleTime + gcTime; invalidateQueries patterns; ReactQueryDevtools"
 - [ ] context7 `/tanstack/router` — query: "createRootRoute + createRoute + RouterProvider; route loaders that integrate with TanStack Query; search-param API with zod validation; preloading"
 - [ ] context7 `/websites/hono_dev` — query: "Hono RPC client hc<AppType>() setup; exporting AppType from worker for client import; typed responses + typed JSON bodies; query and param typing"
 - [ ] context7 `/websites/hono_dev` — query: "@hono/zod-validator middleware for routes; validating json/query/param/header with shared zod schemas"
 - [ ] shadcn/ui (https://ui.shadcn.com) — components needed: `data-table`, `card`, `tabs`, `badge`, `button`, `dialog`, `sheet`, `toast`, `form`, `skeleton`, `alert`. Install via `bunx shadcn@latest add <component>`. DO NOT hand-roll.
-- [ ] context7 `/vercel/ai` — query: "useChat hook with DefaultChatTransport pointing at custom Hono SSE endpoint; consuming data-workflow + tool-* + text parts; UI message renderer per part type"
+- [ ] context7 `/vercel/ai` — query: "useChat hook with DefaultChatTransport pointing at custom Hono SSE endpoint; consuming data-workflow + tool-\* + text parts; UI message renderer per part type"
 - [ ] context7 `/mastra-ai/mastra` — query: "toAISdkStream({from: 'workflow', version: 'v6'}) part shapes (data-workflow, tool-{key}, data-{custom}); how part types map to UI rendering"
 - [ ] React Hook Form + `@hookform/resolvers/zod` docs — query: "Form integration with shadcn Form component; zodResolver setup; shared zod schemas between client and server"
 
 **In scope:**
 
-*App shell (`apps/web/src/main.tsx`):*
+_App shell (`apps/web/src/main.tsx`):_
+
 - TanStack Router `<RouterProvider>` wrapping the app
 - `<QueryClientProvider>` w/ a singleton `QueryClient` (default `staleTime: 30s`, `gcTime: 5min`, `retry: 1`)
 - `<ReactQueryDevtools>` in dev only
 - shadcn theme provider + `<Toaster>`
 
-*Routes (TanStack Router file-based or code-based — pick one and commit):*
+_Routes (TanStack Router file-based or code-based — pick one and commit):_
+
 - `/login` — RHF + zod (email + password); on submit → better-auth client signin → invalidate `['session']` → router navigate to `/queue`
 - `/queue` — route loader prefetches `['cases', filters]` via React Query → DataTable rendered from cached data; URL search params drive filter/sort/page
 - `/case/:caseId` — route loader prefetches `['cases', caseId]` → renders case detail; if case status is RUNNING, mount `<BriefStream>` which uses `useChat` against `/api/cases/:caseId/brief`
 - `/admin/audit` — admin-only loader checks role; React Query fetches paginated audit log
 
-*Hono RPC client (`apps/web/src/lib/rpc.ts`):*
+_Hono RPC client (`apps/web/src/lib/rpc.ts`):_
+
 - `import type { AppType } from '@mizan/shared/app-type'` (worker re-exports its Hono `AppType` via `packages/shared`)
 - `export const api = hc<AppType>('/api')` — one typed client, used by every React Query `queryFn` + every `useMutation`
 - Wrapper adds `Idempotency-Key` header on mutations (UUID v4 generated client-side)
 
-*Server validation (`apps/worker/src/routes/*`):*
+_Server validation (`apps/worker/src/routes/_`):\*
+
 - Every Hono route uses `@hono/zod-validator`:
   ```ts
   app.post('/api/cases/:id/action',
@@ -567,12 +690,14 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
   ```
 - Zod schemas defined ONCE in `@mizan/shared`; imported by RHF client + zValidator server + step contracts
 
-*Forms (RHF + shadcn `<Form>`):*
+_Forms (RHF + shadcn `<Form>`):_
+
 - Login form: `LoginSchema` (zod) → `useForm({ resolver: zodResolver(LoginSchema) })`
 - Reviewer action form: `ReviewerActionSchema` (action enum + rationale required on Override/Block + client-generated `action_id`)
 - All forms use shadcn `<Form>` + `<FormField>` + `<FormMessage>` for accessibility + error display
 
-*Brief streaming UI:*
+_Brief streaming UI:_
+
 - `<BriefStream caseId={...}>` component uses `useChat({ transport: new DefaultChatTransport({ api: \`/api/cases/${caseId}/brief\` }) })`
 - Renders typed parts: `data-workflow` → step-by-step progress; `tool-*` → extraction cards; `text` → brief copy
 - On stream completion → React Query `invalidateQueries({queryKey: ['cases', caseId]})` so case status reflects READY_FOR_REVIEW
@@ -582,6 +707,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** Reviewer logs in, sees queue (DataTable with 8 seeded cases), opens any case (Sheet or full page), brief streams live via SSE to completion. All client state has a documented home per §7.7.5.
 
 **Acceptance criteria:**
+
 - All 8 seeded cases visible in the queue DataTable, fetched via React Query through Hono RPC client
 - TypeScript: changing a Hono route's response shape causes a compile error in the React component consuming it (end-to-end typing verified)
 - Filter/sort persisted in URL search params; refresh restores state
@@ -591,15 +717,17 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - Grep verified: zero `import { create } from 'zustand'`; zero direct `fetch(` calls outside `lib/rpc.ts`
 
 **Implementation notes:**
+
 - TanStack Query queryKey convention: `['cases']` for list, `['cases', caseId]` for detail, `['cases', caseId, 'events']` for the SSE event log (Phase 7), `['session']` for auth
 - TanStack Router `beforeLoad: ({ context }) => requireSession(context)` gates protected routes; redirects to `/login` if no session
 - Hono RPC: in worker, `const route = app.post(...).post(...)` — export `type AppType = typeof route` from the entry file; re-export through `@mizan/shared/app-type` so the client imports a stable path
-- `useChat`'s `DefaultChatTransport({ api: \`/api/cases/${id}/brief\` })` — `caseId` is in URL, never body
+- `useChat`'s `DefaultChatTransport({ api: \`/api/cases/${id}/brief\` })`—`caseId` is in URL, never body
 - React Query `staleTime: 30_000` default; case-detail query uses `staleTime: 5_000` so it refetches on focus while a brief is running
 - Mutations: `useMutation({ mutationFn: api.cases[':id'].action.$post, onSuccess: () => qc.invalidateQueries(...) })`
 - shadcn `<DataTable>` uses TanStack Table internally — read its docs once for column defs + filtering
 
 **Tests (per §7.11):**
+
 - Unit: component-level (login form validates; queue row renders status badge correctly); React Query queryKey factory functions
 - Integration: MSW (Mock Service Worker) mocks the Hono RPC endpoints; React Testing Library asserts useQuery → DataTable render
 - Contract: snapshot the inferred `AppType` so client-server contract drift is detected
@@ -612,6 +740,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** Workflow suspends at reviewer-action gate; reviewer acts in the UI with rationale; workflow resumes. Refresh on a running case resumes progress without restart.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] §7.5 Architecture detail — Mode C HITL
 - [ ] §7.9 Resumability — workflow_events table + SSE Last-Event-ID catch-up pattern
 - [ ] §7.10 Idempotency — Layer 4 (reviewer action idempotency via client `action_id`)
@@ -620,11 +749,13 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - [ ] Phase 6 — UI components reused for the action form
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] context7 `/mastra-ai/mastra` — query: "step.suspend({awaiting, payload}) + run.resume({resumeData}) durable on D1 storage adapter; how to detect suspended state and resume by runId"
 - [ ] context7 `/vercel/ai` — query: "EventSource Last-Event-ID resume semantics; useChat behavior when SSE reconnects mid-stream"
 - [ ] context7 `/mastra-ai/mastra` — query: "workflow event hooks; per-step lifecycle callbacks for writing to external event log"
 
 **In scope:**
+
 - New Mastra step `awaitReviewerAction` between `composeBrief` and finalization:
   - Calls `step.suspend({awaiting: 'reviewer_action', briefId, runId})`
   - Workflow state persists to D1
@@ -650,6 +781,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** Reviewer opens a case → workflow streams brief → workflow suspends at action gate → reviewer acts → workflow resumes → final state captured. Refresh during streaming resumes correctly.
 
 **Acceptance criteria:**
+
 - Workflow suspends at `awaitReviewerAction` step
 - Suspended state persists to D1; visible via `GET /api/cases/:id` returning `status: 'SUSPENDED_HITL'`
 - Reviewer action via UI resumes the run
@@ -658,6 +790,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - Audit log shows complete decision trail per case (input + brief + action + rationale + timestamps + retrieved policy)
 
 **Implementation notes:**
+
 - `step.suspend()` payload is what the reviewer needs to act on (briefId + the brief itself); persisted with the suspended run state
 - `run.resume({resumeData})` takes the reviewer action object; Mastra workflow continues from the suspension point
 - Browser's `EventSource` auto-sends `Last-Event-ID` on reconnect — no client-side hack needed; server reads it from headers
@@ -665,6 +798,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - `action_id` is a client-generated UUID v4 — duplicate POST with same `action_id` returns cached result (per §7.10 Layer 4)
 
 **Tests (per §7.11):**
+
 - Unit: action zod schema (rationale required on Override + Block); SSE event serialization (`id: <seq>\nevent: <type>\ndata: <json>\n\n`)
 - Integration (Vitest + Miniflare): full HITL cycle (start → suspend → state in D1 → resume → final state); SSE Last-Event-ID catch-up against persisted events
 - E2E (Playwright): HITL happy path; refresh-resume scenario; admin audit log access vs reviewer rejection
@@ -676,40 +810,53 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** Every Mastra step + every LLM call shows in a local Langfuse trace tree with token + cost auto-extracted. No production dependency.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] §7.7 Langfuse local-only setup — Docker compose + LANGFUSE_HOST env var
 - [ ] §12 Best-practices checklist — Vercel AI SDK telemetry section (experimental_telemetry shape, metadata fields, isEnabled conditional)
 - [ ] Phase 2 — `experimental_telemetry` contract was set in Phase 2; this phase wires it up
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] context7 `/mastra-ai/mastra` — query: "@mastra/observability setup; Langfuse exporter; auto-traced spans vs manual instrumentation; token + cost extraction from traces"
 - [ ] context7 `/langfuse/langfuse-docs` — query: "Self-hosted Docker compose setup for local dev; LangfuseExporter from langfuse-vercel; OpenTelemetry registerOTel pattern for Workers"
 - [ ] context7 `/langfuse/langfuse-docs` — query: "trace tree filtering by session/user/tag/metadata; cost tracking per provider/model"
 
 **In scope:**
-- `docker/docker-compose.langfuse.yml` (Langfuse + Postgres) — already scaffolded in Phase 0, now started + connected
-- `@mastra/observability` config in `src/mastra/index.ts` w/ Langfuse exporter pointed at `env.LANGFUSE_HOST`
-- `experimental_telemetry: { isEnabled: !!env.LANGFUSE_HOST, functionId, metadata: { caseId, runId, provider, model, stepId } }` on EVERY AI SDK call (verify via grep)
-- Local Langfuse instance accessible at `http://localhost:3001`; pre-seeded w/ a project + API keys for the demo
 
-**Out of scope:** Production Langfuse, drift alerts, cost-regression dashboard (Phase 9), eval harness (Phase 9), polish (Phase 10).
+- `docker/docker-compose.langfuse.yml` (Langfuse + Postgres, `name: mizan-langfuse`, containers named `mizan-langfuse` + `mizan-langfuse-db`) — already scaffolded in Phase 0, now started + connected
+- Provider factory (`packages/mastra/src/models/factory.ts`) wires `langfuse-vercel` `LangfuseExporter` into `registerOTel` (called ONCE at Worker boot via `src/instrumentation.ts`); single injection point so every model produced via `getModel` is traceable
+- `packages/mastra/src/observability/flush.ts` exports `flushLangfuse(ctx: ExecutionContext): void` that defers `langfuseSpanProcessor.forceFlush()` via `ctx.waitUntil(...)` — mandatory on Workers because the runtime exits before background flushes complete
+- Root span pattern at every endpoint that triggers LLM-bearing work: `startObservation("brief.generate", { input, asType: "span" })` wraps the Mastra run; nested AI SDK calls inherit via OTel parent context (no manual trace-id plumbing)
+- Tool-level observation: every Mastra tool with an LLM body opens its own `startObservation(toolName, { ..., asType: "tool" })` and ends with `usageDetails`; the trace tree renders `brief.generate → step → tool → llm-generation` automatically
+- `experimental_telemetry` on EVERY AI SDK call per the Phase 2 contract — verified by a CI grep gate (`grep -rL "experimental_telemetry" packages/mastra/src/steps/` should return zero matches; every step file must contain the literal)
+- `models.json` for Langfuse self-hosted to cover the Phase 0-resolved model list (`claude-haiku-4-5`, `claude-opus-4-7`, `gpt-4o`, `gpt-4o-mini`, `anthropic/claude-3.7-sonnet` via OpenRouter); checked into `docker/langfuse-models.json` and seeded into the Langfuse project on first run
+- Local Langfuse instance accessible at `http://localhost:3001`; project + API keys pre-seeded for the demo via a one-shot init script (`scripts/seed-langfuse.ts`); credentials surface in `.dev.vars`
 
-**Deliverable:** Local Langfuse dashboard renders trace tree for any brief generation — every step, every tool call, every LLM call visible w/ latency + tokens-in + tokens-out + cost USD.
+**Out of scope:** Production Langfuse, drift alerts, cost-regression dashboard (Phase 9 owns regression), eval harness (Phase 9), polish (Phase 10).
+
+**Deliverable:** Local Langfuse dashboard renders trace tree for any brief generation — every step, every tool call, every LLM call visible w/ latency + tokens-in + tokens-out + cost USD. Demo video shows filtering by `sessionId`, `userId`, `tags`, and arbitrary metadata (`caseId`, `runId`).
 
 **Acceptance criteria:**
-- `docker compose up -d` brings Langfuse up at localhost:3001
-- Trigger a brief via wrangler dev → trace appears in dashboard within seconds
-- Trace tree shows: workflow root → steps (extract*, matchPolicy, composeBrief, awaitReviewerAction, recordAction) → LLM calls per step
-- Token cost visible per call; aggregate cost per brief computed
-- Setting `LANGFUSE_HOST=` (empty) → telemetry no-ops cleanly; no errors
-- Provider + model visible as metadata on each LLM call → trace tree filterable by provider
+
+- `docker compose -f docker/docker-compose.langfuse.yml up -d` brings Langfuse up at localhost:3001 with project pre-seeded
+- Trigger a brief via wrangler dev → trace appears in dashboard within seconds (≤ 3s typical, ≤ 10s p95)
+- Trace tree shows: `brief.generate` root span → workflow steps (`extract*`, `matchPolicy`, `composeBrief`, `awaitReviewerAction`, `recordAction`) → tool spans (`ocr.extract-id`, `reverseImageMock.lookup`, `registryLookup.query`, etc.) → LLM generations w/ token + cost
+- Token + cost visible per generation; aggregate cost per brief computed by Langfuse (verified ±5% vs `@mizan/eval` cost ledger in Phase 9)
+- Setting `LANGFUSE_HOST=""` (empty) → telemetry no-ops cleanly; zero overhead; no errors in worker logs
+- Filtering: in Langfuse UI, filter by `tags=["mizan"]` and a specific `userId` reproduces only that reviewer's runs; filter by `metadata.caseId=<id>` returns exactly the runs for that case
+- HITL continuity: a brief that suspends + resumes produces ONE trace (not two), verified by checking the trace tree contains both pre-suspend + post-resume spans under the same root
 
 **Implementation notes:**
-- Langfuse credentials in `.dev.vars` (local only, never committed)
-- `registerOTel` is called once at module load (Worker boot)
-- `LANGFUSE_HOST` empty in production → exporter's `isEnabled` short-circuits → zero overhead
-- DO NOT ship Langfuse credentials in `wrangler.jsonc` `vars` — those are public; use `wrangler secret`
+
+- Langfuse credentials (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`) live in `.dev.vars` (local only, never committed); in prod, set via `wrangler secret put`. Do NOT ship credentials in `wrangler.jsonc` `vars` — those are public.
+- `registerOTel({ serviceName: "mizan", traceExporter: new LangfuseExporter({ sampleRate: 1.0, environment: env.ENVIRONMENT ?? "development" }) })` called ONCE at Worker boot from `apps/worker/src/instrumentation.ts`.
+- `LANGFUSE_HOST` empty in CI → exporter's `isEnabled` short-circuits → zero overhead; CI tests verify this path by setting `LANGFUSE_HOST=""` and asserting trace tree call produces no network requests.
+- Forward `c.executionCtx` from every Hono handler that opens a root span; `flushLangfuse(c.executionCtx)` runs the flush in `waitUntil` so the response isn't blocked. Verified in integration test by measuring response latency w/ + w/o Langfuse — delta < 5ms.
+- Workers' execution-context `waitUntil` is the ONLY safe place to schedule the flush; `setTimeout` is blocked + `process.on("beforeExit")` doesn't exist on Workers.
+- `models.json` shape: `[{ "model_name": "claude-opus-4-7", "input_price": 0.000015, "output_price": 0.000075, "unit": "TOKENS", "tokenizer_id": "claude" }, ...]`. Update on every provider price change (Phase 10 ops doc).
 
 **Tests (per §7.11):**
+
 - Unit: telemetry-config helper (returns correct shape based on `LANGFUSE_HOST` presence)
 - Integration: trigger a brief → assert trace ID present in response headers (Langfuse exporter sets a trace ID); manual eyeballing of trace tree
 - E2E (Playwright): Playwright opens `http://localhost:3001` → asserts a trace exists for the most recent caseId
@@ -721,17 +868,20 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Goal:** Vitest eval spec runs gold set against the deployed workflow; provider-swap via env var stable across Anthropic/OpenAI/OpenRouter; cost regression tracked.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] §7.6 LLM Provider Factory — provider swap is env-var-only; no code edits between providers
 - [ ] §7.11 Testing — full eval directory layout + gold-set shape + LLM-as-judge pattern + CI policy (no cron)
 - [ ] Phase 8 — Langfuse traces are how cost is measured (auto-extracted from traces)
 - [ ] §12 Best-practices checklist — Vercel AI SDK section (provider abstraction discipline)
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] context7 `/vercel/ai` — query: "Vitest patterns for testing generateObject calls w/ real LLM; deterministic seed values; cost tracking in tests"
 - [ ] context7 `/mastra-ai/mastra` — query: "@mastra/observability cost extraction from traces; programmatic API to fetch trace data for assertions"
 - [ ] Cloudflare docs (`cloudflare:cloudflare` skill, `references/miniflare`) — query: "Vitest + Miniflare integration via @cloudflare/vitest-pool-workers; running tests against real D1/R2/Vectorize bindings"
 
 **In scope:**
+
 - Gold set at `tests/eval/gold-set/`:
   - 10 reconstructed fixtures (historical cases mined from public criticism)
   - 5 curated edge cases (forced ESCALATE, near-miss APPROVE, ambiguous interpretive question)
@@ -750,6 +900,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** `npm run eval` runs locally; recommendation stability ≥95% across 3 providers; cost ledger tracks per-run cost.
 
 **Acceptance criteria:**
+
 - `npm run eval` passes on default provider (Anthropic)
 - `DEFAULT_LLM_PROVIDER=openai npm run eval` passes; recommendation stability ≥95% vs Anthropic baseline
 - `DEFAULT_LLM_PROVIDER=openrouter npm run eval` passes; recommendation stability ≥95%
@@ -757,12 +908,14 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - Cost ledger JSON updated after each run; >20% delta logs a warning
 
 **Implementation notes:**
+
 - LLM-as-judge uses a DIFFERENT provider from the one under test (judge w/ OpenAI when testing Anthropic) to avoid same-model bias
 - Provider-swap script is just `DEFAULT_LLM_PROVIDER=<x> npm run eval` — zero code edits
 - Gold-set fixtures are JSON; recommendation comparison is deterministic; drafted-message comparison is LLM-judged
 - Cost ledger at `tests/eval/.cost-ledger.json` — gitignored
 
 **Tests (per §7.11):**
+
 - Unit: gold-set fixture loader; LLM-as-judge rubric scoring; cost-ledger delta calculator
 - Integration: not applicable (eval IS the test)
 - Eval (full): 18 cases × 3 providers via `npm run eval` — manual, pre-recording
@@ -776,15 +929,18 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **This is the only phase where production deploy happens.** Phases 0–9 ran entirely against `wrangler dev` (Miniflare). Before deploying, every gate from `CLAUDE.md` non-negotiables MUST be green: `bun run lint && bun run knip && bun run typecheck && bun run test`.
 
 **Force-read (internal — MUST read before implementing):**
+
 - [ ] §3 Goal — skills the demo must visibly prove (use this as the video outline)
 - [ ] §5 Success metrics — what the submission must show
 - [ ] §9 Submission package — companion docs to write
 
 **Force-read (external via context7 — MUST query before implementing):**
+
 - [ ] shadcn/ui (https://ui.shadcn.com) — `skeleton`, `alert`, `empty-state` patterns for loading + error
 - [ ] Cloudflare docs (`cloudflare:cloudflare` skill, `references/wrangler`) — query: "wrangler deploy + custom domains + secret bulk upload + observability dashboard"
 
 **In scope:**
+
 - UI polish: shadcn Skeleton for loading states; Alert for errors; empty-state cards for "no cases in queue"
 - Toast feedback on every reviewer action
 - Companion docs in repo:
@@ -802,6 +958,7 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 **Deliverable:** Deployed URL + ≤5min video + repo with companion docs + 1-page architecture PDF.
 
 **Acceptance criteria:**
+
 - All four CI gates green: `bun run lint`, `bun run typecheck`, `bun run knip`, `bun run test`
 - Grep belt-and-braces gate green: zero `as any` / `as unknown` / `// TODO` / `// FIXME` / `// HACK` / `// XXX` / `// @ts-nocheck` in non-test files
 - `wrangler deploy` succeeds; Deployed URL accessible publicly
@@ -810,11 +967,13 @@ Every phase enforces the seven coding principles in `~/Documents/Projects/person
 - README has setup instructions that a stranger can follow
 
 **Implementation notes:**
+
 - Test the video opening (0:00-0:30) on a friend who doesn't know LaunchGood — must NOT land accusatorial
 - Deploy w/ `wrangler deploy --env production`; secrets via `wrangler secret bulk .dev.vars`
 - Architecture PDF: open the Mermaid in any renderer, export PNG → PDF
 
 **Tests (per §7.11):**
+
 - Run full test matrix one last time before deploy: unit + integration + contract + e2e + smoke-eval
 - Manual smoke on the deployed URL: all 8 cases walkable
 - Video re-watched in full; check audio, screen capture, no secrets visible
@@ -827,71 +986,71 @@ The entire stack lives on Cloudflare. One platform, one CLI (`wrangler`), one bi
 
 ### Runtime + Hosting + Compute
 
-| Layer | Choice | Reasoning |
-|---|---|---|
-| Language | TypeScript | LaunchGood is moving to Node/React; team can read and extend |
-| Runtime | **Cloudflare Workers (Paid plan, $5/mo)** | 5min CPU time per request, 10M requests/mo, Workflows + Queues included. The $5 plan is the right tier for any Mastra-on-Workers brief generation; free-tier 30s CPU is too tight. |
-| Backend framework | **Hono** | Workers-native; minimal overhead; first-class streaming via `c.body(stream)`; mounts Mastra via `@mastra/hono` adapter |
-| Background / async | **Cloudflare Queues** | Native producer + consumer-Worker model; `max_batch_size` + `max_concurrency` controls; at-least-once delivery; dead-letter queue. See §7.8 for the ingestion pattern. |
-| Orchestration | **Mastra** | TS-native; built-in eval primitives; first-class HITL via `.suspend()` / `.resume()`; official Cloudflare deployer + D1 storage adapter (`@mastra/cloudflare-d1`); Hono adapter (`@mastra/hono`); RAG primitives (`MDocument` + `ModelRouterEmbeddingModel`); observability via `@mastra/observability`. **When NOT to use:** single-shot prompts get no benefit from orchestration overhead — those go direct via AI SDK. |
-| Repo layout | **Bun workspaces monorepo** | `apps/worker` (Cloudflare Worker) + `apps/web` (Vite + React + shadcn client) + `packages/db` + `packages/mastra` + `packages/shared` + `packages/eval`. Cross-workspace deps via `workspace:*`. Scripts orchestrated via `bun --filter '<pattern>' <script>`. |
-| Package manager | **Bun** | `bun install` (lockfile is `bun.lock` text JSONC, committed; Bun 1.2+ default); `bun add <pkg>` per-workspace; `bun --filter` for cross-workspace orchestration. First-class workspace support, faster install + run than npm/pnpm. Supply-chain security stack (`bunfig.toml` + Socket scanner + `minimumReleaseAge` + `ignoreScripts` + `bun audit`) per §12 Bun workspaces. |
-| Lint | **oxlint** | Rust-based linter (oxc-project); ~50–100× faster than ESLint. Root `.oxlintrc.json` with `typescript`/`import`/`unicorn`/`oxc`/`react` plugins; per-workspace overrides via `overrides[]`. Test files override `typescript/no-explicit-any: off`. Scaffolded via `oxlint --init`. CI: `bun run lint`. |
-| Format | **oxfmt** | Rust-based formatter, oxlint's companion. npm package name is `oxfmt`. `bun run format`. Single command across monorepo. No Prettier. |
-| Bundler/deploy CLI | `wrangler` (lives in `apps/worker`) | `bun --filter @mizan/worker dev` / `... deploy`. One command for dev + deploy + secrets + bindings. |
+| Layer              | Choice                                    | Reasoning                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language           | TypeScript                                | LaunchGood is moving to Node/React; team can read and extend                                                                                                                                                                                                                                                                                                                                                               |
+| Runtime            | **Cloudflare Workers (Paid plan, $5/mo)** | 5min CPU time per request, 10M requests/mo, Workflows + Queues included. The $5 plan is the right tier for any Mastra-on-Workers brief generation; free-tier 30s CPU is too tight.                                                                                                                                                                                                                                         |
+| Backend framework  | **Hono**                                  | Workers-native; minimal overhead; first-class streaming via `c.body(stream)`; mounts Mastra via `@mastra/hono` adapter                                                                                                                                                                                                                                                                                                     |
+| Background / async | **Cloudflare Queues**                     | Native producer + consumer-Worker model; `max_batch_size` + `max_concurrency` controls; at-least-once delivery; dead-letter queue. See §7.8 for the ingestion pattern.                                                                                                                                                                                                                                                     |
+| Orchestration      | **Mastra**                                | TS-native; built-in eval primitives; first-class HITL via `.suspend()` / `.resume()`; official Cloudflare deployer + D1 storage adapter (`@mastra/cloudflare-d1`); Hono adapter (`@mastra/hono`); RAG primitives (`MDocument` + `ModelRouterEmbeddingModel`); observability via `@mastra/observability`. **When NOT to use:** single-shot prompts get no benefit from orchestration overhead — those go direct via AI SDK. |
+| Repo layout        | **Bun workspaces monorepo**               | `apps/worker` (Cloudflare Worker) + `apps/web` (Vite + React + shadcn client) + `packages/db` + `packages/mastra` + `packages/shared` + `packages/eval`. Cross-workspace deps via `workspace:*`. Scripts orchestrated via `bun --filter '<pattern>' <script>`.                                                                                                                                                             |
+| Package manager    | **Bun**                                   | `bun install` (lockfile is `bun.lock` text JSONC, committed; Bun 1.2+ default); `bun add <pkg>` per-workspace; `bun --filter` for cross-workspace orchestration. First-class workspace support, faster install + run than npm/pnpm. Supply-chain security stack (`bunfig.toml` + Socket scanner + `minimumReleaseAge` + `ignoreScripts` + `bun audit`) per §12 Bun workspaces.                                             |
+| Lint               | **oxlint**                                | Rust-based linter (oxc-project); ~50–100× faster than ESLint. Root `.oxlintrc.json` with `typescript`/`import`/`unicorn`/`oxc`/`react` plugins; per-workspace overrides via `overrides[]`. Test files override `typescript/no-explicit-any: off`. Scaffolded via `oxlint --init`. CI: `bun run lint`.                                                                                                                      |
+| Format             | **oxfmt**                                 | Rust-based formatter, oxlint's companion. npm package name is `oxfmt`. `bun run format`. Single command across monorepo. No Prettier.                                                                                                                                                                                                                                                                                      |
+| Bundler/deploy CLI | `wrangler` (lives in `apps/worker`)       | `bun --filter @mizan/worker dev` / `... deploy`. One command for dev + deploy + secrets + bindings.                                                                                                                                                                                                                                                                                                                        |
 
 ### Data + Storage (all Cloudflare-native, zero external dependencies)
 
-| Layer | Choice | Reasoning |
-|---|---|---|
-| Relational DB | **Cloudflare D1** (SQLite at the edge) | Strong consistency; native Workers binding; drizzle adapter; `@mastra/cloudflare-d1` is the official Mastra storage adapter for workflow state, suspend/resume, memory |
-| Object storage | **Cloudflare R2** | S3-compatible; zero egress fees; ideal for organizer-uploaded ID + bank statement + category docs + photos; `better-auth-cloudflare` has first-class R2 file-storage integration with type/size validation |
-| Vector store | **Cloudflare Vectorize** (direct binding) | Mastra's RAG primitives produce embeddings via `ModelRouterEmbeddingModel`; embeddings persisted via Vectorize binding (`env.VECTORIZE.upsert` / `.query`) called from a Mastra step / tool. No Mastra-native Vectorize adapter required for the demo. |
-| Session/rate-limit cache | **Cloudflare KV** | Used by `better-auth-cloudflare` for sessions + rate limits (60s minimum TTL) |
-| ORM | **Drizzle (D1 adapter)** | `drizzle-orm/d1`; schema-merge with better-auth-generated tables via `@better-auth/cli generate` |
-| Schema generation | **`drizzle-zod`** | Generate zod schemas directly from drizzle table definitions: `createSelectSchema(cases)`, `createInsertSchema(cases, { ...refinements })`, `createUpdateSchema(cases)`. Single source of truth → ORM table is the canonical shape; RHF resolvers, `@hono/zod-validator`, Mastra step contracts, and shared TS types via `z.infer<...>` all derive from it. Schema drift between DB / API / UI / agent becomes impossible. |
+| Layer                    | Choice                                    | Reasoning                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Relational DB            | **Cloudflare D1** (SQLite at the edge)    | Strong consistency; native Workers binding; drizzle adapter; `@mastra/cloudflare-d1` is the official Mastra storage adapter for workflow state, suspend/resume, memory                                                                                                                                                                                                                                                     |
+| Object storage           | **Cloudflare R2**                         | S3-compatible; zero egress fees; ideal for organizer-uploaded ID + bank statement + category docs + photos; `better-auth-cloudflare` has first-class R2 file-storage integration with type/size validation                                                                                                                                                                                                                 |
+| Vector store             | **Cloudflare Vectorize** (direct binding) | Mastra's RAG primitives produce embeddings via `ModelRouterEmbeddingModel`; embeddings persisted via Vectorize binding (`env.VECTORIZE.upsert` / `.query`) called from a Mastra step / tool. No Mastra-native Vectorize adapter required for the demo.                                                                                                                                                                     |
+| Session/rate-limit cache | **Cloudflare KV**                         | Used by `better-auth-cloudflare` for sessions + rate limits (60s minimum TTL)                                                                                                                                                                                                                                                                                                                                              |
+| ORM                      | **Drizzle (D1 adapter)**                  | `drizzle-orm/d1`; schema-merge with better-auth-generated tables via `@better-auth/cli generate`                                                                                                                                                                                                                                                                                                                           |
+| Schema generation        | **`drizzle-zod`**                         | Generate zod schemas directly from drizzle table definitions: `createSelectSchema(cases)`, `createInsertSchema(cases, { ...refinements })`, `createUpdateSchema(cases)`. Single source of truth → ORM table is the canonical shape; RHF resolvers, `@hono/zod-validator`, Mastra step contracts, and shared TS types via `z.infer<...>` all derive from it. Schema drift between DB / API / UI / agent becomes impossible. |
 
 ### Auth + UI
 
-| Layer | Choice | Reasoning |
-|---|---|---|
-| Auth framework | **better-auth** + **`better-auth-cloudflare`** wrapper | `withCloudflare({d1, kv, r2}, betterAuthOpts)`; per-request init in Hono middleware; reviewer/admin roles; CLI schema generation (`npx @better-auth/cli generate`) merged with domain tables |
-| Per-request pattern | Hono middleware sets `c.var.auth = createAuth(c.env, c.req.raw.cf, baseURL)` | Documented pattern from `better-auth-cloudflare` examples |
-| UI components | **shadcn/ui** (Radix + Tailwind) | Reviewer queue UI uses shadcn DataTable, Card, Tabs, Badge, Button, Dialog, Toast, Form; copy-paste components, no runtime dep, tailwind-driven |
-| Client framework | **Vite + React** served as Workers static assets | One Worker hosts both API + SPA via `assets` binding |
-| Server state | **TanStack Query (React Query) v5** | Owns all REST/fetch state: case list, case detail, audit log, settings. Cache + refetch + optimistic updates + stale-while-revalidate. Works hand-in-glove with TanStack Router loaders + Hono RPC client. `useChat` (AI SDK) owns ONLY the streaming brief state; everything else is React Query. |
-| Client routing | **TanStack Router** | Type-safe routes, search-param API, route loaders that prefetch via React Query, integrates with React Query DevTools. Aligns with the strict-TS thesis. |
-| Client RPC | **Hono RPC client (`hc<AppType>()`)** | End-to-end-typed fetch from React → Worker via Hono's built-in RPC client. No OpenAPI codegen, no hand-rolled fetch wrappers. Worker exports its `AppType`; client imports it from `@mizan/shared` re-export. |
-| Server validation | **`@hono/zod-validator`** | Every Hono route validates query/json/form/headers against zod schemas from `@mizan/shared`. Same schemas the client uses for RHF + the worker uses for tool I/O. End-to-end zod. |
-| Forms | **React Hook Form + `@hookform/resolvers/zod`** | Wrapped by shadcn `<Form>`; same zod schemas as server validation. Reviewer action form, login form, override-rationale form. |
-| Spec emission *(optional, nice-to-have)* | **`@hono/zod-openapi`** | Auto-generates OpenAPI from zod schemas; powers contract tests + future external integrations |
+| Layer                                    | Choice                                                                       | Reasoning                                                                                                                                                                                                                                                                                          |
+| ---------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth framework                           | **better-auth** + **`better-auth-cloudflare`** wrapper                       | `withCloudflare({d1, kv, r2}, betterAuthOpts)`; per-request init in Hono middleware; reviewer/admin roles; CLI schema generation (`npx @better-auth/cli generate`) merged with domain tables                                                                                                       |
+| Per-request pattern                      | Hono middleware sets `c.var.auth = createAuth(c.env, c.req.raw.cf, baseURL)` | Documented pattern from `better-auth-cloudflare` examples                                                                                                                                                                                                                                          |
+| UI components                            | **shadcn/ui** (Radix + Tailwind)                                             | Reviewer queue UI uses shadcn DataTable, Card, Tabs, Badge, Button, Dialog, Toast, Form; copy-paste components, no runtime dep, tailwind-driven                                                                                                                                                    |
+| Client framework                         | **Vite + React** served as Workers static assets                             | One Worker hosts both API + SPA via `assets` binding                                                                                                                                                                                                                                               |
+| Server state                             | **TanStack Query (React Query) v5**                                          | Owns all REST/fetch state: case list, case detail, audit log, settings. Cache + refetch + optimistic updates + stale-while-revalidate. Works hand-in-glove with TanStack Router loaders + Hono RPC client. `useChat` (AI SDK) owns ONLY the streaming brief state; everything else is React Query. |
+| Client routing                           | **TanStack Router**                                                          | Type-safe routes, search-param API, route loaders that prefetch via React Query, integrates with React Query DevTools. Aligns with the strict-TS thesis.                                                                                                                                           |
+| Client RPC                               | **Hono RPC client (`hc<AppType>()`)**                                        | End-to-end-typed fetch from React → Worker via Hono's built-in RPC client. No OpenAPI codegen, no hand-rolled fetch wrappers. Worker exports its `AppType`; client imports it from `@mizan/shared` re-export.                                                                                      |
+| Server validation                        | **`@hono/zod-validator`**                                                    | Every Hono route validates query/json/form/headers against zod schemas from `@mizan/shared`. Same schemas the client uses for RHF + the worker uses for tool I/O. End-to-end zod.                                                                                                                  |
+| Forms                                    | **React Hook Form + `@hookform/resolvers/zod`**                              | Wrapped by shadcn `<Form>`; same zod schemas as server validation. Reviewer action form, login form, override-rationale form.                                                                                                                                                                      |
+| Spec emission _(optional, nice-to-have)_ | **`@hono/zod-openapi`**                                                      | Auto-generates OpenAPI from zod schemas; powers contract tests + future external integrations                                                                                                                                                                                                      |
 
 ### LLM + AI
 
-| Layer | Choice | Reasoning |
-|---|---|---|
-| LLM SDK | **Vercel AI SDK** (provider-agnostic) | `streamText` + `generateObject` work identically across providers; `toAISdkStream(stream, {from: 'workflow', version: 'v6'})` converts Mastra workflow streams to AI SDK UI message parts |
-| LLM providers | **Anthropic + OpenAI + OpenRouter** via factory | Single `getModel(provider, model)` returns `withMastra(providerImpl(model), {memory, processors})` — same code path for all providers; swap by env var or per-request override |
-| Vision/OCR | Same provider via vision-capable model | No separate OCR vendor (Claude vision or GPT-4o vision); minimize external APIs |
-| Embeddings | `ModelRouterEmbeddingModel('openai/text-embedding-3-small')` or provider equivalent | Provider-agnostic via Mastra's model router |
-| AI observability | **`@mastra/observability` → Langfuse self-hosted (local Docker, NOT deployed)** | Mastra ships traces, logs, and auto-extracted metrics (token + cost) to Langfuse out of the box. Local Docker compose runs Langfuse + Postgres; Worker points `LANGFUSE_HOST` at `http://localhost:3001` in dev only. Demo video shows the trace tree per brief. Zero production dependency. |
+| Layer            | Choice                                                                              | Reasoning                                                                                                                                                                                                                                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM SDK          | **Vercel AI SDK** (provider-agnostic)                                               | `streamText` + `generateObject` work identically across providers; `toAISdkStream(stream, {from: 'workflow', version: 'v6'})` converts Mastra workflow streams to AI SDK UI message parts                                                                                                    |
+| LLM providers    | **Anthropic + OpenAI + OpenRouter** via factory                                     | Single `getModel(provider, model)` returns `withMastra(providerImpl(model), {memory, processors})` — same code path for all providers; swap by env var or per-request override                                                                                                               |
+| Vision/OCR       | Same provider via vision-capable model                                              | No separate OCR vendor (Claude vision or GPT-4o vision); minimize external APIs                                                                                                                                                                                                              |
+| Embeddings       | `ModelRouterEmbeddingModel('openai/text-embedding-3-small')` or provider equivalent | Provider-agnostic via Mastra's model router                                                                                                                                                                                                                                                  |
+| AI observability | **`@mastra/observability` → Langfuse self-hosted (local Docker, NOT deployed)**     | Mastra ships traces, logs, and auto-extracted metrics (token + cost) to Langfuse out of the box. Local Docker compose runs Langfuse + Postgres; Worker points `LANGFUSE_HOST` at `http://localhost:3001` in dev only. Demo video shows the trace tree per brief. Zero production dependency. |
 
 ### Eval + CI
 
-| Layer | Choice | Reasoning |
-|---|---|---|
+| Layer       | Choice                              | Reasoning                                                                             |
+| ----------- | ----------------------------------- | ------------------------------------------------------------------------------------- |
 | Eval runner | **Vitest + Miniflare/Wrangler dev** | Run eval against local Workers runtime with real D1/R2/Vectorize bindings (Miniflare) |
-| CI | **GitHub Actions** | `wrangler dev` headless + vitest; gates on the metrics in §5 |
+| CI          | **GitHub Actions**                  | `wrangler dev` headless + vitest; gates on the metrics in §5                          |
 
 ### Mocked-in-demo, replaced-in-production
 
-| External system | Demo | Production |
-|---|---|---|
-| Reverse image search | Mocked w/ realistic JSON responses | TinEye API or Google Lens (~$0.001/check) |
-| AI-gen image detection | Mocked | Existing open detector or Hive |
-| IRS Pub 78 / Charity Commission | Mocked w/ seeded fake lookups | Scheduled R2 sync of bulk file, queryable via D1 |
-| Sanctions screening (400+ lists) | Mocked | LaunchGood's existing provider — reuse, don't replace |
-| KYC verification | Mocked | LaunchGood's existing vendor (likely Stripe Identity given Stripe Connect payments) — reuse |
+| External system                  | Demo                               | Production                                                                                  |
+| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------- |
+| Reverse image search             | Mocked w/ realistic JSON responses | TinEye API or Google Lens (~$0.001/check)                                                   |
+| AI-gen image detection           | Mocked                             | Existing open detector or Hive                                                              |
+| IRS Pub 78 / Charity Commission  | Mocked w/ seeded fake lookups      | Scheduled R2 sync of bulk file, queryable via D1                                            |
+| Sanctions screening (400+ lists) | Mocked                             | LaunchGood's existing provider — reuse, don't replace                                       |
+| KYC verification                 | Mocked                             | LaunchGood's existing vendor (likely Stripe Identity given Stripe Connect payments) — reuse |
 
 **External-API count, demo:** 1–3 LLM providers (configured but only one active at a time). Everything else mocked or Cloudflare-native. This is genuinely minimal.
 
@@ -972,16 +1131,21 @@ type ProviderName = "anthropic" | "openai" | "openrouter";
 
 interface ModelConfig {
   provider: ProviderName;
-  model: string;        // e.g. "claude-opus-4-7", "gpt-4o", "anthropic/claude-3.7-sonnet"
+  model: string; // e.g. "claude-opus-4-7", "gpt-4o", "anthropic/claude-3.7-sonnet"
 }
 
 const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY });
 
-export function getModel({ provider, model }: ModelConfig, opts?: WithMastraOptions): LanguageModelV2 {
+export function getModel(
+  { provider, model }: ModelConfig,
+  opts?: WithMastraOptions,
+): LanguageModelV2 {
   const raw =
-    provider === "anthropic" ? anthropic(model) :
-    provider === "openai"    ? openai(model) :
-                                openrouter(model);
+    provider === "anthropic"
+      ? anthropic(model)
+      : provider === "openai"
+        ? openai(model)
+        : openrouter(model);
 
   return withMastra(raw, {
     memory: opts?.memory,
@@ -993,6 +1157,7 @@ export function getModel({ provider, model }: ModelConfig, opts?: WithMastraOpti
 Every Mastra agent and every direct `generateObject` call uses `getModel(...)`. Provider switch = env var change. No code rewrite required.
 
 Provider routing strategy in production:
+
 - Default: Anthropic Claude (strong structured output + vision)
 - Fallback on rate-limit or 5xx: OpenRouter (multi-provider abstraction; can route to Claude or GPT-4 transparently)
 - Cost optimization: OpenAI for cheap deterministic extraction (smaller, faster models), Anthropic for the reasoning-heavy brief composition
@@ -1021,6 +1186,7 @@ volumes: { langfuse_db_data: {} }
 ```
 
 Instrumentation (Worker-side, registered once at boot):
+
 ```typescript
 import { registerOTel } from "@vercel/otel";
 import { LangfuseExporter } from "langfuse-vercel";
@@ -1028,7 +1194,7 @@ import { LangfuseExporter } from "langfuse-vercel";
 registerOTel({
   serviceName: "mizan",
   traceExporter: new LangfuseExporter({
-    baseUrl: env.LANGFUSE_HOST,   // http://localhost:3001 in dev; absent in prod
+    baseUrl: env.LANGFUSE_HOST, // http://localhost:3001 in dev; absent in prod
     environment: env.NODE_ENV,
   }),
 });
@@ -1052,16 +1218,16 @@ Demo video records the local Langfuse dashboard showing the trace tree for a bri
 
 State has a home. Picking the wrong home creates duplication and cache-coherence bugs. This is the canonical map.
 
-| State kind | Owner | Example |
-|---|---|---|
-| Server state (REST fetched) | **TanStack Query** | `useQuery({queryKey: ['cases', filters], queryFn})` for queue list; `useQuery({queryKey: ['cases', id]})` for case detail; `useMutation` for reviewer action POSTs |
-| Streaming brief state | **`useChat` (AI SDK)** | The live SSE workflow stream + assistant message parts. React Query coordinates the "is this case running?" status query that decides whether to mount `useChat` |
-| URL / search-param state | **TanStack Router** | `/case/:caseId`, `/queue?status=ready&page=2`, `/audit?from=2026-05-01`. Route loaders prefetch via React Query |
-| Form state | **React Hook Form** (via shadcn `<Form>`) | Login form, reviewer action form (action + rationale + action_id), admin filter form |
-| Session / auth state | **better-auth React client** wrapped in React Query | `useSession()` from better-auth client; React Query caches the session for the renderer; logout invalidates the query |
-| Ephemeral UI state | **`useState` / `useReducer`** | Modal open/close, dropdown selection, hover, tooltips, transient toasts |
-| Theme | **Context (shadcn theme provider)** | Light/dark/system; persisted to `localStorage` |
-| Persistent user prefs | **`localStorage` + React Query** | Default queue filter, column visibility on DataTable. React Query reads localStorage in `queryFn`; mutations write through |
+| State kind                  | Owner                                               | Example                                                                                                                                                            |
+| --------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Server state (REST fetched) | **TanStack Query**                                  | `useQuery({queryKey: ['cases', filters], queryFn})` for queue list; `useQuery({queryKey: ['cases', id]})` for case detail; `useMutation` for reviewer action POSTs |
+| Streaming brief state       | **`useChat` (AI SDK)**                              | The live SSE workflow stream + assistant message parts. React Query coordinates the "is this case running?" status query that decides whether to mount `useChat`   |
+| URL / search-param state    | **TanStack Router**                                 | `/case/:caseId`, `/queue?status=ready&page=2`, `/audit?from=2026-05-01`. Route loaders prefetch via React Query                                                    |
+| Form state                  | **React Hook Form** (via shadcn `<Form>`)           | Login form, reviewer action form (action + rationale + action_id), admin filter form                                                                               |
+| Session / auth state        | **better-auth React client** wrapped in React Query | `useSession()` from better-auth client; React Query caches the session for the renderer; logout invalidates the query                                              |
+| Ephemeral UI state          | **`useState` / `useReducer`**                       | Modal open/close, dropdown selection, hover, tooltips, transient toasts                                                                                            |
+| Theme                       | **Context (shadcn theme provider)**                 | Light/dark/system; persisted to `localStorage`                                                                                                                     |
+| Persistent user prefs       | **`localStorage` + React Query**                    | Default queue filter, column visibility on DataTable. React Query reads localStorage in `queryFn`; mutations write through                                         |
 
 **The rule:** if you can answer "where does this state live" with one bullet above, ship it. If you reach for a global store because the above feels wrong, the state probably belongs in URL (TanStack Router) or in React Query's cache — those are the answers in 95% of cases.
 
@@ -1069,18 +1235,18 @@ State has a home. Picking the wrong home creates duplication and cache-coherence
 
 Honest list of dependencies that look tempting but don't earn their slot in this stack.
 
-| Tech | Verdict | Why |
-|---|---|---|
-| **Zustand** | Rejected | No state shape needs a global cross-route store. Server state → React Query; URL → TanStack Router; forms → RHF; streaming → `useChat`; theme → context; transient → useState. Adding Zustand = adding a dependency + a new place to look when debugging state, for zero new capability. Revisit only if a genuine cross-route store emerges (multi-step wizard with backtracking, complex offline editing) — none today. |
-| **Redis (Upstash / hosted)** | Rejected | Every Redis-shaped need on this stack maps to a Cloudflare-native primitive. Idempotency cache + session cache + rate-limit windows → **KV**. Per-entity strongly-consistent state + pubsub fanout → **Durable Objects**. Message bus → **Cloudflare Queues**. Adding Redis = adding a hosted external service + Workers-to-Redis latency, for zero capability gain. KV's 60s minimum TTL is the only "limitation" and none of our use cases need sub-60s expiry. |
-| **tRPC** | Rejected | Hono's built-in RPC client (`hc<AppType>()`) gives the same end-to-end typed fetch with one less dependency. We already chose Hono; layering tRPC on top is ceremony. |
-| **Effect-TS / fp-ts** | Rejected | Powerful but over-engineering for an MVP. zod + structured AI SDK output already give us typed error handling at the seams that matter. |
-| **Prisma** | Rejected | Drizzle is the smaller, faster, Workers-friendly choice. Prisma's edge story is improving but Drizzle is already there. |
-| **GraphQL / Yoga** | Rejected | REST + Hono RPC + zod is enough. Internal-tool surface, finite endpoints. GraphQL's killer features (over-fetch avoidance, federation) don't apply. |
-| **Cloudflare Workers AI** | Rejected as primary | Provider-agnostic factory targets Anthropic + OpenAI + OpenRouter. Workers AI could be one more provider plugged into the factory if cost optimization demands it, but it's not the default — the goal is showing provider-agnostic substrate. |
-| **Hyperdrive** | Rejected | We use D1 (SQLite), not external Postgres/MySQL. Hyperdrive only matters if connecting to an external relational DB. |
-| **Cloudflare Workflows (the product)** | Rejected as primary | Mastra workflows persisted to D1 via `@mastra/cloudflare-d1` are our durable execution layer. Cloudflare Workflows is a separate product and would duplicate Mastra's durability model. Reserve it for the case where a single Mastra step exceeds Worker CPU budget — has not appeared in our brief shape. |
-| **Sentry / Datadog** | Rejected for demo | Cloudflare Observability (built-in) + local Langfuse cover the demo's needs. Production might add Sentry; not required to show the skill. |
+| Tech                                   | Verdict             | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Zustand**                            | Rejected            | No state shape needs a global cross-route store. Server state → React Query; URL → TanStack Router; forms → RHF; streaming → `useChat`; theme → context; transient → useState. Adding Zustand = adding a dependency + a new place to look when debugging state, for zero new capability. Revisit only if a genuine cross-route store emerges (multi-step wizard with backtracking, complex offline editing) — none today.                                         |
+| **Redis (Upstash / hosted)**           | Rejected            | Every Redis-shaped need on this stack maps to a Cloudflare-native primitive. Idempotency cache + session cache + rate-limit windows → **KV**. Per-entity strongly-consistent state + pubsub fanout → **Durable Objects**. Message bus → **Cloudflare Queues**. Adding Redis = adding a hosted external service + Workers-to-Redis latency, for zero capability gain. KV's 60s minimum TTL is the only "limitation" and none of our use cases need sub-60s expiry. |
+| **tRPC**                               | Rejected            | Hono's built-in RPC client (`hc<AppType>()`) gives the same end-to-end typed fetch with one less dependency. We already chose Hono; layering tRPC on top is ceremony.                                                                                                                                                                                                                                                                                             |
+| **Effect-TS / fp-ts**                  | Rejected            | Powerful but over-engineering for an MVP. zod + structured AI SDK output already give us typed error handling at the seams that matter.                                                                                                                                                                                                                                                                                                                           |
+| **Prisma**                             | Rejected            | Drizzle is the smaller, faster, Workers-friendly choice. Prisma's edge story is improving but Drizzle is already there.                                                                                                                                                                                                                                                                                                                                           |
+| **GraphQL / Yoga**                     | Rejected            | REST + Hono RPC + zod is enough. Internal-tool surface, finite endpoints. GraphQL's killer features (over-fetch avoidance, federation) don't apply.                                                                                                                                                                                                                                                                                                               |
+| **Cloudflare Workers AI**              | Rejected as primary | Provider-agnostic factory targets Anthropic + OpenAI + OpenRouter. Workers AI could be one more provider plugged into the factory if cost optimization demands it, but it's not the default — the goal is showing provider-agnostic substrate.                                                                                                                                                                                                                    |
+| **Hyperdrive**                         | Rejected            | We use D1 (SQLite), not external Postgres/MySQL. Hyperdrive only matters if connecting to an external relational DB.                                                                                                                                                                                                                                                                                                                                              |
+| **Cloudflare Workflows (the product)** | Rejected as primary | Mastra workflows persisted to D1 via `@mastra/cloudflare-d1` are our durable execution layer. Cloudflare Workflows is a separate product and would duplicate Mastra's durability model. Reserve it for the case where a single Mastra step exceeds Worker CPU budget — has not appeared in our brief shape.                                                                                                                                                       |
+| **Sentry / Datadog**                   | Rejected for demo   | Cloudflare Observability (built-in) + local Langfuse cover the demo's needs. Production might add Sentry; not required to show the skill.                                                                                                                                                                                                                                                                                                                         |
 
 ## 7.8 Ingestion queue (the "as new cases arrive" question)
 
@@ -1091,25 +1257,24 @@ Cloudflare Queues is the right primitive for this. Hono producer endpoint accept
 ```jsonc
 {
   "queues": {
-    "producers": [
-      { "binding": "BRIEF_QUEUE", "queue": "mizan-brief-jobs" }
-    ],
+    "producers": [{ "binding": "BRIEF_QUEUE", "queue": "mizan-brief-jobs" }],
     "consumers": [
       {
         "queue": "mizan-brief-jobs",
-        "max_batch_size": 5,         // how many messages per consumer invocation
-        "max_batch_timeout": 5,       // seconds to wait to fill a batch
-        "max_concurrency": 3,         // how many consumer invocations run in parallel
+        "max_batch_size": 5, // how many messages per consumer invocation
+        "max_batch_timeout": 5, // seconds to wait to fill a batch
+        "max_concurrency": 3, // how many consumer invocations run in parallel
         "max_retries": 3,
         "dead_letter_queue": "mizan-brief-jobs-dlq",
-        "retry_delay": 30
-      }
-    ]
-  }
+        "retry_delay": 30,
+      },
+    ],
+  },
 }
 ```
 
 Knobs that answer "as new ones come, taken as current completes":
+
 - `max_concurrency: 3` means up to 3 consumer Workers run in parallel — three briefs generate at once
 - New messages arriving while all 3 are busy queue up; Cloudflare picks them up the moment any slot frees
 - `max_batch_size: 5` means each consumer invocation can pull up to 5 messages at once (cheaper than one-at-a-time); for Mizan we likely want batch of 1 since each brief is a substantial Mastra workflow run, so `max_batch_size: 1` is the right call
@@ -1141,7 +1306,11 @@ app.post("/api/cases/:id/brief", async (c) => {
   }
 
   // Mode B — client wants async; enqueue
-  await c.env.BRIEF_QUEUE.send({ caseId, enqueuedAt: Date.now(), requestedBy: c.var.session.userId });
+  await c.env.BRIEF_QUEUE.send({
+    caseId,
+    enqueuedAt: Date.now(),
+    requestedBy: c.var.session.userId,
+  });
   return c.json({ status: "queued", caseId });
 });
 ```
@@ -1153,7 +1322,10 @@ app.post("/api/cases/:id/brief", async (c) => {
 import type { MessageBatch } from "@cloudflare/workers-types";
 import { mastra } from "./mastra";
 
-export async function handleBriefQueue(batch: MessageBatch<{ caseId: string }>, env: CloudflareBindings) {
+export async function handleBriefQueue(
+  batch: MessageBatch<{ caseId: string }>,
+  env: CloudflareBindings,
+) {
   for (const msg of batch.messages) {
     try {
       const workflow = mastra.getWorkflow("brief");
@@ -1166,15 +1338,15 @@ export async function handleBriefQueue(batch: MessageBatch<{ caseId: string }>, 
       msg.ack();
     } catch (err) {
       console.error("brief workflow failed", msg.body.caseId, err);
-      msg.retry();   // up to max_retries before DLQ
+      msg.retry(); // up to max_retries before DLQ
     }
   }
 }
 
 // src/index.ts (single Worker, both fetch and queue handlers exported)
 export default {
-  fetch: app.fetch,                                // Hono app
-  queue: handleBriefQueue,                         // queue consumer
+  fetch: app.fetch, // Hono app
+  queue: handleBriefQueue, // queue consumer
 } satisfies ExportedHandler<CloudflareBindings>;
 ```
 
@@ -1188,10 +1360,10 @@ export default {
 
 ### Mode A (streaming) vs Mode B (queue) selection
 
-| Reviewer action | Mode |
-|---|---|
-| Reviewer opens a specific case → wants live brief streaming | Mode A — SSE through Mastra workflow `.stream()` |
-| Admin triggers "regenerate all stale briefs" or "process backlog" | Mode B — enqueue N messages, queue processes |
+| Reviewer action                                                           | Mode                                                                                               |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Reviewer opens a specific case → wants live brief streaming               | Mode A — SSE through Mastra workflow `.stream()`                                                   |
+| Admin triggers "regenerate all stale briefs" or "process backlog"         | Mode B — enqueue N messages, queue processes                                                       |
 | Brief generation exceeds Worker CPU mid-request (rare, paid plan is 5min) | Fallback: Hono detects partial stream failure → enqueues remainder to queue → client returns later |
 
 ## 7.9 Resumability (refresh-and-see-progress)
@@ -1253,16 +1425,17 @@ app.get("/api/cases/:id/stream", async (c) => {
   const headers = {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
+    Connection: "keep-alive",
   };
 
-  const lastEventId = c.req.header("Last-Event-ID");                    // SSE resume header
+  const lastEventId = c.req.header("Last-Event-ID"); // SSE resume header
   const fromSeq = lastEventId ? parseInt(lastEventId, 10) : 0;
 
   const stream = new ReadableStream({
     async start(controller) {
       // 1) Catch-up: replay all persisted events past Last-Event-ID
-      const past = await db.select()
+      const past = await db
+        .select()
         .from(workflow_events)
         .where(and(eq(workflow_events.run_id, runId), gt(workflow_events.seq, fromSeq)))
         .orderBy(workflow_events.seq);
@@ -1272,11 +1445,15 @@ app.get("/api/cases/:id/stream", async (c) => {
       // 2) Live tail: poll D1 every 500ms for new events; production = Durable Object pubsub
       let cursor = past.at(-1)?.seq ?? fromSeq;
       const interval = setInterval(async () => {
-        const next = await db.select().from(workflow_events)
+        const next = await db
+          .select()
+          .from(workflow_events)
           .where(and(eq(workflow_events.run_id, runId), gt(workflow_events.seq, cursor)))
           .orderBy(workflow_events.seq);
         for (const ev of next) {
-          controller.enqueue(`id: ${ev.seq}\nevent: ${ev.event_type}\ndata: ${ev.payload_json}\n\n`);
+          controller.enqueue(
+            `id: ${ev.seq}\nevent: ${ev.event_type}\ndata: ${ev.payload_json}\n\n`,
+          );
           cursor = ev.seq;
           if (ev.event_type === "workflow.finish" || ev.event_type === "step.suspend") {
             clearInterval(interval);
@@ -1298,6 +1475,7 @@ The client `useChat` (or a raw `EventSource`) uses the SSE `Last-Event-ID` heade
 ### Production-quality fanout
 
 For a real deployment the polling-D1 tail becomes a Durable Object per `runId`:
+
 - DO holds the latest event seq + a list of subscribed WebSocket clients
 - Each `workflow_events.insert` notifies the DO via RPC
 - DO broadcasts to subscribers
@@ -1341,9 +1519,12 @@ app.post("/api/cases/:id/brief", async (c) => {
     return c.json({ status: row[0].status, run_id: row[0].current_run_id, replay: true });
   }
   // Insert with optimistic concurrency: only progress if status was DRAFT/READY_FOR_REVIEW/ACTIONED
-  const updated = await db.update(cases)
+  const updated = await db
+    .update(cases)
     .set({ status: "QUEUED", current_run_id: crypto.randomUUID(), updated_at: Date.now() })
-    .where(and(eq(cases.id, caseId), inArray(cases.status, ["DRAFT", "READY_FOR_REVIEW", "ACTIONED"])))
+    .where(
+      and(eq(cases.id, caseId), inArray(cases.status, ["DRAFT", "READY_FOR_REVIEW", "ACTIONED"])),
+    )
     .returning();
   if (updated.length === 0) return c.json({ error: "case is in a non-startable state" }, 409);
 
@@ -1357,20 +1538,32 @@ app.post("/api/cases/:id/brief", async (c) => {
 Queue messages can be redelivered. Consumer must be safe to retry:
 
 ```typescript
-export async function handleBriefQueue(batch: MessageBatch<{ caseId: string; runId: string }>, env: CloudflareBindings) {
+export async function handleBriefQueue(
+  batch: MessageBatch<{ caseId: string; runId: string }>,
+  env: CloudflareBindings,
+) {
   for (const msg of batch.messages) {
     const { caseId, runId } = msg.body;
     // Idempotency guard: a workflow run with this runId already started?
     const existing = await checkRunIdempotency(env, runId);
-    if (existing === "COMPLETED") { msg.ack(); continue; }      // already done; ack and move on
-    if (existing === "RUNNING") { msg.ack(); continue; }         // another consumer picked it up; let that one finish
+    if (existing === "COMPLETED") {
+      msg.ack();
+      continue;
+    } // already done; ack and move on
+    if (existing === "RUNNING") {
+      msg.ack();
+      continue;
+    } // another consumer picked it up; let that one finish
     // Otherwise claim it (atomic D1 update from QUEUED → RUNNING with runId guard)
     const claimed = await claimRun(env, caseId, runId);
-    if (!claimed) { msg.ack(); continue; }                       // lost the race; acknowledge
+    if (!claimed) {
+      msg.ack();
+      continue;
+    } // lost the race; acknowledge
 
     try {
       const workflow = mastra.getWorkflow("brief");
-      const run = workflow.createRun({ runId });                  // pinned runId — Mastra uses it as the persistence key
+      const run = workflow.createRun({ runId }); // pinned runId — Mastra uses it as the persistence key
       await run.start({ inputData: { caseId } });
       msg.ack();
     } catch (err) {
@@ -1479,19 +1672,19 @@ tests/
 
 ## 8. Risks + mitigations
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| Worker CPU budget (30s std / 5min paid) exceeded on a heavy brief | Low | High | Mode B background path uses Cloudflare Workflows / Queues with no per-request CPU ceiling. Mode A streaming responses complete in <8s on the 5 seeded cases. Per-case timeout fallback: enqueue to Queue and respond with "processing" status. |
-| Vectorize cold start or quota throttling | Low | Medium | Pre-warm at deploy; policy corpus is small (LaunchGood Zakat policy + Safety policy ≈ 50 chunks). Embeddings generated once at deploy. |
-| D1 region locality (each binding pinned to a region) | Low | Low | All demo traffic from one reviewer; latency irrelevant at this scale. Production move = monitor read latency by region. |
-| Document extraction quality on seeded fake docs is unconvincing | Medium | High | Use realistic seed data (anonymized public examples, generated docs that look like real hospital bills/IDs). Test extractors first; scope down to 3-4 fields per doc type if quality is below 90%. |
-| LaunchGood reads framing as accusatorial despite reframe | Medium | High | Test 0:30 opening on a friend who doesn't know the context. Default opening = "reviewer cognitive load on mechanical work," NOT "the badge is broken." |
-| "Mastra isn't on the JD's framework list" pattern-matches to "candidate doesn't know LangGraph" | Low-Medium | Medium | Explicit `why-mastra.md` doc + 20-second video beat: TS-native, durable workflows on D1, suspend/resume HITL out of the box, Cloudflare deployer official. Skip orchestration only for single-shot prompts. |
-| Reviewer disagrees with AI brief 40%+ of the time → "the AI doesn't actually help" | Low (on seeded cases) | N/A for demo; flag for production | Demo runs on seeded cases where AI's call is correct. Langfuse trace dashboard surfaces disagreement-rate per agent as the operational metric a future deployment would gate on. |
-| Cost runs higher than $0.10/brief in production | Low | Medium | Deterministic pre-filter handles ~60% before LLM. Langfuse cost-per-trace + Vitest CI gate. |
-| Recruiter doesn't watch past 2 minutes | High | High | First 2 minutes: problem statement (0:30), live demo of brief generation (1:30). Stack opinion + roadmap after demo, not before. |
-| Mocked external systems look like hand-waving | Medium | Medium | Explicit "this would be replaced by X in production" callouts in the UI itself, not just the video. Show the mock response shape next to a real-provider URL. |
-| Langfuse local Docker setup adds video-recording friction | Low | Low | Pre-start Langfuse stack before recording; switch between Mizan + Langfuse tabs in the demo. Local-only is the point — production has no Langfuse dependency. |
+| Risk                                                                                            | Likelihood            | Impact                            | Mitigation                                                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------- | --------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker CPU budget (30s std / 5min paid) exceeded on a heavy brief                               | Low                   | High                              | Mode B background path uses Cloudflare Workflows / Queues with no per-request CPU ceiling. Mode A streaming responses complete in <8s on the 5 seeded cases. Per-case timeout fallback: enqueue to Queue and respond with "processing" status. |
+| Vectorize cold start or quota throttling                                                        | Low                   | Medium                            | Pre-warm at deploy; policy corpus is small (LaunchGood Zakat policy + Safety policy ≈ 50 chunks). Embeddings generated once at deploy.                                                                                                         |
+| D1 region locality (each binding pinned to a region)                                            | Low                   | Low                               | All demo traffic from one reviewer; latency irrelevant at this scale. Production move = monitor read latency by region.                                                                                                                        |
+| Document extraction quality on seeded fake docs is unconvincing                                 | Medium                | High                              | Use realistic seed data (anonymized public examples, generated docs that look like real hospital bills/IDs). Test extractors first; scope down to 3-4 fields per doc type if quality is below 90%.                                             |
+| LaunchGood reads framing as accusatorial despite reframe                                        | Medium                | High                              | Test 0:30 opening on a friend who doesn't know the context. Default opening = "reviewer cognitive load on mechanical work," NOT "the badge is broken."                                                                                         |
+| "Mastra isn't on the JD's framework list" pattern-matches to "candidate doesn't know LangGraph" | Low-Medium            | Medium                            | Explicit `why-mastra.md` doc + 20-second video beat: TS-native, durable workflows on D1, suspend/resume HITL out of the box, Cloudflare deployer official. Skip orchestration only for single-shot prompts.                                    |
+| Reviewer disagrees with AI brief 40%+ of the time → "the AI doesn't actually help"              | Low (on seeded cases) | N/A for demo; flag for production | Demo runs on seeded cases where AI's call is correct. Langfuse trace dashboard surfaces disagreement-rate per agent as the operational metric a future deployment would gate on.                                                               |
+| Cost runs higher than $0.10/brief in production                                                 | Low                   | Medium                            | Deterministic pre-filter handles ~60% before LLM. Langfuse cost-per-trace + Vitest CI gate.                                                                                                                                                    |
+| Recruiter doesn't watch past 2 minutes                                                          | High                  | High                              | First 2 minutes: problem statement (0:30), live demo of brief generation (1:30). Stack opinion + roadmap after demo, not before.                                                                                                               |
+| Mocked external systems look like hand-waving                                                   | Medium                | Medium                            | Explicit "this would be replaced by X in production" callouts in the UI itself, not just the video. Show the mock response shape next to a real-provider URL.                                                                                  |
+| Langfuse local Docker setup adds video-recording friction                                       | Low                   | Low                               | Pre-start Langfuse stack before recording; switch between Mizan + Langfuse tabs in the demo. Local-only is the point — production has no Langfuse dependency.                                                                                  |
 
 ## 9. Submission package
 
@@ -1502,6 +1695,7 @@ tests/
 - Optional: link to public GH repo if comfortable (JD says no code submission but offering it shows confidence)
 
 **Companion docs in the repo:**
+
 - `docs/why-mastra.md` — "TS-native, durable workflows on D1, native suspend/resume HITL, official Cloudflare deployer. When NOT to use: single-shot prompts."
 - `docs/why-cloudflare.md` — "One platform, one CLI, one billing surface. D1 + R2 + Vectorize + Workflows + Queues + Workers cover every dependency. Zero external infra except LLM providers."
 - `docs/provider-factory.md` — the agnostic LLM thesis with code samples
@@ -1659,6 +1853,7 @@ mizan/
 ```
 
 **Root `package.json` (canonical):**
+
 ```jsonc
 {
   "name": "mizan",
@@ -1675,8 +1870,8 @@ mizan/
       "@ai-sdk/openai": "<latest-pinned>",
       "@ai-sdk/provider": "<latest-pinned>",
       "@openrouter/ai-sdk-provider": "<latest-pinned>",
-      "@cloudflare/workers-types": "<latest-pinned>"
-    }
+      "@cloudflare/workers-types": "<latest-pinned>",
+    },
   },
   "trustedDependencies": [],
   "scripts": {
@@ -1695,12 +1890,13 @@ mizan/
     "db:generate": "bun --filter @mizan/db generate",
     "db:migrate:local": "bun --filter @mizan/worker exec wrangler d1 migrations apply DATABASE --local",
     "db:migrate:prod": "bun --filter @mizan/worker exec wrangler d1 migrations apply DATABASE --remote",
-    "auth:generate": "bun --filter @mizan/db exec @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y"
-  }
+    "auth:generate": "bun --filter @mizan/db exec @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y",
+  },
 }
 ```
 
 **Root `bunfig.toml` (canonical — supply-chain security stack):**
+
 ```toml
 [install]
 exact = true
@@ -1717,6 +1913,7 @@ scanner = "@socketsecurity/bun-security-scanner"
 Note: `@socketsecurity/bun-security-scanner` is itself listed in `minimumReleaseAgeExcludes` so threat-intel updates can ship faster than the project-wide 14-day bake. Every other package is bake-gated.
 
 **Root `lefthook.yml` (canonical):**
+
 ```yaml
 pre-commit:
   parallel: true
@@ -1739,6 +1936,7 @@ pre-push:
 ```
 
 **Root `renovate.json` (canonical):**
+
 ```jsonc
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
@@ -1749,12 +1947,13 @@ pre-push:
   "schedule": ["after 9am on monday"],
   "vulnerabilityAlerts": {
     "minimumReleaseAge": "0 days",
-    "schedule": ["at any time"]
-  }
+    "schedule": ["at any time"],
+  },
 }
 ```
 
 **Root `.oxlintrc.json` (canonical):**
+
 ```jsonc
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
@@ -1765,25 +1964,25 @@ pre-push:
     "import/no-cycle": "error",
     "typescript/no-floating-promises": "error",
     "typescript/no-unsafe-assignment": "warn",
-    "oxc/no-async-await": "off"
+    "oxc/no-async-await": "off",
   },
   "overrides": [
     {
       "files": ["**/*.test.ts", "**/*.test.tsx", "**/tests/**/*.ts"],
       "rules": {
         "typescript/no-explicit-any": "off",
-        "typescript/no-unsafe-assignment": "off"
-      }
+        "typescript/no-unsafe-assignment": "off",
+      },
     },
     {
       "files": ["apps/web/**/*"],
-      "env": { "browser": true, "node": false, "worker": false }
+      "env": { "browser": true, "node": false, "worker": false },
     },
     {
       "files": ["apps/worker/**/*", "packages/mastra/**/*"],
-      "env": { "browser": false, "node": false, "worker": true }
-    }
-  ]
+      "env": { "browser": false, "node": false, "worker": true },
+    },
+  ],
 }
 ```
 
@@ -1796,17 +1995,16 @@ pre-push:
   "compatibility_date": "2026-05-19",
   "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
   "d1_databases": [
-    { "binding": "DB", "database_name": "mizan", "database_id": "<uuid>", "migrations_dir": "../../packages/db/migrations" }
+    {
+      "binding": "DB",
+      "database_name": "mizan",
+      "database_id": "<uuid>",
+      "migrations_dir": "../../packages/db/migrations",
+    },
   ],
-  "r2_buckets": [
-    { "binding": "R2_BUCKET", "bucket_name": "mizan-uploads" }
-  ],
-  "vectorize": [
-    { "binding": "VECTORIZE", "index_name": "mizan-policy-corpus" }
-  ],
-  "kv_namespaces": [
-    { "binding": "KV", "id": "<uuid>" }
-  ],
+  "r2_buckets": [{ "binding": "R2_BUCKET", "bucket_name": "mizan-uploads" }],
+  "vectorize": [{ "binding": "VECTORIZE", "index_name": "mizan-policy-corpus" }],
+  "kv_namespaces": [{ "binding": "KV", "id": "<uuid>" }],
   "queues": {
     "producers": [{ "binding": "BRIEF_QUEUE", "queue": "mizan-brief-jobs" }],
     "consumers": [
@@ -1817,25 +2015,26 @@ pre-push:
         "max_concurrency": 3,
         "max_retries": 3,
         "dead_letter_queue": "mizan-brief-jobs-dlq",
-        "retry_delay": 30
-      }
-    ]
+        "retry_delay": 30,
+      },
+    ],
   },
   "assets": {
     "binding": "ASSETS",
     "directory": "../web/dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
   },
   "vars": {
     "DEFAULT_LLM_PROVIDER": "anthropic",
     "DEFAULT_LLM_MODEL": "claude-opus-4-7",
-    "LANGFUSE_HOST": ""
+    "LANGFUSE_HOST": "",
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
 }
 ```
 
 **Run commands (from repo root, via bun --filter):**
+
 - `bun --filter @mizan/worker dev` — `wrangler dev` (boots Worker + Miniflare bindings locally; serves apps/web/dist as static assets if built)
 - `bun --filter @mizan/web dev` — `vite` (boots SPA on `localhost:5173` for hot-reload front-end work)
 - `bun --filter @mizan/worker deploy` — `wrangler deploy`
@@ -1983,6 +2182,7 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 - Mizan ideation doc (full context): `outputs/launchgood-mizan-ideation.md`
 
 **Cloudflare:**
+
 - Workers Pricing (Paid plan $5/mo): https://developers.cloudflare.com/workers/platform/pricing/
 - D1: https://developers.cloudflare.com/d1/
 - R2: https://developers.cloudflare.com/r2/
@@ -1991,6 +2191,7 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 - KV: https://developers.cloudflare.com/kv/
 
 **Tooling (Bun + oxc + knip):**
+
 - Bun workspaces: https://bun.com/docs/install/workspaces (context7 `/oven-sh/bun`)
 - Bun `--filter` for monorepo scripts: https://bun.com/docs/pm/filter
 - oxlint config reference: https://oxc.rs/docs/guide/usage/linter/config-file-reference (context7 `/websites/oxc_rs_guide_usage`)
@@ -2001,11 +2202,13 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 - shadcn/ui: https://ui.shadcn.com/
 
 **ORM + schema generation:**
+
 - drizzle-orm (D1 adapter): https://orm.drizzle.team/docs/get-started-sqlite#cloudflare-d1 (context7 `/drizzle-team/drizzle-orm`)
 - drizzle-kit migrations: https://orm.drizzle.team/kit-docs/overview
 - drizzle-zod: https://orm.drizzle.team/docs/zod
 
 **Client stack (TanStack + Hono RPC + RHF):**
+
 - TanStack Query v5: https://tanstack.com/query/latest (context7 `/tanstack/query`)
 - TanStack Router: https://tanstack.com/router/latest (context7 `/tanstack/router`)
 - Hono RPC client (`hc`): https://hono.dev/docs/guides/rpc (context7 `/websites/hono_dev`)
@@ -2015,6 +2218,7 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 - MSW (Mock Service Worker, for testing): https://mswjs.io/
 
 **Mastra (stack grounding via context7 + WebFetch):**
+
 - Cloudflare deployment: https://mastra.ai/guides/deployment/cloudflare
 - Hono integration: https://mastra.ai/guides/getting-started/hono
 - AI SDK integration: https://mastra.ai/guides/agent-frameworks/ai-sdk
@@ -2027,10 +2231,12 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 - AI SDK stream adapter: `@mastra/ai-sdk` — `toAISdkStream(stream, {from: 'workflow' | 'agent', version: 'v6'})`
 
 **Auth + UI:**
+
 - better-auth-cloudflare: https://github.com/zpg6/better-auth-cloudflare (context7 `/zpg6/better-auth-cloudflare`)
 - shadcn/ui: https://ui.shadcn.com/
 
 **Observability:**
+
 - Langfuse Vercel AI SDK instrumentation: https://github.com/langfuse/langfuse-docs (context7 `/langfuse/langfuse-docs`)
 - Langfuse self-hosting (Docker): https://langfuse.com/self-hosting
 
@@ -2057,6 +2263,7 @@ feat/<short-name>  ───PR──►  staging  ───PR──►  main
 6. Production deploy fires from `main` (Phase 10 of the build; production deploys only after `main` accepts the release PR)
 
 **Forbidden:**
+
 - Direct push to `main` (enforced by GitHub branch protection)
 - Direct push to `staging` (enforced by GitHub branch protection)
 - Merging your own PR without CI green

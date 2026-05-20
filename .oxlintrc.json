@@ -15,10 +15,7 @@
       }
     ],
     "typescript/no-explicit-any": "error",
-    "typescript/consistent-type-assertions": [
-      "error",
-      { "assertionStyle": "never" }
-    ],
+    "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
     "typescript/no-unsafe-assignment": "error",
     "typescript/no-unsafe-argument": "error",
     "typescript/no-unsafe-return": "error",
@@ -26,12 +23,7 @@
   },
   "overrides": [
     {
-      "files": [
-        "**/*.test.ts",
-        "**/*.test.tsx",
-        "**/tests/**/*.ts",
-        "**/tests/**/*.tsx"
-      ],
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/tests/**/*.ts", "**/tests/**/*.tsx"],
       "rules": {
         "typescript/no-explicit-any": "off",
         "typescript/no-unsafe-assignment": "off"

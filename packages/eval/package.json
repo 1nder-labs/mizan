@@ -8,12 +8,8 @@
     "eval": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
-  "dependencies": {
-    "@mizan/mastra": "workspace:*",
-    "@mizan/shared": "workspace:*"
-  },
   "devDependencies": {
     "typescript": "6.0.3",
-    "vitest": "4.1.6"
+    "vitest": "4.1.5"
   }
 }

@@ -1,30 +1,19 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
+    ".": {
+      "ignoreDependencies": ["@socketsecurity/bun-security-scanner", "tsx", "wrangler"]
+    },
     "apps/worker": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts", "tests/**/*.ts"]
+      "entry": ["tests/**/*.test.ts"],
+      "ignoreDependencies": ["cloudflare"]
     },
     "apps/web": {
-      "entry": ["src/main.tsx"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/components/ui/*.tsx"]
     },
-    "packages/db": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/mastra": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/shared": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/eval": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    }
-  },
-  "ignore": ["**/tests/fixtures/**"]
+    "packages/db": {},
+    "packages/mastra": {},
+    "packages/shared": {},
+    "packages/eval": {}
+  }
 }

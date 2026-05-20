@@ -7,10 +7,6 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
-  "dependencies": {
-    "@mizan/db": "workspace:*",
-    "zod": "catalog:"
-  },
   "devDependencies": {
     "typescript": "6.0.3"
   }

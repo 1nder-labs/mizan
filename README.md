@@ -77,7 +77,7 @@ documents:
   hijacked / typosquatted packages before they link
   (`bunfig.toml` `[install.security] scanner`).
 - **14-day bake period** — `bunfig.toml` `install.minimumReleaseAge =
-  1209600` rejects any version published less than 14 days ago, defeating
+1209600` rejects any version published less than 14 days ago, defeating
   rapid-publish supply-chain attack patterns. A small allowlist of
   high-cadence first-party packages (typescript, @types/node,
   @cloudflare/workers-types, wrangler, and the scanner itself) bypasses

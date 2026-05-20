@@ -1,13 +1,12 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
+    "lib": ["ES2025", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "node"],
+    "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"]
     }
-  }
+  },
+  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./vite.config.ts"]
 }

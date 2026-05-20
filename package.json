@@ -2,23 +2,15 @@
   "name": "mizan",
   "version": "0.0.0",
   "private": true,
-  "packageManager": "bun@1.3.11",
-  "engines": {
-    "bun": ">=1.3.11"
-  },
   "workspaces": {
-    "packages": ["apps/*", "packages/*"],
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
     "catalog": {
-      "ai": "6.0.185",
-      "zod": "4.4.3",
-      "@ai-sdk/anthropic": "3.0.78",
-      "@ai-sdk/openai": "3.0.64",
-      "@ai-sdk/provider": "3.0.10",
-      "@openrouter/ai-sdk-provider": "2.9.0",
-      "@cloudflare/workers-types": "4.20260519.1"
+      "@cloudflare/workers-types": "4.20260506.1"
     }
   },
-  "trustedDependencies": [],
   "scripts": {
     "dev": "bun --filter '*' dev",
     "build": "bun --filter '*' build",
@@ -38,16 +30,18 @@
     "auth:generate": "bun --filter @mizan/db exec @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "0.16.7",
-    "@cloudflare/workers-types": "4.20260519.1",
     "@socketsecurity/bun-security-scanner": "latest",
-    "knip": "6.14.1",
-    "lefthook": "2.1.8",
-    "oxfmt": "0.51.0",
-    "oxlint": "1.66.0",
-    "tsx": "4.22.3",
+    "knip": "6.12.0",
+    "lefthook": "2.1.6",
+    "oxfmt": "0.48.0",
+    "oxlint": "1.63.0",
+    "tsx": "4.21.0",
     "typescript": "6.0.3",
-    "vitest": "4.1.6",
-    "wrangler": "4.93.0"
-  }
+    "wrangler": "4.88.0"
+  },
+  "engines": {
+    "bun": ">=1.3.11"
+  },
+  "packageManager": "bun@1.3.11",
+  "trustedDependencies": []
 }
