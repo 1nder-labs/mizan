@@ -23,6 +23,7 @@ build/
 .turbo/
 .dev.vars
 .dev.vars.*
+!.dev.vars.example
 *.tsbuildinfo
 
 # Env / secrets

@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mizan",
+  "main": "src/index.ts",
+  "account_id": "558c97456d4a969cb82bee23d2054613",
+  "compatibility_date": "2026-05-19",
+  "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mizan",
+      "database_id": "86feeedb-734e-4d6c-8310-011dc58754ac",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "R2_BUCKET", "bucket_name": "mizan-uploads" }
+  ],
+  "vectorize": [
+    { "binding": "VECTORIZE", "index_name": "mizan-policy-corpus" }
+  ],
+  "kv_namespaces": [
+    { "binding": "KV", "id": "597f67d85db94ae4b4a90175fa465605" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "BRIEF_QUEUE", "queue": "mizan-brief-jobs" }
+    ],
+    "consumers": [
+      {
+        "queue": "mizan-brief-jobs",
+        "max_batch_size": 1,
+        "max_batch_timeout": 5,
+        "max_concurrency": 3,
+        "max_retries": 3,
+        "dead_letter_queue": "mizan-brief-jobs-dlq",
+        "retry_delay": 30
+      }
+    ]
+  },
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application"
+  },
+  "vars": {
+    "DEFAULT_LLM_PROVIDER": "anthropic",
+    "DEFAULT_LLM_MODEL": "claude-opus-4-7",
+    "LANGFUSE_HOST": ""
+  }
+}
