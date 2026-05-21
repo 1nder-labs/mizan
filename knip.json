@@ -7,20 +7,14 @@
     },
     "apps/worker": {
       "entry": ["tests/**/*.test.ts"],
-      "ignore": [
-        "src/auth/index.ts"
-      ],
-      "ignoreDependencies": [
-        "cloudflare"
-      ]
+      "ignore": ["src/auth/index.ts", "tests/setup/d1-types.d.ts"],
+      "ignoreDependencies": ["cloudflare"]
     },
     "apps/web": {
       "entry": ["src/components/ui/*.tsx"]
     },
     "packages/db": {
-      "ignoreDependencies": [
-        "better-auth"
-      ]
+      "ignoreDependencies": ["better-auth"]
     },
     "packages/mastra": {},
     "packages/shared": {},

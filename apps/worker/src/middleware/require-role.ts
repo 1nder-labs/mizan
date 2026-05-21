@@ -39,9 +39,7 @@ export type RoleVariables = AuthVariables & {
  */
 export function requireRole(
   allowed: Role | Role[],
-): ReturnType<
-  typeof createMiddleware<{ Bindings: CloudflareBindings; Variables: RoleVariables }>
-> {
+): ReturnType<typeof createMiddleware<{ Bindings: CloudflareBindings; Variables: RoleVariables }>> {
   const roles = Array.isArray(allowed) ? allowed : [allowed];
   return createMiddleware<{ Bindings: CloudflareBindings; Variables: RoleVariables }>(
     async (c, next) => {

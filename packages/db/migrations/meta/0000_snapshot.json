@@ -60,16 +60,12 @@
       "indexes": {
         "briefs_case_id_idx": {
           "name": "briefs_case_id_idx",
-          "columns": [
-            "case_id"
-          ],
+          "columns": ["case_id"],
           "isUnique": false
         },
         "briefs_run_id_idx": {
           "name": "briefs_run_id_idx",
-          "columns": [
-            "run_id"
-          ],
+          "columns": ["run_id"],
           "isUnique": false
         }
       },
@@ -78,12 +74,8 @@
           "name": "briefs_case_id_cases_id_fk",
           "tableFrom": "briefs",
           "tableTo": "cases",
-          "columnsFrom": [
-            "case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -170,17 +162,12 @@
       "indexes": {
         "cases_status_updated_idx": {
           "name": "cases_status_updated_idx",
-          "columns": [
-            "status",
-            "updated_at"
-          ],
+          "columns": ["status", "updated_at"],
           "isUnique": false
         },
         "cases_created_by_idx": {
           "name": "cases_created_by_idx",
-          "columns": [
-            "created_by"
-          ],
+          "columns": ["created_by"],
           "isUnique": false
         }
       },
@@ -189,12 +176,8 @@
           "name": "cases_created_by_users_id_fk",
           "tableFrom": "cases",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -266,23 +249,17 @@
       "indexes": {
         "reviewer_actions_action_id_unique": {
           "name": "reviewer_actions_action_id_unique",
-          "columns": [
-            "action_id"
-          ],
+          "columns": ["action_id"],
           "isUnique": true
         },
         "reviewer_actions_case_id_idx": {
           "name": "reviewer_actions_case_id_idx",
-          "columns": [
-            "case_id"
-          ],
+          "columns": ["case_id"],
           "isUnique": false
         },
         "reviewer_actions_action_id_idx": {
           "name": "reviewer_actions_action_id_idx",
-          "columns": [
-            "action_id"
-          ],
+          "columns": ["action_id"],
           "isUnique": true
         }
       },
@@ -291,12 +268,8 @@
           "name": "reviewer_actions_case_id_cases_id_fk",
           "tableFrom": "reviewer_actions",
           "tableTo": "cases",
-          "columnsFrom": [
-            "case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -304,12 +277,8 @@
           "name": "reviewer_actions_reviewer_id_users_id_fk",
           "tableFrom": "reviewer_actions",
           "tableTo": "users",
-          "columnsFrom": [
-            "reviewer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["reviewer_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -367,10 +336,7 @@
       "indexes": {
         "signals_case_run_idx": {
           "name": "signals_case_run_idx",
-          "columns": [
-            "case_id",
-            "run_id"
-          ],
+          "columns": ["case_id", "run_id"],
           "isUnique": false
         }
       },
@@ -379,12 +345,8 @@
           "name": "signals_case_id_cases_id_fk",
           "tableFrom": "signals",
           "tableTo": "cases",
-          "columnsFrom": [
-            "case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -456,10 +418,7 @@
       "indexes": {
         "workflow_events_run_seq_idx": {
           "name": "workflow_events_run_seq_idx",
-          "columns": [
-            "run_id",
-            "seq"
-          ],
+          "columns": ["run_id", "seq"],
           "isUnique": true
         }
       },
@@ -468,12 +427,8 @@
           "name": "workflow_events_case_id_cases_id_fk",
           "tableFrom": "workflow_events",
           "tableTo": "cases",
-          "columnsFrom": [
-            "case_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["case_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -581,9 +536,7 @@
       "indexes": {
         "accounts_userId_idx": {
           "name": "accounts_userId_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -592,12 +545,8 @@
           "name": "accounts_user_id_users_id_fk",
           "tableFrom": "accounts",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -726,16 +675,12 @@
       "indexes": {
         "sessions_token_unique": {
           "name": "sessions_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "sessions_userId_idx": {
           "name": "sessions_userId_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -744,12 +689,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -825,9 +766,7 @@
       "indexes": {
         "users_email_unique": {
           "name": "users_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -887,9 +826,7 @@
       "indexes": {
         "verifications_identifier_idx": {
           "name": "verifications_identifier_idx",
-          "columns": [
-            "identifier"
-          ],
+          "columns": ["identifier"],
           "isUnique": false
         }
       },

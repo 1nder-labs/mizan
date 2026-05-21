@@ -14,13 +14,7 @@
  * `apps/worker/tsconfig.json`.
  */
 
-import {
-  index,
-  integer,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { users } from "./auth.schema.ts";
 
 /** Minimal placeholder — Phase 2 expands with extracted_claims, missing_docs, etc. */
@@ -81,20 +75,13 @@ export const briefs = sqliteTable(
       .references(() => cases.id, { onDelete: "cascade" }),
     run_id: text("run_id").notNull(),
     recommendation: text("recommendation", {
-      enum: [
-        "READY_FOR_REVIEW",
-        "REQUEST_DOCS",
-        "ESCALATE",
-        "BLOCK",
-      ] as const,
+      enum: ["READY_FOR_REVIEW", "REQUEST_DOCS", "ESCALATE", "BLOCK"] as const,
     }).notNull(),
     confidence: integer("confidence").notNull(),
     composed_at: integer("composed_at", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
-    payload_json: text("payload_json", { mode: "json" })
-      .$type<BriefPayload>()
-      .notNull(),
+    payload_json: text("payload_json", { mode: "json" }).$type<BriefPayload>().notNull(),
   },
   (table) => [
     index("briefs_case_id_idx").on(table.case_id),
@@ -122,9 +109,7 @@ export const signals = sqliteTable(
         "ocr_mismatch",
       ] as const,
     }).notNull(),
-    payload_json: text("payload_json", { mode: "json" })
-      .$type<SignalPayload>()
-      .notNull(),
+    payload_json: text("payload_json", { mode: "json" }).$type<SignalPayload>().notNull(),
     recorded_at: integer("recorded_at", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -146,13 +131,7 @@ export const reviewer_actions = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     action: text("action", {
-      enum: [
-        "APPROVE",
-        "ESCALATE",
-        "REQUEST_DOCS",
-        "BLOCK",
-        "OVERRIDE",
-      ] as const,
+      enum: ["APPROVE", "ESCALATE", "REQUEST_DOCS", "BLOCK", "OVERRIDE"] as const,
     }).notNull(),
     rationale: text("rationale").notNull(),
     acted_at: integer("acted_at", { mode: "timestamp_ms" })
@@ -194,7 +173,5 @@ export const workflow_events = sqliteTable(
       .notNull()
       .$defaultFn(() => new Date()),
   },
-  (table) => [
-    uniqueIndex("workflow_events_run_seq_idx").on(table.run_id, table.seq),
-  ],
+  (table) => [uniqueIndex("workflow_events_run_seq_idx").on(table.run_id, table.seq)],
 );

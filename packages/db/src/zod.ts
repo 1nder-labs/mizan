@@ -19,19 +19,9 @@
  * override is the correct pattern for full type-safety.
  */
 
-import {
-  createInsertSchema,
-  createSelectSchema,
-  createUpdateSchema,
-} from "drizzle-zod";
+import { createInsertSchema, createSelectSchema, createUpdateSchema } from "drizzle-zod";
 import { z } from "zod";
-import {
-  briefs,
-  cases,
-  reviewer_actions,
-  signals,
-  workflow_events,
-} from "./schema.ts";
+import { briefs, cases, reviewer_actions, signals, workflow_events } from "./schema.ts";
 
 const uuid = z.string().uuid();
 
@@ -81,13 +71,10 @@ export type UpdateSignal = z.infer<typeof updateSignalsSchema>;
 
 export const selectReviewerActionsSchema = createSelectSchema(reviewer_actions);
 
-export const insertReviewerActionsSchema = createInsertSchema(
-  reviewer_actions,
-  {
-    rationale: () => z.string().min(1).max(2000),
-    action_id: () => uuid,
-  },
-);
+export const insertReviewerActionsSchema = createInsertSchema(reviewer_actions, {
+  rationale: () => z.string().min(1).max(2000),
+  action_id: () => uuid,
+});
 
 export const updateReviewerActionsSchema = createUpdateSchema(reviewer_actions);
 
@@ -113,13 +100,7 @@ export type UpdateWorkflowEvent = z.infer<typeof updateWorkflowEventsSchema>;
  * action-payload is a subset: only the three fields a reviewer submits.
  */
 export const ReviewerActionSchema = z.object({
-  action: z.enum([
-    "APPROVE",
-    "ESCALATE",
-    "REQUEST_DOCS",
-    "BLOCK",
-    "OVERRIDE",
-  ]),
+  action: z.enum(["APPROVE", "ESCALATE", "REQUEST_DOCS", "BLOCK", "OVERRIDE"]),
   rationale: z.string().min(1).max(2000),
   action_id: uuid,
 });

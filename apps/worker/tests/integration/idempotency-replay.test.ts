@@ -1,0 +1,108 @@
+/**
+ * Integration test: idempotency replay on /api/admin/echo.
+ *
+ * Verifies that:
+ * 1. A POST with a new Idempotency-Key returns 200 with the echoed payload.
+ * 2. A second POST with the same key returns the SAME body (identical echoedAt)
+ *    and the `Idempotency-Replay: true` header.
+ * 3. A POST with a different key executes fresh — echoedAt differs.
+ *
+ * Admin user seeding: sign-up → DB UPDATE role → fresh sign-in (so KV session
+ * reflects the admin role — a stale reviewer session would yield 403).
+ */
+
+import { applyD1Migrations } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
+import { beforeAll, describe, expect, inject, it } from "vitest";
+
+const BASE = "http://localhost";
+
+/** Seeds an admin user: sign-up → DB promote → fresh sign-in → cookie. */
+async function seedAdmin(email: string, password: string): Promise<string> {
+  await exports.default.fetch(
+    new Request(`${BASE}/api/auth/sign-up/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, name: "Admin Echo" }),
+    }),
+  );
+  await env.DB.prepare("UPDATE users SET role = 'admin' WHERE email = ?").bind(email).run();
+  const signIn = await exports.default.fetch(
+    new Request(`${BASE}/api/auth/sign-in/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }),
+  );
+  return signIn.headers.getSetCookie().join("; ");
+}
+
+describe("idempotency replay on /api/admin/echo", () => {
+  const email = `echo-admin-${Date.now()}@test.local`;
+  const password = "CorrectHorse99!!";
+  const actionId = "550e8400-e29b-41d4-a716-446655440000";
+  const idempotencyKey1 = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+  const idempotencyKey2 = "b2c3d4e5-f6a7-8901-bcde-f01234567891";
+  let cookie = "";
+  let firstEchoedAt: unknown;
+
+  beforeAll(async () => {
+    await applyD1Migrations(env.DB, inject("migrations"));
+    cookie = await seedAdmin(email, password);
+  });
+
+  it("first request with key1 returns 200 and echo payload", async () => {
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/admin/echo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey1,
+          Cookie: cookie,
+        },
+        body: JSON.stringify({ message: "hello idempotency", action_id: actionId }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ message: "hello idempotency", action_id: actionId });
+    firstEchoedAt = (body as Record<string, unknown>).echoedAt;
+    expect(typeof firstEchoedAt).toBe("number");
+  });
+
+  it("second request with same key1 returns Idempotency-Replay:true and identical echoedAt", async () => {
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/admin/echo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey1,
+          Cookie: cookie,
+        },
+        body: JSON.stringify({ message: "hello idempotency", action_id: actionId }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Idempotency-Replay")).toBe("true");
+    const body = await res.json();
+    expect((body as Record<string, unknown>).echoedAt).toBe(firstEchoedAt);
+  });
+
+  it("request with different key2 executes fresh — no replay header", async () => {
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/admin/echo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey2,
+          Cookie: cookie,
+        },
+        body: JSON.stringify({ message: "hello idempotency", action_id: actionId }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Idempotency-Replay")).toBeNull();
+    const body = await res.json();
+    expect(body).toMatchObject({ message: "hello idempotency", action_id: actionId });
+  });
+});

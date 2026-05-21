@@ -26,12 +26,7 @@ export const adminRoutes = new Hono<{
 }>()
   .use("*", requireRole("admin"))
   .get("/ping", (c) => c.json({ ok: true }))
-  .post(
-    "/echo",
-    idempotencyKey,
-    zValidator("json", EchoSchema),
-    (c) => {
-      const { message, action_id } = c.req.valid("json");
-      return c.json({ message, action_id, echoedAt: Date.now() });
-    },
-  );
+  .post("/echo", idempotencyKey, zValidator("json", EchoSchema), (c) => {
+    const { message, action_id } = c.req.valid("json");
+    return c.json({ message, action_id, echoedAt: Date.now() });
+  });
