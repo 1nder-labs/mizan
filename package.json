@@ -26,7 +26,7 @@
     "db:generate": "bun --filter @mizan/db generate",
     "db:migrate:local": "bun --filter @mizan/worker exec wrangler d1 migrations apply DB --local",
     "db:migrate:prod": "bun --filter @mizan/worker exec wrangler d1 migrations apply DB --remote",
-    "auth:generate": "bun --filter @mizan/db exec @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y"
+    "auth:generate": "bun --filter @mizan/db auth:generate"
   },
   "devDependencies": {
     "@socketsecurity/bun-security-scanner": "1.1.2",

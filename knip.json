@@ -27,7 +27,6 @@
     },
     "packages/db": {
       "ignoreDependencies": [
-        "@better-auth/cli",
         "better-auth",
         "drizzle-zod",
         "zod"

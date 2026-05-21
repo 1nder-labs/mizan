@@ -5,6 +5,7 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
+    "auth:generate": "bunx @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y",
     "generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
