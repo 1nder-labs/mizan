@@ -24,8 +24,8 @@
     "eval": "bun --filter @mizan/eval eval",
     "deploy": "bun --filter @mizan/worker deploy",
     "db:generate": "bun --filter @mizan/db generate",
-    "db:migrate:local": "bun --filter @mizan/worker exec wrangler d1 migrations apply DB --local",
-    "db:migrate:prod": "bun --filter @mizan/worker exec wrangler d1 migrations apply DB --remote",
+    "db:migrate:local": "bun --filter @mizan/worker db:migrate:local",
+    "db:migrate:prod": "bun --filter @mizan/worker db:migrate:prod",
     "auth:generate": "bun --filter @mizan/db auth:generate"
   },
   "devDependencies": {
