@@ -1,11 +1,11 @@
 /**
  * Domain schema for Mizan: the five core tables that drive campaign review.
  *
- * FK deferral note: `cases.created_by` and `reviewer_actions.reviewer_id`
- * are plain `text().notNull()` columns in this file. U6 wraps them with
- * `.references(() => users.id, { onDelete: "restrict" })` after
- * `auth.schema.ts` is generated and the merged barrel composes both schemas.
- * All other foreign keys are declared here with their cascade/restrict strategy.
+ * All foreign keys are now declared. `cases.created_by` and
+ * `reviewer_actions.reviewer_id` reference `users.id` from `auth.schema.ts`
+ * with `onDelete: "restrict"` — a reviewer action or case must not be deleted
+ * when the owning user is removed. All other FK cascade/restrict strategies
+ * follow the same principle.
  *
  * `$defaultFn(() => crypto.randomUUID())` runs at insert time inside the
  * Cloudflare Worker, which exposes the Web Crypto API globally. The
@@ -21,6 +21,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+import { users } from "./auth.schema.ts";
 
 /** Minimal placeholder — Phase 2 expands with extracted_claims, missing_docs, etc. */
 type BriefPayload = Record<string, unknown>;
@@ -59,7 +60,9 @@ export const cases = sqliteTable(
     updated_at: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
-    created_by: text("created_by").notNull(),
+    created_by: text("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
   },
   (table) => [
     index("cases_status_updated_idx").on(table.status, table.updated_at),
@@ -139,7 +142,9 @@ export const reviewer_actions = sqliteTable(
       .notNull()
       .references(() => cases.id, { onDelete: "restrict" }),
     run_id: text("run_id").notNull(),
-    reviewer_id: text("reviewer_id").notNull(),
+    reviewer_id: text("reviewer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
     action: text("action", {
       enum: [
         "APPROVE",
