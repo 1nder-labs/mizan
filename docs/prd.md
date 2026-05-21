@@ -482,6 +482,7 @@ _Other:_
   - Queries Vectorize for top-K matching clauses
   - Returns structured `policy_matches[]` with `clauseId`, `excerpt`, `relevance_score`
 - Updated `composeBrief` step to include cited clause IDs in `recommendation_rationale` + `policy_citations[]`
+- **Test runtime migration — vitest → `bun test` for unit tests.** Phase 2 split tests into `unit` (no workerd) + `integration` (cloudflare vitest pool). Pool's per-file workerd boot + Mastra-graph recompile cost ~13 min in CI for 5 integration files. Phase 3 finishes the swap: ALL `apps/worker/tests/unit/**`, `packages/*/tests/**`, and any future unit/zod-shape tests migrate from `vitest` to `bun test` (built-in, native TS, <100 ms cold-start, no Vite compile). Integration tests stay on vitest ONLY because `@cloudflare/vitest-pool-workers` is vendor-locked to vitest. Delete `vitest`, `@vitest/*`, and `vitest/config` imports + dependencies wherever the unit migration completes them. Run gate: grep `apps/web apps/worker/tests/unit packages/*/tests/unit -rE "from \"vitest\"|@vitest"` returns nothing post-migration. Update `package.json` `test` scripts to `bun test`. Document the bun-vs-vitest matcher diffs the migration hit in `docs/solutions/`.
 
 **Out of scope:** Trust signals (Phase 4), queue (Phase 5), UI (Phase 6), HITL (Phase 7), observability (Phase 8), eval (Phase 9).
 
@@ -1605,7 +1606,9 @@ Reviewer actions promote to eval cases with key `(caseId, runId)`. Re-running th
 
 The demo's eval is small but the test suite is comprehensive. Every layer of the stack is tested. CI runs all tests on push (no cron — just on PR / push).
 
-### Unit tests (Vitest, no Workers runtime)
+**Runtime split (post-Phase 3 target):** unit tests run on `bun test` (built-in, native TS, <100 ms cold-start, no Vite compile cost). Integration tests stay on `vitest` ONLY because `@cloudflare/vitest-pool-workers` is vendor-locked to vitest and there is no equivalent workerd-in-test harness yet. Phase 3's "test runtime migration" In-Scope bullet completes the swap: every `vitest` import + dep is removed everywhere except integration tests that drive workerd through the cloudflare pool. Grep gate enforces no `vitest` imports outside `apps/worker/tests/integration/` after Phase 3 ships.
+
+### Unit tests (Bun test, no Workers runtime — post-Phase 3 migration target)
 
 - **Zod schemas** — every doc-extraction schema rejects bad inputs and accepts good ones; numeric clamping helpers tested
 - **LLM provider factory** — `getModel({provider, model})` returns correct provider implementation; env-var override path works
@@ -1614,7 +1617,9 @@ The demo's eval is small but the test suite is comprehensive. Every layer of the
 - **Drafted-message templates** — name the specific missing items per policy; assert against expected output strings
 - **D1 query layer** — drizzle queries tested against in-memory SQLite (`better-sqlite3` for tests)
 
-### Integration tests (Vitest + Miniflare — real Workers runtime, real bindings)
+### Integration tests (Vitest + `@cloudflare/vitest-pool-workers` — real Workers runtime, real bindings)
+
+> Vitest is retained ONLY here because the cloudflare pool requires it. All other test layers move to `bun test` per Phase 3's "test runtime migration".
 
 - **Mastra workflow end-to-end** — run the brief workflow against Miniflare with D1 + R2 + Vectorize bindings; mock the LLM provider with deterministic canned responses; assert the final brief shape
 - **HITL suspend/resume** — start a workflow, suspend at HITL gate, persist to D1, simulate reviewer action, resume, assert final state
