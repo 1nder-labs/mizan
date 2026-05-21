@@ -6,9 +6,10 @@
  * a controlled `auth` variable, followed by `requireRole`. This keeps the
  * test hermetic — no D1/KV bindings required.
  *
- * The `fakeAuthMiddleware` uses an untyped `c.set` call (allowed in test
- * files via the `.oxlintrc.json` `no-explicit-any` override) to avoid
- * requiring an `as` cast that would violate `consistent-type-assertions`.
+ * `fakeAuthMiddleware` is typed with its own `Variables` generic where `auth`
+ * is typed as `typeof fakeAuth`. Hono erases middleware generics at composition
+ * time, so `c.set("auth", fakeAuth)` type-checks against the middleware's local
+ * Variables without needing any cast on the app-level type.
  *
  * Test structure:
  * - No session    → 401 JSON `{ error: "Unauthorized" }`
@@ -37,14 +38,16 @@ const fakeAuth = {
 
 /**
  * Pre-middleware that injects `fakeAuth` into `c.var.auth` before `requireRole`
- * runs. Using an untyped `c.set("auth", ...)` here avoids an `as` cast —
- * `no-explicit-any` is permitted in test files so the generic escape is safe.
+ * runs. Typed with its own Variables generic so `c.set("auth", fakeAuth)`
+ * type-checks against `typeof fakeAuth` without any cast. Hono erases the
+ * middleware generic at composition time — the app-level type is unaffected.
  */
-const fakeAuthMiddleware = createMiddleware(async (c, next) => {
-  // any is permitted in test files; avoids an `as` cast on the full auth type
-  (c as any).set("auth", fakeAuth);
-  await next();
-});
+const fakeAuthMiddleware = createMiddleware<{ Variables: { auth: typeof fakeAuth } }>(
+  async (c, next) => {
+    c.set("auth", fakeAuth);
+    await next();
+  },
+);
 
 /** Tiny Hono app: fake-auth pre-middleware → requireRole(role) → probe handler. */
 function makeApp(role: Role) {

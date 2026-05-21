@@ -9,7 +9,7 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:prod": "wrangler d1 migrations apply DB --remote",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.6.9",

@@ -53,5 +53,15 @@ export default defineProject({
      * cloudflare-pool runner" errors.
      */
     maxWorkers: 2,
+    /**
+     * Enable vitest typecheck so `expectTypeOf` assertions in schema-shape
+     * tests are enforced at compile time, not silently passed at runtime.
+     * Without this, a wrong `toEqualTypeOf<string>()` on a `Date` field would
+     * pass the test suite despite being incorrect.
+     */
+    typecheck: {
+      enabled: true,
+      tsconfig: "./tests/tsconfig.json",
+    },
   },
 });

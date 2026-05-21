@@ -12,9 +12,22 @@
 
 import path from "node:path";
 import { readD1Migrations } from "@cloudflare/vitest-pool-workers";
-import type { GlobalSetupContext } from "vitest/node";
+import type { ProvidedContext } from "vitest";
 
-export default async function setup({ provide }: GlobalSetupContext): Promise<void> {
+/**
+ * Vitest 4 does not export a `GlobalSetupContext` type. The runtime shape of
+ * the first argument is `{ provide, name, config }` — only `provide` is used
+ * here. `provide` is typed against the project-wide `ProvidedContext`
+ * interface declared in `tests/setup/d1-types.d.ts`.
+ */
+interface SetupContext {
+  readonly provide: <K extends keyof ProvidedContext>(
+    key: K,
+    value: ProvidedContext[K],
+  ) => void;
+}
+
+export default async function setup({ provide }: SetupContext): Promise<void> {
   const migrationsPath = path.resolve(import.meta.dirname, "../../../../packages/db/migrations");
   const migrations = await readD1Migrations(migrationsPath);
   provide("migrations", migrations);

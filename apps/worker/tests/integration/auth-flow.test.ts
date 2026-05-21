@@ -69,9 +69,9 @@ describe("auth flow", () => {
       user: {
         email,
         role: "reviewer",
+        id: expect.any(String),
       },
     });
-    expect(typeof (body as Record<string, { id: string }>).user.id).toBe("string");
   });
 
   it("sign-out returns 200", async () => {

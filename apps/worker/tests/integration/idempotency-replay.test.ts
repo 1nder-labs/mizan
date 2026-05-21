@@ -14,6 +14,14 @@
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, inject, it } from "vitest";
+import { z } from "zod";
+
+/** Response schema for /api/admin/echo — used to safely parse res.json(). */
+const EchoResponseSchema = z.object({
+  message: z.string(),
+  action_id: z.string(),
+  echoedAt: z.number(),
+});
 
 const BASE = "http://localhost";
 
@@ -44,7 +52,7 @@ describe("idempotency replay on /api/admin/echo", () => {
   const idempotencyKey1 = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
   const idempotencyKey2 = "b2c3d4e5-f6a7-8901-bcde-f01234567891";
   let cookie = "";
-  let firstEchoedAt: unknown;
+  let firstEchoedAt = 0;
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
@@ -64,9 +72,9 @@ describe("idempotency replay on /api/admin/echo", () => {
       }),
     );
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = EchoResponseSchema.parse(await res.json());
     expect(body).toMatchObject({ message: "hello idempotency", action_id: actionId });
-    firstEchoedAt = (body as Record<string, unknown>).echoedAt;
+    firstEchoedAt = body.echoedAt;
     expect(typeof firstEchoedAt).toBe("number");
   });
 
@@ -84,8 +92,8 @@ describe("idempotency replay on /api/admin/echo", () => {
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("Idempotency-Replay")).toBe("true");
-    const body = await res.json();
-    expect((body as Record<string, unknown>).echoedAt).toBe(firstEchoedAt);
+    const body = EchoResponseSchema.parse(await res.json());
+    expect(body.echoedAt).toBe(firstEchoedAt);
   });
 
   it("request with different key2 executes fresh — no replay header", async () => {
