@@ -48,9 +48,9 @@ async function seedAdmin(email: string, password: string): Promise<string> {
 describe("idempotency replay on /api/admin/echo", () => {
   const email = `echo-admin-${Date.now()}@test.local`;
   const password = "CorrectHorse99!!";
-  const actionId = "550e8400-e29b-41d4-a716-446655440000";
-  const idempotencyKey1 = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
-  const idempotencyKey2 = "b2c3d4e5-f6a7-8901-bcde-f01234567891";
+  const actionId = crypto.randomUUID();
+  const idempotencyKey1 = crypto.randomUUID();
+  const idempotencyKey2 = crypto.randomUUID();
   let cookie = "";
   let firstEchoedAt = 0;
 
