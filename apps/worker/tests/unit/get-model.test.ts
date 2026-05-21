@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { getModel } from "@mizan/mastra";
 import type { CloudflareBindings } from "../../src/env.ts";
 

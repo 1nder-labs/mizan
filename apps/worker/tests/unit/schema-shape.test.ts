@@ -10,7 +10,8 @@
  * assertions at compile time.
  */
 
-import { describe, expectTypeOf, it } from "vitest";
+import { describe, it } from "bun:test";
+import { expectTypeOf } from "expect-type";
 import type { Brief, Case, ReviewerAction, Signal } from "@mizan/db";
 
 describe("Case schema shape", () => {

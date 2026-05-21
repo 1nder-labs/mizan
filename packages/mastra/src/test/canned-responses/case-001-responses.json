@@ -42,6 +42,20 @@
     "extracted_claims": {
       "summary": "Documentary evidence reviewed"
     },
-    "confidence": 82
+    "confidence": 82,
+    "policy_citations": [
+      {
+        "clauseId": "zakat.5.1",
+        "source": "zakat",
+        "excerpt": "Medical campaigns: Medical Zakat campaigns must demonstrate that funds benefit an eligible Muslim recipient.",
+        "relevance": 0.91
+      },
+      {
+        "clauseId": "zakat.7.2",
+        "source": "zakat",
+        "excerpt": "Direct disbursement claims: When a campaign claims that all funds go directly to a hospital, reviewers must confirm disbursement.",
+        "relevance": 0.88
+      }
+    ]
   }
 }

@@ -328,3 +328,60 @@ should match.
 | 6   | Same key replay                                                                                                                                                 | 200 + `Idempotency-Replay: true` header + identical body                                   | KV hit; handler not re-invoked                                                |
 | 7   | Reviewer cookie + `curl $BASE/api/admin/ping`                                                                                                                   | 403, `{error: "Forbidden"}`                                                                | role-gate denies non-admin                                                    |
 | 8   | No cookie + `curl $BASE/api/me`                                                                                                                                 | 401, `{error: "Unauthorized"}`                                                             | session lookup fails fast                                                     |
+
+## Phase 3 delta (2026-05-21)
+
+### Dep additions vs Phase 2
+
+| Workspace        | Dep           | Version  | Notes                                              |
+| ---------------- | ------------- | -------- | -------------------------------------------------- |
+| `apps/worker`    | `expect-type` | 1.3.0    | devDep; replaces vitest's `expectTypeOf` re-export |
+| `apps/worker`    | `@types/bun`  | 1.3.13   | devDep; bun:test types for unit tests              |
+| `apps/web`       | `@types/bun`  | 1.3.13   | devDep; bun:test types for web unit test           |
+| `packages/mastra`| `@mastra/rag` | 2.2.1    | corpus chunking via `MDocument`                    |
+
+### Dep removals vs Phase 2
+
+| Workspace  | Dep        | Reason                              |
+| ---------- | ---------- | ----------------------------------- |
+| `apps/web` | `vitest`   | replaced by bun test                |
+| `apps/web` | `happy-dom`| not used by remaining web tests     |
+
+### CVE re-surfacing + overrides
+
+- No new HIGH CVE surfaced (`expect-type` and `@mastra/rag` add no new audit failures).
+- Post-install `bun audit --audit-level=high` exits 0.
+
+### Tracked upstream type skew
+
+- No new `@ts-expect-error` markers. Phase 1's single marker on `apps/worker/src/auth/index.ts` is untouched.
+- `@mastra/rag@2.2.1` required over brainstorm-pinned `1.3.6` — peer dep mismatch with `@mastra/core@1.32.1`.
+
+### Test infrastructure split
+
+- Worker unit tests + web tests: `bun test` (native).
+- Worker integration tests + eval smoke: vitest + `@cloudflare/vitest-pool-workers` (vendor-locked).
+- Pre-push lefthook `vitest-import-gate` enforces the split.
+- `apps/worker/vitest.config.ts` keeps a single `integration` project (cloudflareTest plugin must live inside `test.projects[]`).
+
+### Policy RAG infrastructure
+
+| Resource / artifact | Detail |
+| ------------------- | ------ |
+| Vectorize index     | `mizan-policy-corpus` — dim=1536, metric=cosine |
+| Metadata index      | `source` field indexed for zakat/safety filtering |
+| Corpus files        | `packages/mastra/src/corpus/zakat-policy.json`, `safety-policy.json` |
+| Ingestion           | `bun run embed-corpus` → `scripts/embed-corpus.ts` |
+| Workflow step       | `matchPolicy` between extractors and `composeBrief` |
+
+### Curl-driven Phase 3 acceptance (manual — integration tests local-only)
+
+| # | Step | Expected | Notes |
+| - | --- | --- | --- |
+| 1 | `wrangler vectorize info mizan-policy-corpus` | dim=1536, metric=cosine, source metadata index present | U1 |
+| 2 | `MOCK_LLM_RESPONSES=1 bun run embed-corpus -- --dry-run` | exit 0; reports upserted count > 0 | U4 (no OpenAI key needed with mock) |
+| 3 | `bun run embed-corpus` (with `OPENAI_API_KEY`) | exit 0; vectorsCount > 0 | U4 production path |
+| 4 | Admin POST `/api/cases/case-001/brief` | 200 SSE; `policy_citations.length >= 2`; clauseIds in corpus | U6 + U7 |
+| 5 | `bun --filter @mizan/worker test:integration` | exit 0; `policy-rag.test.ts` passes | U8 — slow; run locally |
+| 6 | `grep -rE 'from \"vitest\"' apps/web/src apps/worker/tests/unit` | zero matches | U10 |
+| 7 | `lefthook run pre-push` | exit 0 on clean branch | U11 |

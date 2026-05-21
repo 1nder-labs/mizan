@@ -4,7 +4,7 @@
   "ignoreExportsUsedInFile": true,
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.ts"],
+      "entry": ["scripts/*.ts", "scripts/lib/*.ts"],
       "ignoreDependencies": ["@socketsecurity/bun-security-scanner", "zod", "@mizan/mastra"]
     },
     "apps/worker": {

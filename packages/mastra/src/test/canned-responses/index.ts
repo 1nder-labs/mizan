@@ -24,9 +24,44 @@ const BASE_BANK = {
   confidence: 80,
 };
 
+const DEFAULT_ZAKAT_CITATIONS: BriefPayload["policy_citations"] = [
+  {
+    clauseId: "zakat.5.1",
+    source: "zakat",
+    excerpt:
+      "Medical campaigns: Medical Zakat campaigns must demonstrate that funds benefit an eligible Muslim recipient.",
+    relevance: 0.91,
+  },
+  {
+    clauseId: "zakat.7.2",
+    source: "zakat",
+    excerpt:
+      "Direct disbursement claims: When a campaign claims that all funds go directly to a hospital, reviewers must confirm disbursement.",
+    relevance: 0.88,
+  },
+];
+
+const DEFAULT_SAFETY_CITATIONS: BriefPayload["policy_citations"] = [
+  {
+    clauseId: "safety.2.1",
+    source: "safety",
+    excerpt:
+      "Manual reviews: Every campaign is manually reviewed to ensure it follows LaunchGood website guidelines.",
+    relevance: 0.9,
+  },
+  {
+    clauseId: "safety.4.1",
+    source: "safety",
+    excerpt:
+      "Organizer identity verification: Organizers must provide government-issued identification where required.",
+    relevance: 0.86,
+  },
+];
+
 function briefPayload(
   recommendation: BriefPayload["recommendation"],
   confidence: number,
+  policyCitations: BriefPayload["policy_citations"] = DEFAULT_ZAKAT_CITATIONS,
 ): BriefPayload {
   return {
     recommendation,
@@ -34,6 +69,7 @@ function briefPayload(
     reviewer_questions: [],
     extracted_claims: { summary: "Documentary evidence reviewed" },
     confidence,
+    policy_citations: policyCitations,
   };
 }
 
@@ -95,7 +131,7 @@ export function case002Responses(): Record<string, unknown> {
       ],
       confidence: 84,
     },
-    "composeBrief.compose": briefPayload("READY_FOR_REVIEW", 80),
+    "composeBrief.compose": briefPayload("READY_FOR_REVIEW", 80, DEFAULT_ZAKAT_CITATIONS),
   };
 }
 
@@ -135,6 +171,7 @@ export function case003Responses(): Record<string, unknown> {
       missing_docs: [
         { docType: "tax_exempt_certificate", reason: "501(c)(3) equivalent not provided" },
       ],
+      policy_citations: DEFAULT_SAFETY_CITATIONS,
     },
   };
 }
@@ -176,6 +213,7 @@ export function case004Responses(): Record<string, unknown> {
     "composeBrief.compose": {
       ...briefPayload("REQUEST_DOCS", 48),
       missing_docs: [{ docType: "bank_statement", reason: "Statement period incomplete" }],
+      policy_citations: DEFAULT_ZAKAT_CITATIONS,
     },
   };
 }
@@ -211,7 +249,7 @@ export function case005Responses(): Record<string, unknown> {
       ],
       confidence: 40,
     },
-    "composeBrief.compose": briefPayload("ESCALATE", 45),
+    "composeBrief.compose": briefPayload("ESCALATE", 45, DEFAULT_SAFETY_CITATIONS),
   };
 }
 

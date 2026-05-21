@@ -21,8 +21,11 @@ import { buildLangfuseExporter, LangfuseExporter } from "./observability/langfus
 import { briefWorkflow } from "./workflows/brief.workflow.ts";
 
 export type { BriefStreamPart } from "./schemas/stream.ts";
-export type { BriefPayload } from "./schemas/brief.ts";
-export { BriefPayloadSchema } from "./schemas/brief.ts";
+export type { BriefPayload, PolicyCitation } from "./schemas/brief.ts";
+export { BriefPayloadSchema, PolicyCitationSchema } from "./schemas/brief.ts";
+export { CorpusSchema, ClauseSchema, type Corpus, type Clause } from "./schemas/corpus.ts";
+export { allCorpusClauseIds, loadPolicyCorpora } from "./corpus/load.ts";
+export { chunkCorpusRecords, type ChunkRecord } from "./corpus/chunk.ts";
 export { CaseOverlaySchema } from "./schemas/case-overlay.ts";
 export type { CaseOverlay } from "./schemas/case-overlay.ts";
 export { CreatorIdSchema } from "./schemas/extractions/creator-id.ts";
@@ -35,6 +38,11 @@ export {
 export { getEnv, getCtx, MIZAN_ENV_KEY } from "./runtime/context-accessors.ts";
 export { makeTelemetry } from "./runtime/telemetry.ts";
 export { getModel, type ModelConfig, type LlmProvider } from "./models/factory.ts";
+export {
+  getEmbeddingModel,
+  embedPolicyText,
+  embedPolicyTexts,
+} from "./models/embedding-factory.ts";
 export { mockProvider, parseMockResponseMap } from "./test/mock-provider.ts";
 export {
   case001Responses,

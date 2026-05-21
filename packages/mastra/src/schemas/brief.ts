@@ -14,12 +14,24 @@ export const ReviewerQuestionSchema = z.object({
   suggestedAnswer: z.string().nullable(),
 });
 
+/** Single citation referencing a clause in `mizan-policy-corpus`. */
+export const PolicyCitationSchema = z.object({
+  clauseId: z.string(),
+  source: z.enum(["zakat", "safety"]),
+  excerpt: z.string(),
+  relevance: z.number(),
+});
+
+export type PolicyCitation = z.infer<typeof PolicyCitationSchema>;
+
+/** Reviewer brief payload — Phase 3 adds additive `policy_citations`. */
 export const BriefPayloadSchema = z.object({
   recommendation: RecommendationEnum,
   missing_docs: z.array(MissingDocSchema),
   reviewer_questions: z.array(ReviewerQuestionSchema),
   extracted_claims: JsonRecordSchema,
   confidence: z.number(),
+  policy_citations: PolicyCitationSchema.array(),
 });
 
 export type BriefPayload = z.infer<typeof BriefPayloadSchema>;
@@ -33,6 +45,7 @@ export const PartialBriefStateSchema = z.object({
     })
     .optional(),
   extractions: ExtractionsSchema.optional(),
+  policy_matches: PolicyCitationSchema.array().optional(),
   brief: BriefPayloadSchema.optional(),
 });
 

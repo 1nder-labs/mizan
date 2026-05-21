@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { clampInt, ensureUuid } from "@mizan/shared";
 
 describe("clampInt", () => {

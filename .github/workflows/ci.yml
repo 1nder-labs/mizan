@@ -54,7 +54,7 @@ jobs:
         run: bun run knip
 
       - name: Test (unit — fast, no workerd)
-        run: bun --filter '*' test -- --reporter=junit --outputFile=test-results.junit.xml
+        run: bun --filter '*' test -- --reporter=junit --reporter-outfile=test-results.junit.xml
 
       # Integration tests are run LOCALLY via `bun --filter @mizan/worker test:integration`.
       # Not in CI: cloudflare-vitest-pool-workers spins one workerd per test

@@ -3,7 +3,7 @@
  * Validates provider factory + generateObject against live API (~$0.001/call).
  */
 
-import { getModel } from "@mizan/mastra";
+import { BriefPayloadSchema, case001Responses, getModel } from "@mizan/mastra";
 import type { CloudflareBindings } from "@mizan/worker/env";
 import { generateObject } from "ai";
 import { describe, expect, it } from "vitest";
@@ -45,4 +45,11 @@ describe("smoke-001 eval", () => {
     },
     60_000,
   );
+
+  it("case-001 canned brief satisfies policy citation contract", () => {
+    const compose = case001Responses()["composeBrief.compose"];
+    const brief = BriefPayloadSchema.parse(compose);
+    expect(brief.policy_citations.length).toBeGreaterThanOrEqual(2);
+    expect(brief.policy_citations.every((citation) => citation.clauseId.length > 0)).toBe(true);
+  });
 });
