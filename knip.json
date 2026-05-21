@@ -8,20 +8,10 @@
     "apps/worker": {
       "entry": ["tests/**/*.test.ts"],
       "ignore": [
-        "src/auth/index.ts",
-        "src/middleware/auth-init.ts",
-        "src/middleware/require-role.ts",
-        "src/middleware/idempotency-key.ts"
+        "src/auth/index.ts"
       ],
       "ignoreDependencies": [
-        "cloudflare",
-        "@better-auth/drizzle-adapter",
-        "@hono/zod-validator",
-        "@mizan/db",
-        "better-auth",
-        "better-auth-cloudflare",
-        "drizzle-orm",
-        "zod"
+        "cloudflare"
       ]
     },
     "apps/web": {
