@@ -22,7 +22,7 @@ const STABLE_IP = "203.0.113.42";
 describe("sign-in rate limit", () => {
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-  });
+  }, 60_000);
 
   it("returns at least one 429 after repeated failed sign-in attempts", async () => {
     const results: number[] = [];

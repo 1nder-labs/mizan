@@ -57,7 +57,7 @@ describe("idempotency replay on /api/admin/echo", () => {
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
     cookie = await seedAdmin(email, password);
-  });
+  }, 60_000);
 
   it("first request with key1 returns 200 and echo payload", async () => {
     const res = await exports.default.fetch(

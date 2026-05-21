@@ -48,7 +48,7 @@ describe("role gating", () => {
     reviewerCookie = await seedAndSignIn(email, password);
     await env.DB.prepare("UPDATE users SET role = 'admin' WHERE email = ?").bind(email).run();
     adminCookie = await seedAndSignIn(email, password);
-  });
+  }, 60_000);
 
   it("reviewer cannot access /api/admin/ping (403)", async () => {
     const res = await exports.default.fetch(

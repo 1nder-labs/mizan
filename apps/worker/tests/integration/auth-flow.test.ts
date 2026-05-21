@@ -31,7 +31,7 @@ describe("auth flow", () => {
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-  });
+  }, 60_000);
 
   it("sign-up returns 200 (no session cookie — autoSignIn: false)", async () => {
     const res = await exports.default.fetch(
