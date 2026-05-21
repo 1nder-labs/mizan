@@ -17,6 +17,7 @@ import type { CloudflareBindings } from "./env.ts";
 import { authInit, type AuthVariables } from "./middleware/auth-init.ts";
 import { adminRoutes } from "./routes/admin.ts";
 import { authRoutes } from "./routes/auth.ts";
+import { caseRoutes } from "./routes/cases.ts";
 import { meRoutes } from "./routes/me.ts";
 
 const BINDING_NAMES = ["DB", "R2_BUCKET", "VECTORIZE", "KV", "BRIEF_QUEUE", "ASSETS"] as const;
@@ -32,7 +33,8 @@ const app = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables }>
   )
   .route("/api/auth", authRoutes)
   .route("/api/me", meRoutes)
-  .route("/api/admin", adminRoutes);
+  .route("/api/admin", adminRoutes)
+  .route("/api/cases", caseRoutes);
 
 export type AppType = typeof app;
 export default app;

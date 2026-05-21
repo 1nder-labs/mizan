@@ -5,11 +5,15 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "eval": "vitest run",
+    "eval": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
+    "@mizan/mastra": "workspace:*",
+    "@mizan/worker": "workspace:*",
+    "ai": "6.0.175",
     "typescript": "6.0.3",
-    "vitest": "4.1.5"
+    "vitest": "4.1.5",
+    "zod": "4.4.3"
   }
 }

@@ -27,6 +27,8 @@
     "db:migrate:local": "bun --filter @mizan/worker db:migrate:local",
     "db:migrate:prod": "bun --filter @mizan/worker db:migrate:prod",
     "db:seed": "bun scripts/seed-users.ts",
+    "db:seed:cases": "bun scripts/seed-cases.ts",
+    "db:seed:r2": "bun scripts/seed-r2-fixtures.ts",
     "auth:generate": "bun --filter @mizan/db auth:generate"
   },
   "devDependencies": {

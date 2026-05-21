@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@better-auth/cli": "1.4.22",
+    "@mizan/mastra": "workspace:*",
     "better-auth": "1.6.9",
     "drizzle-kit": "0.31.10",
     "typescript": "6.0.3"

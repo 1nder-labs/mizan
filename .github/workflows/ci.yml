@@ -53,13 +53,20 @@ jobs:
       - name: Dead-code check (knip)
         run: bun run knip
 
-      - name: Test (vitest + miniflare)
+      - name: Test (unit — fast, no workerd)
         run: bun --filter '*' test -- --reporter=junit --outputFile=test-results.junit.xml
+
+      # Integration tests are run LOCALLY via `bun --filter @mizan/worker test:integration`.
+      # Not in CI: cloudflare-vitest-pool-workers spins one workerd per test
+      # file + recompiles the full Mastra + Langfuse + AI SDK graph each boot,
+      # adding ~13 min for 5 files with no caching benefit. Re-enable once
+      # the pool supports cross-file workerd reuse or we move to a faster
+      # local-runtime test harness.
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: "**/test-results.junit.xml"
+          path: "**/test-results*.junit.xml"
           retention-days: 14

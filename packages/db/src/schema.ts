@@ -17,8 +17,10 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { users } from "./auth.schema.ts";
 
-/** Minimal placeholder — Phase 2 expands with extracted_claims, missing_docs, etc. */
-type BriefPayload = Record<string, unknown>;
+/**
+ * Forward-declared placeholder replaced by import from `@mizan/mastra` once schemas land.
+ */
+import type { BriefPayload, CaseOverlay } from "@mizan/mastra";
 
 /** Minimal placeholder — Phase 2 expands with signal-specific evidence fields. */
 type SignalPayload = Record<string, unknown>;
@@ -47,7 +49,7 @@ export const cases = sqliteTable(
     current_run_id: text("current_run_id"),
     brief_partial_json: text("brief_partial_json", {
       mode: "json",
-    }).$type<Record<string, unknown>>(),
+    }).$type<CaseOverlay | null>(),
     created_at: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
