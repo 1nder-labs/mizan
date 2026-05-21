@@ -21,8 +21,6 @@ import type { CloudflareBindings } from "../env.ts";
 import type { AuthVariables } from "./auth-init.ts";
 import { extractRole, type Role } from "./role-utils.ts";
 
-export type { Role };
-
 /** Extends AuthVariables with the resolved user identity after role check. */
 export type RoleVariables = AuthVariables & {
   user: { id: string; role: Role };

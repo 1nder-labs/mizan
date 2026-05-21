@@ -24,9 +24,23 @@ interface SeedUser {
   readonly role: Role;
 }
 
+/**
+ * Passwords default to documented dev-only literals so a fresh clone runs
+ * `bun run db:seed` without setup. Override via environment for any non-local
+ * use:
+ *
+ *   MIZAN_SEED_REVIEWER_PASSWORD=... MIZAN_SEED_ADMIN_PASSWORD=... bun run db:seed
+ *
+ * Production seeding is owned by the Phase 10 flow with `wrangler
+ * secret`-sourced credentials; this script must never be run against a
+ * production environment.
+ */
+const REVIEWER_PASSWORD = process.env["MIZAN_SEED_REVIEWER_PASSWORD"] ?? "reviewer-dev-only-12345";
+const ADMIN_PASSWORD = process.env["MIZAN_SEED_ADMIN_PASSWORD"] ?? "admin-dev-only-12345";
+
 const USERS: ReadonlyArray<SeedUser> = [
-  { email: "reviewer@mizan.test", password: "reviewer-dev-only-12345", role: "reviewer" },
-  { email: "admin@mizan.test", password: "admin-dev-only-12345", role: "admin" },
+  { email: "reviewer@mizan.test", password: REVIEWER_PASSWORD, role: "reviewer" },
+  { email: "admin@mizan.test", password: ADMIN_PASSWORD, role: "admin" },
 ];
 
 async function signUp(user: SeedUser): Promise<void> {

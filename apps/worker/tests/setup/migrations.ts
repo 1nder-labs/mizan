@@ -21,10 +21,7 @@ import type { ProvidedContext } from "vitest";
  * interface declared in `tests/setup/d1-types.d.ts`.
  */
 interface SetupContext {
-  readonly provide: <K extends keyof ProvidedContext>(
-    key: K,
-    value: ProvidedContext[K],
-  ) => void;
+  readonly provide: <K extends keyof ProvidedContext>(key: K, value: ProvidedContext[K]) => void;
 }
 
 export default async function setup({ provide }: SetupContext): Promise<void> {

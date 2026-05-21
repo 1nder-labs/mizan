@@ -153,4 +153,69 @@ describe("idempotencyKey middleware", () => {
     expect(handler).toHaveBeenCalledOnce();
     expect(kv.put).not.toHaveBeenCalled();
   });
+
+  it("non-2xx response (4xx validation error): NOT cached per PRD §7.10", async () => {
+    kv.get.mockResolvedValueOnce(null);
+    kv.put.mockResolvedValue(undefined);
+    const handler = vi.fn(
+      () =>
+        new Response(JSON.stringify({ error: "bad input" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const { fetch } = makeApp(kv, handler);
+    const res = await fetch(
+      new Request("http://localhost/test", {
+        method: "POST",
+        headers: { "Idempotency-Key": "key-400-abc" },
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(kv.put).not.toHaveBeenCalled();
+  });
+
+  it("non-2xx response (5xx server error): NOT cached", async () => {
+    kv.get.mockResolvedValueOnce(null);
+    kv.put.mockResolvedValue(undefined);
+    const handler = vi.fn(
+      () =>
+        new Response(JSON.stringify({ error: "boom" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const { fetch } = makeApp(kv, handler);
+    const res = await fetch(
+      new Request("http://localhost/test", {
+        method: "POST",
+        headers: { "Idempotency-Key": "key-500-xyz" },
+      }),
+    );
+    expect(res.status).toBe(500);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(kv.put).not.toHaveBeenCalled();
+  });
+
+  it("malformed KV payload (missing required field): treated as cache miss, handler runs", async () => {
+    kv.get.mockResolvedValueOnce({ status: 200 });
+    kv.put.mockResolvedValue(undefined);
+    const handler = vi.fn(
+      () =>
+        new Response(JSON.stringify({ ok: true }), {
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const { fetch } = makeApp(kv, handler);
+    const res = await fetch(
+      new Request("http://localhost/test", {
+        method: "POST",
+        headers: { "Idempotency-Key": "key-malformed-def" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(res.headers.get("Idempotency-Replay")).toBeNull();
+  });
 });

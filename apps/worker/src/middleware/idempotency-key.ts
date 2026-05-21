@@ -17,6 +17,7 @@
  * (no caching) — see the JSDoc above the try/catch block for the rationale.
  */
 
+import type { KVNamespace } from "@cloudflare/workers-types";
 import { createMiddleware } from "hono/factory";
 import type { CloudflareBindings } from "../env.ts";
 
@@ -81,9 +82,46 @@ function buildReplayResponse(cached: CachedResponse): Response {
 }
 
 /**
+ * Writes a 2xx JSON response to KV under `idem:{key}` with the 24h TTL.
+ *
+ * Cache successful 2xx responses only per PRD §7.10. Non-2xx responses
+ * (4xx validation errors, 429 rate-limits, 5xx server errors) are NOT
+ * cached so retries with the same key after fixing the request can succeed,
+ * and so a transient server error is not pinned for 24h.
+ *
+ * The Content-Type check avoids cloning large binary responses; the inner
+ * try/catch guards against JSON-typed responses whose body fails to parse
+ * (corrupt upstream output). The catch is deliberate — a non-JSON response
+ * is not an error to log.
+ */
+async function cacheResponse(kv: KVNamespace, key: string, res: Response): Promise<void> {
+  const isCacheableStatus = res.status >= 200 && res.status < 300;
+  const isJsonResponse = res.headers.get("Content-Type")?.includes("application/json") ?? false;
+  if (!isCacheableStatus || !isJsonResponse) return;
+  try {
+    const body: unknown = await res.clone().json();
+    await kv.put(
+      `idem:${key}`,
+      JSON.stringify({ status: res.status, body, headers: { "Content-Type": CONTENT_TYPE_JSON } }),
+      { expirationTtl: IDEM_TTL_SECONDS },
+    );
+  } catch {
+    /* JSDoc above documents the deliberate skip-on-malformed-JSON behaviour. */
+  }
+}
+
+/**
  * Hono middleware that replays previously-seen responses for idempotent
  * mutations. GET and HEAD requests and requests without an `Idempotency-Key`
  * header bypass the middleware entirely.
+ *
+ * Race-condition limitation: two POSTs with the same key arriving before
+ * the first KV write propagates will BOTH find a cache miss and execute
+ * the handler. KV has no compare-and-swap. PRD §7.10 Layer 1 accepts this
+ * as best-effort; Layer 2 (producer guard on `cases.current_run_id`) +
+ * Layer 3 (queue-consumer `claimRun`) backstop for workflow-bearing
+ * routes. Phase 1 `/api/admin/echo` has no downstream side effects so the
+ * worst case is a duplicated echo.
  */
 export const idempotencyKey = createMiddleware<{ Bindings: CloudflareBindings }>(
   async (c, next) => {
@@ -96,37 +134,10 @@ export const idempotencyKey = createMiddleware<{ Bindings: CloudflareBindings }>
       await next();
       return;
     }
-
     const raw = await c.env.KV.get(`idem:${key}`, "json");
-    if (isCachedResponse(raw)) {
-      return buildReplayResponse(raw);
-    }
-
+    if (isCachedResponse(raw)) return buildReplayResponse(raw);
     await next();
-
-    if (c.res.status >= 200 && c.res.status < 500) {
-      /**
-       * Intentional silent catch: if the response body is not valid JSON
-       * (e.g. a binary download or plain-text error page), `.json()` throws
-       * and we skip caching. This is correct behaviour — idempotency caching
-       * applies only to JSON API responses. Logging a parse error here would
-       * produce false-positive noise for legitimate non-JSON routes.
-       */
-      try {
-        const body: unknown = await c.res.clone().json();
-        await c.env.KV.put(
-          `idem:${key}`,
-          JSON.stringify({
-            status: c.res.status,
-            body,
-            headers: { "Content-Type": CONTENT_TYPE_JSON },
-          }),
-          { expirationTtl: IDEM_TTL_SECONDS },
-        );
-      } catch {
-        /* JSDoc above documents the deliberate skip-on-non-JSON behaviour. */
-      }
-    }
+    await cacheResponse(c.env.KV, key, c.res);
     return;
   },
 );

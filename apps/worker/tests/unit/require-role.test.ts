@@ -21,7 +21,8 @@
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { requireRole, type Role, type RoleVariables } from "../../src/middleware/require-role.ts";
+import { requireRole, type RoleVariables } from "../../src/middleware/require-role.ts";
+import type { Role } from "../../src/middleware/role-utils.ts";
 
 /** Minimal session shape returned by `auth.api.getSession`. */
 interface FakeSession {
@@ -103,5 +104,25 @@ describe("requireRole middleware", () => {
       .get("/probe", (c) => c.json({ ok: true }));
     const res = await app.fetch(new Request("http://localhost/probe"));
     expect(res.status).toBe(200);
+  });
+
+  it("defaults unrecognized role to 'reviewer' (safe-minimum-privilege)", async () => {
+    getSessionMock.mockResolvedValueOnce({
+      user: { id: "user-4", role: "superadmin-not-yet-defined" },
+    });
+    const reviewerApp = makeApp("reviewer");
+    const res = await reviewerApp.fetch(new Request("http://localhost/probe"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ user: { id: "user-4", role: "reviewer" } });
+  });
+
+  it("denies an admin route when role string is unrecognized (falls back to reviewer)", async () => {
+    getSessionMock.mockResolvedValueOnce({
+      user: { id: "user-5", role: "ghost" },
+    });
+    const adminApp = makeApp("admin");
+    const res = await adminApp.fetch(new Request("http://localhost/probe"));
+    expect(res.status).toBe(403);
   });
 });

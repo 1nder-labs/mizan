@@ -137,7 +137,7 @@ export const reviewer_actions = sqliteTable(
     acted_at: integer("acted_at", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
-    action_id: text("action_id").notNull().unique(),
+    action_id: text("action_id").notNull(),
   },
   (table) => [
     index("reviewer_actions_case_id_idx").on(table.case_id),

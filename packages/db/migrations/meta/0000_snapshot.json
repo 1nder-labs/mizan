@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ed9cfd72-5f44-46e8-ac0a-e5403122f82d",
+  "id": "3e291c41-51e3-4666-a378-b25e3b8871ce",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "briefs": {
@@ -247,11 +247,6 @@
         }
       },
       "indexes": {
-        "reviewer_actions_action_id_unique": {
-          "name": "reviewer_actions_action_id_unique",
-          "columns": ["action_id"],
-          "isUnique": true
-        },
         "reviewer_actions_case_id_idx": {
           "name": "reviewer_actions_case_id_idx",
           "columns": ["case_id"],

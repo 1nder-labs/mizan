@@ -40,7 +40,6 @@ CREATE TABLE `reviewer_actions` (
 	FOREIGN KEY (`reviewer_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE restrict
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `reviewer_actions_action_id_unique` ON `reviewer_actions` (`action_id`);--> statement-breakpoint
 CREATE INDEX `reviewer_actions_case_id_idx` ON `reviewer_actions` (`case_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `reviewer_actions_action_id_idx` ON `reviewer_actions` (`action_id`);--> statement-breakpoint
 CREATE TABLE `signals` (
