@@ -1,0 +1,47 @@
+{
+  "extractCreatorIdDoc.extract": {
+    "document_type": "passport",
+    "full_name": "Mizan Demo Guardian",
+    "document_number_redacted": "****1234",
+    "issuing_country_iso": "EG",
+    "issue_date_iso": "2020-01-01",
+    "expiry_date_iso": "2030-01-01",
+    "matches_organizer_name": true,
+    "confidence": 85
+  },
+  "extractBankStatement.extract": {
+    "account_holder_name": "Mizan Demo Guardian",
+    "currency": "EGP",
+    "statement_period_iso": "2026-01/2026-03",
+    "latest_balance_redacted": "****500",
+    "suspicious_activity_detected": false,
+    "confidence": 80
+  },
+  "extractCategoryDocs.extract": {
+    "doc_kind": "school",
+    "student_name": "Mizan Demo Student",
+    "institution_name": "Mizan Primary School Cairo",
+    "tuition_summary": "Primary enrollment fees",
+    "amount_claimed": "20000 EGP",
+    "confidence": 80
+  },
+  "extractStoryClaims.extract": {
+    "claims": [
+      {
+        "claim": "University fees in Cairo",
+        "supporting_text_snippet": "university fees in Cairo",
+        "plausibility_score": 35
+      }
+    ],
+    "confidence": 40
+  },
+  "composeBrief.compose": {
+    "recommendation": "ESCALATE",
+    "missing_docs": [],
+    "reviewer_questions": [],
+    "extracted_claims": {
+      "summary": "Documentary evidence reviewed"
+    },
+    "confidence": 45
+  }
+}

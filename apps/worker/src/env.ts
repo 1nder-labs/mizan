@@ -31,5 +31,22 @@ export interface CloudflareBindings {
   ASSETS: Fetcher;
   DEFAULT_LLM_PROVIDER: "anthropic";
   DEFAULT_LLM_MODEL: "claude-opus-4-7";
-  LANGFUSE_HOST: "";
+  /**
+   * Langfuse base URL — empty in dev disables the OTel exporter entirely.
+   * Phase 8 boots the local Langfuse Docker stack and points this at
+   * `http://localhost:3010`; production points it at managed Langfuse.
+   */
+  LANGFUSE_HOST: string;
+  /** Langfuse project public key — required to activate the @mastra/langfuse exporter. */
+  LANGFUSE_PUBLIC_KEY?: string;
+  /** Langfuse project secret key — required to activate the @mastra/langfuse exporter. */
+  LANGFUSE_SECRET_KEY?: string;
+  /** Anthropic API key — consumed by `@mizan/mastra/models/factory.ts`. */
+  ANTHROPIC_API_KEY?: string;
+  /** OpenAI API key — consumed by `@mizan/mastra/models/factory.ts`. */
+  OPENAI_API_KEY?: string;
+  /** OpenRouter API key — consumed by `@mizan/mastra/models/factory.ts`. */
+  OPENROUTER_API_KEY?: string;
+  /** JSON-encoded mock LLM response map for integration tests. */
+  MOCK_LLM_RESPONSES?: string;
 }

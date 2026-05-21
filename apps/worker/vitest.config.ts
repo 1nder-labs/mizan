@@ -1,57 +1,49 @@
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
-import { defineProject } from "vitest/config";
+import { defineConfig } from "vitest/config";
 
 /**
- * Phase 0 vitest config for `@mizan/worker`.
+ * Two-project vitest config:
  *
- * `@cloudflare/vitest-pool-workers@0.16` removed the pre-0.13 API
- * (`defineWorkersConfig`, `poolOptions.workers.*`, `SELF`, and
- * `import { env } from "cloudflare:test"`). The replacement is the
- * `cloudflareTest()` Vite plugin plus `import { env, exports } from
- * "cloudflare:workers"`. See:
- * https://developers.cloudflare.com/workers/testing/vitest-integration/
+ * - `unit` runs pure-logic tests (mocks + type guards) under the default
+ *   vitest pool. No `cloudflareTest()` plugin → no workerd boot → no
+ *   wrangler bundle traversal across the full Mastra + AI SDK dep graph.
+ * - `integration` runs HTTP-level tests that need real D1 / KV / R2 bindings
+ *   through `@cloudflare/vitest-pool-workers`. Sequential (`maxWorkers: 1`)
+ *   because the Phase 2 Mastra stack doubles per-isolate memory footprint
+ *   vs Phase 1 and parallel workerd processes OOM Node's main heap.
  *
- * The `miniflare.assets` override drops `directory` from the merged worker
- * options so the pool does not validate `apps/web/dist` at bootstrap — the
- * Vite build for the web workspace runs lazily and Phase 0 tests only need
- * the binding stub to exist.
- *
- * `remoteBindings: false` keeps the pool fully local; no Cloudflare account
- * proxy is contacted during test runs.
+ * Splitting projects avoids the Phase-2 OOM where every unit test file
+ * triggered the heavy cloudflare pool bundle even though it never needed
+ * workerd at all.
  */
-export default defineProject({
-  plugins: [
-    cloudflareTest({
-      remoteBindings: false,
-      wrangler: { configPath: "./wrangler.jsonc" },
-      /**
-       * `@cloudflare/vitest-pool-workers@0.16.0`'s zod schema requires
-       * `miniflare.assets.directory` to be defined when an ASSETS binding is
-       * present; an absent `directory` fails schema validation even though
-       * Phase 0 tests only assert the binding's existence and never exercise
-       * static-asset routing. The `directory: "."` placeholder satisfies the
-       * schema without triggering a real asset crawl.
-       *
-       * When pool-workers ships a version that accepts an absent `directory`
-       * (matching the `workers-assets-no-dir` fixture upstream), this entire
-       * `miniflare` override block can be deleted. Track removal via the
-       * pool-workers changelog:
-       * https://github.com/cloudflare/workers-sdk/blob/main/packages/vitest-pool-workers/CHANGELOG.md
-       */
-      miniflare: {
-        assets: { binding: "ASSETS", directory: "." },
-      },
-    }),
-  ],
+export default defineConfig({
   test: {
-    include: ["tests/**/*.test.ts"],
-    globalSetup: ["./tests/setup/migrations.ts"],
-    /**
-     * Limit concurrent workerd processes to 2. Cloudflare's vitest pool
-     * spawns one workerd per test file by default; running all 9 files
-     * simultaneously exhausts local resources and triggers "Timeout starting
-     * cloudflare-pool runner" errors.
-     */
-    maxWorkers: 2,
+    projects: [
+      {
+        plugins: [
+          cloudflareTest({
+            remoteBindings: false,
+            wrangler: { configPath: "./wrangler.jsonc" },
+            miniflare: {
+              assets: { binding: "ASSETS", directory: "." },
+            },
+          }),
+        ],
+        test: {
+          name: "integration",
+          include: ["tests/integration/**/*.test.ts"],
+          globalSetup: ["./tests/setup/migrations.ts"],
+          maxWorkers: 1,
+          minWorkers: 1,
+        },
+      },
+      {
+        test: {
+          name: "unit",
+          include: ["tests/unit/**/*.test.ts"],
+          environment: "node",
+        },
+      },
+    ],
   },
 });

@@ -373,79 +373,71 @@ _Other:_
 - zod schemas: NO `.min()` / `.max()` / `.regex()` on Anthropic/OpenAI strict-mode fields — clamp + validate post-parse in TypeScript helpers (`src/lib/clamp.ts`)
 - Multimodal input as `Uint8Array` buffers (not base64) to save Workers memory
 - Small/fast models (`claude-haiku-4-5`, `gpt-4o-mini`) for deterministic extractions; reasoning model only for `composeBrief`
-- **Langfuse observability contract (wired here, dashboarded in Phase 8):** every LLM call in Phase 2 ships with the full Langfuse-compatible telemetry envelope so Phase 8 only has to start the local stack + set `LANGFUSE_HOST` to light up the trace tree. Pattern is verified against `/langfuse/langfuse-docs` 2026-05.
+- **Langfuse observability contract (wired here, dashboarded in Phase 8):** every Mastra workflow run + every nested AI SDK call ships through the Mastra-native `@mastra/langfuse` exporter so Phase 8 only has to start the local Docker stack + set `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` to light up the trace tree. Pattern verified against `/mastra-ai/mastra` 2026-05 (`observability/langfuse/README.md`).
 
-  **(1) Root span wraps each workflow run.** At the top of `POST /api/cases/:id/brief`, open a manual root span via `startObservation` from `@langfuse/tracing` BEFORE the Mastra `workflow.createRun()` call:
+  **(1) `Mastra({ observability })` is the single wiring point.** `createMastra(env)` in `packages/mastra/src/index.ts` constructs `new Observability({ configs: { langfuse: { serviceName: "mizan", exporters: [new LangfuseExporter({...})] } } })` per request and hands it to the `Mastra` constructor. There is no manual `registerOTel`, no `@vercel/otel`, and no `langfuse-vercel` — Mastra owns the OTel pipeline end-to-end:
 
   ```ts
-  import { startObservation } from "@langfuse/tracing";
-  const runId = crypto.randomUUID(); // UUID v4; v7 if/when Workers support it
-  const rootSpan = startObservation("brief.generate", {
-    input: { caseId, category, geography },
-    // Grouping fields go ON THE SPAN, not in metadata — these are first-class
-    // Langfuse filter dimensions in 2026-05 UI:
+  import { Mastra } from "@mastra/core";
+  import { Observability } from "@mastra/observability";
+  import { LangfuseExporter } from "@mastra/langfuse";
+
+  const langfuse =
+    env.LANGFUSE_PUBLIC_KEY && env.LANGFUSE_SECRET_KEY
+      ? new LangfuseExporter({
+          publicKey: env.LANGFUSE_PUBLIC_KEY,
+          secretKey: env.LANGFUSE_SECRET_KEY,
+          baseUrl: env.LANGFUSE_HOST || undefined,
+          environment: "development",
+        })
+      : null;
+
+  const mastra = new Mastra({
+    storage: new D1Store({ id: "mizan-mastra", binding: env.DB }),
+    workflows: { brief: briefWorkflow },
+    ...(langfuse
+      ? {
+          observability: new Observability({
+            configs: { langfuse: { serviceName: "mizan", exporters: [langfuse] } },
+          }),
+        }
+      : {}),
   });
-  rootSpan.update({
-    sessionId: runtimeContext.sessionId ?? undefined,
-    userId: runtimeContext.reviewerId ?? undefined,
-  });
-  // ... Mastra run inside this span context ...
-  rootSpan.update({ output: brief }).end();
-  await langfuseSpanProcessor.forceFlush(); // mandatory on Workers
   ```
 
-  Every nested AI SDK call inside this root span auto-attaches as a child via the OTel parent context. Token usage rolls up per node in the Langfuse UI automatically.
+  Every nested workflow step + every AI SDK call inside it auto-attaches to the same Langfuse trace via Mastra's built-in OTel propagation. No manual `startObservation` call from `@langfuse/tracing` is needed — Mastra handles the root span.
 
-  **(2) `runtimeContext` carries the IDs that aren't grouping dimensions.** Lock this shape at Phase 2: `{ runId: string, caseId: string, reviewerId: string | null, sessionId: string | null }`. `runId` is for our own logs + the eval cost ledger; `caseId` is the business join key; `reviewerId` + `sessionId` flow into the Langfuse span as `userId` + `sessionId`.
+  **(2) `runtimeContext` carries the IDs that aren't grouping dimensions.** Lock this shape at Phase 2: `{ runId: string, caseId: string, reviewerId: string | null, sessionId: string | null, category: string, geography: string, langfuseEnabled: boolean }`. `runId` correlates with the eval cost ledger; `caseId` is the business join key; `reviewerId` + `sessionId` flow into the Langfuse span as `userId` + `sessionId`.
 
-  **(3) `experimental_telemetry` on EVERY `generateObject` / `generateText` / `streamObject` / `streamText` call:**
+  **(3) `experimental_telemetry` on EVERY `generateObject` / `generateText` / `streamObject` / `streamText` call** still pays its weight — Mastra's exporter consumes the metadata for trace enrichment:
 
   ```ts
   experimental_telemetry: {
-    isEnabled: !!env.LANGFUSE_HOST,
-    functionId: `${stepName}.${callPurpose}`,                // "extractCreatorIdDoc.parse-name"
+    isEnabled: runtimeContext.langfuseEnabled,
+    functionId: `${stepName}.${callPurpose}`,                // "extractCreatorIdDoc.extract"
     metadata: {
       sessionId: runtimeContext.sessionId ?? undefined,      // Langfuse-recognized
       userId: runtimeContext.reviewerId ?? undefined,        // Langfuse-recognized
       tags: ["mizan", category, geography],                  // Langfuse-recognized; filter chips
       caseId: runtimeContext.caseId,                         // custom
-      runId: runtimeContext.runId,                           // custom; correlates with our cost ledger
+      runId: runtimeContext.runId,                           // custom; correlates with eval cost ledger
       stepId: stepName,                                      // custom
       provider, model,                                       // custom; powers Langfuse cost extraction
     },
   }
   ```
 
-  The fields `sessionId`, `userId`, `tags` are the Langfuse-recognized grouping keys — verified via the langfuse-vercel docs (`/langfuse/langfuse-docs`). Do NOT invent keys like `langfuseTraceId` or `langfuseUpdateParent`; trace grouping happens via the OTel parent context (the root span from rule 1), not via metadata keys.
+  `sessionId`, `userId`, `tags` are the Langfuse-recognized grouping keys per `@mastra/langfuse` docs. Do NOT invent keys like `langfuseTraceId` or `langfuseUpdateParent`; trace grouping happens via the OTel parent context that Mastra threads through, not via metadata keys.
 
-  **(4) Tool calls get per-tool token attribution automatically when wrapped in their own observation:** for any Mastra tool that invokes an LLM, wrap the tool body with `rootSpan.startObservation(toolName, { input, asType: "tool" })` and end it with `output + usageDetails`. The nested LLM call inside the tool body inherits the tool's span context, so token usage rolls up per tool in the Langfuse trace tree:
+  **(4) Tool calls inherit the step's span automatically.** Mastra wraps every step's `execute` in its own OTel span; any AI SDK call (or future explicit Mastra tool) made from inside the step attaches as a child. Token usage rolls up per step (and per tool when tools land in Phase 4) without any manual `startObservation` boilerplate.
 
-  ```ts
-  const toolObs = parentSpan.startObservation(
-    "ocr.extract-id",
-    { input: { docKey } },
-    { asType: "tool" },
-  );
-  const result = await generateObject({ ...experimental_telemetry });
-  toolObs
-    .update({
-      output: result.object,
-      usageDetails: {
-        input: result.usage.promptTokens,
-        output: result.usage.completionTokens,
-        total: result.usage.totalTokens,
-      },
-    })
-    .end();
-  ```
+  **(5) Provider factory stays the single injection point.** `getModel({provider, model})` in `packages/mastra/src/models/factory.ts` is the only place LLM provider implementations are constructed. Grep gate: `grep -rE "@ai-sdk/(anthropic|openai)|@openrouter/ai-sdk-provider" packages/mastra/src apps/worker/src | grep -v "models/factory.ts"` returns nothing.
 
-  **(5) Provider factory is the single injection point.** `getModel({provider, model})` in `packages/mastra/src/models/factory.ts` wires the Langfuse OTel exporter via `withMastra` opts — and ONLY there. Grep gate: zero `langfuse-vercel` imports outside the factory file. Single injection keeps the provider abstraction clean and guarantees every model produced anywhere in the codebase is traceable without per-step wiring.
+  **(6) Sampling:** the Mastra-native exporter ships at 100% by default. Tune via `Observability({ configs: { langfuse: { sampling: { type: "ratio", probability: 0.1 } } } })` only if Langfuse storage becomes a cost concern (revisit in Phase 10 ops review).
 
-  **(6) Sampling:** `LangfuseExporter({ sampleRate: 1.0, environment: "development" | "production" })` registered once at boot via `registerOTel` from `@vercel/otel`. Dev defaults to 100%; prod default also 100% for Phase 10; tune down only if Langfuse storage becomes a cost concern (revisit in Phase 10 ops review).
+  **(7) `flush` mandatory on Workers.** Workers are short-lived; `LangfuseExporter.flush()` drains the buffered span batch before the isolate is reclaimed. Helper at `packages/mastra/src/observability/flush.ts` exports `flushLangfuse(exporter, ctx)` which calls `ctx.waitUntil(exporter.flush())`; every Hono route that creates LLM-bearing work calls it once per request so the response isn't blocked on the flush.
 
-  **(7) `forceFlush` mandatory on Workers.** Workers are short-lived; the OTel exporter must be drained before the request handler returns or spans are lost. Helper at `packages/mastra/src/observability/flush.ts` exports `flushLangfuse(): Promise<void>` that calls `langfuseSpanProcessor.forceFlush()`; every Hono route that creates LLM-bearing work calls it in a `c.executionCtx.waitUntil(...)` so the response isn't blocked on the flush.
-
-  **(8) Reviewer-action continuation (forward-compat for Phase 7):** Phase 7's `recordAction` step opens its own `startObservation("reviewer.action", { ..., asType: "event" })` as a child of the SAME root span identified by `runId`. The HITL pause + resume + final action all live on one trace because the same OTel parent context is propagated through `workflow.suspend()` / `workflow.resume()`. Mechanism: Mastra's D1Store persists the OTel trace context alongside the workflow state. Verify in Phase 7 integration test that a suspend+resume produces ONE Langfuse trace, not two.
+  **(8) Reviewer-action continuation (forward-compat for Phase 7):** Phase 7's HITL `suspend()` / `resume()` carries the OTel trace context through Mastra's D1-backed durable workflow state. The reviewer action lands on the same trace identified by `runId` because Mastra's observability pipeline reconstructs the parent context on resume. Verify in Phase 7 integration test that a suspend+resume produces ONE Langfuse trace, not two.
 
   **(9) Cost extraction.** Each `generation` span auto-gets cost computed from `model` + `usageDetails`. Langfuse maintains a per-provider pricing table; for self-hosted, drop a `models.json` into the Langfuse project to keep cost accurate for `claude-haiku-4-5`, `gpt-4o-mini`, `claude-opus-4-7`, etc. The `@mizan/eval` cost ledger asserts (in Phase 9) that per-run cost reported by Langfuse matches the eval-side ledger within 5%.
 
@@ -1185,34 +1177,53 @@ services:
 volumes: { langfuse_db_data: {} }
 ```
 
-Instrumentation (Worker-side, registered once at boot):
+Instrumentation (Worker-side, per-request via `createMastra(env)`):
 
 ```typescript
-import { registerOTel } from "@vercel/otel";
-import { LangfuseExporter } from "langfuse-vercel";
+import { Mastra } from "@mastra/core";
+import { D1Store } from "@mastra/cloudflare-d1";
+import { Observability } from "@mastra/observability";
+import { LangfuseExporter } from "@mastra/langfuse";
 
-registerOTel({
-  serviceName: "mizan",
-  traceExporter: new LangfuseExporter({
-    baseUrl: env.LANGFUSE_HOST, // http://localhost:3010 in dev; absent in prod
-    environment: env.NODE_ENV,
-  }),
+const langfuse =
+  env.LANGFUSE_PUBLIC_KEY && env.LANGFUSE_SECRET_KEY
+    ? new LangfuseExporter({
+        publicKey: env.LANGFUSE_PUBLIC_KEY,
+        secretKey: env.LANGFUSE_SECRET_KEY,
+        baseUrl: env.LANGFUSE_HOST || undefined,
+        environment: "development",
+      })
+    : null;
+
+const mastra = new Mastra({
+  storage: new D1Store({ id: "mizan-mastra", binding: env.DB }),
+  workflows: { brief: briefWorkflow },
+  ...(langfuse
+    ? {
+        observability: new Observability({
+          configs: { langfuse: { serviceName: "mizan", exporters: [langfuse] } },
+        }),
+      }
+    : {}),
 });
 
-// every AI SDK call:
+// every AI SDK call still gets enriched metadata for the trace tree:
 await generateObject({
-  model: getModel({ provider: "anthropic", model: "claude-opus-4-7" }),
+  model: getModel({ provider: "anthropic", model: "claude-opus-4-7" }, env),
   schema: BriefSchema,
   prompt,
   experimental_telemetry: {
-    isEnabled: !!env.LANGFUSE_HOST,
+    isEnabled: !!langfuse,
     functionId: "compose-brief",
-    metadata: { caseId, reviewerId, phase: "compose" },
+    metadata: { caseId, reviewerId, phase: "compose", tags: ["mizan", category, geography] },
   },
 });
+
+// Workers flush before isolate reclaim:
+c.executionCtx.waitUntil(langfuse?.flush() ?? Promise.resolve());
 ```
 
-Demo video records the local Langfuse dashboard showing the trace tree for a brief generation: extract-id → extract-bank → extract-category-docs → policy-match → compose-brief, with per-step latency and token cost. This is how the candidate proves "evaluation framework + observability" without shipping a vendor dependency to production.
+Demo video records the local Langfuse dashboard showing the trace tree for a brief generation: classifyCampaign → extract-id → extract-bank → extract-category-docs → extract-story → compose-brief, with per-step latency and token cost rolled up automatically by `@mastra/langfuse`. This is how the candidate proves "evaluation framework + observability" without shipping a vendor dependency to production.
 
 ## 7.7.5 Client state architecture (where every kind of state lives)
 

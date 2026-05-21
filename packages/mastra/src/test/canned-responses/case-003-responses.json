@@ -1,0 +1,52 @@
+{
+  "extractCreatorIdDoc.extract": {
+    "document_type": "passport",
+    "full_name": "Mizan Demo Org",
+    "document_number_redacted": "****1234",
+    "issuing_country_iso": "PK",
+    "issue_date_iso": "2020-01-01",
+    "expiry_date_iso": "2030-01-01",
+    "matches_organizer_name": true,
+    "confidence": 85
+  },
+  "extractBankStatement.extract": {
+    "account_holder_name": "Mizan Demo Org",
+    "currency": "PKR",
+    "statement_period_iso": "2026-01/2026-03",
+    "latest_balance_redacted": "****500",
+    "suspicious_activity_detected": false,
+    "confidence": 80
+  },
+  "extractCategoryDocs.extract": {
+    "doc_kind": "org_registration",
+    "org_name": "Mizan Demo Org",
+    "registration_number": "PK-REG-001",
+    "jurisdiction": "PK",
+    "tax_exempt_status": null,
+    "confidence": 70
+  },
+  "extractStoryClaims.extract": {
+    "claims": [
+      {
+        "claim": "501(c)(3) equivalent pending",
+        "supporting_text_snippet": "501(c)(3) equivalent pending",
+        "plausibility_score": 60
+      }
+    ],
+    "confidence": 65
+  },
+  "composeBrief.compose": {
+    "recommendation": "REQUEST_DOCS",
+    "missing_docs": [
+      {
+        "docType": "tax_exempt_certificate",
+        "reason": "501(c)(3) equivalent not provided"
+      }
+    ],
+    "reviewer_questions": [],
+    "extracted_claims": {
+      "summary": "Documentary evidence reviewed"
+    },
+    "confidence": 55
+  }
+}

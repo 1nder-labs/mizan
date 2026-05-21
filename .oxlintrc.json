@@ -23,6 +23,16 @@
   },
   "overrides": [
     {
+      "files": ["**/*.eval.ts", "scripts/**/*.ts"],
+      "rules": {
+        "typescript/consistent-type-assertions": "off",
+        "typescript/no-explicit-any": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-return": "off"
+      }
+    },
+    {
       "files": ["**/*.test.ts", "**/*.test.tsx", "**/tests/**/*.ts", "**/tests/**/*.tsx"],
       "rules": {
         "typescript/no-explicit-any": "off",

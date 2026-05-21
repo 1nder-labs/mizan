@@ -1,9 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignoreBinaries": ["portless"],
+  "ignoreExportsUsedInFile": true,
   "workspaces": {
     ".": {
-      "ignoreDependencies": ["@socketsecurity/bun-security-scanner"]
+      "entry": ["scripts/*.ts"],
+      "ignoreDependencies": ["@socketsecurity/bun-security-scanner", "zod", "@mizan/mastra"]
     },
     "apps/worker": {
       "entry": ["tests/**/*.test.ts"],
@@ -16,8 +18,13 @@
     "packages/db": {
       "ignoreDependencies": ["better-auth"]
     },
-    "packages/mastra": {},
+    "packages/mastra": {
+      "ignore": ["src/test/**/*"],
+      "ignoreDependencies": ["@mizan/worker", "@cloudflare/workers-types"]
+    },
     "packages/shared": {},
-    "packages/eval": {}
+    "packages/eval": {
+      "entry": ["src/**/*.eval.ts"]
+    }
   }
 }

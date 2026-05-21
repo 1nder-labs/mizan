@@ -34,7 +34,8 @@
       "@mizan/shared": ["./packages/shared/src/index.ts"],
       "@mizan/shared/*": ["./packages/shared/src/*"],
       "@mizan/eval": ["./packages/eval/src/index.ts"],
-      "@mizan/eval/*": ["./packages/eval/src/*"]
+      "@mizan/eval/*": ["./packages/eval/src/*"],
+      "@mizan/worker/env": ["./apps/worker/src/env.ts"]
     }
   }
 }
