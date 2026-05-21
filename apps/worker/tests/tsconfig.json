@@ -1,7 +1,7 @@
 {
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2025", "WebWorker"],
+    "lib": ["ESNext", "WebWorker"],
     "types": ["@cloudflare/vitest-pool-workers"]
   },
   "include": ["./unit/**/*.ts", "./setup/**/*.ts", "../worker-configuration.d.ts"]
