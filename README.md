@@ -42,8 +42,17 @@ bunx lefthook install
 # Sanity-check the supply chain. CI runs the same gate.
 bun audit --audit-level=high
 
+# One-time: materialise the Drizzle schema into local D1 (Phase 1+).
+# Re-run after schema edits; both commands are idempotent.
+bun run db:generate
+bun run db:migrate:local
+
 # Boot worker + web in parallel.
 bun --filter '*' dev
+
+# Optional (Phase 1+): seed dev reviewer + admin accounts.
+# Requires the worker to be running on http://localhost:8788.
+bun run db:seed
 ```
 
 Open:

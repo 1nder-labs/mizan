@@ -38,6 +38,9 @@ build/
 *.swp
 *.swo
 
+# Claude Code local state (scheduled-task locks, agent worktrees)
+.claude/
+
 # Test / coverage
 coverage/
 .nyc_output/

@@ -45,5 +45,13 @@ export default defineProject({
   ],
   test: {
     include: ["tests/**/*.test.ts"],
+    globalSetup: ["./tests/setup/migrations.ts"],
+    /**
+     * Limit concurrent workerd processes to 2. Cloudflare's vitest pool
+     * spawns one workerd per test file by default; running all 9 files
+     * simultaneously exhausts local resources and triggers "Timeout starting
+     * cloudflare-pool runner" errors.
+     */
+    maxWorkers: 2,
   },
 });

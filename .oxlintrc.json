@@ -27,6 +27,9 @@
       "rules": {
         "typescript/no-explicit-any": "off",
         "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/consistent-type-assertions": "off",
         "max-lines-per-function": "off"
       }
     },
