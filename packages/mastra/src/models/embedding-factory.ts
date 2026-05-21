@@ -1,11 +1,23 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { embed, type EmbeddingModel } from "ai";
+import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { CloudflareBindings } from "@mizan/worker/env";
 
 const EMBEDDING_MODEL_ID = "text-embedding-3-small";
 const MOCK_EMBEDDING_DIMENSION = 1536;
 
-export type EmbeddingEnv = Pick<CloudflareBindings, "OPENAI_API_KEY" | "MOCK_LLM_RESPONSES">;
+export type EmbeddingEnv = Pick<
+  CloudflareBindings,
+  "OPENAI_API_KEY" | "MOCK_EMBEDDINGS" | "MOCK_LLM_RESPONSES"
+>;
+
+/**
+ * Returns true when callers want deterministic pseudo-vectors instead of OpenAI.
+ * `MOCK_EMBEDDINGS` is the explicit switch; `MOCK_LLM_RESPONSES` is honoured for
+ * backwards compatibility with non-RAG integration tests that pre-date the split.
+ */
+function shouldMockEmbeddings(env: EmbeddingEnv): boolean {
+  return Boolean(env.MOCK_EMBEDDINGS) || Boolean(env.MOCK_LLM_RESPONSES && !env.OPENAI_API_KEY);
+}
 
 /**
  * Returns the canonical embedding model for Mizan policy RAG.
@@ -20,30 +32,35 @@ export function getEmbeddingModel(env: EmbeddingEnv): EmbeddingModel {
   return openai.embedding(EMBEDDING_MODEL_ID);
 }
 
-/** Embeds a single query string, using deterministic vectors under MOCK_LLM_RESPONSES. */
+/**
+ * Embeds a single query string. Uses deterministic vectors when
+ * `shouldMockEmbeddings(env)` is true (MOCK_EMBEDDINGS set, or MOCK_LLM_RESPONSES
+ * set with no OPENAI_API_KEY); calls OpenAI otherwise.
+ */
 export async function embedPolicyText(env: EmbeddingEnv, value: string): Promise<number[]> {
-  if (env.MOCK_LLM_RESPONSES) {
+  if (shouldMockEmbeddings(env)) {
     return deterministicEmbedding(value);
   }
   const { embedding } = await embed({ model: getEmbeddingModel(env), value });
   return embedding;
 }
 
-/** Embeds many chunk texts, using deterministic vectors under MOCK_LLM_RESPONSES. */
+/**
+ * Embeds many chunk texts via AI SDK `embedMany` (auto-batches + ordered response).
+ * Uses deterministic vectors when `shouldMockEmbeddings(env)` is true.
+ */
 export async function embedPolicyTexts(
   env: EmbeddingEnv,
   values: readonly string[],
 ): Promise<number[][]> {
   if (values.length === 0) return [];
-  if (env.MOCK_LLM_RESPONSES) {
+  if (shouldMockEmbeddings(env)) {
     return values.map((value) => deterministicEmbedding(value));
   }
-  const model = getEmbeddingModel(env);
-  const embeddings: number[][] = [];
-  for (const value of values) {
-    const { embedding } = await embed({ model, value });
-    embeddings.push(embedding);
-  }
+  const { embeddings } = await embedMany({
+    model: getEmbeddingModel(env),
+    values: [...values],
+  });
   return embeddings;
 }
 

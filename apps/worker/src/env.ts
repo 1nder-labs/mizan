@@ -49,4 +49,12 @@ export interface CloudflareBindings {
   OPENROUTER_API_KEY?: string;
   /** JSON-encoded mock LLM response map for integration tests. */
   MOCK_LLM_RESPONSES?: string;
+  /**
+   * Force deterministic pseudo-vectors from `embedPolicyText`/`embedPolicyTexts`
+   * instead of calling OpenAI. Used by unit tests + non-RAG integration tests that
+   * need an embed call to succeed without semantic relevance. Kept separate from
+   * `MOCK_LLM_RESPONSES` so RAG-bearing tests can mock the compose LLM while still
+   * using real embeddings for honest matchPolicy semantics.
+   */
+  MOCK_EMBEDDINGS?: string;
 }

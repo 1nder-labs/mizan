@@ -20,7 +20,7 @@
     },
     "packages/mastra": {
       "ignore": ["src/test/**/*"],
-      "ignoreDependencies": ["@mizan/worker", "@cloudflare/workers-types"]
+      "ignoreDependencies": ["@mizan/worker"]
     },
     "packages/shared": {},
     "packages/eval": {

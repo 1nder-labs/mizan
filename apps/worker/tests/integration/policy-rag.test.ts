@@ -112,7 +112,16 @@ async function drainSse(res: Response): Promise<string> {
   return out;
 }
 
-describe("policy rag integration", () => {
+/**
+ * Requires a real OPENAI_API_KEY for semantically-meaningful embeddings.
+ * Deterministic mock vectors produce random cosine similarity, so a mock-embed
+ * pass would make the citation assertion luck-based rather than testing RAG.
+ * Skipped (not failed) when the key is absent so local-no-key dev still passes.
+ */
+const hasOpenAiKey = Boolean(workerEnv().OPENAI_API_KEY);
+const describeWithKey = hasOpenAiKey ? describe : describe.skip;
+
+describeWithKey("policy rag integration", () => {
   let adminCookie = "";
   let adminUserId = "";
 
@@ -126,8 +135,13 @@ describe("policy rag integration", () => {
     adminUserId = row.id;
     await seedCase001(adminUserId);
     workerEnv().MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(0));
-    await embedCorpusInto(env.VECTORIZE, {}, { MOCK_LLM_RESPONSES: "1" });
-  }, 60_000);
+    /**
+     * Embed using real OpenAI for both ingestion + query so matchPolicy's
+     * Vectorize result reflects actual semantic similarity. Compose still runs
+     * under MOCK_LLM_RESPONSES so brief output is deterministic.
+     */
+    await embedCorpusInto(env.VECTORIZE, {}, { OPENAI_API_KEY: workerEnv().OPENAI_API_KEY });
+  }, 120_000);
 
   it("case-001 brief includes at least two corpus-backed policy citations", async () => {
     const res = await exports.default.fetch(

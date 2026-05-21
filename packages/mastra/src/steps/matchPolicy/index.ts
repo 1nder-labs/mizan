@@ -13,6 +13,13 @@ import {
 
 const TOP_K = 8;
 
+/**
+ * Module-scoped excerpt lookup — corpora are committed JSON loaded once at import,
+ * so the map never changes across requests. Hoisted out of `execute` to avoid
+ * rebuilding ~60 entries per workflow run.
+ */
+const EXCERPT_BY_CLAUSE_ID = resolveExcerptMap(loadPolicyCorpora());
+
 /** Embeds extracted claims and queries Vectorize for relevant policy clauses. */
 export const matchPolicy = createStep({
   id: "matchPolicy",
@@ -29,9 +36,8 @@ export const matchPolicy = createStep({
       returnMetadata: "all",
       filter: { source: { $eq: source } },
     });
-    const excerptByClauseId = resolveExcerptMap(loadPolicyCorpora());
     const policy_matches = matches.matches
-      .map((match) => parseMatchToCitation(match, excerptByClauseId))
+      .map((match) => parseMatchToCitation(match, EXCERPT_BY_CLAUSE_ID))
       .filter((citation): citation is NonNullable<typeof citation> => citation !== null);
     return { ...inputData, policy_matches };
   },

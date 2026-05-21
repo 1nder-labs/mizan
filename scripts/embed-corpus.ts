@@ -37,9 +37,20 @@ function parseCli(argv: string[]): CliOptions {
   return { dryRun, source };
 }
 
-function requireOpenAiKey(): void {
-  if (process.env["MOCK_LLM_RESPONSES"]) return;
-  if (!process.env["OPENAI_API_KEY"]) {
+/**
+ * Validates the environment for a real upsert run.
+ * MOCK_LLM_RESPONSES is rejected outside `--dry-run` because deterministic
+ * pseudo-vectors uploaded to the remote Vectorize index would silently corrupt
+ * production policy RAG quality.
+ */
+function requireRealEmbedEnvironment(dryRun: boolean): void {
+  if (process.env["MOCK_LLM_RESPONSES"] && !dryRun) {
+    throw new Error(
+      "MOCK_LLM_RESPONSES is set — refusing to upload deterministic pseudo-vectors to the live Vectorize index. " +
+        "Unset MOCK_LLM_RESPONSES, or re-run with --dry-run to preview vectors without uploading.",
+    );
+  }
+  if (!process.env["OPENAI_API_KEY"] && !process.env["MOCK_LLM_RESPONSES"]) {
     throw new Error(
       "OPENAI_API_KEY is required — set it in the environment or apps/worker/.dev.vars",
     );
@@ -74,7 +85,7 @@ async function upsertViaWrangler(ndjsonPath: string): Promise<void> {
 
 async function main(): Promise<void> {
   const options = parseCli(process.argv.slice(2));
-  requireOpenAiKey();
+  requireRealEmbedEnvironment(options.dryRun);
   const env = {
     OPENAI_API_KEY: process.env["OPENAI_API_KEY"],
     MOCK_LLM_RESPONSES: process.env["MOCK_LLM_RESPONSES"],
@@ -92,7 +103,7 @@ async function main(): Promise<void> {
   try {
     await upsertViaWrangler(ndjsonPath);
   } finally {
-    await Bun.write(ndjsonPath, "");
+    await Bun.file(ndjsonPath).delete();
   }
   console.log(`Upserted ${vectors.length} vectors`);
 }
