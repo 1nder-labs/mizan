@@ -7,6 +7,10 @@
     },
     "apps/worker": {
       "entry": ["tests/**/*.test.ts"],
+      "ignore": [
+        "src/auth/index.ts",
+        "src/middleware/auth-init.ts"
+      ],
       "ignoreDependencies": [
         "cloudflare",
         "@better-auth/drizzle-adapter",
@@ -25,7 +29,6 @@
       "ignoreDependencies": [
         "@better-auth/cli",
         "better-auth",
-        "drizzle-orm",
         "drizzle-zod",
         "zod"
       ]
