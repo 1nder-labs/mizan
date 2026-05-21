@@ -267,18 +267,18 @@ _Other:_
 
 **In scope:**
 
-- Drizzle schema design at `src/db/schema.ts`:
+- Drizzle schema design at `packages/db/src/schema.ts` (imported by worker as `@mizan/db`):
   - `cases` table — `id` (UUID PK), `status` (enum), `category`, `geography`, `claimed_zakat_category`, `current_run_id`, `brief_partial_json`, `created_at`, `updated_at`, `created_by`
   - `briefs` table — `id`, `case_id` FK, `run_id`, `recommendation`, `confidence`, `composed_at`, `payload_json`
   - `signals` table — `id`, `case_id` FK, `run_id`, `signal_type`, `payload_json`, `recorded_at`
   - `reviewer_actions` table — `id`, `case_id` FK, `run_id`, `reviewer_id` FK to auth user, `action`, `rationale`, `acted_at`, `action_id` (client UUID, UNIQUE)
   - `workflow_events` table — per §7.9 schema
-  - `idempotency_keys` table (or KV-only — decide and document)
-- better-auth config at `src/auth/index.ts` w/ `withCloudflare({d1, kv, r2})`, email+password, rate limit
-- Generated `src/db/auth.schema.ts` via `npx @better-auth/cli generate --config src/auth/index.ts --output src/db/auth.schema.ts -y`
-- Schema merge at `src/db/index.ts` exporting `schema = { ...authSchema, cases, briefs, signals, reviewer_actions, workflow_events }`
-- `src/db/zod.ts` exporting drizzle-zod generated schemas: `selectCasesSchema`, `insertCasesSchema`, `updateCasesSchema` + same for briefs/signals/reviewer_actions/workflow_events; refinement overrides where needed (e.g., status enum narrowing, `action_id` as UUID); `z.infer<>` exports for TS types
-- drizzle-kit generates migration → `wrangler d1 migrations apply DATABASE --local`
+  - Idempotency keys: **KV-only per §7.10 Layer 1 — no domain table.** Key shape `idem:{client-uuid}`, value `{status, body, headers}`, TTL 86400.
+- better-auth config at `apps/worker/src/auth/index.ts` w/ `withCloudflare({d1, kv, r2})`, email+password, rate limit. Reviewer/admin roles stored via `additionalFields.role` with `input: false` (admin-assigned only); the `admin` plugin is deferred to Phase 6+ if the reviewer UI ever needs ban/impersonate.
+- Generated `packages/db/src/auth.schema.ts` via `bun --filter @mizan/db exec @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y`
+- Schema merge at `packages/db/src/index.ts` exporting `schema = { ...authSchema, cases, briefs, signals, reviewer_actions, workflow_events }` plus a `makeDb(d1)` factory + `Db` type
+- `packages/db/src/zod.ts` exporting drizzle-zod generated schemas: `selectCasesSchema`, `insertCasesSchema`, `updateCasesSchema` + same for briefs/signals/reviewer_actions/workflow_events; refinement overrides where needed (e.g., status enum narrowing, `action_id` as UUID); `z.infer<>` exports for TS types
+- drizzle-kit generates migration → `bunx wrangler d1 migrations apply DB --local`
 - Hono middleware:
   - Per-request `c.set("auth", createAuth(c.env, c.req.raw.cf, baseURL))`
   - `requireRole(role)` factory (declarative, attached via `.use()` on route groups)
@@ -288,9 +288,8 @@ _Other:_
   - `GET /api/me` (returns session) — uses `requireRole`
   - `GET /api/admin/ping` — `requireRole('admin')` gate
 - `@hono/zod-validator` middleware wired into the chain pattern; example route validates body with a shared `@mizan/shared` zod schema
-- `apps/worker/src/index.ts` exports `export type AppType = typeof app` at the bottom
-- `packages/shared/src/app-type.ts` re-exports `AppType` so `apps/web` imports it from `@mizan/shared/app-type` (stable path, no cross-app reach)
-- Seed script `scripts/seed-users.ts` creating one `reviewer@mizan.test` + one `admin@mizan.test`
+- `apps/worker/src/index.ts` exports `export type AppType = typeof app` at the bottom (consumed by Phase 6; the `packages/shared/src/app-type.ts` re-export lands in Phase 6 alongside its only consumer `apps/web`)
+- Seed script `scripts/seed-users.ts` creating one `reviewer@mizan.test` + one `admin@mizan.test` via HTTP signup + a D1 UPDATE for admin role escalation (idempotent re-runs)
 
 **Out of scope:** Mastra workflow, doc extractors, RAG, UI, observability.
 
@@ -298,7 +297,7 @@ _Other:_
 
 **Acceptance criteria:**
 
-- `wrangler d1 migrations apply --local` succeeds; D1 has all tables
+- `bunx wrangler d1 migrations apply DB --local` succeeds; D1 has all tables (9 total — 5 domain + 4 better-auth)
 - `POST /api/auth/sign-up/email` creates a user
 - `POST /api/auth/sign-in/email` returns a session
 - `GET /api/me` w/ session cookie returns user + role
@@ -675,7 +674,8 @@ _Routes (TanStack Router file-based or code-based — pick one and commit):_
 
 _Hono RPC client (`apps/web/src/lib/rpc.ts`):_
 
-- `import type { AppType } from '@mizan/shared/app-type'` (worker re-exports its Hono `AppType` via `packages/shared`)
+- `packages/shared/src/app-type.ts` re-exports the worker's `AppType` so `apps/web` imports from `@mizan/shared/app-type` (deferred here from Phase 1; `apps/web` is the first consumer)
+- `import type { AppType } from '@mizan/shared/app-type'`
 - `export const api = hc<AppType>('/api')` — one typed client, used by every React Query `queryFn` + every `useMutation`
 - Wrapper adds `Idempotency-Key` header on mutations (UUID v4 generated client-side)
 
@@ -2141,8 +2141,8 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 
 - **Per-request init** in Hono middleware: `c.set("auth", createAuth(c.env, c.req.raw.cf, baseURL))`; never use a module-singleton auth instance — env bindings are per-request on Workers.
 - **Server-side session check ONLY:** `await c.get("auth").api.getSession({ headers: c.req.raw.headers })` — never trust a session ID from the request body or query string.
-- **Schema merge:** run `npx @better-auth/cli generate --config src/auth/index.ts --output src/db/auth.schema.ts -y` after every plugin change; merge with domain tables via `export const schema = { ...authSchema, cases, briefs, ... }`.
-- **Apply migrations:** `wrangler d1 migrations apply DATABASE --local` for dev, `--remote` for production; never edit D1 schema by hand outside drizzle migrations.
+- **Schema merge:** run `bun --filter @mizan/db exec @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y` after every plugin change; merge with domain tables in `packages/db/src/index.ts` via `export const schema = { ...authSchema, cases, briefs, ... }`.
+- **Apply migrations:** `bunx wrangler d1 migrations apply DB --local` for dev, `--remote` for production; never edit D1 schema by hand outside drizzle migrations.
 - **Cookie attributes:** `HttpOnly`, `Secure`, `SameSite=Lax` (the better-auth defaults); production overrides only with documented reason.
 - **CSRF:** better-auth's built-in CSRF for mutating endpoints; do not disable. Reviewer queue UI is same-origin so CORS-credentialled fetches work without extra wiring.
 - **Rate limit:** KV-backed (`window: 60` minimum TTL). Tighten on `/sign-in/*` and any AI-cost-incurring endpoint (`/api/cases/:id/brief` should rate-limit per-reviewer).
