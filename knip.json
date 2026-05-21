@@ -1,8 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["portless"],
   "workspaces": {
     ".": {
-      "ignoreDependencies": ["@socketsecurity/bun-security-scanner", "tsx", "wrangler"]
+      "ignoreDependencies": ["@socketsecurity/bun-security-scanner"]
     },
     "apps/worker": {
       "entry": ["tests/**/*.test.ts"],

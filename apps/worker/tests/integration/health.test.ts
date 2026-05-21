@@ -35,7 +35,20 @@ describe("GET /health", () => {
     const res = await exports.default.fetch("http://localhost/health");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ status: "ok" });
+    expect(body).toEqual(
+      expect.objectContaining({
+        status: "ok",
+        runtime: "cloudflare-workers",
+        bindings: expect.arrayContaining([
+          "DB",
+          "R2_BUCKET",
+          "VECTORIZE",
+          "KV",
+          "BRIEF_QUEUE",
+          "ASSETS",
+        ]),
+      }),
+    );
   });
 
   it("every Cloudflare binding is defined in env", () => {
@@ -45,5 +58,8 @@ describe("GET /health", () => {
     expect(env.KV).toBeDefined();
     expect(env.BRIEF_QUEUE).toBeDefined();
     expect(env.ASSETS).toBeDefined();
+    expect(env.DEFAULT_LLM_PROVIDER).toBe("anthropic");
+    expect(env.DEFAULT_LLM_MODEL).toBe("claude-opus-4-7");
+    expect(env.LANGFUSE_HOST).toBe("");
   });
 });

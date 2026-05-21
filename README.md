@@ -92,6 +92,14 @@ documents:
 - **Renovate matched cadence** — `renovate.json` mirrors the 14-day
   bake; vulnerability fixes bypass it.
 
+`docker/docker-compose.langfuse.yml` is a **dev-only** local observability
+stack with hardcoded dev credentials (`NEXTAUTH_SECRET: dev-secret-not-for-production`,
+`SALT: dev-salt-not-for-production`). These values are intentionally labeled and
+must never be copied to any production environment. The worker's `LANGFUSE_HOST`
+is unset in production deployments through Phase 7; Phase 8 wires real Langfuse
+credentials exclusively via `wrangler secret put`, never via compose files or
+committed env vars.
+
 The four-layer rationale lives in `docs/prd.md` §12 and the Phase 0
 brainstorm under `docs/brainstorms/`.
 

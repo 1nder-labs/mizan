@@ -24,6 +24,20 @@ export default defineProject({
     cloudflareTest({
       remoteBindings: false,
       wrangler: { configPath: "./wrangler.jsonc" },
+      /**
+       * `@cloudflare/vitest-pool-workers@0.16.0`'s zod schema requires
+       * `miniflare.assets.directory` to be defined when an ASSETS binding is
+       * present; an absent `directory` fails schema validation even though
+       * Phase 0 tests only assert the binding's existence and never exercise
+       * static-asset routing. The `directory: "."` placeholder satisfies the
+       * schema without triggering a real asset crawl.
+       *
+       * When pool-workers ships a version that accepts an absent `directory`
+       * (matching the `workers-assets-no-dir` fixture upstream), this entire
+       * `miniflare` override block can be deleted. Track removal via the
+       * pool-workers changelog:
+       * https://github.com/cloudflare/workers-sdk/blob/main/packages/vitest-pool-workers/CHANGELOG.md
+       */
       miniflare: {
         assets: { binding: "ASSETS", directory: "." },
       },
