@@ -7,12 +7,29 @@
     },
     "apps/worker": {
       "entry": ["tests/**/*.test.ts"],
-      "ignoreDependencies": ["cloudflare"]
+      "ignoreDependencies": [
+        "cloudflare",
+        "@better-auth/drizzle-adapter",
+        "@hono/zod-validator",
+        "@mizan/db",
+        "better-auth",
+        "better-auth-cloudflare",
+        "drizzle-orm",
+        "zod"
+      ]
     },
     "apps/web": {
       "entry": ["src/components/ui/*.tsx"]
     },
-    "packages/db": {},
+    "packages/db": {
+      "ignoreDependencies": [
+        "@better-auth/cli",
+        "better-auth",
+        "drizzle-orm",
+        "drizzle-zod",
+        "zod"
+      ]
+    },
     "packages/mastra": {},
     "packages/shared": {},
     "packages/eval": {}
