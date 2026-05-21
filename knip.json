@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["portless"],
+  "workspaces": {
+    ".": {
+      "ignoreDependencies": ["@socketsecurity/bun-security-scanner"]
+    },
+    "apps/worker": {
+      "entry": ["tests/**/*.test.ts"],
+      "ignoreDependencies": ["cloudflare"]
+    },
+    "apps/web": {
+      "entry": ["src/components/ui/*.tsx"]
+    },
+    "packages/db": {},
+    "packages/mastra": {},
+    "packages/shared": {},
+    "packages/eval": {}
+  }
+}

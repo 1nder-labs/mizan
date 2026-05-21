@@ -1,0 +1,28 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      run: bun run lint
+    typecheck:
+      run: bun run typecheck
+    knip:
+      run: bun run knip
+    audit:
+      run: bun audit --audit-level=high
+    forbidden-patterns:
+      run: |
+        files=$(git diff --cached --name-only --diff-filter=ACMR -z |
+                tr '\0' '\n' |
+                grep -E '\.(ts|tsx|js|jsx|mjs|cjs)$' |
+                grep -vE '(^|/)tests/|\.test\.(ts|tsx)$|\.d\.ts$' || true)
+        if [ -z "$files" ]; then exit 0; fi
+        if printf '%s\n' "$files" | xargs grep -nE '\bas any\b|\bas unknown\b|: any\b|//\s*(TODO|FIXME|HACK|XXX)\b|//\s*@ts-nocheck\b' 2>/dev/null; then
+          echo "lefthook: forbidden pattern detected in staged non-test source"
+          exit 1
+        fi
+        exit 0
+
+pre-push:
+  commands:
+    test:
+      run: bun --filter '*' test

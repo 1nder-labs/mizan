@@ -1,0 +1,22 @@
+{
+  "name": "@mizan/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "portless worker wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "hono": "4.12.18"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.16.0",
+    "@cloudflare/workers-types": "catalog:",
+    "typescript": "6.0.3",
+    "vitest": "4.1.5",
+    "wrangler": "4.88.0"
+  }
+}

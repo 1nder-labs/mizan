@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2025",
+    "lib": ["ES2025"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "declaration": false,
+    "sourceMap": true,
+    "noEmit": true,
+
+    "paths": {
+      "@mizan/db": ["./packages/db/src/index.ts"],
+      "@mizan/db/*": ["./packages/db/src/*"],
+      "@mizan/mastra": ["./packages/mastra/src/index.ts"],
+      "@mizan/mastra/*": ["./packages/mastra/src/*"],
+      "@mizan/shared": ["./packages/shared/src/index.ts"],
+      "@mizan/shared/*": ["./packages/shared/src/*"],
+      "@mizan/eval": ["./packages/eval/src/index.ts"],
+      "@mizan/eval/*": ["./packages/eval/src/*"]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+[install]
+exact = true
+saveTextLockfile = true
+minimumReleaseAge = 1209600
+minimumReleaseAgeExcludes = [
+  "typescript",
+  "@types/node",
+  "@cloudflare/workers-types",
+  "wrangler",
+  "@socketsecurity/bun-security-scanner",
+]
+ignoreScripts = true
+registry = "https://registry.npmjs.org"
+
+[install.security]
+scanner = "@socketsecurity/bun-security-scanner"

@@ -8,7 +8,9 @@ AGENTS.md
 !/docs/solutions/
 !/docs/solutions/**
 
-# Bun (bun.lockb IS committed per Bun convention)
+# Bun — bun.lock (text JSONC, Bun 1.2+ default) IS committed.
+# bun.lockb (legacy binary lockfile) is defensively ignored.
+bun.lockb
 node_modules/
 .bun/
 bun-debug.log*
@@ -21,6 +23,7 @@ build/
 .turbo/
 .dev.vars
 .dev.vars.*
+!.dev.vars.example
 *.tsbuildinfo
 
 # Env / secrets
