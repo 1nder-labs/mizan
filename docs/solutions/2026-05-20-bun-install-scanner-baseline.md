@@ -237,3 +237,94 @@ port mapping locally.
 - Renovate's first PR will land 14 days from now (2026-06-03) with the
   highest-semver bumps that have passed the bake window. Compare against
   this baseline for regressions.
+
+## Phase 1 delta (2026-05-20)
+
+### Dep additions vs Phase 0
+
+| Workspace     | Dep                            | Version                   |
+| ------------- | ------------------------------ | ------------------------- |
+| `apps/worker` | `better-auth`                  | 1.6.9                     |
+| `apps/worker` | `better-auth-cloudflare`       | 0.3.0                     |
+| `apps/worker` | `@better-auth/drizzle-adapter` | 1.6.9                     |
+| `apps/worker` | `drizzle-orm`                  | 0.45.2                    |
+| `apps/worker` | `@mizan/db`                    | workspace:\*              |
+| `apps/worker` | `@hono/zod-validator`          | 0.7.6                     |
+| `apps/worker` | `zod`                          | 4.4.3                     |
+| `packages/db` | `drizzle-orm`                  | 0.45.2                    |
+| `packages/db` | `drizzle-zod`                  | 0.8.3                     |
+| `packages/db` | `zod`                          | 4.4.3                     |
+| `packages/db` | `@better-auth/cli`             | 1.4.22 (devDep)           |
+| `packages/db` | `better-auth`                  | 1.6.9 (devDep — cli peer) |
+| `packages/db` | `drizzle-kit`                  | 0.31.10 (devDep)          |
+
+### CVE re-surfacing + overrides
+
+- `lodash` transitive (via `@better-auth/cli`) → root `overrides` locks `4.18.1`.
+- `drizzle-orm` transitive (via `better-auth-cloudflare`) → root `overrides` locks `0.45.2`.
+- Post-install `bun audit --audit-level=high` exits 0; no new HIGH/CRITICAL beyond the two pinned.
+
+### Tracked upstream type skew
+
+- `apps/worker/src/auth/index.ts` carries ONE `@ts-expect-error` for `better-auth-cloudflare@0.3.0`'s
+  `endpoints.upload?: StrictEndpoint | undefined` declaration, which is structurally incompatible with
+  `better-auth@1.6.x`'s `BetterAuthPlugin.endpoints?: { [key: string]: Endpoint }` index signature
+  (no `undefined` allowed). Runtime behaviour is unaffected — the plugin only emits the `upload`
+  endpoint when an R2 binding is configured, and Phase 1 routes never hit it. Revisit when bac
+  publishes a 0.4.x with declared `Endpoint`-typed endpoints (Renovate-watched).
+- The earlier-staged `KVNamespace`/`R2Bucket` skew was resolved by switching `apps/worker/src/env.ts`
+  to import `D1Database`, `KVNamespace`, `R2Bucket`, `VectorizeIndex`, `Queue`, `Fetcher` from
+  `@cloudflare/workers-types` directly (instead of the workerd-generated `Cloudflare.Env` namespace).
+  Both bac and worker code now share the same nominal type source.
+
+### Migration baseline
+
+- One file: `packages/db/migrations/0000_parallel_blue_blade.sql` (~131 lines, 5 domain tables + 4
+  better-auth tables + indexes + foreign keys with the documented cascade/restrict strategy).
+- `bun run db:migrate:local` applies cleanly. Local D1 reports 9 user tables (+ 1 internal
+  `_cf_METADATA` + `d1_migrations` bookkeeping).
+- Re-running `bun run db:generate` against the unchanged schema is a no-op (idempotent).
+- Re-running `bun run auth:generate` produces zero diff against the committed
+  `packages/db/src/auth.schema.ts` (idempotent).
+
+### Workspace-script wiring
+
+`bun --filter <pkg> exec <bin>` is unreliable when `<bin>` is not a workspace-local script (root
+filter resolution silently misses the workspace). Every cross-workspace invocation in this branch
+goes through a per-workspace script entry instead:
+
+| Root script        | Delegates via filter to | Workspace script                           |
+| ------------------ | ----------------------- | ------------------------------------------ |
+| `db:generate`      | `@mizan/db`             | `drizzle-kit generate`                     |
+| `db:migrate:local` | `@mizan/worker`         | `wrangler d1 migrations apply DB --local`  |
+| `db:migrate:prod`  | `@mizan/worker`         | `wrangler d1 migrations apply DB --remote` |
+| `db:seed`          | (direct)                | `bun scripts/seed-users.ts`                |
+| `auth:generate`    | `@mizan/db`             | `bunx @better-auth/cli generate …`         |
+
+### Test baseline
+
+- Vitest globalSetup at `apps/worker/tests/setup/migrations.ts` reads the D1 migration files once
+  per test process via `readD1Migrations(path)` and `provide("migrations", …)`. Each integration
+  test calls `applyD1Migrations(env.DB, inject("migrations"))` in `beforeAll`.
+- 4 unit suites (`require-role`, `idempotency-key`, `schema-shape`, `zod-refinements`) + 4
+  integration suites (`auth-flow`, `role-gating`, `idempotency-replay`, `rate-limit`) + the Phase
+  0 `health` smoke = 9 test files.
+- `.oxlintrc.json` test-file override extended to also disable `consistent-type-assertions`,
+  `no-unsafe-argument`, and `no-unsafe-return` so mocks can be constructed without an inflexible
+  cast-ban. Production code retains the strict no-cast contract.
+
+### Curl-driven acceptance sequence
+
+Booted via `bun --filter @mizan/worker dev`; baseline captured against `wrangler dev` on port 8788. Each row records the exact request and the observed response — re-run from a clean local D1
+should match.
+
+| #   | Request                                                                                                                                                         | Expected response                                                                          | Notes                                                                         |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| 1   | `bun run db:seed`                                                                                                                                               | exit 0; prints `seeded reviewer@mizan.test (reviewer)` + `seeded admin@mizan.test (admin)` | idempotent; re-run treats 422 as success and the admin role UPDATE as a no-op |
+| 2   | `curl -s -c /tmp/c -XPOST $BASE/api/auth/sign-in/email -H 'Content-Type: application/json' -d '{"email":"admin@mizan.test","password":"admin-dev-only-12345"}'` | 200 + Set-Cookie                                                                           | better-auth sign-in via email/password                                        |
+| 3   | `curl -s -b /tmp/c $BASE/api/me`                                                                                                                                | 200, `{user: {id, email, role: "admin"}}`                                                  | role read from `additionalFields.role`                                        |
+| 4   | `curl -s -b /tmp/c $BASE/api/admin/ping`                                                                                                                        | 200, `{ok: true}`                                                                          | role-gate passes for admin                                                    |
+| 5   | First `curl -XPOST $BASE/api/admin/echo -H 'Idempotency-Key: <uuid1>' …`                                                                                        | 200, body with fresh `echoedAt`                                                            | KV write happens after handler completes                                      |
+| 6   | Same key replay                                                                                                                                                 | 200 + `Idempotency-Replay: true` header + identical body                                   | KV hit; handler not re-invoked                                                |
+| 7   | Reviewer cookie + `curl $BASE/api/admin/ping`                                                                                                                   | 403, `{error: "Forbidden"}`                                                                | role-gate denies non-admin                                                    |
+| 8   | No cookie + `curl $BASE/api/me`                                                                                                                                 | 401, `{error: "Unauthorized"}`                                                             | session lookup fails fast                                                     |
