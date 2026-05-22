@@ -5,7 +5,7 @@ const validPayload = {
   recommendation: "READY_FOR_REVIEW" as const,
   missing_docs: [],
   reviewer_questions: [],
-  extracted_claims: {},
+  extracted_claims: "Documentary evidence reviewed.",
   confidence: 75,
 };
 

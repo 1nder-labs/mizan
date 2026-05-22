@@ -390,9 +390,9 @@ should match.
 
 ### Dep additions vs Phase 3
 
-| Workspace | Dep | Version | Notes |
-| --- | --- | --- | --- |
-| — | — | — | Zero new top-level deps; Phase 3 stack covers Phase 4 surface |
+| Workspace | Dep | Version | Notes                                                         |
+| --------- | --- | ------- | ------------------------------------------------------------- |
+| —         | —   | —       | Zero new top-level deps; Phase 3 stack covers Phase 4 surface |
 
 ### CVE re-surfacing + overrides
 
@@ -401,17 +401,17 @@ should match.
 
 ### Test infrastructure additions
 
-| Artifact | Detail |
-| --- | --- |
-| Unit tests | 7 new bun:test files under `apps/worker/tests/unit/` (geography-tier, mocks, vouching schema, verification path, force-escalate truth table, draft prompt) |
-| Integration test | `apps/worker/tests/integration/phase-4-workflow.test.ts` — community-vouching E2E (local-only; not CI-gated) |
-| Eval smoke | `packages/eval/src/smoke-001.eval.ts` — case-008 forced-escalate shape assertion |
-| Seed cases | 3 JSON files at `packages/mastra/src/seeds/community-vouching/` (case-006/007/008) |
+| Artifact         | Detail                                                                                                                                                     |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit tests       | 7 new bun:test files under `apps/worker/tests/unit/` (geography-tier, mocks, vouching schema, verification path, force-escalate truth table, draft prompt) |
+| Integration test | `apps/worker/tests/integration/phase-4-workflow.test.ts` — community-vouching E2E (local-only; not CI-gated)                                               |
+| Eval smoke       | `packages/eval/src/smoke-001.eval.ts` — case-008 forced-escalate shape assertion                                                                           |
+| Seed cases       | 3 JSON files at `packages/mastra/src/seeds/community-vouching/` (case-006/007/008)                                                                         |
 
 ### D1 migration
 
-| Migration | Detail |
-| --- | --- |
+| Migration                         | Detail                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------ |
 | `0002_awesome_the_liberteens.sql` | `CREATE UNIQUE INDEX signals_case_run_type_uniq ON signals (case_id, run_id, signal_type)` |
 
 ### Workflow chain

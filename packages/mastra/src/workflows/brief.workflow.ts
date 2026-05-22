@@ -13,12 +13,20 @@ import { extractCreatorIdDoc } from "../steps/extractCreatorIdDoc.ts";
 import { extractStoryClaims } from "../steps/extractStoryClaims.ts";
 import { forcedEscalateGate } from "../steps/forcedEscalateGate/index.ts";
 import { matchPolicy } from "../steps/matchPolicy/index.ts";
+import { mergeSignals } from "../steps/mergeSignals.ts";
 import { photoSignal } from "../steps/photoSignal/index.ts";
 import { storyCoherence } from "../steps/storyCoherence.ts";
 
 /**
  * Brief workflow — Phase 4 inserts trust-signal steps between extractors and
  * matchPolicy, plus draftOrganizerMessage + forcedEscalateGate after composeBrief.
+ *
+ * The three signal-extraction steps (photoSignal, storyCoherence,
+ * classifyVouchingChain) run in `.parallel(...)` because they share no
+ * data dependency on each other — only on the upstream extractions.
+ * `mergeSignals` re-joins the parallel outputs into a single
+ * `PartialBriefStateSchema` so every downstream step keeps the standard
+ * step-input shape.
  */
 export const briefWorkflow = createWorkflow({
   id: "brief",
@@ -30,9 +38,8 @@ export const briefWorkflow = createWorkflow({
   .then(extractBankStatement)
   .then(extractCategoryDocs)
   .then(extractStoryClaims)
-  .then(photoSignal)
-  .then(storyCoherence)
-  .then(classifyVouchingChain)
+  .parallel([photoSignal, storyCoherence, classifyVouchingChain])
+  .then(mergeSignals)
   .then(computeVerificationPath)
   .then(matchPolicy)
   .then(composeBrief)

@@ -194,7 +194,8 @@ export function case004Responses(): Record<string, unknown> {
       { docType: "bank_statement", reason: "Statement period incomplete" },
       DEFAULT_ZAKAT_CITATIONS,
       {
-        message: "Please provide a complete bank statement covering the full statement period requested.",
+        message:
+          "Please provide a complete bank statement covering the full statement period requested.",
         missing_items: ["bank_statement"],
       },
     ),

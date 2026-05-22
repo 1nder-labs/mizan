@@ -6,14 +6,12 @@ import { readFileSync } from "node:fs";
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
+import { allCorpusClauseIds, BriefPayloadSchema } from "@mizan/mastra";
 import {
-  allCorpusClauseIds,
-  BriefPayloadSchema,
   responsesForCaseIndex,
   SEED_CASE_IDS,
   serializeMockResponses,
-} from "@mizan/mastra";
-import type { CloudflareBindings } from "../../src/env.ts";
+} from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 import { embedCorpusInto } from "../../../../scripts/lib/embed-corpus-into.ts";
 
@@ -68,10 +66,6 @@ async function loadSeed(filename: string): Promise<SeedJson> {
   return JSON.parse(readFileSync(path, "utf8")) as SeedJson;
 }
 
-function workerEnv(): CloudflareBindings {
-  return env as CloudflareBindings;
-}
-
 async function seedCase001(adminUserId: string): Promise<void> {
   const seed = await loadSeed("case-001.json");
   await env.DB.prepare(
@@ -112,7 +106,7 @@ async function drainSse(res: Response): Promise<string> {
   return out;
 }
 
-const hasOpenAiKey = Boolean(workerEnv().OPENAI_API_KEY);
+const hasOpenAiKey = Boolean(env.OPENAI_API_KEY);
 const describeWithKey = hasOpenAiKey ? describe : describe.skip;
 
 describeWithKey("policy rag integration", () => {
@@ -128,8 +122,12 @@ describeWithKey("policy rag integration", () => {
     if (!row?.id) throw new Error("admin seed failed");
     adminUserId = row.id;
     await seedCase001(adminUserId);
-    workerEnv().MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(0));
-    await embedCorpusInto(env.VECTORIZE, {}, { OPENAI_API_KEY: workerEnv().OPENAI_API_KEY });
+    env.MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(0));
+    await embedCorpusInto(
+      env.VECTORIZE,
+      {},
+      env.OPENAI_API_KEY ? { OPENAI_API_KEY: env.OPENAI_API_KEY } : {},
+    );
   }, 120_000);
 
   it("case-001 brief includes at least two corpus-backed policy citations", async () => {

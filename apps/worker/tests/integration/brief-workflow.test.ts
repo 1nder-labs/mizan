@@ -6,8 +6,11 @@ import { readFileSync } from "node:fs";
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import { responsesForCaseIndex, SEED_CASE_IDS, serializeMockResponses } from "@mizan/mastra";
-import type { CloudflareBindings } from "../../src/env.ts";
+import {
+  responsesForCaseIndex,
+  SEED_CASE_IDS,
+  serializeMockResponses,
+} from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 
 const BASE = "http://localhost";
@@ -70,10 +73,6 @@ async function loadSeed(filename: string): Promise<SeedJson> {
     import.meta.url,
   ).pathname;
   return JSON.parse(readFileSync(path, "utf8")) as SeedJson;
-}
-
-function workerEnv(): CloudflareBindings {
-  return env as CloudflareBindings;
 }
 
 async function seedCases(adminUserId: string): Promise<void> {
@@ -142,7 +141,7 @@ describe("brief workflow integration", () => {
   it.each(SEED_CASE_IDS.map((id, index) => [id, index] as const))(
     "case %s completes workflow and persists brief",
     async (caseId, index) => {
-      workerEnv().MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(index));
+      env.MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(index));
       const res = await exports.default.fetch(
         new Request(`${BASE}/api/cases/${caseId}/brief`, {
           method: "POST",
@@ -223,7 +222,7 @@ describe("brief workflow integration", () => {
       )
       .run();
 
-    workerEnv().MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(0));
+    env.MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(0));
     const headers = {
       Cookie: adminCookie,
       Accept: "text/event-stream",

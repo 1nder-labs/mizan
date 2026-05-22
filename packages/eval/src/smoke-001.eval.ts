@@ -1,4 +1,5 @@
-import { BriefPayloadSchema, case001Responses, case008Responses, resolveLanguageModel } from "@mizan/mastra";
+import { BriefPayloadSchema, resolveLanguageModel } from "@mizan/mastra";
+import { case001Responses, case008Responses } from "@mizan/mastra/testing";
 import type { CloudflareBindings } from "@mizan/worker/env";
 import type {
   D1Database,

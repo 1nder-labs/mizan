@@ -19,7 +19,6 @@
       "ignoreDependencies": ["better-auth"]
     },
     "packages/mastra": {
-      "ignore": ["src/test/**/*"],
       "ignoreDependencies": ["@mizan/worker"]
     },
     "packages/shared": {},

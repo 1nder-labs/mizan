@@ -6,57 +6,57 @@ import { readFileSync } from "node:fs";
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
+import { z } from "zod";
 import {
   BriefPayloadSchema,
+  PhotoSignalPayloadSchema,
+  SeedCaseSchema,
+  StoryCoherencePayloadSchema,
+  VerificationPathSchema,
+  VouchingChainSchema,
+} from "@mizan/mastra";
+import type { VerificationPath } from "@mizan/mastra";
+import {
   case006Responses,
   case007Responses,
   case008Responses,
   serializeMockResponses,
-} from "@mizan/mastra";
-import type { CloudflareBindings } from "../../src/env.ts";
+} from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 
 const BASE = "http://localhost";
 
-const COMMUNITY_CASES = [
+interface CommunityCaseFixture {
+  readonly id: string;
+  readonly file: string;
+  readonly responses: () => Record<string, unknown>;
+  readonly expectedPath: VerificationPath;
+  readonly forcedEscalate: boolean;
+}
+
+const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
   {
     id: "11111111-1111-4111-8111-111111111106",
     file: "case-006.json",
     responses: case006Responses,
-    expectedPath: "community_vouching",
+    expectedPath: VerificationPathSchema.parse("community_vouching"),
     forcedEscalate: false,
   },
   {
     id: "11111111-1111-4111-8111-111111111107",
     file: "case-007.json",
     responses: case007Responses,
-    expectedPath: "institutional_vouching",
+    expectedPath: VerificationPathSchema.parse("institutional_vouching"),
     forcedEscalate: false,
   },
   {
     id: "11111111-1111-4111-8111-111111111108",
     file: "case-008.json",
     responses: case008Responses,
-    expectedPath: "none",
+    expectedPath: VerificationPathSchema.parse("none"),
     forcedEscalate: true,
   },
-] as const;
-
-interface SeedJson {
-  readonly id: string;
-  readonly status: string;
-  readonly category: string;
-  readonly geography: string;
-  readonly claimed_zakat_category: string;
-  readonly organizer_name: string;
-  readonly story: string;
-  readonly vouching_narrative?: string;
-  readonly r2_keys: {
-    readonly creator_id: string;
-    readonly bank_statement: string;
-    readonly category_doc: string;
-  };
-}
+];
 
 function cookiesFrom(res: Response): string {
   return res.headers.getSetCookie().join("; ");
@@ -83,16 +83,12 @@ async function seedAdmin(): Promise<string> {
   return cookiesFrom(signIn);
 }
 
-async function loadCommunitySeed(filename: string): Promise<SeedJson> {
+function loadCommunitySeed(filename: string) {
   const path = new URL(
     `../../../../packages/mastra/src/seeds/community-vouching/${filename}`,
     import.meta.url,
   ).pathname;
-  return JSON.parse(readFileSync(path, "utf8")) as SeedJson;
-}
-
-function workerEnv(): CloudflareBindings {
-  return env as CloudflareBindings;
+  return SeedCaseSchema.parse(JSON.parse(readFileSync(path, "utf8")));
 }
 
 async function drainSse(res: Response): Promise<string> {
@@ -108,6 +104,18 @@ async function drainSse(res: Response): Promise<string> {
   return out;
 }
 
+const SignalRowSchema = z.object({
+  signal_type: z.enum([
+    "photo_dup",
+    "story_coherence",
+    "vouching_chain",
+    "registry_lookup",
+    "sanctions_screen",
+    "ocr_mismatch",
+  ]),
+  payload_json: z.string(),
+});
+
 describe("phase 4 community-vouching workflow", () => {
   let adminCookie = "";
   let adminUserId = "";
@@ -122,7 +130,7 @@ describe("phase 4 community-vouching workflow", () => {
     adminUserId = row.id;
 
     for (const entry of COMMUNITY_CASES) {
-      const seed = await loadCommunitySeed(entry.file);
+      const seed = loadCommunitySeed(entry.file);
       const overlay = {
         story: seed.story,
         organizer_name: seed.organizer_name,
@@ -159,7 +167,7 @@ describe("phase 4 community-vouching workflow", () => {
   it.each(COMMUNITY_CASES.map((entry) => [entry.id, entry] as const))(
     "case %s routes correctly with three signal rows",
     async (caseId, entry) => {
-      workerEnv().MOCK_LLM_RESPONSES = serializeMockResponses(entry.responses());
+      env.MOCK_LLM_RESPONSES = serializeMockResponses(entry.responses());
       const res = await exports.default.fetch(
         new Request(`${BASE}/api/cases/${caseId}/brief`, {
           method: "POST",
@@ -175,18 +183,20 @@ describe("phase 4 community-vouching workflow", () => {
       expect(sse.length).toBeGreaterThan(0);
 
       const briefRow = await env.DB.prepare(
-        "SELECT recommendation, payload_json FROM briefs WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
+        "SELECT payload_json FROM briefs WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
       )
         .bind(caseId)
-        .first<{ recommendation: string; payload_json: string }>();
+        .first<{ payload_json: string }>();
       expect(briefRow).toBeTruthy();
-      const brief = BriefPayloadSchema.parse(JSON.parse(briefRow?.payload_json ?? "{}"));
+      const briefPayload = briefRow?.payload_json ?? "{}";
+      const brief = BriefPayloadSchema.parse(JSON.parse(briefPayload));
 
       if (entry.forcedEscalate) {
         expect(brief.recommendation).toBe("ESCALATE");
-        expect(brief.forced_escalate_reason?.length).toBeGreaterThan(0);
+        expect(brief.forced_escalate_reason?.length ?? 0).toBeGreaterThan(0);
       } else {
         expect(brief.recommendation).not.toBe("ESCALATE");
+        expect(brief.forced_escalate_reason).toBeUndefined();
       }
 
       const signalRows = await env.DB.prepare(
@@ -194,17 +204,32 @@ describe("phase 4 community-vouching workflow", () => {
       )
         .bind(caseId)
         .all<{ signal_type: string; payload_json: string }>();
-      expect(signalRows.results).toHaveLength(3);
-      const types = signalRows.results.map((row) => row.signal_type).sort();
+      const parsedRows = signalRows.results.map((row) => SignalRowSchema.parse(row));
+      expect(parsedRows).toHaveLength(3);
+      const types = parsedRows.map((row) => row.signal_type).sort();
       expect(types).toEqual(["photo_dup", "story_coherence", "vouching_chain"]);
 
+      const photoRow = parsedRows.find((row) => row.signal_type === "photo_dup");
+      const storyRow = parsedRows.find((row) => row.signal_type === "story_coherence");
+      const vouchingRow = parsedRows.find((row) => row.signal_type === "vouching_chain");
+      if (!photoRow || !storyRow || !vouchingRow) throw new Error("expected all three signals");
+
+      PhotoSignalPayloadSchema.parse(JSON.parse(photoRow.payload_json));
+      StoryCoherencePayloadSchema.parse(JSON.parse(storyRow.payload_json));
+      const vouching = VouchingChainSchema.parse(JSON.parse(vouchingRow.payload_json));
+
       if (entry.expectedPath === "institutional_vouching") {
-        const vouchingRow = signalRows.results.find((row) => row.signal_type === "vouching_chain");
-        expect(vouchingRow).toBeTruthy();
-        const payload = JSON.parse(vouchingRow?.payload_json ?? "{}") as {
-          partner_org_name?: string;
-        };
-        expect(payload.partner_org_name).toBe("Sudan Aid Foundation");
+        if (
+          vouching.structure !== "individual-via-partner-org" &&
+          vouching.structure !== "org-direct"
+        ) {
+          throw new Error(`expected partner structure, got ${vouching.structure}`);
+        }
+        expect(vouching.partner_org_name).toBe("Sudan Aid Foundation");
+      } else if (entry.expectedPath === "community_vouching") {
+        expect(vouching.structure).toBe("individual-to-individual");
+      } else if (entry.expectedPath === "none") {
+        expect(vouching.structure).toBe("none");
       }
 
       await env.DB.prepare("UPDATE cases SET status = 'DRAFT', current_run_id = NULL WHERE id = ?")

@@ -9,9 +9,17 @@ import { loadCaseContext, type CaseContext } from "../../runtime/case-loader.ts"
 import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
 import { makeTelemetry } from "../../runtime/telemetry.ts";
 
-/** True when the mock LLM provider has no canned response for this extractor. */
+/**
+ * Sentinel name thrown by the test-only `mockProvider` when a canned response
+ * for the extractor's schema is missing. Production callers never register
+ * the mock provider (see `runtime/model-resolver.ts#registerTestProviders`),
+ * so this branch is dead code outside the test entry point. Class identity
+ * by name avoids a production import from `src/test/`.
+ */
+const MISSING_MOCK_RESPONSE_ERROR_NAME = "MissingMockResponseError";
+
 function isMissingMockResponse(error: unknown): boolean {
-  return error instanceof Error && error.message.includes("no canned response for schema");
+  return error instanceof Error && error.name === MISSING_MOCK_RESPONSE_ERROR_NAME;
 }
 
 export interface ExtractorPrompt {

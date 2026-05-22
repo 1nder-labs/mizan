@@ -43,7 +43,11 @@ describe("deriveVerificationPath", () => {
           },
         },
         signals: {
-          vouching: { structure: "org-direct", partner_org_name: "Org", weakest_link_narrative: "x" },
+          vouching: {
+            structure: "org-direct",
+            partner_org_name: "Org",
+            weakest_link_narrative: "x",
+          },
         },
       }),
     );

@@ -1,4 +1,4 @@
-import { briefs, cases, eq, makeDb, and } from "@mizan/db";
+import { briefs, cases, eq, makeDb } from "@mizan/db";
 import { generateObject } from "ai";
 import {
   BriefPayloadSchema,
@@ -20,9 +20,22 @@ interface ComposeContext {
   readonly abortSignal: AbortSignal | undefined;
 }
 
+/**
+ * Builds the LLM-output schema for composeBrief.
+ *
+ * Omits the post-LLM fields (`drafted_organizer_message`,
+ * `forced_escalate_reason`) so the model is not asked to emit them and so
+ * the JSON Schema satisfies OpenAI strict-mode (all properties required).
+ * Replaces `policy_citations.clauseId` with a closed enum so the model can
+ * only cite from the clauses returned by the matchPolicy step.
+ */
 export function buildPerCallBriefSchema(availableClauseIds: readonly string[]) {
   const clauseIdSchema = buildClauseIdSchema(availableClauseIds);
-  return BriefPayloadSchema.omit({ policy_citations: true }).extend({
+  return BriefPayloadSchema.omit({
+    policy_citations: true,
+    drafted_organizer_message: true,
+    forced_escalate_reason: true,
+  }).extend({
     policy_citations: PolicyCitationSchema.omit({ clauseId: true })
       .extend({ clauseId: clauseIdSchema })
       .array(),
@@ -103,24 +116,6 @@ export async function persistBrief(
     .set({ status: "READY_FOR_REVIEW", updated_at: new Date() })
     .where(eq(cases.id, caseId));
   await db.batch([insertStmt, updateStmt]);
-}
-
-/** Updates an existing brief row after post-composeBrief mutations. */
-export async function updatePersistedBrief(
-  env: CloudflareBindings,
-  caseId: string,
-  runId: string,
-  brief: BriefPayload,
-): Promise<void> {
-  const db = makeDb(env.DB);
-  await db
-    .update(briefs)
-    .set({
-      recommendation: brief.recommendation,
-      confidence: brief.confidence,
-      payload_json: brief,
-    })
-    .where(and(eq(briefs.case_id, caseId), eq(briefs.run_id, runId)));
 }
 
 export { type ComposeContext };

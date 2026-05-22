@@ -36,18 +36,24 @@ export {
   VerificationPathSchema,
 } from "./schemas/brief.ts";
 export type { StoryCoherencePayload } from "./schemas/brief.ts";
-export { VouchingChainSchema, type VouchingChain } from "./steps/classifyVouchingChain/schema.ts";
+export {
+  VouchingChainSchema,
+  assertVouchingChain,
+  type VouchingChain,
+} from "./schemas/vouching.ts";
+export { PhotoSignalPayloadSchema, type PhotoSignalPayload } from "./schemas/photo-signal.ts";
 export { deriveVerificationPath } from "./steps/computeVerificationPath.ts";
 export { forceEscalate } from "./steps/forcedEscalateGate/predicate.ts";
 export { buildDraftPrompt } from "./steps/draftOrganizerMessage/prompt.ts";
-export { mockReverseImageSearch } from "./tools/reverse-image-mock.ts";
-export { mockAiGenDetection } from "./tools/ai-gen-mock.ts";
+export { reverseImageStub } from "./tools/reverse-image-stub.ts";
+export { aiGenStub } from "./tools/ai-gen-stub.ts";
 export type { PartialBriefState } from "./schemas/brief.ts";
 export { CorpusSchema, ClauseSchema, type Corpus, type Clause } from "./schemas/corpus.ts";
 export { allCorpusClauseIds, loadPolicyCorpora } from "./corpus/load.ts";
 export { chunkCorpusRecords, type ChunkRecord } from "./corpus/chunk.ts";
 export { CaseOverlaySchema } from "./schemas/case-overlay.ts";
 export type { CaseOverlay } from "./schemas/case-overlay.ts";
+export { SeedCaseSchema, type SeedCase } from "./seeds/seed-case-schema.ts";
 export { CreatorIdSchema } from "./schemas/extractions/creator-id.ts";
 export { flushLangfuse } from "./observability/flush.ts";
 export {
@@ -89,20 +95,6 @@ export {
   buildClauseIdSchema,
   buildPromptWithClauses,
 } from "./steps/composeBrief/helpers.ts";
-export { mockProvider, parseMockResponseMap } from "./test/mock-provider.ts";
-export {
-  case001Responses,
-  case002Responses,
-  case003Responses,
-  case004Responses,
-  case005Responses,
-  case006Responses,
-  case007Responses,
-  case008Responses,
-  responsesForCaseIndex,
-  SEED_CASE_IDS,
-  serializeMockResponses,
-} from "./test/canned-responses/index.ts";
 
 export interface MizanMastraBundle {
   readonly mastra: Mastra;

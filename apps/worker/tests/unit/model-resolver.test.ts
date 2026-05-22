@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { resolveLanguageModel } from "@mizan/mastra";
+import "@mizan/mastra/testing";
 import { makeStubBindings } from "../helpers/test-bindings.ts";
 
 describe("resolveLanguageModel", () => {

@@ -7,11 +7,30 @@ import {
   type EmbeddingEnv,
 } from "../models/embedding-factory.ts";
 import { getDefaultModel, getModel, type ModelConfig, type ModelKind } from "../models/factory.ts";
-import { mockProvider } from "../test/mock-provider.ts";
 
 type WithMastraOpts = Parameters<typeof withMastra>[1];
 
-const MOCK_EMBEDDING_DIMENSION = 1536;
+/** Factory for a mock LanguageModel — registered by `@mizan/mastra/testing`. */
+type MockLanguageModelFactory = (serializedMap: string) => LanguageModelV3;
+
+/** Factory for a deterministic embedding — registered by `@mizan/mastra/testing`. */
+type MockEmbeddingFactory = (text: string) => number[];
+
+let registeredMockLanguageModel: MockLanguageModelFactory | null = null;
+let registeredMockEmbedding: MockEmbeddingFactory | null = null;
+
+/**
+ * Registers test-only mock providers. Production never calls this — only
+ * `@mizan/mastra/testing` does. Production builds therefore never import
+ * the test scaffolding and never trigger the mock branches below.
+ */
+export function registerTestProviders(opts: {
+  readonly mockLanguageModel?: MockLanguageModelFactory;
+  readonly mockEmbedding?: MockEmbeddingFactory;
+}): void {
+  if (opts.mockLanguageModel) registeredMockLanguageModel = opts.mockLanguageModel;
+  if (opts.mockEmbedding) registeredMockEmbedding = opts.mockEmbedding;
+}
 
 export interface ResolveLanguageModelArgs {
   readonly env: CloudflareBindings;
@@ -26,9 +45,9 @@ export interface ResolvedLanguageModel {
 }
 
 export function resolveLanguageModel(args: ResolveLanguageModelArgs): ResolvedLanguageModel {
-  if (args.env.MOCK_LLM_RESPONSES) {
+  if (args.env.MOCK_LLM_RESPONSES && registeredMockLanguageModel) {
     return {
-      model: mockProvider(args.env.MOCK_LLM_RESPONSES),
+      model: registeredMockLanguageModel(args.env.MOCK_LLM_RESPONSES),
       config: args.override ?? { provider: "anthropic", model: "mock-llm" },
     };
   }
@@ -42,7 +61,9 @@ export async function resolveQueryEmbedding(
   value: string,
   opts?: { readonly abortSignal?: AbortSignal },
 ): Promise<number[]> {
-  if (shouldMockEmbeddings(env)) return deterministicEmbedding(value);
+  if (shouldMockEmbeddings(env) && registeredMockEmbedding) {
+    return registeredMockEmbedding(value);
+  }
   return embedPolicyText({
     env,
     value,
@@ -55,25 +76,15 @@ export async function resolveBatchEmbeddings(
   values: readonly string[],
 ): Promise<number[][]> {
   if (values.length === 0) return [];
-  if (shouldMockEmbeddings(env)) return values.map((value) => deterministicEmbedding(value));
+  if (shouldMockEmbeddings(env) && registeredMockEmbedding) {
+    const fn = registeredMockEmbedding;
+    return values.map((value) => fn(value));
+  }
   return embedPolicyTexts({ env, values });
 }
 
 function shouldMockEmbeddings(env: EmbeddingEnv): boolean {
   return Boolean(env.MOCK_EMBEDDINGS) || Boolean(env.MOCK_LLM_RESPONSES && !env.OPENAI_API_KEY);
-}
-
-function deterministicEmbedding(text: string): number[] {
-  const vector = Array.from<number>({ length: MOCK_EMBEDDING_DIMENSION }).fill(0);
-  let seed = 0;
-  for (let i = 0; i < text.length; i += 1) {
-    seed = (seed * 31 + text.charCodeAt(i)) >>> 0;
-  }
-  for (let i = 0; i < MOCK_EMBEDDING_DIMENSION; i += 1) {
-    seed = (seed * 1664525 + 1013904223 + i) >>> 0;
-    vector[i] = (seed % 1000) / 1000 - 0.5;
-  }
-  return vector;
 }
 
 export type { EmbeddingEnv };

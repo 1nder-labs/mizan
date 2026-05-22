@@ -1,21 +1,9 @@
-import { z } from "zod";
-import { AiGenResultSchema } from "../../tools/ai-gen-mock.ts";
-import { ReverseImageResultSchema } from "../../tools/reverse-image-mock.ts";
+import type { z } from "zod";
+import type { AiGenResultSchema } from "../../tools/ai-gen-stub.ts";
+import type { ReverseImageResultSchema } from "../../tools/reverse-image-stub.ts";
+import { type PhotoSignalPayload } from "../../schemas/photo-signal.ts";
 
-const PhotoAssetSignalSchema = z.object({
-  reverseImage: ReverseImageResultSchema,
-  aiGen: AiGenResultSchema,
-});
-
-/** Structured photo trust signal for creator ID + category document images. */
-export const PhotoSignalPayloadSchema = z.object({
-  creator_id: PhotoAssetSignalSchema,
-  category_doc: PhotoAssetSignalSchema,
-});
-
-export type PhotoSignalPayload = z.infer<typeof PhotoSignalPayloadSchema>;
-
-/** Nests reverse-image + AI-gen mock outputs into the photo signal payload. */
+/** Nests reverse-image + AI-gen stub outputs into the photo signal payload. */
 export function composePhotoSignalPayload(input: {
   creatorIdReverse: z.infer<typeof ReverseImageResultSchema>;
   creatorIdAiGen: z.infer<typeof AiGenResultSchema>;

@@ -24,20 +24,28 @@ export function deriveVerificationPath(state: PartialBriefState): VerificationPa
   return "none";
 }
 
-/** Deterministic step that overwrites `classify.verification_path`. */
+/**
+ * Deterministic step that overwrites `classify.verification_path`.
+ *
+ * Requires `classifyCampaign` to have run first — otherwise the geography
+ * tier is unknown and downstream `forcedEscalateGate` would have no signal.
+ * Throws instead of silently defaulting to `SAFE`, which would let an
+ * OFAC-geography case with a missing classify escape the safety gate.
+ */
 export const computeVerificationPath = createStep({
   id: "computeVerificationPath",
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
   execute: async ({ inputData }) => {
+    if (!inputData.classify) {
+      throw new Error(
+        `computeVerificationPath: classify missing for case ${inputData.caseId} run ${inputData.runId} — classifyCampaign must run first`,
+      );
+    }
     const verification_path = deriveVerificationPath(inputData);
-    const classify = inputData.classify ?? {
-      verification_path,
-      geography_tier: "SAFE" as const,
-    };
     return {
       ...inputData,
-      classify: { ...classify, verification_path },
+      classify: { ...inputData.classify, verification_path },
     };
   },
 });

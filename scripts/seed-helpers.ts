@@ -22,21 +22,24 @@ export const COMMUNITY_VOUCHING_SEED_FILES = [
   "case-008.json",
 ] as const;
 
-export const SEED_CASE_FILES = [...DOCUMENTARY_SEED_FILES, ...COMMUNITY_VOUCHING_SEED_FILES] as const;
+export const SEED_CASE_FILES = [
+  ...DOCUMENTARY_SEED_FILES,
+  ...COMMUNITY_VOUCHING_SEED_FILES,
+] as const;
 
 export function documentarySeedJsonPath(filename: string): string {
   return new URL(`../packages/mastra/src/seeds/documentary/${filename}`, import.meta.url).pathname;
 }
 
 export function communitySeedJsonPath(filename: string): string {
-  return new URL(
-    `../packages/mastra/src/seeds/community-vouching/${filename}`,
-    import.meta.url,
-  ).pathname;
+  return new URL(`../packages/mastra/src/seeds/community-vouching/${filename}`, import.meta.url)
+    .pathname;
 }
 
+const COMMUNITY_VOUCHING_LOOKUP: ReadonlySet<string> = new Set(COMMUNITY_VOUCHING_SEED_FILES);
+
 export function seedJsonPath(filename: string): string {
-  if (filename.startsWith("case-006") || filename.startsWith("case-007") || filename.startsWith("case-008")) {
+  if (COMMUNITY_VOUCHING_LOOKUP.has(filename)) {
     return communitySeedJsonPath(filename);
   }
   return documentarySeedJsonPath(filename);

@@ -64,7 +64,7 @@ export function briefPayload(
     recommendation,
     missing_docs: [],
     reviewer_questions: [],
-    extracted_claims: { summary: "Documentary evidence reviewed" },
+    extracted_claims: "Documentary evidence reviewed.",
     confidence,
     policy_citations: policyCitations,
   };

@@ -29,7 +29,21 @@ function lookupResponse(map: MockResponseMap, schemaName: string | undefined): J
   }
   const fallback = map["default"];
   if (fallback !== undefined) return fallback;
-  throw new Error(`mock provider: no canned response for schema ${schemaName ?? "missing"}`);
+  throw new MissingMockResponseError(schemaName);
+}
+
+/**
+ * Thrown by the test-only `mockProvider` when no canned response is registered
+ * for a given `schemaName`. Consumers use `instanceof` identity matching to
+ * distinguish this from real LLM provider errors.
+ */
+export class MissingMockResponseError extends Error {
+  readonly schemaName: string | undefined;
+  constructor(schemaName: string | undefined) {
+    super(`mock provider: no canned response for schema ${schemaName ?? "missing"}`);
+    this.name = "MissingMockResponseError";
+    this.schemaName = schemaName;
+  }
 }
 
 function schemaNameFromOptions(options: LanguageModelV3CallOptions): string | undefined {

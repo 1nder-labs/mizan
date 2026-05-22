@@ -6,7 +6,7 @@ const sampleBrief: BriefPayload = {
   recommendation: "REQUEST_DOCS",
   missing_docs: [{ docType: "bank_statement", reason: "Incomplete period" }],
   reviewer_questions: [],
-  extracted_claims: { summary: "test" },
+  extracted_claims: "Documents partially extracted; bank statement missing.",
   confidence: 50,
   policy_citations: [
     {
@@ -22,9 +22,18 @@ describe("buildDraftPrompt", () => {
   it("returns system string and user payload with brief fields", () => {
     const { system, userPayload } = buildDraftPrompt({ brief: sampleBrief });
     expect(system.length).toBeGreaterThan(0);
-    expect(userPayload["recommendation"]).toBe("REQUEST_DOCS");
-    expect(userPayload["missing_docs"]).toEqual(sampleBrief.missing_docs);
-    expect(userPayload["policy_citations"]).toEqual(sampleBrief.policy_citations);
+    expect(userPayload.recommendation).toBe("REQUEST_DOCS");
+    expect(userPayload.missing_docs).toEqual(sampleBrief.missing_docs);
+    expect(userPayload.policy_citations).toEqual(sampleBrief.policy_citations);
+  });
+
+  it("includes only the recommendation, missing_docs, and policy_citations on the user payload", () => {
+    const { userPayload } = buildDraftPrompt({ brief: sampleBrief });
+    expect(Object.keys(userPayload).sort()).toEqual([
+      "missing_docs",
+      "policy_citations",
+      "recommendation",
+    ]);
   });
 
   it("handles empty missing_docs and policy_citations", () => {
@@ -34,7 +43,7 @@ describe("buildDraftPrompt", () => {
       policy_citations: [],
     };
     const { userPayload } = buildDraftPrompt({ brief });
-    expect(userPayload["missing_docs"]).toEqual([]);
-    expect(userPayload["policy_citations"]).toEqual([]);
+    expect(userPayload.missing_docs).toEqual([]);
+    expect(userPayload.policy_citations).toEqual([]);
   });
 });

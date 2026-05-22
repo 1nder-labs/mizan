@@ -17,13 +17,20 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { users } from "./auth.schema.ts";
 
-/**
- * Forward-declared placeholder replaced by import from `@mizan/mastra` once schemas land.
- */
-import type { BriefPayload, CaseOverlay } from "@mizan/mastra";
+import type {
+  BriefPayload,
+  CaseOverlay,
+  PhotoSignalPayload,
+  StoryCoherencePayload,
+  VouchingChain,
+} from "@mizan/mastra";
 
-/** Minimal placeholder — Phase 2 expands with signal-specific evidence fields. */
-type SignalPayload = Record<string, unknown>;
+/**
+ * Discriminant-aware union of signal payloads currently emitted by Phase 4
+ * steps. Future signals (registry_lookup, sanctions_screen, ocr_mismatch)
+ * extend this union when their steps ship.
+ */
+export type SignalPayload = PhotoSignalPayload | StoryCoherencePayload | VouchingChain;
 
 export const cases = sqliteTable(
   "cases",
