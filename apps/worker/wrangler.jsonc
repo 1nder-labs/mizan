@@ -15,7 +15,7 @@
     },
   ],
   "r2_buckets": [{ "binding": "R2_BUCKET", "bucket_name": "mizan-uploads" }],
-  "vectorize": [{ "binding": "VECTORIZE", "index_name": "mizan-policy-corpus" }],
+  "vectorize": [{ "binding": "VECTORIZE", "index_name": "mizan-policy-corpus", "remote": true }],
   "kv_namespaces": [{ "binding": "KV", "id": "597f67d85db94ae4b4a90175fa465605" }],
   "queues": {
     "producers": [{ "binding": "BRIEF_QUEUE", "queue": "mizan-brief-jobs" }],
@@ -38,7 +38,6 @@
   },
   "vars": {
     "DEFAULT_LLM_PROVIDER": "anthropic",
-    "DEFAULT_LLM_MODEL": "claude-opus-4-7",
     "LANGFUSE_HOST": "",
   },
 }

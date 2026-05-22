@@ -26,3 +26,13 @@ pre-push:
   commands:
     test:
       run: bun --filter '*' test
+    vitest-import-gate:
+      run: |
+        matches=$(grep -rlnE "from \"vitest\"|from 'vitest'|@vitest/" \
+                  apps/worker/tests/unit apps/web/src 2>/dev/null || true)
+        if [ -n "$matches" ]; then
+          echo "lefthook: vitest import detected in files that should be on bun test:"
+          echo "$matches"
+          exit 1
+        fi
+        exit 0

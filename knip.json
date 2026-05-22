@@ -4,7 +4,7 @@
   "ignoreExportsUsedInFile": true,
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.ts"],
+      "entry": ["scripts/*.ts", "scripts/lib/*.ts"],
       "ignoreDependencies": ["@socketsecurity/bun-security-scanner", "zod", "@mizan/mastra"]
     },
     "apps/worker": {
@@ -20,7 +20,7 @@
     },
     "packages/mastra": {
       "ignore": ["src/test/**/*"],
-      "ignoreDependencies": ["@mizan/worker", "@cloudflare/workers-types"]
+      "ignoreDependencies": ["@mizan/worker"]
     },
     "packages/shared": {},
     "packages/eval": {

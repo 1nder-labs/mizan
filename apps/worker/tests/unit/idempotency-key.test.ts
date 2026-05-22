@@ -5,7 +5,7 @@
  * with a mock KV that records calls to `get` and `put`. The real
  * `idempotencyKey` middleware is mounted directly — no worker stack required.
  *
- * KV interface is mocked with `vi.fn()` per the plan specification.
+ * KV interface is mocked with `mock()` per the plan specification.
  * The fake env is passed as the second argument to `honoApp.fetch()`.
  *
  * Test cases:
@@ -18,19 +18,19 @@
  */
 
 import { Hono } from "hono";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { idempotencyKey } from "../../src/middleware/idempotency-key.ts";
 
 /** Minimal KV mock interface covering only the methods used by `idempotencyKey`. */
 interface MockKV {
-  get: ReturnType<typeof vi.fn>;
-  put: ReturnType<typeof vi.fn>;
+  get: ReturnType<typeof mock>;
+  put: ReturnType<typeof mock>;
 }
 
 function makeMockKV(): MockKV {
   return {
-    get: vi.fn(),
-    put: vi.fn(),
+    get: mock(),
+    put: mock(),
   };
 }
 
@@ -54,7 +54,7 @@ describe("idempotencyKey middleware", () => {
   });
 
   it("passes GET requests through without touching KV", async () => {
-    const handler = vi.fn(
+    const handler = mock(
       () =>
         new Response(JSON.stringify({ ok: true }), {
           headers: { "Content-Type": "application/json" },
@@ -65,11 +65,11 @@ describe("idempotencyKey middleware", () => {
     expect(res.status).toBe(200);
     expect(kv.get).not.toHaveBeenCalled();
     expect(kv.put).not.toHaveBeenCalled();
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("passes POST without Idempotency-Key header through without touching KV", async () => {
-    const handler = vi.fn(
+    const handler = mock(
       () =>
         new Response(JSON.stringify({ done: true }), {
           headers: { "Content-Type": "application/json" },
@@ -80,13 +80,13 @@ describe("idempotencyKey middleware", () => {
     expect(res.status).toBe(200);
     expect(kv.get).not.toHaveBeenCalled();
     expect(kv.put).not.toHaveBeenCalled();
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("cache MISS: handler runs and KV.put is called after the response", async () => {
     kv.get.mockResolvedValueOnce(null);
     kv.put.mockResolvedValue(undefined);
-    const handler = vi.fn(
+    const handler = mock(
       () =>
         new Response(JSON.stringify({ result: "fresh" }), {
           headers: { "Content-Type": "application/json" },
@@ -100,9 +100,9 @@ describe("idempotencyKey middleware", () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
     expect(kv.get).toHaveBeenCalledWith("idem:key-abc-123", "json");
-    expect(kv.put).toHaveBeenCalledOnce();
+    expect(kv.put).toHaveBeenCalledTimes(1);
     const putArgs = kv.put.mock.calls[0] as [string, string, { expirationTtl: number }];
     expect(putArgs[0]).toBe("idem:key-abc-123");
     const stored = JSON.parse(putArgs[1]);
@@ -112,7 +112,7 @@ describe("idempotencyKey middleware", () => {
   it("cache HIT: returns cached body with Idempotency-Replay header, handler NOT called", async () => {
     const cachedPayload = { status: 200, body: { result: "cached" }, headers: {} };
     kv.get.mockResolvedValueOnce(cachedPayload);
-    const handler = vi.fn(
+    const handler = mock(
       () =>
         new Response(JSON.stringify({ result: "fresh" }), {
           headers: { "Content-Type": "application/json" },
@@ -136,7 +136,7 @@ describe("idempotencyKey middleware", () => {
   it("non-JSON response: response returned normally, KV.put NOT called", async () => {
     kv.get.mockResolvedValueOnce(null);
     kv.put.mockResolvedValue(undefined);
-    const handler = vi.fn(
+    const handler = mock(
       () =>
         new Response("plain text body", {
           headers: { "Content-Type": "text/plain" },
@@ -150,14 +150,14 @@ describe("idempotencyKey middleware", () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
     expect(kv.put).not.toHaveBeenCalled();
   });
 
   it("non-2xx response (4xx validation error): NOT cached per PRD §7.10", async () => {
     kv.get.mockResolvedValueOnce(null);
     kv.put.mockResolvedValue(undefined);
-    const handler = vi.fn(
+    const handler = mock(
       () =>
         new Response(JSON.stringify({ error: "bad input" }), {
           status: 400,
@@ -172,14 +172,14 @@ describe("idempotencyKey middleware", () => {
       }),
     );
     expect(res.status).toBe(400);
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
     expect(kv.put).not.toHaveBeenCalled();
   });
 
   it("non-2xx response (5xx server error): NOT cached", async () => {
     kv.get.mockResolvedValueOnce(null);
     kv.put.mockResolvedValue(undefined);
-    const handler = vi.fn(
+    const handler = mock(
       () =>
         new Response(JSON.stringify({ error: "boom" }), {
           status: 500,
@@ -194,14 +194,14 @@ describe("idempotencyKey middleware", () => {
       }),
     );
     expect(res.status).toBe(500);
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
     expect(kv.put).not.toHaveBeenCalled();
   });
 
   it("malformed KV payload (missing required field): treated as cache miss, handler runs", async () => {
     kv.get.mockResolvedValueOnce({ status: 200 });
     kv.put.mockResolvedValue(undefined);
-    const handler = vi.fn(
+    const handler = mock(
       () =>
         new Response(JSON.stringify({ ok: true }), {
           headers: { "Content-Type": "application/json" },
@@ -215,7 +215,7 @@ describe("idempotencyKey middleware", () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
     expect(res.headers.get("Idempotency-Replay")).toBeNull();
   });
 });

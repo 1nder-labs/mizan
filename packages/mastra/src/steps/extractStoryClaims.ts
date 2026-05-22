@@ -4,7 +4,7 @@ import { StoryClaimsSchema } from "../schemas/extractions/story.ts";
 export const extractStoryClaims = makeExtractor({
   name: "extractStoryClaims",
   schema: StoryClaimsSchema,
-  model: { provider: "anthropic", model: "claude-haiku-4-5" },
+  modelKind: "extract",
   buildPrompt: async (caseRow) => ({
     system: "Extract structured claims from the campaign story text.",
     messages: [

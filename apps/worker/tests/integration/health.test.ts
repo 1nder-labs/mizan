@@ -59,7 +59,6 @@ describe("GET /health", () => {
     expect(env.BRIEF_QUEUE).toBeDefined();
     expect(env.ASSETS).toBeDefined();
     expect(env.DEFAULT_LLM_PROVIDER).toBe("anthropic");
-    expect(env.DEFAULT_LLM_MODEL).toBe("claude-opus-4-7");
     expect(env.LANGFUSE_HOST).toBe("");
   });
 });

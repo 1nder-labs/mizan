@@ -4,7 +4,7 @@ import { BankStatementSchema } from "../schemas/extractions/bank-statement.ts";
 export const extractBankStatement = makeExtractor({
   name: "extractBankStatement",
   schema: BankStatementSchema,
-  model: { provider: "anthropic", model: "claude-haiku-4-5" },
+  modelKind: "extract",
   buildPrompt: async (caseRow, env) => {
     const obj = await env.R2_BUCKET.get(caseRow.r2_keys.bank_statement);
     if (!obj) throw new Error(`bank statement missing for case ${caseRow.id}`);

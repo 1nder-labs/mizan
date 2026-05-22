@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
     "@mizan/mastra": "workspace:*",
     "@mizan/worker": "workspace:*",
     "ai": "6.0.175",

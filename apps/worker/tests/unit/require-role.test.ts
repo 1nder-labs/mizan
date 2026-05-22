@@ -20,7 +20,7 @@
 
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { requireRole, type RoleVariables } from "../../src/middleware/require-role.ts";
 import type { Role } from "../../src/middleware/role-utils.ts";
 
@@ -30,7 +30,7 @@ interface FakeSession {
 }
 
 /** Mutable control surface shared across test cases. */
-const getSessionMock = vi.fn<() => Promise<FakeSession | null>>();
+const getSessionMock = mock(() => Promise.resolve(null as FakeSession | null));
 
 /** Fake `auth` object — structurally matches the `api.getSession` surface used by `requireRole`. */
 const fakeAuth = {

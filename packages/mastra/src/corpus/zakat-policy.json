@@ -1,0 +1,108 @@
+{
+  "source": "zakat",
+  "corpusVersion": "2026-05-21",
+  "policyUrl": "https://www.launchgood.com/zakatpolicy",
+  "fetchedAt": "2026-05-21T00:00:00Z",
+  "clauses": [
+    {
+      "clauseId": "zakat.intro",
+      "title": "Introduction",
+      "body": "LaunchGood provides authentic Zakat campaigns. We take this responsibility very seriously and each Zakat campaign is individually verified for Zakat eligibility by our team of compliance and Zakat experts in accordance with our Zakat Policy. Verified campaigns receive a Zakat-verified badge so Zakat givers can quickly identify eligible campaigns."
+    },
+    {
+      "clauseId": "zakat.1",
+      "title": "Eight eligible recipients",
+      "body": "The Qur'an identifies eight eligible recipients of Zakat: the poor and needy, those in debt, those whose hearts need reconciliation (Mu'allafa al-qulub), in the path of Allah (Fi sabilillah), travelers, emancipation of slaves, Zakat collectors, and the needy."
+    },
+    {
+      "clauseId": "zakat.2.1",
+      "title": "The poor and needy — direct ownership",
+      "body": "Funds for the poor and needy must go directly to Muslim individuals as cash or goods. Community projects that do not transfer direct ownership of Zakat funds or assets to eligible Muslim recipients are not permitted under this category."
+    },
+    {
+      "clauseId": "zakat.2.2",
+      "title": "Those in debt",
+      "body": "Zakat may be used to relieve the debt of eligible Muslim recipients when the debt was incurred for permissible purposes and the recipient qualifies as eligible under scholarly guidelines applied by LaunchGood's verification team."
+    },
+    {
+      "clauseId": "zakat.2.3",
+      "title": "Those whose hearts need reconciliation",
+      "body": "Scholars differ on eligibility for Mu'allafa al-qulub. Some allow support for non-Muslim leaders interested in Islam; others limit it to new Muslims. LaunchGood applies the scholarly view selected during campaign verification and documents the basis in the review record."
+    },
+    {
+      "clauseId": "zakat.3.1",
+      "title": "Fi sabilillah — contemporary scope",
+      "body": "LaunchGood applies a contemporary understanding of Fi sabilillah that includes supporting Muslim welfare causes in Muslim-minority areas and efforts that protect and support Islam through advocacy and community welfare, while excluding general da'wah-only projects and military support."
+    },
+    {
+      "clauseId": "zakat.3.1.a",
+      "title": "Fi sabilillah — community welfare projects",
+      "body": "Community Welfare Projects are campaigns that alleviate poverty or maintain the physical well-being of needy Muslims without making them direct owners of Zakat funds or assets. Medical assistance for eligible Muslims, including urgent surgery and hospital bills paid on behalf of a needy patient, may qualify when verification confirms recipient eligibility and direct benefit."
+    },
+    {
+      "clauseId": "zakat.3.1.b",
+      "title": "Fi sabilillah — religious support projects",
+      "body": "Religious Support Projects are campaigns that promote Islamic interests in Muslim-minority regions. LaunchGood verifies that such campaigns fit within the parameterized Fi sabilillah framework and are not isolated general-purpose charity masquerading as Zakat."
+    },
+    {
+      "clauseId": "zakat.3.2",
+      "title": "Fi sabilillah — prohibited expansions",
+      "body": "LaunchGood will not permit the isolated view that Zakat can be used for anything good. Campaigns must fit within the defined Fi sabilillah parameters. Donors who prefer a narrower interpretation may customize giving preferences to exclude categories they do not accept."
+    },
+    {
+      "clauseId": "zakat.4.1",
+      "title": "Travelers",
+      "body": "Zakat may support stranded or needy travelers who qualify as eligible recipients under the verification team's application of classical and contemporary fiqh guidance."
+    },
+    {
+      "clauseId": "zakat.4.2",
+      "title": "Zakat collectors",
+      "body": "Zakat may compensate legitimate Zakat collectors acting within an authorized institutional framework. Individual campaigns must not route Zakat to unauthorized intermediaries."
+    },
+    {
+      "clauseId": "zakat.5.1",
+      "title": "Medical campaigns",
+      "body": "Medical Zakat campaigns must demonstrate that funds benefit an eligible Muslim recipient, that the medical need is genuine, and that disbursement follows a clear path to the provider or direct relief of the patient's obligation. Organizer claims that funds go directly to a hospital must be supported by medical documentation."
+    },
+    {
+      "clauseId": "zakat.5.2",
+      "title": "Education and school fees",
+      "body": "Education-related Zakat must show that tuition or fees relieve a genuine need for an eligible recipient and that funds are applied to permissible educational expenses rather than general institutional fundraising."
+    },
+    {
+      "clauseId": "zakat.6.1",
+      "title": "Verification requirement",
+      "body": "Every Zakat campaign at LaunchGood is verified by our team of compliance and Zakat experts. Fundraisers indicate Zakat eligibility during campaign creation, select the appropriate category, and the campaign undergoes verification before receiving the Zakat-verified badge."
+    },
+    {
+      "clauseId": "zakat.6.2",
+      "title": "Documentation for verification",
+      "body": "Verification requires sufficient documentary evidence for the claimed Zakat category, including identity of the organizer, beneficiary eligibility, use of funds, and banking path. Missing or inconsistent documentation may result in a request for additional documents rather than Zakat verification."
+    },
+    {
+      "clauseId": "zakat.6.3",
+      "title": "Four schools of law",
+      "body": "LaunchGood's Zakat policy is designed to accommodate all four major schools of Islamic law where scholarly differences exist, while maintaining clear parameters so donors understand how eligibility was determined."
+    },
+    {
+      "clauseId": "zakat.7.1",
+      "title": "Organizer and beneficiary alignment",
+      "body": "The campaign organizer, stated beneficiary, bank account holder, and documentary evidence must align. Material mismatches between organizer identity documents, beneficiary description, and disbursement path require reviewer escalation."
+    },
+    {
+      "clauseId": "zakat.7.2",
+      "title": "Direct disbursement claims",
+      "body": "When a campaign claims that all funds go directly to a hospital, provider, or other third party, reviewers must confirm that the disbursement mechanism and supporting invoices or receipts substantiate the claim and that the ultimate benefit reaches an eligible recipient."
+    },
+    {
+      "clauseId": "zakat.8.1",
+      "title": "Ineligible uses",
+      "body": "Zakat may not fund prohibited activities, hate or violence, non-eligible recipients presented as Zakat cases, or general organizational overhead unrelated to delivering Zakat to eligible recipients."
+    },
+    {
+      "clauseId": "zakat.8.2",
+      "title": "Questions and appeals",
+      "body": "Questions about the Zakat eligibility of a campaign may be directed to zakat@launchgood.com. LaunchGood may remove Zakat verification if post-launch evidence shows the campaign no longer meets policy requirements."
+    }
+  ]
+}

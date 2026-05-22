@@ -14,12 +14,33 @@ export const ReviewerQuestionSchema = z.object({
   suggestedAnswer: z.string().nullable(),
 });
 
+/**
+ * Single citation referencing a clause in `mizan-policy-corpus`.
+ * `relevance` is a Vectorize cosine-similarity score clamped to [0,1] at the
+ * matchPolicy boundary (not constrained in zod — strict LLM structured-output
+ * mode rejects min/max on numbers).
+ */
+export const PolicyCitationSchema = z.object({
+  clauseId: z.string(),
+  source: z.enum(["zakat", "safety"]),
+  excerpt: z.string(),
+  relevance: z.number(),
+});
+
+export type PolicyCitation = z.infer<typeof PolicyCitationSchema>;
+
+/**
+ * Reviewer brief payload — Phase 3 adds additive `policy_citations`.
+ * `policy_citations` defaults to `[]` so pre-Phase-3 serialized briefs in D1
+ * (which never had this field) parse cleanly under the extended schema.
+ */
 export const BriefPayloadSchema = z.object({
   recommendation: RecommendationEnum,
   missing_docs: z.array(MissingDocSchema),
   reviewer_questions: z.array(ReviewerQuestionSchema),
   extracted_claims: JsonRecordSchema,
   confidence: z.number(),
+  policy_citations: PolicyCitationSchema.array().default([]),
 });
 
 export type BriefPayload = z.infer<typeof BriefPayloadSchema>;
@@ -33,6 +54,7 @@ export const PartialBriefStateSchema = z.object({
     })
     .optional(),
   extractions: ExtractionsSchema.optional(),
+  policy_matches: PolicyCitationSchema.array().optional(),
   brief: BriefPayloadSchema.optional(),
 });
 

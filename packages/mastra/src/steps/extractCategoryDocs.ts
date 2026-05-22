@@ -4,7 +4,7 @@ import { CategoryDocsSchema } from "../schemas/extractions/category-docs.ts";
 export const extractCategoryDocs = makeExtractor({
   name: "extractCategoryDocs",
   schema: CategoryDocsSchema,
-  model: { provider: "anthropic", model: "claude-haiku-4-5" },
+  modelKind: "extract",
   buildPrompt: async (caseRow, env) => {
     const obj = await env.R2_BUCKET.get(caseRow.r2_keys.category_doc);
     if (!obj) throw new Error(`category doc missing for case ${caseRow.id}`);

@@ -88,6 +88,7 @@ export const briefs = sqliteTable(
   (table) => [
     index("briefs_case_id_idx").on(table.case_id),
     index("briefs_run_id_idx").on(table.run_id),
+    uniqueIndex("briefs_case_run_uniq").on(table.case_id, table.run_id),
   ],
 );
 
