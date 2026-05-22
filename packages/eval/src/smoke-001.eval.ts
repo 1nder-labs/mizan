@@ -1,4 +1,4 @@
-import { BriefPayloadSchema, case001Responses, resolveLanguageModel } from "@mizan/mastra";
+import { BriefPayloadSchema, case001Responses, case008Responses, resolveLanguageModel } from "@mizan/mastra";
 import type { CloudflareBindings } from "@mizan/worker/env";
 import type {
   D1Database,
@@ -57,5 +57,19 @@ describe("smoke-001 eval", () => {
     const brief = BriefPayloadSchema.parse(compose);
     expect(brief.policy_citations.length).toBeGreaterThanOrEqual(2);
     expect(brief.policy_citations.every((citation) => citation.clauseId.length > 0)).toBe(true);
+  });
+
+  it("case-008 canned brief forces escalate shape when gate applies", () => {
+    const compose = case008Responses()["composeBrief.compose"];
+    const brief = BriefPayloadSchema.parse(compose);
+    expect(brief.recommendation).toBe("READY_FOR_REVIEW");
+    const forced = {
+      ...brief,
+      recommendation: "ESCALATE" as const,
+      forced_escalate_reason: "verification_path=none + geography_tier=OFAC_ADJACENT",
+    };
+    const parsed = BriefPayloadSchema.parse(forced);
+    expect(parsed.recommendation).toBe("ESCALATE");
+    expect(parsed.forced_escalate_reason?.length).toBeGreaterThan(0);
   });
 });
