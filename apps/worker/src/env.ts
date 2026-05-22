@@ -30,7 +30,6 @@ export interface CloudflareBindings {
   BRIEF_QUEUE: Queue;
   ASSETS: Fetcher;
   DEFAULT_LLM_PROVIDER: "anthropic" | "openai" | "openrouter";
-  DEFAULT_LLM_MODEL: string;
   /**
    * Langfuse base URL — empty in dev disables the OTel exporter entirely.
    * Phase 8 boots the local Langfuse Docker stack and points this at

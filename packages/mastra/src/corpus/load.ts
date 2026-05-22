@@ -12,15 +12,22 @@ function parseCorpus(label: string, raw: unknown): Corpus {
   return result.data;
 }
 
-const zakatCorpus = parseCorpus("zakat", zakatPolicyJson);
-const safetyCorpus = parseCorpus("safety", safetyPolicyJson);
+let cached: { readonly zakat: Corpus; readonly safety: Corpus } | null = null;
 
-/** Returns parsed zakat + safety corpora loaded at module init. */
-export function loadPolicyCorpora(): readonly [Corpus, Corpus] {
-  return [zakatCorpus, safetyCorpus];
+function ensureCorpora(): { readonly zakat: Corpus; readonly safety: Corpus } {
+  if (cached) return cached;
+  cached = {
+    zakat: parseCorpus("zakat", zakatPolicyJson),
+    safety: parseCorpus("safety", safetyPolicyJson),
+  };
+  return cached;
 }
 
-/** Returns all clauseIds across both corpora. */
+export function loadPolicyCorpora(): readonly [Corpus, Corpus] {
+  const { zakat, safety } = ensureCorpora();
+  return [zakat, safety];
+}
+
 export function allCorpusClauseIds(): ReadonlySet<string> {
   const ids = new Set<string>();
   for (const corpus of loadPolicyCorpora()) {
@@ -31,12 +38,9 @@ export function allCorpusClauseIds(): ReadonlySet<string> {
   return ids;
 }
 
-/** Filters corpora by source when only one policy corpus is needed. */
 export function corporaForSource(source?: "zakat" | "safety"): Corpus[] {
   const [zakat, safety] = loadPolicyCorpora();
   if (source === "zakat") return [zakat];
   if (source === "safety") return [safety];
   return [zakat, safety];
 }
-
-export { zakatCorpus, safetyCorpus };

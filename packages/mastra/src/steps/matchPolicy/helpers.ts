@@ -59,7 +59,13 @@ export function parseMatchToCitation(
   const source = match.metadata?.source;
   if (typeof clauseId !== "string" || clauseId.length === 0) return null;
   const excerpt = excerptByClauseId.get(clauseId);
-  if (!excerpt) return null;
+  if (!excerpt) {
+    const corpusVersion = match.metadata?.corpusVersion;
+    console.warn(
+      `[matchPolicy] corpus drift: Vectorize returned clauseId=${clauseId} (corpusVersion=${String(corpusVersion ?? "unknown")}) not found in deployed corpus map — Worker likely needs redeploy after corpus version bump`,
+    );
+    return null;
+  }
   const parsed = PolicyCitationSchema.safeParse({
     clauseId,
     source,

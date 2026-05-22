@@ -57,6 +57,17 @@ export {
   type ResolvedLanguageModel,
   type ResolveLanguageModelArgs,
 } from "./runtime/model-resolver.ts";
+export {
+  buildPolicyQuery,
+  parseMatchToCitation,
+  resolveExcerptMap,
+  resolvePolicySource,
+} from "./steps/matchPolicy/helpers.ts";
+export {
+  applyCitationFilter,
+  buildClauseIdSchema,
+  buildPromptWithClauses,
+} from "./steps/composeBrief/helpers.ts";
 export { mockProvider, parseMockResponseMap } from "./test/mock-provider.ts";
 export {
   case001Responses,

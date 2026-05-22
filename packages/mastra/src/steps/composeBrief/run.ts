@@ -88,7 +88,7 @@ export async function persistBrief(
   brief: BriefPayload,
 ): Promise<void> {
   const db = makeDb(env.DB);
-  await db
+  const insertStmt = db
     .insert(briefs)
     .values({
       case_id: caseId,
@@ -97,11 +97,12 @@ export async function persistBrief(
       confidence: brief.confidence,
       payload_json: brief,
     })
-    .onConflictDoNothing();
-  await db
+    .onConflictDoNothing({ target: [briefs.case_id, briefs.run_id] });
+  const updateStmt = db
     .update(cases)
     .set({ status: "READY_FOR_REVIEW", updated_at: new Date() })
     .where(eq(cases.id, caseId));
+  await db.batch([insertStmt, updateStmt]);
 }
 
 export { type ComposeContext };

@@ -63,18 +63,67 @@ async function writeNdjson(
   await Bun.write(path, `${lines.join("\n")}\n`);
 }
 
-async function upsertViaWrangler(ndjsonPath: string): Promise<void> {
-  const proc = Bun.spawn(
-    ["bunx", "wrangler", "vectorize", "upsert", INDEX_NAME, "--file", ndjsonPath],
-    {
+const WRANGLER_TIMEOUT_MS = 120_000;
+const SOURCE_METADATA_PROPERTY = "source";
+
+async function runWranglerWithTimeout(
+  args: readonly string[],
+  timeoutMs = WRANGLER_TIMEOUT_MS,
+): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const proc = Bun.spawn(["bunx", "wrangler", ...args], {
       cwd: "apps/worker",
       stdout: "pipe",
       stderr: "pipe",
-    },
-  );
-  const exitCode = await proc.exited;
-  const stdout = await new Response(proc.stdout).text();
-  const stderr = await new Response(proc.stderr).text();
+      signal: controller.signal,
+    });
+    const exitCode = await proc.exited;
+    const stdout = await new Response(proc.stdout).text();
+    const stderr = await new Response(proc.stderr).text();
+    return { exitCode, stdout, stderr };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function ensureSourceMetadataIndex(): Promise<void> {
+  const listResult = await runWranglerWithTimeout([
+    "vectorize",
+    "list-metadata-index",
+    INDEX_NAME,
+    "--json",
+  ]);
+  if (listResult.exitCode === 0 && listResult.stdout.includes(`"${SOURCE_METADATA_PROPERTY}"`)) {
+    return;
+  }
+  const createResult = await runWranglerWithTimeout([
+    "vectorize",
+    "create-metadata-index",
+    INDEX_NAME,
+    `--property-name=${SOURCE_METADATA_PROPERTY}`,
+    "--type=string",
+  ]);
+  if (
+    createResult.exitCode !== 0 &&
+    !createResult.stderr.includes("already exists") &&
+    !createResult.stdout.includes("already exists")
+  ) {
+    throw new Error(
+      `failed to ensure ${SOURCE_METADATA_PROPERTY} metadata index: ${createResult.stderr || createResult.stdout}`,
+    );
+  }
+}
+
+async function upsertViaWrangler(ndjsonPath: string): Promise<void> {
+  const { exitCode, stdout, stderr } = await runWranglerWithTimeout([
+    "vectorize",
+    "upsert",
+    INDEX_NAME,
+    "--file",
+    ndjsonPath,
+  ]);
   if (exitCode !== 0) {
     throw new Error(`wrangler vectorize upsert failed (${exitCode}): ${stderr || stdout}`);
   }
@@ -96,6 +145,7 @@ async function main(): Promise<void> {
     });
     return;
   }
+  await ensureSourceMetadataIndex();
   const ndjsonPath = `/tmp/mizan-corpus-vectors-${Date.now()}.ndjson`;
   await writeNdjson(ndjsonPath, vectors);
   try {

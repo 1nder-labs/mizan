@@ -29,14 +29,18 @@ export const PolicyCitationSchema = z.object({
 
 export type PolicyCitation = z.infer<typeof PolicyCitationSchema>;
 
-/** Reviewer brief payload — Phase 3 adds additive `policy_citations`. */
+/**
+ * Reviewer brief payload — Phase 3 adds additive `policy_citations`.
+ * `policy_citations` defaults to `[]` so pre-Phase-3 serialized briefs in D1
+ * (which never had this field) parse cleanly under the extended schema.
+ */
 export const BriefPayloadSchema = z.object({
   recommendation: RecommendationEnum,
   missing_docs: z.array(MissingDocSchema),
   reviewer_questions: z.array(ReviewerQuestionSchema),
   extracted_claims: JsonRecordSchema,
   confidence: z.number(),
-  policy_citations: PolicyCitationSchema.array(),
+  policy_citations: PolicyCitationSchema.array().default([]),
 });
 
 export type BriefPayload = z.infer<typeof BriefPayloadSchema>;

@@ -38,7 +38,6 @@
   },
   "vars": {
     "DEFAULT_LLM_PROVIDER": "anthropic",
-    "DEFAULT_LLM_MODEL": "claude-opus-4-7",
     "LANGFUSE_HOST": "",
   },
 }

@@ -26,10 +26,13 @@ export interface ResolvedLanguageModel {
 }
 
 export function resolveLanguageModel(args: ResolveLanguageModelArgs): ResolvedLanguageModel {
-  const config = args.override ?? getDefaultModel(args.env, args.kind);
   if (args.env.MOCK_LLM_RESPONSES) {
-    return { model: mockProvider(args.env.MOCK_LLM_RESPONSES), config };
+    return {
+      model: mockProvider(args.env.MOCK_LLM_RESPONSES),
+      config: args.override ?? { provider: "anthropic", model: "mock-llm" },
+    };
   }
+  const config = args.override ?? getDefaultModel(args.env, args.kind);
   const raw = getModel(config, args.env);
   return { model: withMastra(raw, args.withMastraOpts ?? {}), config };
 }

@@ -1,40 +1,30 @@
 import { describe, expect, it } from "bun:test";
 import { resolveLanguageModel } from "@mizan/mastra";
-import type { CloudflareBindings } from "../../src/env.ts";
-
-function makeEnv(overrides: Partial<CloudflareBindings> = {}): CloudflareBindings {
-  return {
-    DB: {} as CloudflareBindings["DB"],
-    KV: {} as CloudflareBindings["KV"],
-    R2_BUCKET: {} as CloudflareBindings["R2_BUCKET"],
-    VECTORIZE: {} as CloudflareBindings["VECTORIZE"],
-    BRIEF_QUEUE: {} as CloudflareBindings["BRIEF_QUEUE"],
-    ASSETS: {} as CloudflareBindings["ASSETS"],
-    DEFAULT_LLM_PROVIDER: "anthropic",
-    DEFAULT_LLM_MODEL: "claude-opus-4-7",
-    LANGFUSE_HOST: "",
-    ...overrides,
-  };
-}
+import { makeStubBindings } from "../helpers/test-bindings.ts";
 
 describe("resolveLanguageModel", () => {
   it("returns mock model when MOCK_LLM_RESPONSES is set", () => {
     const map = JSON.stringify({ default: { ok: true } });
-    const env = makeEnv({ MOCK_LLM_RESPONSES: map, ANTHROPIC_API_KEY: "test-key" });
+    const env = makeStubBindings({ MOCK_LLM_RESPONSES: map });
     const resolved = resolveLanguageModel({ env, kind: "extract" });
     expect(resolved.model.provider).toBe("mock");
     expect(resolved.model.modelId).toBe("mock-llm");
   });
 
+  it("mock short-circuit does not require an API key", () => {
+    const env = makeStubBindings({ MOCK_LLM_RESPONSES: JSON.stringify({ default: {} }) });
+    expect(() => resolveLanguageModel({ env, kind: "extract" })).not.toThrow();
+  });
+
   it("returns real provider model when no mock env is set", () => {
-    const env = makeEnv({ ANTHROPIC_API_KEY: "test-key" });
+    const env = makeStubBindings({ ANTHROPIC_API_KEY: "test-key" });
     const resolved = resolveLanguageModel({ env, kind: "extract" });
     expect(resolved.model.provider).toMatch(/^anthropic/);
     expect(resolved.config.provider).toBe("anthropic");
   });
 
   it("honours override when present", () => {
-    const env = makeEnv({ OPENAI_API_KEY: "test-key" });
+    const env = makeStubBindings({ OPENAI_API_KEY: "test-key" });
     const resolved = resolveLanguageModel({
       env,
       kind: "extract",
@@ -45,7 +35,7 @@ describe("resolveLanguageModel", () => {
   });
 
   it("throws when no provider key is available", () => {
-    const env = makeEnv();
+    const env = makeStubBindings();
     expect(() => resolveLanguageModel({ env, kind: "extract" })).toThrow("no LLM provider");
   });
 });

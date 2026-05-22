@@ -86,9 +86,31 @@ export async function embedCorpusInto(
   }
   for (let offset = 0; offset < vectors.length; offset += UPSERT_BATCH_SIZE) {
     const batch = vectors.slice(offset, offset + UPSERT_BATCH_SIZE);
-    await vectorize.upsert(batch);
+    await upsertBatchWithRetry(vectorize, batch);
   }
   return { upsertedCount: vectors.length, chunksBySource: countBySource(records) };
+}
+
+async function upsertBatchWithRetry(
+  vectorize: VectorizeIndexLike,
+  batch: readonly VectorizeVector[],
+  maxAttempts = 3,
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await vectorize.upsert([...batch]);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxAttempts) break;
+      const delayMs = 250 * 2 ** (attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error(
+    `vectorize.upsert failed after ${maxAttempts} attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+  );
 }
 
 export interface VectorizeIndexLike {

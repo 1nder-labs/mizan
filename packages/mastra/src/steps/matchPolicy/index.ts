@@ -1,8 +1,9 @@
 import { createStep } from "@mastra/core/workflows";
+import type { VectorizeIndex } from "@cloudflare/workers-types";
 import { loadCaseContext } from "../../runtime/case-loader.ts";
 import { getEnv } from "../../runtime/context-accessors.ts";
 import { resolveQueryEmbedding } from "../../runtime/model-resolver.ts";
-import { PartialBriefStateSchema } from "../../schemas/brief.ts";
+import { type PolicyCitation, PartialBriefStateSchema } from "../../schemas/brief.ts";
 import { loadPolicyCorpora } from "../../corpus/load.ts";
 import {
   buildPolicyQuery,
@@ -13,7 +14,35 @@ import {
 
 const TOP_K = 8;
 
-const EXCERPT_BY_CLAUSE_ID = resolveExcerptMap(loadPolicyCorpora());
+let excerptByClauseId: ReadonlyMap<string, string> | null = null;
+function getExcerptMap(): ReadonlyMap<string, string> {
+  if (!excerptByClauseId) excerptByClauseId = resolveExcerptMap(loadPolicyCorpora());
+  return excerptByClauseId;
+}
+
+async function queryVectorizeWithFallback(
+  vectorize: VectorizeIndex,
+  embedding: number[],
+  source: "zakat" | "safety",
+  caseId: string,
+): Promise<PolicyCitation[]> {
+  try {
+    const matches = await vectorize.query(embedding, {
+      topK: TOP_K,
+      returnMetadata: "all",
+      filter: { source: { $eq: source } },
+    });
+    const excerptMap = getExcerptMap();
+    return matches.matches
+      .map((match) => parseMatchToCitation(match, excerptMap))
+      .filter((citation): citation is NonNullable<typeof citation> => citation !== null);
+  } catch (error) {
+    console.warn(
+      `[matchPolicy] vectorize.query failed for case=${caseId} source=${source} — returning empty policy_matches: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return [];
+  }
+}
 
 export const matchPolicy = createStep({
   id: "matchPolicy",
@@ -25,14 +54,12 @@ export const matchPolicy = createStep({
     const query = buildPolicyQuery(caseRow, inputData);
     const source = resolvePolicySource(caseRow.claimed_zakat_category);
     const embedding = await resolveQueryEmbedding(env, query, { abortSignal });
-    const matches = await env.VECTORIZE.query(embedding, {
-      topK: TOP_K,
-      returnMetadata: "all",
-      filter: { source: { $eq: source } },
-    });
-    const policy_matches = matches.matches
-      .map((match) => parseMatchToCitation(match, EXCERPT_BY_CLAUSE_ID))
-      .filter((citation): citation is NonNullable<typeof citation> => citation !== null);
+    const policy_matches = await queryVectorizeWithFallback(
+      env.VECTORIZE,
+      embedding,
+      source,
+      inputData.caseId,
+    );
     return { ...inputData, policy_matches };
   },
 });
