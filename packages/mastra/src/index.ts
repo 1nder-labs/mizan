@@ -31,6 +31,7 @@ export type {
 export {
   BriefPayloadSchema,
   DraftedOrganizerMessageSchema,
+  GeographyTierSchema,
   PolicyCitationSchema,
   StoryCoherencePayloadSchema,
   VerificationPathSchema,
@@ -38,13 +39,20 @@ export {
 export type { StoryCoherencePayload } from "./schemas/brief.ts";
 export {
   VouchingChainSchema,
+  assertPartnerOrgCorroborated,
   assertVouchingChain,
   type VouchingChain,
 } from "./schemas/vouching.ts";
 export { PhotoSignalPayloadSchema, type PhotoSignalPayload } from "./schemas/photo-signal.ts";
 export { deriveVerificationPath } from "./steps/computeVerificationPath.ts";
 export { forceEscalate } from "./steps/forcedEscalateGate/predicate.ts";
-export { buildDraftPrompt } from "./steps/draftOrganizerMessage/prompt.ts";
+export { assertGateInputs } from "./steps/forcedEscalateGate/index.ts";
+export { mergeParallelSignals } from "./steps/mergeSignals.ts";
+export {
+  buildDraftPrompt,
+  decideDraftAction,
+  type DraftDecision,
+} from "./steps/draftOrganizerMessage/prompt.ts";
 export { reverseImageStub } from "./tools/reverse-image-stub.ts";
 export { aiGenStub } from "./tools/ai-gen-stub.ts";
 export type { PartialBriefState } from "./schemas/brief.ts";

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { VouchingChainSchema, assertVouchingChain } from "@mizan/mastra";
+import {
+  VouchingChainSchema,
+  assertPartnerOrgCorroborated,
+  assertVouchingChain,
+} from "@mizan/mastra";
 
 describe("VouchingChainSchema", () => {
   it("parses none variant", () => {
@@ -104,5 +108,72 @@ describe("assertVouchingChain", () => {
       weakest_link_narrative: "whitespace name",
     });
     expect(() => assertVouchingChain(chain)).toThrow();
+  });
+});
+
+describe("assertPartnerOrgCorroborated", () => {
+  it("passes through chains with no partner_org_name (none / i2i)", () => {
+    const noneChain = VouchingChainSchema.parse({
+      structure: "none",
+      weakest_link_narrative: "no chain",
+    });
+    expect(
+      assertPartnerOrgCorroborated(noneChain, { story: "anything", vouching_narrative: null }),
+    ).toEqual(noneChain);
+  });
+
+  it("accepts a partner name corroborated by the story", () => {
+    const chain = VouchingChainSchema.parse({
+      structure: "individual-via-partner-org",
+      partner_org_name: "Sudan Aid Foundation",
+      weakest_link_narrative: "via partner",
+    });
+    const ok = assertPartnerOrgCorroborated(chain, {
+      story: "We work through Sudan Aid Foundation.",
+      vouching_narrative: null,
+    });
+    expect(ok).toEqual(chain);
+  });
+
+  it("accepts a partner name corroborated only by vouching_narrative", () => {
+    const chain = VouchingChainSchema.parse({
+      structure: "org-direct",
+      partner_org_name: "Direct Relief",
+      weakest_link_narrative: "direct",
+    });
+    expect(
+      assertPartnerOrgCorroborated(chain, {
+        story: "unrelated story",
+        vouching_narrative: "Direct Relief handles disbursement.",
+      }),
+    ).toEqual(chain);
+  });
+
+  it("is case-insensitive", () => {
+    const chain = VouchingChainSchema.parse({
+      structure: "org-direct",
+      partner_org_name: "ICRC",
+      weakest_link_narrative: "direct",
+    });
+    expect(
+      assertPartnerOrgCorroborated(chain, {
+        story: "Funds go through icrc.",
+        vouching_narrative: null,
+      }),
+    ).toEqual(chain);
+  });
+
+  it("throws when the partner is not mentioned anywhere — guards against LLM hallucination", () => {
+    const chain = VouchingChainSchema.parse({
+      structure: "individual-via-partner-org",
+      partner_org_name: "Fabricated Charity Inc",
+      weakest_link_narrative: "via partner",
+    });
+    expect(() =>
+      assertPartnerOrgCorroborated(chain, {
+        story: "Our family needs emergency relief in Sanaa.",
+        vouching_narrative: "Neighbors vouch for us.",
+      }),
+    ).toThrow(/not corroborated/);
   });
 });

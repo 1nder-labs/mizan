@@ -114,6 +114,8 @@ export type StoryCoherencePayload = z.infer<typeof StoryCoherencePayloadSchema>;
 export const BriefPayloadSchema = z
   .object({
     recommendation: RecommendationEnum,
+    verification_path: VerificationPathSchema,
+    geography_tier: GeographyTierSchema,
     missing_docs: z.array(MissingDocSchema),
     reviewer_questions: z.array(ReviewerQuestionSchema),
     extracted_claims: z

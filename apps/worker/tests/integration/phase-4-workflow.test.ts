@@ -32,6 +32,7 @@ interface CommunityCaseFixture {
   readonly responses: () => Record<string, unknown>;
   readonly expectedPath: VerificationPath;
   readonly forcedEscalate: boolean;
+  readonly expectsDraftedMessage: boolean;
 }
 
 const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
@@ -41,6 +42,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     responses: case006Responses,
     expectedPath: VerificationPathSchema.parse("community_vouching"),
     forcedEscalate: false,
+    expectsDraftedMessage: true,
   },
   {
     id: "11111111-1111-4111-8111-111111111107",
@@ -48,6 +50,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     responses: case007Responses,
     expectedPath: VerificationPathSchema.parse("institutional_vouching"),
     forcedEscalate: false,
+    expectsDraftedMessage: false,
   },
   {
     id: "11111111-1111-4111-8111-111111111108",
@@ -55,6 +58,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     responses: case008Responses,
     expectedPath: VerificationPathSchema.parse("none"),
     forcedEscalate: true,
+    expectsDraftedMessage: false,
   },
 ];
 
@@ -114,6 +118,12 @@ const SignalRowSchema = z.object({
     "ocr_mismatch",
   ]),
   payload_json: z.string(),
+  run_id: z.string(),
+});
+
+const BriefRowSchema = z.object({
+  payload_json: z.string(),
+  run_id: z.string(),
 });
 
 describe("phase 4 community-vouching workflow", () => {
@@ -180,30 +190,42 @@ describe("phase 4 community-vouching workflow", () => {
       );
       expect(res.status).toBe(200);
       const sse = await drainSse(res);
-      expect(sse.length).toBeGreaterThan(0);
+      assertSseStream(sse);
 
       const briefRow = await env.DB.prepare(
-        "SELECT payload_json FROM briefs WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
+        "SELECT payload_json, run_id FROM briefs WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
       )
         .bind(caseId)
-        .first<{ payload_json: string }>();
-      expect(briefRow).toBeTruthy();
-      const briefPayload = briefRow?.payload_json ?? "{}";
-      const brief = BriefPayloadSchema.parse(JSON.parse(briefPayload));
+        .first<{ payload_json: string; run_id: string }>();
+      if (!briefRow) throw new Error("brief row missing");
+      const parsedBriefRow = BriefRowSchema.parse(briefRow);
+      const brief = BriefPayloadSchema.parse(JSON.parse(parsedBriefRow.payload_json));
+
+      expect(brief.verification_path).toBe(entry.expectedPath);
+      expect(brief.geography_tier).toBe(geographyTierFor(entry.expectedPath, entry.forcedEscalate));
 
       if (entry.forcedEscalate) {
         expect(brief.recommendation).toBe("ESCALATE");
         expect(brief.forced_escalate_reason?.length ?? 0).toBeGreaterThan(0);
+        expect(brief.drafted_organizer_message).toBeUndefined();
       } else {
         expect(brief.recommendation).not.toBe("ESCALATE");
         expect(brief.forced_escalate_reason).toBeUndefined();
       }
 
+      if (entry.expectsDraftedMessage) {
+        expect(brief.recommendation).toBe("REQUEST_DOCS");
+        expect(brief.drafted_organizer_message?.message.length ?? 0).toBeGreaterThan(0);
+        expect((brief.drafted_organizer_message?.missing_items ?? []).length).toBeGreaterThan(0);
+      } else if (!entry.forcedEscalate) {
+        expect(brief.drafted_organizer_message).toBeUndefined();
+      }
+
       const signalRows = await env.DB.prepare(
-        "SELECT signal_type, payload_json FROM signals WHERE case_id = ?",
+        "SELECT signal_type, payload_json, run_id FROM signals WHERE case_id = ? AND run_id = ?",
       )
-        .bind(caseId)
-        .all<{ signal_type: string; payload_json: string }>();
+        .bind(caseId, parsedBriefRow.run_id)
+        .all<{ signal_type: string; payload_json: string; run_id: string }>();
       const parsedRows = signalRows.results.map((row) => SignalRowSchema.parse(row));
       expect(parsedRows).toHaveLength(3);
       const types = parsedRows.map((row) => row.signal_type).sort();
@@ -239,3 +261,24 @@ describe("phase 4 community-vouching workflow", () => {
     60_000,
   );
 });
+
+/**
+ * Per Hono SSE conventions the worker emits at least one event per workflow
+ * step plus a terminal `workflow-finish` event. Asserting on event names
+ * catches truncated streams that an `sse.length > 0` check would miss.
+ */
+function assertSseStream(sse: string): void {
+  expect(sse.length).toBeGreaterThan(0);
+  expect(sse).toContain("event:");
+  expect(sse).toMatch(/data:\s*\{/);
+}
+
+function geographyTierFor(
+  expectedPath: VerificationPath,
+  forcedEscalate: boolean,
+): "SAFE" | "AT_RISK" | "OFAC_ADJACENT" | "OFAC" {
+  if (forcedEscalate) return "OFAC_ADJACENT";
+  if (expectedPath === "institutional_vouching") return "OFAC";
+  if (expectedPath === "community_vouching") return "OFAC_ADJACENT";
+  return "SAFE";
+}

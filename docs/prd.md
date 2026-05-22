@@ -535,8 +535,8 @@ _Other:_
   - `photoSignal` — extracts EXIF presence/absence on uploaded photos; mocks reverse-image-search w/ realistic JSON shape; mocks AI-gen detection
   - `storyCoherence` — named-entity density + template-match against seeded corpus
   - `classifyVouchingChain` — discriminated-union zod schema: structure (none / individual-to-individual / individual-via-partner-org / org-direct) + partner_org_name + weakest_link_narrative
-  - `computeVerificationPath` — deterministic predicate returning path classification — `documentary` (chain present), `institutional_vouching` (org partner), `community_vouching` (peer chain), `none` (no chain)
-  - `forcedEscalateGate` — pure TypeScript predicate after `composeBrief`: when `recommendation` not in (`ESCALATE`, `BLOCK`) AND `verification_path === "none"` AND `geography_tier` in (`OFAC_ADJACENT`, `OFAC`) → forces recommendation to `ESCALATE`
+  - `computeVerificationPath` — deterministic predicate returning path classification. Vouching is the dominant signal: `institutional_vouching` (org partner), `community_vouching` (peer chain), or `none` when the LLM emits `structure="none"`. `documentary` is reachable only when vouching is explicitly `none` (or unset) AND every required extractor (creator ID, bank statement, category doc) is present at confidence ≥ 60. Placeholder/low-quality uploads therefore route to `none` instead of masking a high-risk case via successful key presence alone.
+  - `forcedEscalateGate` — pure TypeScript predicate after `composeBrief`: when `recommendation` not in (`ESCALATE`, `BLOCK`) AND `verification_path === "none"` AND `geography_tier` in (`AT_RISK`, `OFAC_ADJACENT`, `OFAC`) → forces recommendation to `ESCALATE`. AT_RISK is included as defense-in-depth: a no-verification case in a high-humanitarian-risk jurisdiction must reach a human reviewer even when no active sanctions program is in effect.
 - New step `draftOrganizerMessage` — generates the specific missing-evidence ask per LaunchGood policy
 - 3 community-vouching seeded cases at `src/seeds/community-vouching/*.json`:
   - Yemen family relief (community-vouching, OFAC-adjacent)
@@ -550,14 +550,15 @@ _Other:_
 **Acceptance criteria:**
 
 - case-008 (Gaza, `none` path, OFAC_ADJACENT geography) is forced to `ESCALATE` by `forcedEscalateGate`; case-006 and case-007 are not forced when a vouching path exists
-- All 3 community-vouching cases write one row per signal_type to the `signals` table (3 signal types × 3 cases = 9 rows total)
+- All 3 community-vouching cases write one row per signal_type to the `signals` table, keyed by `(case_id, run_id, signal_type)` so retries are idempotent (3 signal types × 3 cases = 9 rows total when each runs to completion)
+- `briefs.payload_json` includes `verification_path` and `geography_tier` so reviewer UIs can audit gate inputs directly without parsing `forced_escalate_reason` prose
 - Brief explicitly says "no documentary verification path; trust = vouching strength" when applicable
 - Forced-ESCALATE rule unit-testable in isolation (no LLM dependency)
 - Drafted-organizer-message text names specific missing items per policy
 
 **Implementation notes:**
 
-- `forcedEscalateGate` runs AFTER `composeBrief` and `draftOrganizerMessage`: when `brief.recommendation` is not in (`ESCALATE`, `BLOCK`) AND `classify.verification_path === "none"` AND `classify.geography_tier` is in (`OFAC_ADJACENT`, `OFAC`), the step overrides `brief.recommendation` to `ESCALATE` and sets `forced_escalate_reason`. AI proposal + deterministic override = clean human/AI boundary signal in the demo video
+- `forcedEscalateGate` runs AFTER `composeBrief` and `draftOrganizerMessage`: when `brief.recommendation` is not in (`ESCALATE`, `BLOCK`) AND `classify.verification_path === "none"` AND `classify.geography_tier` is in (`AT_RISK`, `OFAC_ADJACENT`, `OFAC`), the step overrides `brief.recommendation` to `ESCALATE` and sets `forced_escalate_reason`. AI proposal + deterministic override = clean human/AI boundary signal in the demo video
 - Mocked reverse-image-search returns shape: `{ hits: Array<{ url: string; confidence: number }>; checked_at: string }`
 - Mocked AI-gen detection returns shape: `{ probability: enum, model: 'mock-v1' }` — clamp probability via post-parse helper
 - `classifyVouchingChain` uses discriminated-union zod schema so the `partner_org_name` field is required only when structure is `individual-via-partner-org` or `org-direct`

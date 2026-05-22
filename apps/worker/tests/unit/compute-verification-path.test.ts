@@ -10,37 +10,60 @@ function baseState(overrides: Partial<PartialBriefState> = {}): PartialBriefStat
   };
 }
 
+const HIGH_CREATOR = {
+  document_type: "passport" as const,
+  full_name: "A",
+  document_number_redacted: "****",
+  issuing_country_iso: "US",
+  issue_date_iso: "2020-01-01",
+  expiry_date_iso: "2030-01-01",
+  matches_organizer_name: true,
+  confidence: 88,
+};
+
+const HIGH_BANK = {
+  account_holder_name: "A",
+  currency: "USD",
+  statement_period_iso: "2026-01",
+  latest_balance_redacted: "****",
+  suspicious_activity_detected: false,
+  confidence: 82,
+};
+
+const HIGH_CATEGORY = {
+  doc_kind: "medical" as const,
+  patient_name: "A",
+  provider_name: "B",
+  treatment_summary: "C",
+  amount_claimed: "1 USD",
+  confidence: 75,
+};
+
+const LOW_CREATOR = { ...HIGH_CREATOR, confidence: 15 };
+const LOW_BANK = { ...HIGH_BANK, confidence: 20 };
+const LOW_CATEGORY = { ...HIGH_CATEGORY, confidence: 10 };
+
 describe("deriveVerificationPath", () => {
-  it("returns documentary when all three extractors present", () => {
+  it("returns documentary when all three extractors are present AND above the confidence floor", () => {
     const path = deriveVerificationPath(
       baseState({
         extractions: {
-          extractCreatorIdDoc: {
-            document_type: "passport",
-            full_name: "A",
-            document_number_redacted: "****",
-            issuing_country_iso: "US",
-            issue_date_iso: "2020-01-01",
-            expiry_date_iso: "2030-01-01",
-            matches_organizer_name: true,
-            confidence: 80,
-          },
-          extractBankStatement: {
-            account_holder_name: "A",
-            currency: "USD",
-            statement_period_iso: "2026-01",
-            latest_balance_redacted: "****",
-            suspicious_activity_detected: false,
-            confidence: 80,
-          },
-          extractCategoryDocs: {
-            doc_kind: "medical",
-            patient_name: "A",
-            provider_name: "B",
-            treatment_summary: "C",
-            amount_claimed: "1 USD",
-            confidence: 80,
-          },
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: HIGH_CATEGORY,
+        },
+      }),
+    );
+    expect(path).toBe("documentary");
+  });
+
+  it("returns institutional_vouching when vouching=org-direct even with high-confidence extractors", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: HIGH_CATEGORY,
         },
         signals: {
           vouching: {
@@ -51,10 +74,10 @@ describe("deriveVerificationPath", () => {
         },
       }),
     );
-    expect(path).toBe("documentary");
+    expect(path).toBe("institutional_vouching");
   });
 
-  it("returns institutional_vouching for partner-org structure", () => {
+  it("returns institutional_vouching for individual-via-partner-org variant", () => {
     const path = deriveVerificationPath(
       baseState({
         signals: {
@@ -62,21 +85,6 @@ describe("deriveVerificationPath", () => {
             structure: "individual-via-partner-org",
             partner_org_name: "Sudan Aid Foundation",
             weakest_link_narrative: "via partner",
-          },
-        },
-      }),
-    );
-    expect(path).toBe("institutional_vouching");
-  });
-
-  it("returns institutional_vouching for org-direct structure", () => {
-    const path = deriveVerificationPath(
-      baseState({
-        signals: {
-          vouching: {
-            structure: "org-direct",
-            partner_org_name: "Org",
-            weakest_link_narrative: "direct",
           },
         },
       }),
@@ -98,7 +106,36 @@ describe("deriveVerificationPath", () => {
     expect(path).toBe("community_vouching");
   });
 
-  it("returns none when vouching is none and extractors missing", () => {
+  it("returns none when vouching=none even when ALL three extractor keys are present at low confidence (P0 case-008 regression guard)", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: LOW_CREATOR,
+          extractBankStatement: LOW_BANK,
+          extractCategoryDocs: LOW_CATEGORY,
+        },
+        signals: {
+          vouching: { structure: "none", weakest_link_narrative: "no chain" },
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
+
+  it("returns none when extractor confidence is below floor (single extractor under threshold)", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: { ...HIGH_BANK, confidence: 55 },
+          extractCategoryDocs: HIGH_CATEGORY,
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
+
+  it("returns none when vouching is none and extractors missing entirely", () => {
     const path = deriveVerificationPath(
       baseState({
         signals: { vouching: { structure: "none", weakest_link_narrative: "none" } },
@@ -111,24 +148,8 @@ describe("deriveVerificationPath", () => {
     const path = deriveVerificationPath(
       baseState({
         extractions: {
-          extractCreatorIdDoc: {
-            document_type: "passport",
-            full_name: "A",
-            document_number_redacted: "****",
-            issuing_country_iso: "US",
-            issue_date_iso: "2020-01-01",
-            expiry_date_iso: "2030-01-01",
-            matches_organizer_name: true,
-            confidence: 80,
-          },
-          extractBankStatement: {
-            account_holder_name: "A",
-            currency: "USD",
-            statement_period_iso: "2026-01",
-            latest_balance_redacted: "****",
-            suspicious_activity_detected: false,
-            confidence: 80,
-          },
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
         },
       }),
     );
@@ -137,5 +158,21 @@ describe("deriveVerificationPath", () => {
 
   it("returns none with empty state", () => {
     expect(deriveVerificationPath(baseState())).toBe("none");
+  });
+
+  it("vouching takes precedence over high-confidence extractor stack", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: HIGH_CATEGORY,
+        },
+        signals: {
+          vouching: { structure: "individual-to-individual", weakest_link_narrative: "peers" },
+        },
+      }),
+    );
+    expect(path).toBe("community_vouching");
   });
 });

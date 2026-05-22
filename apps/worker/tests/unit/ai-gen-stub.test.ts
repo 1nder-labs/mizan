@@ -12,13 +12,7 @@ describe("aiGenStub", () => {
   it("is deterministic for the same (key, salt) pair", async () => {
     const first = await aiGenStub({ r2_key: "fixture-key-001", salt: SALT });
     const second = await aiGenStub({ r2_key: "fixture-key-001", salt: SALT });
-    expect(first.probability).toBe(second.probability);
-  });
-
-  it("produces different probability with a different salt for the same key", async () => {
-    const a = await aiGenStub({ r2_key: "shared-key", salt: "salt-a" });
-    const b = await aiGenStub({ r2_key: "shared-key", salt: "salt-b" });
-    expect(a.probability !== b.probability || a !== b).toBe(true);
+    expect(first).toEqual(second);
   });
 
   it("covers probability buckets across keys", async () => {

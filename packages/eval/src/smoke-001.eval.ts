@@ -1,4 +1,10 @@
-import { BriefPayloadSchema, resolveLanguageModel } from "@mizan/mastra";
+import {
+  BriefPayloadSchema,
+  forceEscalate,
+  resolveLanguageModel,
+  VerificationPathSchema,
+  GeographyTierSchema,
+} from "@mizan/mastra";
 import { case001Responses, case008Responses } from "@mizan/mastra/testing";
 import type { CloudflareBindings } from "@mizan/worker/env";
 import type {
@@ -29,7 +35,7 @@ function evalEnv(apiKey: string): CloudflareBindings {
   };
 }
 
-describe("smoke-001 eval", () => {
+describe("smoke-001 live provider", () => {
   it.skipIf(!process.env["ANTHROPIC_API_KEY"])(
     "anthropic provider returns structured output",
     async () => {
@@ -52,25 +58,34 @@ describe("smoke-001 eval", () => {
     },
     60_000,
   );
+});
 
-  it("case-001 canned brief satisfies policy citation contract", () => {
+describe("smoke-001 canned brief contracts", () => {
+  it("case-001 canned brief LLM output is shape-compatible with persisted BriefPayload", () => {
     const compose = case001Responses()["composeBrief.compose"];
-    const brief = BriefPayloadSchema.parse(compose);
-    expect(brief.policy_citations.length).toBeGreaterThanOrEqual(2);
-    expect(brief.policy_citations.every((citation) => citation.clauseId.length > 0)).toBe(true);
+    const persisted = BriefPayloadSchema.parse({
+      ...(compose as Record<string, unknown>),
+      verification_path: VerificationPathSchema.parse("documentary"),
+      geography_tier: GeographyTierSchema.parse("SAFE"),
+    });
+    expect(persisted.policy_citations.length).toBeGreaterThanOrEqual(2);
+    expect(persisted.policy_citations.every((citation) => citation.clauseId.length > 0)).toBe(true);
   });
 
-  it("case-008 canned brief forces escalate shape when gate applies", () => {
+  it("case-008 canned brief triggers the forceEscalate predicate without manual mutation", () => {
     const compose = case008Responses()["composeBrief.compose"];
-    const brief = BriefPayloadSchema.parse(compose);
-    expect(brief.recommendation).toBe("READY_FOR_REVIEW");
-    const forced = {
-      ...brief,
-      recommendation: "ESCALATE" as const,
-      forced_escalate_reason: "verification_path=none + geography_tier=OFAC_ADJACENT",
-    };
-    const parsed = BriefPayloadSchema.parse(forced);
-    expect(parsed.recommendation).toBe("ESCALATE");
-    expect(parsed.forced_escalate_reason?.length).toBeGreaterThan(0);
+    const persisted = BriefPayloadSchema.parse({
+      ...(compose as Record<string, unknown>),
+      verification_path: VerificationPathSchema.parse("none"),
+      geography_tier: GeographyTierSchema.parse("OFAC_ADJACENT"),
+    });
+    expect(persisted.recommendation).toBe("READY_FOR_REVIEW");
+    expect(
+      forceEscalate({
+        recommendation: persisted.recommendation,
+        verification_path: persisted.verification_path,
+        geography_tier: persisted.geography_tier,
+      }),
+    ).toBe(true);
   });
 });

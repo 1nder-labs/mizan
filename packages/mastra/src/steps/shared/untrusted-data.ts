@@ -6,11 +6,18 @@
  * treat any content inside the envelope as inert data, not instructions —
  * mitigating prompt injection from campaign-side fields.
  *
- * Delimiter choice: literal XML-like tag. Models trained on instruction
- * data recognize this convention; an attacker would need to forge the tag
- * boundary plus the closing tag inside the data, which we defend against
- * by always serializing through JSON.stringify before injection.
+ * Delimiter breakout defense: the payload is JSON-stringified, then any
+ * literal `</untrusted_data>` token that survived (it can't because JSON
+ * escapes `<` as `<` by default in some serializers but not all) is
+ * additionally rewritten so an adversarial story containing the closing
+ * tag cannot escape the envelope.
  */
+const OPEN_TAG = "<untrusted_data>";
+const CLOSE_TAG = "</untrusted_data>";
+const CLOSE_TAG_ESCAPED = "<\\/untrusted_data>";
+
 export function wrapUntrustedData(data: unknown): string {
-  return `<untrusted_data>\n${JSON.stringify(data)}\n</untrusted_data>`;
+  const serialized = JSON.stringify(data);
+  const sanitized = serialized.split(CLOSE_TAG).join(CLOSE_TAG_ESCAPED);
+  return `${OPEN_TAG}\n${sanitized}\n${CLOSE_TAG}`;
 }

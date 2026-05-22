@@ -9,19 +9,6 @@ import { loadCaseContext, type CaseContext } from "../../runtime/case-loader.ts"
 import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
 import { makeTelemetry } from "../../runtime/telemetry.ts";
 
-/**
- * Sentinel name thrown by the test-only `mockProvider` when a canned response
- * for the extractor's schema is missing. Production callers never register
- * the mock provider (see `runtime/model-resolver.ts#registerTestProviders`),
- * so this branch is dead code outside the test entry point. Class identity
- * by name avoids a production import from `src/test/`.
- */
-const MISSING_MOCK_RESPONSE_ERROR_NAME = "MissingMockResponseError";
-
-function isMissingMockResponse(error: unknown): boolean {
-  return error instanceof Error && error.name === MISSING_MOCK_RESPONSE_ERROR_NAME;
-}
-
 export interface ExtractorPrompt {
   readonly system: string;
   readonly messages: Array<{
@@ -44,6 +31,15 @@ export interface ExtractorDef<TOutput> {
   readonly mergeInto: (inputData: PartialBriefState, extracted: TOutput) => PartialBriefState;
 }
 
+/**
+ * Wraps an extractor as a Mastra step.
+ *
+ * Errors from `generateObject` propagate unchanged — including the test-only
+ * `MissingMockResponseError` thrown by the mock provider. Tests are expected
+ * to register canned responses for every extractor a case exercises;
+ * silently no-opping on a missing mock would let test outcomes diverge from
+ * production behavior, which is exactly the bug class Phase 4's review caught.
+ */
 export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
   return createStep({
     id: def.name,
@@ -60,30 +56,23 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
         ...(def.modelOverride ? { override: def.modelOverride } : {}),
       });
       const schemaName = `${def.name}.extract`;
-      try {
-        const { object } = await generateObject({
-          model: resolved.model,
-          schema: def.schema,
-          schemaName,
-          system: prompt.system,
-          messages: [...prompt.messages],
-          abortSignal,
-          maxRetries: 2,
-          experimental_telemetry: makeTelemetry({
-            stepName: def.name,
-            callPurpose: "extract",
-            runtimeContext: ctx,
-            provider: resolved.config.provider,
-            model: resolved.config.model,
-          }),
-        });
-        return def.mergeInto(inputData, object);
-      } catch (error) {
-        if (isMissingMockResponse(error)) {
-          return inputData;
-        }
-        throw error;
-      }
+      const { object } = await generateObject({
+        model: resolved.model,
+        schema: def.schema,
+        schemaName,
+        system: prompt.system,
+        messages: [...prompt.messages],
+        abortSignal,
+        maxRetries: 2,
+        experimental_telemetry: makeTelemetry({
+          stepName: def.name,
+          callPurpose: "extract",
+          runtimeContext: ctx,
+          provider: resolved.config.provider,
+          model: resolved.config.model,
+        }),
+      });
+      return def.mergeInto(inputData, object);
     },
   });
 }

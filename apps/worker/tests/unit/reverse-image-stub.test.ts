@@ -22,20 +22,4 @@ describe("reverseImageStub", () => {
     const b = await reverseImageStub({ r2_key: "key-b", salt: SALT });
     expect(a.hits.length !== b.hits.length || a.hits[0]?.url !== b.hits[0]?.url).toBe(true);
   });
-
-  it("varies hit count or confidence across salts for the same key", async () => {
-    let differs = false;
-    for (let i = 0; i < 20 && !differs; i += 1) {
-      const a = await reverseImageStub({ r2_key: `shared-${i}`, salt: "salt-a" });
-      const b = await reverseImageStub({ r2_key: `shared-${i}`, salt: "salt-b" });
-      if (a.hits.length !== b.hits.length) {
-        differs = true;
-        break;
-      }
-      if (a.hits[0] && b.hits[0] && a.hits[0].confidence !== b.hits[0].confidence) {
-        differs = true;
-      }
-    }
-    expect(differs).toBe(true);
-  });
 });

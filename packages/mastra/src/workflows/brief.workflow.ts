@@ -15,7 +15,7 @@ import { forcedEscalateGate } from "../steps/forcedEscalateGate/index.ts";
 import { matchPolicy } from "../steps/matchPolicy/index.ts";
 import { mergeSignals } from "../steps/mergeSignals.ts";
 import { photoSignal } from "../steps/photoSignal/index.ts";
-import { storyCoherence } from "../steps/storyCoherence.ts";
+import { storyCoherence } from "../steps/storyCoherence/index.ts";
 
 /**
  * Brief workflow — Phase 4 inserts trust-signal steps between extractors and

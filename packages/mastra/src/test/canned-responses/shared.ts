@@ -54,12 +54,22 @@ export const DEFAULT_SAFETY_CITATIONS: BriefPayload["policy_citations"] = [
   },
 ];
 
-/** Builds a minimal composeBrief payload for canned mock responses. */
+/**
+ * Builds the LLM-output subset of a composeBrief payload for canned mocks.
+ *
+ * `verification_path` and `geography_tier` are NOT included — those are
+ * deterministic fields stitched onto the brief by the composeBrief step
+ * after the LLM call, sourced from `inputData.classify`. Canned mocks
+ * must match the LLM's actual output shape so tests reflect production.
+ */
 export function briefPayload(
   recommendation: BriefPayload["recommendation"],
   confidence: number,
   policyCitations: BriefPayload["policy_citations"] = DEFAULT_ZAKAT_CITATIONS,
-): BriefPayload {
+): Omit<
+  BriefPayload,
+  "verification_path" | "geography_tier" | "drafted_organizer_message" | "forced_escalate_reason"
+> {
   return {
     recommendation,
     missing_docs: [],
@@ -70,10 +80,24 @@ export function briefPayload(
   };
 }
 
-/** Phase 4 story-coherence canned block for documentary cases. */
-export function documentaryStorySignal(summary: string, templateScore: number) {
+/**
+ * Phase 4 story-coherence canned block for documentary cases.
+ *
+ * `named_entity_density` and `template_match_score` are independent signals
+ * — density measures specificity (named people / orgs per 100 words);
+ * template-match scores similarity to known scam-pattern templates. Setting
+ * both equal hid bugs where downstream consumers conflated the two. The
+ * defaults below keep density slightly above template-match to mirror the
+ * real-world prior (legitimate campaigns tend to have higher entity counts
+ * than template overlap).
+ */
+export function documentaryStorySignal(
+  summary: string,
+  templateScore: number,
+  entityDensity: number = Math.min(1, templateScore + 0.07),
+) {
   return {
-    named_entity_density: templateScore,
+    named_entity_density: entityDensity,
     template_match_score: templateScore,
     coherence_summary: summary,
   };

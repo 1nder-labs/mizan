@@ -1,1 +1,1 @@
-export { clampInt, ensureUuid } from "./clamp.ts";
+export { clampInt, clampUnit, ensureUuid } from "./clamp.ts";

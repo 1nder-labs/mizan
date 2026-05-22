@@ -1,8 +1,59 @@
 import { DEFAULT_SAFETY_CITATIONS, briefPayload } from "./shared.ts";
 
+/*
+ * Community-vouching cases (006-008) place placeholder PNG bytes at every
+ * R2 key so the workflow can exercise its extractor steps end-to-end.
+ * The extractors' canned responses below intentionally report low
+ * confidence to reflect what real OCR / vision models would return on
+ * those placeholders — `deriveVerificationPath` then routes via the
+ * vouching signal, not the (low-confidence) extractor stack.
+ *
+ * Threshold reminder: `computeVerificationPath.DOCUMENTARY_MIN_CONFIDENCE`
+ * is currently 60; the values below sit well under that floor.
+ */
+
+const PLACEHOLDER_CREATOR_LOW_CONFIDENCE = {
+  document_type: "other" as const,
+  full_name: "",
+  document_number_redacted: "",
+  issuing_country_iso: "",
+  issue_date_iso: null,
+  expiry_date_iso: null,
+  matches_organizer_name: false,
+  confidence: 12,
+};
+
+const PLACEHOLDER_BANK_LOW_CONFIDENCE = {
+  account_holder_name: "",
+  currency: "",
+  statement_period_iso: "",
+  latest_balance_redacted: "",
+  suspicious_activity_detected: false,
+  confidence: 15,
+};
+
+function placeholderCategoryLowConfidence(): Record<string, unknown> {
+  return {
+    doc_kind: "org_registration",
+    org_name: "",
+    registration_number: "",
+    jurisdiction: "",
+    tax_exempt_status: null,
+    confidence: 10,
+  };
+}
+
+const PLACEHOLDER_STORY_CLAIMS = {
+  claims: [],
+  confidence: 20,
+};
+
 /** Canned responses for case-006 (Yemen community vouching). */
 export function case006Responses(): Record<string, unknown> {
   return {
+    "extractCreatorIdDoc.extract": PLACEHOLDER_CREATOR_LOW_CONFIDENCE,
+    "extractBankStatement.extract": PLACEHOLDER_BANK_LOW_CONFIDENCE,
+    "extractCategoryDocs.extract": placeholderCategoryLowConfidence(),
     "extractStoryClaims.extract": {
       claims: [
         {
@@ -39,16 +90,10 @@ export function case006Responses(): Record<string, unknown> {
 /** Canned responses for case-007 (Sudan institutional vouching). */
 export function case007Responses(): Record<string, unknown> {
   return {
-    "extractStoryClaims.extract": {
-      claims: [
-        {
-          claim: "Partner org manages disbursement",
-          supporting_text_snippet: "Sudan Aid Foundation manages disbursement",
-          plausibility_score: 80,
-        },
-      ],
-      confidence: 78,
-    },
+    "extractCreatorIdDoc.extract": PLACEHOLDER_CREATOR_LOW_CONFIDENCE,
+    "extractBankStatement.extract": PLACEHOLDER_BANK_LOW_CONFIDENCE,
+    "extractCategoryDocs.extract": placeholderCategoryLowConfidence(),
+    "extractStoryClaims.extract": PLACEHOLDER_STORY_CLAIMS,
     "storyCoherence.evaluate": {
       named_entity_density: 0.64,
       template_match_score: 0.74,
@@ -66,16 +111,10 @@ export function case007Responses(): Record<string, unknown> {
 /** Canned responses for case-008 (Gaza none path → forced escalate). */
 export function case008Responses(): Record<string, unknown> {
   return {
-    "extractStoryClaims.extract": {
-      claims: [
-        {
-          claim: "Emergency individual appeal",
-          supporting_text_snippet: "Individual emergency appeal",
-          plausibility_score: 45,
-        },
-      ],
-      confidence: 40,
-    },
+    "extractCreatorIdDoc.extract": PLACEHOLDER_CREATOR_LOW_CONFIDENCE,
+    "extractBankStatement.extract": PLACEHOLDER_BANK_LOW_CONFIDENCE,
+    "extractCategoryDocs.extract": placeholderCategoryLowConfidence(),
+    "extractStoryClaims.extract": PLACEHOLDER_STORY_CLAIMS,
     "storyCoherence.evaluate": {
       named_entity_density: 0.25,
       template_match_score: 0.3,

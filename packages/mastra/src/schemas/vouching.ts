@@ -59,3 +59,30 @@ export function assertVouchingChain(chain: VouchingChain): VouchingChain {
   }
   return chain;
 }
+
+/**
+ * Cross-references the LLM-emitted `partner_org_name` against the
+ * organizer-supplied source text. If the partner isn't mentioned in the
+ * story or vouching_narrative, the LLM has fabricated an institution and
+ * we must not route the case down the `institutional_vouching` path —
+ * doing so would let a forced-escalate bypass succeed on adversarial
+ * prompts that coax the classifier into emitting a hallucinated org name.
+ *
+ * Returns the chain on success; throws on corroboration failure.
+ */
+export function assertPartnerOrgCorroborated(
+  chain: VouchingChain,
+  source: { readonly story: string; readonly vouching_narrative: string | null },
+): VouchingChain {
+  if (chain.structure !== "individual-via-partner-org" && chain.structure !== "org-direct") {
+    return chain;
+  }
+  const haystack = `${source.story} ${source.vouching_narrative ?? ""}`.toLowerCase();
+  const needle = chain.partner_org_name.toLowerCase();
+  if (!haystack.includes(needle)) {
+    throw new Error(
+      `vouching chain: partner_org_name "${chain.partner_org_name}" is not corroborated in story or vouching_narrative — refusing to route ${chain.structure}`,
+    );
+  }
+  return chain;
+}
