@@ -1,4 +1,4 @@
-import { briefs, cases, eq, makeDb } from "@mizan/db";
+import { briefs, cases, eq, makeDb, and } from "@mizan/db";
 import { generateObject } from "ai";
 import {
   BriefPayloadSchema,
@@ -103,6 +103,24 @@ export async function persistBrief(
     .set({ status: "READY_FOR_REVIEW", updated_at: new Date() })
     .where(eq(cases.id, caseId));
   await db.batch([insertStmt, updateStmt]);
+}
+
+/** Updates an existing brief row after post-composeBrief mutations. */
+export async function updatePersistedBrief(
+  env: CloudflareBindings,
+  caseId: string,
+  runId: string,
+  brief: BriefPayload,
+): Promise<void> {
+  const db = makeDb(env.DB);
+  await db
+    .update(briefs)
+    .set({
+      recommendation: brief.recommendation,
+      confidence: brief.confidence,
+      payload_json: brief,
+    })
+    .where(and(eq(briefs.case_id, caseId), eq(briefs.run_id, runId)));
 }
 
 export { type ComposeContext };
