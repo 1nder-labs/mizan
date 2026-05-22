@@ -117,7 +117,10 @@ export const signals = sqliteTable(
       .notNull()
       .$defaultFn(() => new Date()),
   },
-  (table) => [index("signals_case_run_idx").on(table.case_id, table.run_id)],
+  (table) => [
+    index("signals_case_run_idx").on(table.case_id, table.run_id),
+    uniqueIndex("signals_case_run_type_uniq").on(table.case_id, table.run_id, table.signal_type),
+  ],
 );
 
 export const reviewer_actions = sqliteTable(

@@ -15,6 +15,13 @@
       "when": 1779418588024,
       "tag": "0001_panoramic_captain_britain",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1779421505917,
+      "tag": "0002_awesome_the_liberteens",
+      "breakpoints": true
     }
   ]
 }
