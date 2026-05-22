@@ -33,8 +33,26 @@ function isLlmProvider(value: string): value is LlmProvider {
   return value === "anthropic" || value === "openai" || value === "openrouter";
 }
 
+function hasProviderKey(env: CloudflareBindings, provider: LlmProvider): boolean {
+  if (provider === "anthropic") return Boolean(env.ANTHROPIC_API_KEY);
+  if (provider === "openai") return Boolean(env.OPENAI_API_KEY);
+  return Boolean(env.OPENROUTER_API_KEY);
+}
+
+function resolveProvider(env: CloudflareBindings): LlmProvider {
+  if (isLlmProvider(env.DEFAULT_LLM_PROVIDER) && hasProviderKey(env, env.DEFAULT_LLM_PROVIDER)) {
+    return env.DEFAULT_LLM_PROVIDER;
+  }
+  const fallbackOrder: LlmProvider[] = ["anthropic", "openai", "openrouter"];
+  for (const candidate of fallbackOrder) {
+    if (hasProviderKey(env, candidate)) return candidate;
+  }
+  if (isLlmProvider(env.DEFAULT_LLM_PROVIDER)) return env.DEFAULT_LLM_PROVIDER;
+  return "anthropic";
+}
+
 export function getDefaultModel(env: CloudflareBindings, kind: ModelKind): ModelConfig {
-  const provider = isLlmProvider(env.DEFAULT_LLM_PROVIDER) ? env.DEFAULT_LLM_PROVIDER : "anthropic";
+  const provider = resolveProvider(env);
   return { provider, model: PROVIDER_DEFAULTS[provider][kind] };
 }
 

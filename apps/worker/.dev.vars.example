@@ -2,4 +2,10 @@ ANTHROPIC_API_KEY=
 OPENAI_API_KEY=
 OPENROUTER_API_KEY=
 BETTER_AUTH_SECRET=
+
+# Provider auto-resolves to the first key present (anthropic → openai → openrouter).
+# Set only one key and the workflow routes to that provider automatically.
+# Override with DEFAULT_LLM_PROVIDER=openai|anthropic|openrouter to force a specific one.
+# DEFAULT_LLM_PROVIDER=
+
 # MOCK_LLM_RESPONSES={"extractCreatorIdDoc.extract":{}}
