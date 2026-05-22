@@ -18,6 +18,7 @@ const SeedFileSchema = z.object({
   claimed_zakat_category: z.string(),
   organizer_name: z.string(),
   story: z.string(),
+  vouching_narrative: z.string().optional(),
   r2_keys: z.object({
     creator_id: z.string(),
     bank_statement: z.string(),
@@ -65,6 +66,7 @@ async function seedCase(seed: z.infer<typeof SeedFileSchema>, adminId: string): 
     story: seed.story,
     organizer_name: seed.organizer_name,
     r2_keys: seed.r2_keys,
+    ...(seed.vouching_narrative ? { vouching_narrative: seed.vouching_narrative } : {}),
   });
   const overlayJson = sqlEscape(JSON.stringify(overlay));
   const sql = `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)

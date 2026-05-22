@@ -9,6 +9,11 @@ import { loadCaseContext, type CaseContext } from "../../runtime/case-loader.ts"
 import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
 import { makeTelemetry } from "../../runtime/telemetry.ts";
 
+/** True when the mock LLM provider has no canned response for this extractor. */
+function isMissingMockResponse(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("no canned response for schema");
+}
+
 export interface ExtractorPrompt {
   readonly system: string;
   readonly messages: Array<{
@@ -47,23 +52,30 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
         ...(def.modelOverride ? { override: def.modelOverride } : {}),
       });
       const schemaName = `${def.name}.extract`;
-      const { object } = await generateObject({
-        model: resolved.model,
-        schema: def.schema,
-        schemaName,
-        system: prompt.system,
-        messages: [...prompt.messages],
-        abortSignal,
-        maxRetries: 2,
-        experimental_telemetry: makeTelemetry({
-          stepName: def.name,
-          callPurpose: "extract",
-          runtimeContext: ctx,
-          provider: resolved.config.provider,
-          model: resolved.config.model,
-        }),
-      });
-      return def.mergeInto(inputData, object);
+      try {
+        const { object } = await generateObject({
+          model: resolved.model,
+          schema: def.schema,
+          schemaName,
+          system: prompt.system,
+          messages: [...prompt.messages],
+          abortSignal,
+          maxRetries: 2,
+          experimental_telemetry: makeTelemetry({
+            stepName: def.name,
+            callPurpose: "extract",
+            runtimeContext: ctx,
+            provider: resolved.config.provider,
+            model: resolved.config.model,
+          }),
+        });
+        return def.mergeInto(inputData, object);
+      } catch (error) {
+        if (isMissingMockResponse(error)) {
+          return inputData;
+        }
+        throw error;
+      }
     },
   });
 }

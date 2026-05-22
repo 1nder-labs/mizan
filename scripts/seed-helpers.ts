@@ -8,7 +8,7 @@ export const MINIMAL_PNG_BYTES = Uint8Array.from(
   (c) => c.charCodeAt(0),
 );
 
-export const SEED_CASE_FILES = [
+export const DOCUMENTARY_SEED_FILES = [
   "case-001.json",
   "case-002.json",
   "case-003.json",
@@ -16,8 +16,30 @@ export const SEED_CASE_FILES = [
   "case-005.json",
 ] as const;
 
-export function seedJsonPath(filename: string): string {
+export const COMMUNITY_VOUCHING_SEED_FILES = [
+  "case-006.json",
+  "case-007.json",
+  "case-008.json",
+] as const;
+
+export const SEED_CASE_FILES = [...DOCUMENTARY_SEED_FILES, ...COMMUNITY_VOUCHING_SEED_FILES] as const;
+
+export function documentarySeedJsonPath(filename: string): string {
   return new URL(`../packages/mastra/src/seeds/documentary/${filename}`, import.meta.url).pathname;
+}
+
+export function communitySeedJsonPath(filename: string): string {
+  return new URL(
+    `../packages/mastra/src/seeds/community-vouching/${filename}`,
+    import.meta.url,
+  ).pathname;
+}
+
+export function seedJsonPath(filename: string): string {
+  if (filename.startsWith("case-006") || filename.startsWith("case-007") || filename.startsWith("case-008")) {
+    return communitySeedJsonPath(filename);
+  }
+  return documentarySeedJsonPath(filename);
 }
 
 export function fixturePath(filename: string): string {
@@ -33,7 +55,7 @@ const SeedR2KeysSchema = z.object({
   }),
 });
 
-/** All R2 fixture keys referenced by the five seed cases. */
+/** All R2 fixture keys referenced by documentary + community-vouching seed cases. */
 export async function allFixtureKeys(): Promise<string[]> {
   const keys = new Set<string>();
   for (const filename of SEED_CASE_FILES) {
