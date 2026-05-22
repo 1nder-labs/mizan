@@ -8,7 +8,7 @@ export default defineConfig({
       {
         plugins: [
           cloudflareTest({
-            remoteBindings: false,
+            remoteBindings: true,
             wrangler: { configPath: "./wrangler.jsonc" },
             miniflare: {
               assets: { binding: "ASSETS", directory: "." },

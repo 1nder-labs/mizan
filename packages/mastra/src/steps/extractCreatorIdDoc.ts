@@ -4,7 +4,7 @@ import { CreatorIdSchema } from "../schemas/extractions/creator-id.ts";
 export const extractCreatorIdDoc = makeExtractor({
   name: "extractCreatorIdDoc",
   schema: CreatorIdSchema,
-  model: { provider: "anthropic", model: "claude-haiku-4-5" },
+  modelKind: "extract",
   buildPrompt: async (caseRow, env) => {
     const obj = await env.R2_BUCKET.get(caseRow.r2_keys.creator_id);
     if (!obj) throw new Error(`creator-id doc missing for case ${caseRow.id}`);

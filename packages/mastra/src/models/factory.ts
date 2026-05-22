@@ -13,6 +13,31 @@ export interface ModelConfig {
   readonly model: string;
 }
 
+export type ModelKind = "extract" | "compose";
+
+interface ProviderModelMap {
+  readonly extract: string;
+  readonly compose: string;
+}
+
+const PROVIDER_DEFAULTS: Record<LlmProvider, ProviderModelMap> = {
+  anthropic: { extract: "claude-haiku-4-5", compose: "claude-opus-4-7" },
+  openai: { extract: "gpt-4o-mini", compose: "gpt-4o" },
+  openrouter: {
+    extract: "anthropic/claude-3.5-haiku",
+    compose: "anthropic/claude-3.5-sonnet",
+  },
+};
+
+function isLlmProvider(value: string): value is LlmProvider {
+  return value === "anthropic" || value === "openai" || value === "openrouter";
+}
+
+export function getDefaultModel(env: CloudflareBindings, kind: ModelKind): ModelConfig {
+  const provider = isLlmProvider(env.DEFAULT_LLM_PROVIDER) ? env.DEFAULT_LLM_PROVIDER : "anthropic";
+  return { provider, model: PROVIDER_DEFAULTS[provider][kind] };
+}
+
 export interface GetModelOptions {
   readonly withMastraOpts?: Parameters<typeof withMastra>[1];
 }

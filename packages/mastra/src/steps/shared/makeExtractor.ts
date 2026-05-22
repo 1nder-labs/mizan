@@ -1,8 +1,8 @@
 import { createStep } from "@mastra/core/workflows";
 import { generateObject } from "ai";
 import type { z } from "zod";
-import type { ModelConfig } from "../../models/factory.ts";
-import { getModel } from "../../models/factory.ts";
+import type { ModelConfig, ModelKind } from "../../models/factory.ts";
+import { getDefaultModel, getModel } from "../../models/factory.ts";
 import type { PartialBriefState } from "../../schemas/brief.ts";
 import { PartialBriefStateSchema } from "../../schemas/brief.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
@@ -22,7 +22,8 @@ export interface ExtractorPrompt {
 export interface ExtractorDef<TOutput> {
   readonly name: string;
   readonly schema: z.ZodType<TOutput>;
-  readonly model: ModelConfig;
+  readonly modelKind: ModelKind;
+  readonly modelOverride?: ModelConfig;
   readonly buildPrompt: (
     caseRow: CaseContext,
     env: Parameters<typeof getModel>[1],
@@ -41,9 +42,10 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
       const ctx = getCtx(requestContext);
       const caseRow = await loadCaseContext(env, inputData.caseId);
       const prompt = await def.buildPrompt(caseRow, env);
+      const modelConfig = def.modelOverride ?? getDefaultModel(env, def.modelKind);
       const schemaName = `${def.name}.extract`;
       const { object } = await generateObject({
-        model: getModel(def.model, env),
+        model: getModel(modelConfig, env),
         schema: def.schema,
         schemaName,
         system: prompt.system,
@@ -54,8 +56,8 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
           stepName: def.name,
           callPurpose: "extract",
           runtimeContext: ctx,
-          provider: def.model.provider,
-          model: def.model.model,
+          provider: modelConfig.provider,
+          model: modelConfig.model,
         }),
       });
       return def.mergeInto(inputData, object);

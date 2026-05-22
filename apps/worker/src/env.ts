@@ -29,8 +29,8 @@ export interface CloudflareBindings {
   VECTORIZE: VectorizeIndex;
   BRIEF_QUEUE: Queue;
   ASSETS: Fetcher;
-  DEFAULT_LLM_PROVIDER: "anthropic";
-  DEFAULT_LLM_MODEL: "claude-opus-4-7";
+  DEFAULT_LLM_PROVIDER: "anthropic" | "openai" | "openrouter";
+  DEFAULT_LLM_MODEL: string;
   /**
    * Langfuse base URL — empty in dev disables the OTel exporter entirely.
    * Phase 8 boots the local Langfuse Docker stack and points this at
@@ -49,12 +49,5 @@ export interface CloudflareBindings {
   OPENROUTER_API_KEY?: string;
   /** JSON-encoded mock LLM response map for integration tests. */
   MOCK_LLM_RESPONSES?: string;
-  /**
-   * Force deterministic pseudo-vectors from `embedPolicyText`/`embedPolicyTexts`
-   * instead of calling OpenAI. Used by unit tests + non-RAG integration tests that
-   * need an embed call to succeed without semantic relevance. Kept separate from
-   * `MOCK_LLM_RESPONSES` so RAG-bearing tests can mock the compose LLM while still
-   * using real embeddings for honest matchPolicy semantics.
-   */
   MOCK_EMBEDDINGS?: string;
 }

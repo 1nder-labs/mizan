@@ -10,19 +10,10 @@ export type EmbeddingEnv = Pick<
   "OPENAI_API_KEY" | "MOCK_EMBEDDINGS" | "MOCK_LLM_RESPONSES"
 >;
 
-/**
- * Returns true when callers want deterministic pseudo-vectors instead of OpenAI.
- * `MOCK_EMBEDDINGS` is the explicit switch; `MOCK_LLM_RESPONSES` is honoured for
- * backwards compatibility with non-RAG integration tests that pre-date the split.
- */
 function shouldMockEmbeddings(env: EmbeddingEnv): boolean {
   return Boolean(env.MOCK_EMBEDDINGS) || Boolean(env.MOCK_LLM_RESPONSES && !env.OPENAI_API_KEY);
 }
 
-/**
- * Returns the canonical embedding model for Mizan policy RAG.
- * 1536-dim output matches the `mizan-policy-corpus` Vectorize index dim.
- */
 export function getEmbeddingModel(env: EmbeddingEnv): EmbeddingModel {
   const apiKey = env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -32,11 +23,6 @@ export function getEmbeddingModel(env: EmbeddingEnv): EmbeddingModel {
   return openai.embedding(EMBEDDING_MODEL_ID);
 }
 
-/**
- * Embeds a single query string. Uses deterministic vectors when
- * `shouldMockEmbeddings(env)` is true (MOCK_EMBEDDINGS set, or MOCK_LLM_RESPONSES
- * set with no OPENAI_API_KEY); calls OpenAI otherwise.
- */
 export async function embedPolicyText(env: EmbeddingEnv, value: string): Promise<number[]> {
   if (shouldMockEmbeddings(env)) {
     return deterministicEmbedding(value);
@@ -45,10 +31,6 @@ export async function embedPolicyText(env: EmbeddingEnv, value: string): Promise
   return embedding;
 }
 
-/**
- * Embeds many chunk texts via AI SDK `embedMany` (auto-batches + ordered response).
- * Uses deterministic vectors when `shouldMockEmbeddings(env)` is true.
- */
 export async function embedPolicyTexts(
   env: EmbeddingEnv,
   values: readonly string[],

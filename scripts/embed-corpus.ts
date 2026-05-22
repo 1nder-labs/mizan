@@ -37,12 +37,6 @@ function parseCli(argv: string[]): CliOptions {
   return { dryRun, source };
 }
 
-/**
- * Validates the environment for a real upsert run.
- * MOCK_LLM_RESPONSES is rejected outside `--dry-run` because deterministic
- * pseudo-vectors uploaded to the remote Vectorize index would silently corrupt
- * production policy RAG quality.
- */
 function requireRealEmbedEnvironment(dryRun: boolean): void {
   if (process.env["MOCK_LLM_RESPONSES"] && !dryRun) {
     throw new Error(

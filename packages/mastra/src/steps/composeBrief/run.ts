@@ -1,15 +1,13 @@
 import { briefs, cases, eq, makeDb } from "@mizan/db";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getModel, type ModelConfig } from "../../models/factory.ts";
+import { getDefaultModel, getModel } from "../../models/factory.ts";
 import { BriefPayloadSchema, type BriefPayload, type PolicyCitation } from "../../schemas/brief.ts";
 import type { PartialBriefState } from "../../schemas/brief.ts";
 import type { CloudflareBindings } from "@mizan/worker/env";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
 import { makeTelemetry } from "../../runtime/telemetry.ts";
 import { applyCitationFilter, buildClauseIdSchema, buildPromptWithClauses } from "./helpers.ts";
-
-const COMPOSE_MODEL: ModelConfig = { provider: "anthropic", model: "claude-opus-4-7" };
 
 interface ComposeContext {
   readonly env: CloudflareBindings;
@@ -42,6 +40,7 @@ export async function runComposeBriefGeneration(
     .map((match) => match.clauseId)
     .filter((id) => id.length > 0);
   const perCallSchema = buildPerCallBriefSchema(availableClauseIds);
+  const modelConfig = getDefaultModel(composeContext.env, "compose");
   const basePayload = {
     caseId: composeContext.inputData.caseId,
     category: composeContext.ctx.category,
@@ -49,7 +48,7 @@ export async function runComposeBriefGeneration(
     extractions: composeContext.inputData.extractions ?? {},
   };
   const generateArgs = {
-    model: getModel(COMPOSE_MODEL, composeContext.env),
+    model: getModel(modelConfig, composeContext.env),
     schema: perCallSchema,
     schemaName: "composeBrief.compose",
     system:
@@ -70,8 +69,8 @@ export async function runComposeBriefGeneration(
       stepName: "composeBrief",
       callPurpose: "compose",
       runtimeContext: composeContext.ctx,
-      provider: COMPOSE_MODEL.provider,
-      model: COMPOSE_MODEL.model,
+      provider: modelConfig.provider,
+      model: modelConfig.model,
     }),
   };
   const { object } = await generateObject(
@@ -107,4 +106,4 @@ export async function persistBrief(
     .where(eq(cases.id, caseId));
 }
 
-export { COMPOSE_MODEL, type ComposeContext };
+export { type ComposeContext };

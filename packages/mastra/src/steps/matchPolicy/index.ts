@@ -13,11 +13,6 @@ import {
 
 const TOP_K = 8;
 
-/**
- * Module-scoped excerpt lookup — corpora are committed JSON loaded once at import,
- * so the map never changes across requests. Hoisted out of `execute` to avoid
- * rebuilding ~60 entries per workflow run.
- */
 const EXCERPT_BY_CLAUSE_ID = resolveExcerptMap(loadPolicyCorpora());
 
 /** Embeds extracted claims and queries Vectorize for relevant policy clauses. */
