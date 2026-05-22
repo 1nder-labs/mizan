@@ -1,18 +1,11 @@
 import { z } from "zod";
 import type { PolicyCitation } from "../../schemas/brief.ts";
 
-/** Builds a per-call clauseId schema for composeBrief structured output. */
 export function buildClauseIdSchema(availableClauseIds: readonly string[]): z.ZodType<string> {
-  if (availableClauseIds.length === 0) return z.string();
-  const literals = availableClauseIds.map((clauseId) => z.literal(clauseId));
-  if (literals.length === 1) {
-    const only = literals[0];
-    if (!only) return z.string();
-    return only;
-  }
-  const [first, second, ...rest] = literals;
-  if (!first || !second) return z.string();
-  return z.union([first, second, ...rest]);
+  const [first, second, ...rest] = availableClauseIds;
+  if (first === undefined) return z.string();
+  if (second === undefined) return z.literal(first);
+  return z.union([z.literal(first), z.literal(second), ...rest.map((id) => z.literal(id))]);
 }
 
 /** Appends the cite-from-list instruction block to the composeBrief user payload. */

@@ -18,34 +18,20 @@ function makeEnv(overrides: Partial<CloudflareBindings> = {}): CloudflareBinding
 }
 
 describe("getModel", () => {
-  it("short-circuits to mock provider when MOCK_LLM_RESPONSES is set", () => {
-    const map = JSON.stringify({
-      default: { ok: true },
-      "extractCreatorIdDoc.extract": {
-        document_type: "passport",
-        full_name: "Test",
-        document_number_redacted: "****1",
-        issuing_country_iso: "US",
-        issue_date_iso: null,
-        expiry_date_iso: null,
-        matches_organizer_name: true,
-        confidence: 50,
-      },
-    });
-    const model = getModel(
-      { provider: "anthropic", model: "claude-haiku-4-5" },
-      makeEnv({ MOCK_LLM_RESPONSES: map }),
-    );
-    expect(model.provider).toBe("mock");
-    expect(model.modelId).toBe("mock-llm");
-  });
-
-  it("returns anthropic model when no mock env is set", () => {
+  it("returns anthropic model for anthropic provider", () => {
     const model = getModel(
       { provider: "anthropic", model: "claude-haiku-4-5" },
       makeEnv({ ANTHROPIC_API_KEY: "test-key" }),
     );
     expect(model.provider).toMatch(/^anthropic/);
+  });
+
+  it("returns openai model for openai provider", () => {
+    const model = getModel(
+      { provider: "openai", model: "gpt-4o-mini" },
+      makeEnv({ OPENAI_API_KEY: "test-key" }),
+    );
+    expect(model.provider).toMatch(/^openai/);
   });
 
   it("throws when openrouter is selected without API key", () => {

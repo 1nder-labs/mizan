@@ -14,7 +14,12 @@ export const ReviewerQuestionSchema = z.object({
   suggestedAnswer: z.string().nullable(),
 });
 
-/** Single citation referencing a clause in `mizan-policy-corpus`. */
+/**
+ * Single citation referencing a clause in `mizan-policy-corpus`.
+ * `relevance` is a Vectorize cosine-similarity score clamped to [0,1] at the
+ * matchPolicy boundary (not constrained in zod — strict LLM structured-output
+ * mode rejects min/max on numbers).
+ */
 export const PolicyCitationSchema = z.object({
   clauseId: z.string(),
   source: z.enum(["zakat", "safety"]),

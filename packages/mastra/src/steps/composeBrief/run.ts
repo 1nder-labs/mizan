@@ -1,11 +1,15 @@
 import { briefs, cases, eq, makeDb } from "@mizan/db";
 import { generateObject } from "ai";
-import { z } from "zod";
-import { getDefaultModel, getModel } from "../../models/factory.ts";
-import { BriefPayloadSchema, type BriefPayload, type PolicyCitation } from "../../schemas/brief.ts";
+import {
+  BriefPayloadSchema,
+  PolicyCitationSchema,
+  type BriefPayload,
+  type PolicyCitation,
+} from "../../schemas/brief.ts";
 import type { PartialBriefState } from "../../schemas/brief.ts";
 import type { CloudflareBindings } from "@mizan/worker/env";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
+import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
 import { makeTelemetry } from "../../runtime/telemetry.ts";
 import { applyCitationFilter, buildClauseIdSchema, buildPromptWithClauses } from "./helpers.ts";
 
@@ -16,17 +20,11 @@ interface ComposeContext {
   readonly abortSignal: AbortSignal | undefined;
 }
 
-/** Builds the per-run schema that constrains citation clauseIds to matchPolicy output. */
 export function buildPerCallBriefSchema(availableClauseIds: readonly string[]) {
   const clauseIdSchema = buildClauseIdSchema(availableClauseIds);
   return BriefPayloadSchema.omit({ policy_citations: true }).extend({
-    policy_citations: z
-      .object({
-        clauseId: clauseIdSchema,
-        source: z.enum(["zakat", "safety"]),
-        excerpt: z.string(),
-        relevance: z.number(),
-      })
+    policy_citations: PolicyCitationSchema.omit({ clauseId: true })
+      .extend({ clauseId: clauseIdSchema })
       .array(),
   });
 }
@@ -40,7 +38,7 @@ export async function runComposeBriefGeneration(
     .map((match) => match.clauseId)
     .filter((id) => id.length > 0);
   const perCallSchema = buildPerCallBriefSchema(availableClauseIds);
-  const modelConfig = getDefaultModel(composeContext.env, "compose");
+  const resolved = resolveLanguageModel({ env: composeContext.env, kind: "compose" });
   const basePayload = {
     caseId: composeContext.inputData.caseId,
     category: composeContext.ctx.category,
@@ -48,7 +46,7 @@ export async function runComposeBriefGeneration(
     extractions: composeContext.inputData.extractions ?? {},
   };
   const generateArgs = {
-    model: getModel(modelConfig, composeContext.env),
+    model: resolved.model,
     schema: perCallSchema,
     schemaName: "composeBrief.compose",
     system:
@@ -69,8 +67,8 @@ export async function runComposeBriefGeneration(
       stepName: "composeBrief",
       callPurpose: "compose",
       runtimeContext: composeContext.ctx,
-      provider: modelConfig.provider,
-      model: modelConfig.model,
+      provider: resolved.config.provider,
+      model: resolved.config.model,
     }),
   };
   const { object } = await generateObject(

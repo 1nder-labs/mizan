@@ -1,7 +1,7 @@
 import { createStep } from "@mastra/core/workflows";
-import { embedPolicyText } from "../../models/embedding-factory.ts";
 import { loadCaseContext } from "../../runtime/case-loader.ts";
 import { getEnv } from "../../runtime/context-accessors.ts";
+import { resolveQueryEmbedding } from "../../runtime/model-resolver.ts";
 import { PartialBriefStateSchema } from "../../schemas/brief.ts";
 import { loadPolicyCorpora } from "../../corpus/load.ts";
 import {
@@ -15,17 +15,16 @@ const TOP_K = 8;
 
 const EXCERPT_BY_CLAUSE_ID = resolveExcerptMap(loadPolicyCorpora());
 
-/** Embeds extracted claims and queries Vectorize for relevant policy clauses. */
 export const matchPolicy = createStep({
   id: "matchPolicy",
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
-  execute: async ({ inputData, requestContext }) => {
+  execute: async ({ inputData, requestContext, abortSignal }) => {
     const env = getEnv(requestContext);
     const caseRow = await loadCaseContext(env, inputData.caseId);
     const query = buildPolicyQuery(caseRow, inputData);
     const source = resolvePolicySource(caseRow.claimed_zakat_category);
-    const embedding = await embedPolicyText(env, query);
+    const embedding = await resolveQueryEmbedding(env, query, { abortSignal });
     const matches = await env.VECTORIZE.query(embedding, {
       topK: TOP_K,
       returnMetadata: "all",

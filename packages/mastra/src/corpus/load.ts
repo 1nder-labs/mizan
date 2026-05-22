@@ -2,8 +2,18 @@ import { CorpusSchema, type Corpus } from "../schemas/corpus.ts";
 import safetyPolicyJson from "./safety-policy.json";
 import zakatPolicyJson from "./zakat-policy.json";
 
-const zakatCorpus = CorpusSchema.parse(zakatPolicyJson);
-const safetyCorpus = CorpusSchema.parse(safetyPolicyJson);
+function parseCorpus(label: string, raw: unknown): Corpus {
+  const result = CorpusSchema.safeParse(raw);
+  if (!result.success) {
+    throw new Error(
+      `${label} corpus JSON failed CorpusSchema.parse — fix packages/mastra/src/corpus/${label}-policy.json: ${result.error.message}`,
+    );
+  }
+  return result.data;
+}
+
+const zakatCorpus = parseCorpus("zakat", zakatPolicyJson);
+const safetyCorpus = parseCorpus("safety", safetyPolicyJson);
 
 /** Returns parsed zakat + safety corpora loaded at module init. */
 export function loadPolicyCorpora(): readonly [Corpus, Corpus] {

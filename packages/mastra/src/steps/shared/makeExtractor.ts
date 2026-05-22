@@ -2,11 +2,11 @@ import { createStep } from "@mastra/core/workflows";
 import { generateObject } from "ai";
 import type { z } from "zod";
 import type { ModelConfig, ModelKind } from "../../models/factory.ts";
-import { getDefaultModel, getModel } from "../../models/factory.ts";
 import type { PartialBriefState } from "../../schemas/brief.ts";
 import { PartialBriefStateSchema } from "../../schemas/brief.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
 import { loadCaseContext, type CaseContext } from "../../runtime/case-loader.ts";
+import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
 import { makeTelemetry } from "../../runtime/telemetry.ts";
 
 export interface ExtractorPrompt {
@@ -26,12 +26,11 @@ export interface ExtractorDef<TOutput> {
   readonly modelOverride?: ModelConfig;
   readonly buildPrompt: (
     caseRow: CaseContext,
-    env: Parameters<typeof getModel>[1],
+    env: ReturnType<typeof getEnv>,
   ) => Promise<ExtractorPrompt>;
   readonly mergeInto: (inputData: PartialBriefState, extracted: TOutput) => PartialBriefState;
 }
 
-/** Higher-order factory for LLM extractor steps — threads abortSignal + telemetry. */
 export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
   return createStep({
     id: def.name,
@@ -42,10 +41,14 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
       const ctx = getCtx(requestContext);
       const caseRow = await loadCaseContext(env, inputData.caseId);
       const prompt = await def.buildPrompt(caseRow, env);
-      const modelConfig = def.modelOverride ?? getDefaultModel(env, def.modelKind);
+      const resolved = resolveLanguageModel({
+        env,
+        kind: def.modelKind,
+        ...(def.modelOverride ? { override: def.modelOverride } : {}),
+      });
       const schemaName = `${def.name}.extract`;
       const { object } = await generateObject({
-        model: getModel(modelConfig, env),
+        model: resolved.model,
         schema: def.schema,
         schemaName,
         system: prompt.system,
@@ -56,8 +59,8 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
           stepName: def.name,
           callPurpose: "extract",
           runtimeContext: ctx,
-          provider: modelConfig.provider,
-          model: modelConfig.model,
+          provider: resolved.config.provider,
+          model: resolved.config.model,
         }),
       });
       return def.mergeInto(inputData, object);

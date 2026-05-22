@@ -38,13 +38,17 @@ function parseCli(argv: string[]): CliOptions {
 }
 
 function requireRealEmbedEnvironment(dryRun: boolean): void {
-  if (process.env["MOCK_LLM_RESPONSES"] && !dryRun) {
-    throw new Error(
-      "MOCK_LLM_RESPONSES is set — refusing to upload deterministic pseudo-vectors to the live Vectorize index. " +
-        "Unset MOCK_LLM_RESPONSES, or re-run with --dry-run to preview vectors without uploading.",
-    );
+  if (dryRun) return;
+  const mockTriggers = ["MOCK_LLM_RESPONSES", "MOCK_EMBEDDINGS"] as const;
+  for (const key of mockTriggers) {
+    if (process.env[key]) {
+      throw new Error(
+        `${key} is set — refusing to upload deterministic pseudo-vectors to the live Vectorize index. ` +
+          `Unset ${key}, or re-run with --dry-run to preview vectors without uploading.`,
+      );
+    }
   }
-  if (!process.env["OPENAI_API_KEY"] && !process.env["MOCK_LLM_RESPONSES"]) {
+  if (!process.env["OPENAI_API_KEY"]) {
     throw new Error(
       "OPENAI_API_KEY is required — set it in the environment or apps/worker/.dev.vars",
     );

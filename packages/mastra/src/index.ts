@@ -37,12 +37,26 @@ export {
 } from "./observability/runtime-context.ts";
 export { getEnv, getCtx, MIZAN_ENV_KEY } from "./runtime/context-accessors.ts";
 export { makeTelemetry } from "./runtime/telemetry.ts";
-export { getModel, type ModelConfig, type LlmProvider } from "./models/factory.ts";
+export {
+  getDefaultModel,
+  getModel,
+  type LlmProvider,
+  type ModelConfig,
+  type ModelKind,
+} from "./models/factory.ts";
 export {
   getEmbeddingModel,
   embedPolicyText,
   embedPolicyTexts,
+  type EmbeddingEnv,
 } from "./models/embedding-factory.ts";
+export {
+  resolveBatchEmbeddings,
+  resolveLanguageModel,
+  resolveQueryEmbedding,
+  type ResolvedLanguageModel,
+  type ResolveLanguageModelArgs,
+} from "./runtime/model-resolver.ts";
 export { mockProvider, parseMockResponseMap } from "./test/mock-provider.ts";
 export {
   case001Responses,

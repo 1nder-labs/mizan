@@ -44,7 +44,13 @@ export function resolveExcerptMap(corpora: readonly Corpus[]): ReadonlyMap<strin
   return map;
 }
 
-/** Converts a Vectorize match into a validated PolicyCitation, or null when metadata is incomplete. */
+function clampRelevance(score: number): number {
+  if (!Number.isFinite(score)) return 0;
+  if (score < 0) return 0;
+  if (score > 1) return 1;
+  return score;
+}
+
 export function parseMatchToCitation(
   match: VectorizeMatch,
   excerptByClauseId: ReadonlyMap<string, string>,
@@ -58,7 +64,7 @@ export function parseMatchToCitation(
     clauseId,
     source,
     excerpt,
-    relevance: match.score,
+    relevance: clampRelevance(match.score),
   });
   return parsed.success ? parsed.data : null;
 }

@@ -1,6 +1,7 @@
 import { corporaForSource } from "../../packages/mastra/src/corpus/load.ts";
 import { chunkCorpusRecords, type ChunkRecord } from "../../packages/mastra/src/corpus/chunk.ts";
-import { embedPolicyTexts } from "../../packages/mastra/src/models/embedding-factory.ts";
+import { resolveBatchEmbeddings } from "../../packages/mastra/src/runtime/model-resolver.ts";
+import type { EmbeddingEnv } from "../../packages/mastra/src/runtime/model-resolver.ts";
 import type { Corpus as CorpusType } from "../../packages/mastra/src/schemas/corpus.ts";
 
 const UPSERT_BATCH_SIZE = 100;
@@ -27,23 +28,13 @@ export interface EmbedCorpusResult {
   readonly chunksBySource: Record<string, number>;
 }
 
-interface EmbeddingEnv {
-  readonly OPENAI_API_KEY?: string;
-  readonly MOCK_LLM_RESPONSES?: string;
-}
-
-/** Embeds chunk texts and maps them to VectorizeVector objects. */
 export async function embedChunkRecords(
   records: readonly ChunkRecord[],
   env: EmbeddingEnv,
 ): Promise<VectorizeVector[]> {
   if (records.length === 0) return [];
-  const bindings = {
-    OPENAI_API_KEY: env.OPENAI_API_KEY,
-    MOCK_LLM_RESPONSES: env.MOCK_LLM_RESPONSES,
-  };
-  const embeddings = await embedPolicyTexts(
-    bindings,
+  const embeddings = await resolveBatchEmbeddings(
+    env,
     records.map((record) => record.text),
   );
   return records.map((record, index) => {

@@ -4,7 +4,6 @@ import { PartialBriefStateSchema, type BriefPayload } from "../../schemas/brief.
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
 import { persistBrief, runComposeBriefGeneration } from "./run.ts";
 
-/** Reasoning step — composes BriefPayload and persists to D1. */
 export const composeBrief = createStep({
   id: "composeBrief",
   inputSchema: PartialBriefStateSchema,
@@ -13,6 +12,11 @@ export const composeBrief = createStep({
     const env = getEnv(requestContext);
     const ctx = getCtx(requestContext);
     const policyMatches = inputData.policy_matches ?? [];
+    if (policyMatches.length === 0) {
+      console.warn(
+        `[composeBrief] degraded: zero policy_matches for case=${inputData.caseId} run=${inputData.runId} — brief will lack policy grounding`,
+      );
+    }
     const composed = normalizeBrief(
       await runComposeBriefGeneration({ env, ctx, inputData, abortSignal }, policyMatches),
     );
