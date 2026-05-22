@@ -21,8 +21,28 @@ import { buildLangfuseExporter, LangfuseExporter } from "./observability/langfus
 import { briefWorkflow } from "./workflows/brief.workflow.ts";
 
 export type { BriefStreamPart } from "./schemas/stream.ts";
-export type { BriefPayload, PolicyCitation } from "./schemas/brief.ts";
-export { BriefPayloadSchema, PolicyCitationSchema } from "./schemas/brief.ts";
+export type {
+  BriefPayload,
+  DraftedOrganizerMessage,
+  GeographyTier,
+  PolicyCitation,
+  VerificationPath,
+} from "./schemas/brief.ts";
+export {
+  BriefPayloadSchema,
+  DraftedOrganizerMessageSchema,
+  PolicyCitationSchema,
+  StoryCoherencePayloadSchema,
+  VerificationPathSchema,
+} from "./schemas/brief.ts";
+export type { StoryCoherencePayload } from "./schemas/brief.ts";
+export { VouchingChainSchema, type VouchingChain } from "./steps/classifyVouchingChain/schema.ts";
+export { deriveVerificationPath } from "./steps/computeVerificationPath.ts";
+export { forceEscalate } from "./steps/forcedEscalateGate/predicate.ts";
+export { buildDraftPrompt } from "./steps/draftOrganizerMessage/prompt.ts";
+export { mockReverseImageSearch } from "./tools/reverse-image-mock.ts";
+export { mockAiGenDetection } from "./tools/ai-gen-mock.ts";
+export type { PartialBriefState } from "./schemas/brief.ts";
 export { CorpusSchema, ClauseSchema, type Corpus, type Clause } from "./schemas/corpus.ts";
 export { allCorpusClauseIds, loadPolicyCorpora } from "./corpus/load.ts";
 export { chunkCorpusRecords, type ChunkRecord } from "./corpus/chunk.ts";
@@ -57,6 +77,7 @@ export {
   type ResolvedLanguageModel,
   type ResolveLanguageModelArgs,
 } from "./runtime/model-resolver.ts";
+export { tierFor } from "./runtime/geography-tier.ts";
 export {
   buildPolicyQuery,
   parseMatchToCitation,
@@ -75,6 +96,9 @@ export {
   case003Responses,
   case004Responses,
   case005Responses,
+  case006Responses,
+  case007Responses,
+  case008Responses,
   responsesForCaseIndex,
   SEED_CASE_IDS,
   serializeMockResponses,
