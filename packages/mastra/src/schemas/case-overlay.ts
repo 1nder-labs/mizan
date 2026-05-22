@@ -9,6 +9,7 @@ export const CaseOverlaySchema = z.object({
     bank_statement: z.string(),
     category_doc: z.string(),
   }),
+  vouching_narrative: z.string().optional(),
 });
 
 export type CaseOverlay = z.infer<typeof CaseOverlaySchema>;
