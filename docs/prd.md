@@ -529,18 +529,19 @@ _Other:_
 
 **In scope:**
 
-- Drizzle migration adding columns to `signals` table (if needed): `signal_type`, `payload_json` (already exists; verify shape)
+- Drizzle migration adding unique index on `signals` table `(case_id, run_id, signal_type)` for upsert idempotency (`signal_type`, `payload_json` columns already exist; verify shape)
+- `classifyCampaign` rewrite — emits `category`, `geography_tier` (deterministic ISO-3166 → tier lookup via `packages/mastra/src/runtime/geography-tier.ts`), and `verification_path` placeholder (`documentary`; overwritten later by `computeVerificationPath`)
 - New Mastra workflow steps:
   - `photoSignal` — extracts EXIF presence/absence on uploaded photos; mocks reverse-image-search w/ realistic JSON shape; mocks AI-gen detection
   - `storyCoherence` — named-entity density + template-match against seeded corpus
   - `classifyVouchingChain` — discriminated-union zod schema: structure (none / individual-to-individual / individual-via-partner-org / org-direct) + partner_org_name + weakest_link_narrative
-  - `computeVerificationPath` — deterministic predicate: DOCUMENTARY / INSTITUTIONAL_VOUCHING / COMMUNITY_VOUCHING / NONE
-  - `forcedEscalateGate` — pure TypeScript predicate: `verification_path == NONE && geography_tier in (OFAC_ADJACENT, OFAC)` → forces recommendation to ESCALATE; otherwise passes through to `composeBrief`
+  - `computeVerificationPath` — deterministic predicate returning path classification — `documentary` (chain present), `institutional_vouching` (org partner), `community_vouching` (peer chain), `none` (no chain)
+  - `forcedEscalateGate` — pure TypeScript predicate after `composeBrief`: when `recommendation` not in (`ESCALATE`, `BLOCK`) AND `verification_path === "none"` AND `geography_tier` in (`OFAC_ADJACENT`, `OFAC`) → forces recommendation to `ESCALATE`
 - New step `draftOrganizerMessage` — generates the specific missing-evidence ask per LaunchGood policy
 - 3 community-vouching seeded cases at `src/seeds/community-vouching/*.json`:
   - Yemen family relief (community-vouching, OFAC-adjacent)
-  - Sudan masjid build with partner org (INSTITUTIONAL_VOUCHING)
-  - Gaza individual emergency w/ no documentary path (NONE → forced ESCALATE)
+  - Sudan masjid build with partner org (institutional_vouching)
+  - Gaza individual emergency w/ no documentary path (`none` → forced ESCALATE)
 
 **Out of scope:** Real reverse-image-search (mocked), AI-gen detection (mocked), KYC vendor (mocked), HITL (Phase 7), UI (Phase 6), queue (Phase 5), observability (Phase 8).
 
@@ -548,14 +549,15 @@ _Other:_
 
 **Acceptance criteria:**
 
-- All 3 community-vouching cases route to ESCALATE
+- case-008 (Gaza, `none` path, OFAC_ADJACENT geography) is forced to `ESCALATE` by `forcedEscalateGate`; case-006 and case-007 are not forced when a vouching path exists
+- All 3 community-vouching cases write one row per signal_type to the `signals` table (3 signal types × 3 cases = 9 rows total)
 - Brief explicitly says "no documentary verification path; trust = vouching strength" when applicable
 - Forced-ESCALATE rule unit-testable in isolation (no LLM dependency)
 - Drafted-organizer-message text names specific missing items per policy
 
 **Implementation notes:**
 
-- `forcedEscalateGate` runs AFTER `composeBrief` if `composeBrief` proposed APPROVE — overrides it to ESCALATE. AI proposal + deterministic override = clean human/AI boundary signal in the demo video
+- `forcedEscalateGate` runs AFTER `composeBrief` and `draftOrganizerMessage`: when `brief.recommendation` is not in (`ESCALATE`, `BLOCK`) AND `classify.verification_path === "none"` AND `classify.geography_tier` is in (`OFAC_ADJACENT`, `OFAC`), the step overrides `brief.recommendation` to `ESCALATE` and sets `forced_escalate_reason`. AI proposal + deterministic override = clean human/AI boundary signal in the demo video
 - Mocked reverse-image-search returns shape: `{ hits: Array<{ url: string; confidence: number }>; checked_at: string }`
 - Mocked AI-gen detection returns shape: `{ probability: enum, model: 'mock-v1' }` — clamp probability via post-parse helper
 - `classifyVouchingChain` uses discriminated-union zod schema so the `partner_org_name` field is required only when structure is `individual-via-partner-org` or `org-direct`
