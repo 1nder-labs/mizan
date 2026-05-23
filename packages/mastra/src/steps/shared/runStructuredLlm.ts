@@ -1,4 +1,4 @@
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { z } from "zod";
 import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
@@ -9,17 +9,31 @@ import type { MizanRuntimeContext } from "../../observability/runtime-context.ts
 
 const MAX_RETRIES = 2;
 
-/**
- * The generic constraint is `z.ZodType<TOutput>` — pinned to a concrete
- * object output — so the AI SDK's `generateObject` overload resolves its
- * RESULT type to `TOutput` directly (instead of leaving it on the
- * "enum vs object vs array" branch where it collapses to `unknown`).
+/*
+ * AI SDK 6 canonical structured-output API.
  *
- * `postProcess` runs after the post-parse validation and before the
- * return — it lets callers apply schema-aware projections (e.g.
- * `applyCitationFilter` in composeBrief) without forking the helper.
+ * `generateObject` is deprecated in 6.x in favour of
+ * `generateText({ output: Output.object({ schema, name }) })` (per
+ * vercel/ai docs and the v6 migration notes). The new API is
+ * behaviourally equivalent — `result.output` carries the parsed object,
+ * `NoObjectGeneratedError` still throws on JSON-parse or
+ * schema-validation failure, and Zod 4 discriminated unions + `.strict()`
+ * objects go through the same internal path. `schemaName` becomes the
+ * `name` parameter on `Output.object`, which feeds the provider's
+ * `responseFormat.name` field; telemetry remains a top-level
+ * `experimental_telemetry` argument on `generateText`.
  */
-export interface StructuredLlmInvocation<TOutput> {
+
+/** Multimodal-friendly message shape passed to `generateObject`. */
+export interface StructuredLlmMessage {
+  readonly role: "user";
+  readonly content: ReadonlyArray<
+    | { readonly type: "text"; readonly text: string }
+    | { readonly type: "image"; readonly image: Uint8Array; readonly mediaType?: string }
+  >;
+}
+
+interface BaseInvocation<TOutput> {
   readonly env: CloudflareBindings;
   readonly ctx: MizanRuntimeContext;
   readonly stepName: string;
@@ -27,15 +41,26 @@ export interface StructuredLlmInvocation<TOutput> {
   readonly modelKind: ModelKind;
   readonly schema: z.ZodType<TOutput>;
   readonly system: string;
-  readonly userPayload: string;
   readonly abortSignal: AbortSignal | undefined;
   readonly postProcess?: (parsed: TOutput) => TOutput;
 }
 
+/** Text-only invocation: caller passes a single user-turn string. */
+export type StructuredLlmInvocation<TOutput> = BaseInvocation<TOutput> & {
+  readonly userPayload: string;
+};
+
+/** Multimodal invocation: caller provides its own messages (text + images). */
+export type StructuredLlmInvocationWithMessages<TOutput> = BaseInvocation<TOutput> & {
+  readonly messages: ReadonlyArray<StructuredLlmMessage>;
+};
+
 /**
- * Wraps the boilerplate every Phase 4 signal/compose step needs around
+ * Wraps the boilerplate every LLM call site in this package needs around
  * `generateObject`: per-request model resolution, telemetry wiring,
- * retry policy, abort-signal forwarding, and structured-output parsing.
+ * retry policy, abort-signal forwarding, post-parse validation, and an
+ * optional `postProcess` hook (used by composeBrief to apply the
+ * citation filter on the parsed output).
  *
  * Centralising the call shape lets the steps focus on the prompt + result
  * handling and ensures every LLM call site picks up future infrastructure
@@ -44,33 +69,56 @@ export interface StructuredLlmInvocation<TOutput> {
 export async function runStructuredLlm<TOutput>(
   invocation: StructuredLlmInvocation<TOutput>,
 ): Promise<TOutput> {
+  return runStructuredLlmWithMessages({
+    ...invocation,
+    messages: [{ role: "user", content: [{ type: "text", text: invocation.userPayload }] }],
+  });
+}
+
+/** Variant accepting multimodal messages (used by image-bearing extractors). */
+export async function runStructuredLlmWithMessages<TOutput>(
+  invocation: StructuredLlmInvocationWithMessages<TOutput>,
+): Promise<TOutput> {
   const resolved = resolveLanguageModel({ env: invocation.env, kind: invocation.modelKind });
   const generateArgs = buildGenerateArgs(invocation, resolved.model, resolved.config);
-  const { object } = await generateObject(
+  const result = await generateText(
     invocation.abortSignal
       ? { ...generateArgs, abortSignal: invocation.abortSignal }
       : generateArgs,
   );
-  const parsed = invocation.schema.parse(object);
+  /*
+   * `result.output` is the parsed-and-validated object emitted by
+   * `Output.object`. The SDK throws `NoObjectGeneratedError` on parse /
+   * validation failure before this line, so the local `schema.parse`
+   * below is a defensive re-validation that also runs the Zod schema's
+   * transforms and refinements (no-op for our schemas today, but cheap
+   * insurance against a future schema gaining a `.transform`).
+   */
+  const parsed = invocation.schema.parse(result.output);
   return invocation.postProcess ? invocation.postProcess(parsed) : parsed;
 }
 
 function buildGenerateArgs<TOutput>(
-  invocation: StructuredLlmInvocation<TOutput>,
+  invocation: StructuredLlmInvocationWithMessages<TOutput>,
   model: LanguageModelV3,
   config: ModelConfig,
 ) {
   return {
     model,
-    schema: invocation.schema,
-    schemaName: invocation.schemaName,
+    output: Output.object({ schema: invocation.schema, name: invocation.schemaName }),
     system: invocation.system,
-    messages: [
-      {
-        role: "user" as const,
-        content: [{ type: "text" as const, text: invocation.userPayload }],
-      },
-    ],
+    messages: invocation.messages.map((message) => ({
+      role: message.role,
+      content: message.content.map((part) =>
+        part.type === "text"
+          ? { type: "text" as const, text: part.text }
+          : {
+              type: "image" as const,
+              image: part.image,
+              ...(part.mediaType ? { mediaType: part.mediaType } : {}),
+            },
+      ),
+    })),
     maxRetries: MAX_RETRIES,
     experimental_telemetry: makeTelemetry({
       stepName: invocation.stepName,

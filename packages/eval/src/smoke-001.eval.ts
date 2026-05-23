@@ -15,7 +15,7 @@ import type {
   R2Bucket,
   VectorizeIndex,
 } from "@cloudflare/workers-types";
-import { generateObject } from "ai";
+import { generateText, Output } from "ai";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -49,12 +49,12 @@ describe("smoke-001 live provider", () => {
         kind: "extract",
         override: { provider: "anthropic", model: "claude-haiku-4-5" },
       });
-      const { object } = await generateObject({
+      const result = await generateText({
         model: resolved.model,
-        schema: SmokeSchema,
+        output: Output.object({ schema: SmokeSchema, name: "smoke-001.ok" }),
         prompt: 'Reply with JSON {"ok": true}',
       });
-      expect(object.ok).toBe(true);
+      expect(result.output.ok).toBe(true);
     },
     60_000,
   );

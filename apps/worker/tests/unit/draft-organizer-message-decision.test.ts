@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { decideDraftAction } from "@mizan/mastra";
 import type { BriefPayload, PartialBriefState } from "@mizan/mastra";
+import { decideDraftAction } from "@mizan/mastra/testing";
 
 function brief(recommendation: BriefPayload["recommendation"]): BriefPayload {
   return {

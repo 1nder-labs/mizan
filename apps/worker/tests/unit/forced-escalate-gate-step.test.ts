@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { assertGateInputs, escalateBriefProjection } from "@mizan/mastra";
 import type { BriefPayload, PartialBriefState } from "@mizan/mastra";
+import { assertGateInputs, escalateBriefProjection } from "@mizan/mastra/testing";
 
 const SAMPLE_BRIEF: BriefPayload = {
   recommendation: "READY_FOR_REVIEW",

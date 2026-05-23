@@ -61,6 +61,7 @@ export function assertVouchingChain(chain: VouchingChain): VouchingChain {
 }
 
 const MIN_CORROBORATION_NEEDLE_CHARS = 4;
+const MIN_INSTITUTIONAL_NARRATIVE_CHARS = 20;
 
 /**
  * Normalises text for corroboration matching: lowercases, replaces every
@@ -78,19 +79,28 @@ function normaliseForMatch(value: string): string {
 
 /**
  * Cross-references the LLM-emitted `partner_org_name` against the
- * organizer-supplied source text. If the partner isn't mentioned in the
- * story or vouching_narrative, the LLM has fabricated an institution and
- * we must not route the case down the `institutional_vouching` path —
- * doing so would let a forced-escalate bypass succeed on adversarial
- * prompts that coax the classifier into emitting a hallucinated org name.
+ * organizer's `vouching_narrative` — specifically, NOT against the
+ * free-form `story` field.
  *
- * Match is token-boundary aware: the needle and haystack are both
- * normalised to space-separated lowercase tokens, then the needle must
- * appear as a whole-word substring (`" needle "` against `" haystack "`).
- * That prevents short tokens like "Aid" from passing because they happen
- * to sit inside an unrelated word ("AIDS clinic"). A floor of 4
- * post-normalisation characters rejects single-letter / two-letter
- * "partner names" that could not reliably distinguish an org.
+ * The story field is for general campaign context; partner names that
+ * appear there alone are usually incidental ("the Red Cross helped us
+ * during the flood") and do not constitute an organizer's claim of an
+ * accountability chain. `vouching_narrative` is the explicit slot where
+ * organizers attest to the chain that handles their funds — so the
+ * partner-org variant must be grounded there.
+ *
+ * Rules (applied in order; first failure throws):
+ *   1. `vouching_narrative` must be present and at least
+ *      `MIN_INSTITUTIONAL_NARRATIVE_CHARS` characters after trim —
+ *      a one-liner is not a chain attestation.
+ *   2. `partner_org_name` must be at least
+ *      `MIN_CORROBORATION_NEEDLE_CHARS` alphanumeric characters so a
+ *      two-letter "partner" cannot pass.
+ *   3. The normalised partner name must appear as a whole-word
+ *      substring of the normalised narrative; the token-boundary match
+ *      blocks "Aid" from passing inside "AIDS clinic".
+ *
+ * Non-institutional structures pass through unchanged.
  */
 export function assertPartnerOrgCorroborated(
   chain: VouchingChain,
@@ -99,16 +109,22 @@ export function assertPartnerOrgCorroborated(
   if (chain.structure !== "individual-via-partner-org" && chain.structure !== "org-direct") {
     return chain;
   }
+  const narrative = (source.vouching_narrative ?? "").trim();
+  if (narrative.length < MIN_INSTITUTIONAL_NARRATIVE_CHARS) {
+    throw new Error(
+      `vouching chain: ${chain.structure} requires a vouching_narrative of at least ${MIN_INSTITUTIONAL_NARRATIVE_CHARS} characters; received ${narrative.length} — story-only mentions do not corroborate an accountability chain`,
+    );
+  }
   const needle = normaliseForMatch(chain.partner_org_name);
   if (needle.replace(/\s+/gu, "").length < MIN_CORROBORATION_NEEDLE_CHARS) {
     throw new Error(
       `vouching chain: partner_org_name "${chain.partner_org_name}" is too short to corroborate (min ${MIN_CORROBORATION_NEEDLE_CHARS} alphanumeric chars)`,
     );
   }
-  const haystack = ` ${normaliseForMatch(`${source.story} ${source.vouching_narrative ?? ""}`)} `;
+  const haystack = ` ${normaliseForMatch(narrative)} `;
   if (!haystack.includes(` ${needle} `)) {
     throw new Error(
-      `vouching chain: partner_org_name "${chain.partner_org_name}" is not corroborated in story or vouching_narrative — refusing to route ${chain.structure}`,
+      `vouching chain: partner_org_name "${chain.partner_org_name}" is not mentioned in vouching_narrative — refusing to route ${chain.structure}`,
     );
   }
   return chain;

@@ -129,6 +129,22 @@ export const computeVerificationPath = createStep({
         `computeVerificationPath: classify missing for case ${inputData.caseId} run ${inputData.runId} — classifyCampaign must run first`,
       );
     }
+    /*
+     * The workflow guarantees `signals.vouching` is populated by
+     * `classifyVouchingChain` (via `mergeSignals`) before this step
+     * runs. Treating a missing vouching slot as "fall through to
+     * documentaryOrNone" would be silently fail-open if a refactor
+     * skipped or reordered those upstream steps — we'd route to
+     * `documentary` based on extractor evidence alone, exactly the
+     * class of bug Review 2 caught. The pure `deriveVerificationPath`
+     * predicate is intentionally permissive for unit-test callers; the
+     * step is strict.
+     */
+    if (!inputData.signals?.vouching) {
+      throw new Error(
+        `computeVerificationPath: signals.vouching missing for case ${inputData.caseId} run ${inputData.runId} — classifyVouchingChain / mergeSignals must run first`,
+      );
+    }
     const verification_path = deriveVerificationPath(inputData);
     return {
       ...inputData,

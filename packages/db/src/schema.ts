@@ -113,14 +113,14 @@ export const signals = sqliteTable(
       .notNull()
       .$defaultFn(() => new Date()),
   },
+  /**
+   * `signals_case_run_type_uniq` is a covering composite index whose
+   * leading prefix `(case_id, run_id)` already serves the case+run
+   * lookup pattern. A separate `signals_case_run_idx` would only add
+   * write-amplification on every upsertSignal call without buying any
+   * read path SQLite cannot already satisfy.
+   */
   (table) => [
-    /*
-     * `signals_case_run_type_uniq` is a covering composite index whose
-     * leading prefix `(case_id, run_id)` already serves the case+run
-     * lookup pattern. A separate `signals_case_run_idx` would only add
-     * write-amplification on every upsertSignal call without buying any
-     * read path SQLite cannot already satisfy.
-     */
     uniqueIndex("signals_case_run_type_uniq").on(table.case_id, table.run_id, table.signal_type),
   ],
 );

@@ -44,25 +44,21 @@ export {
   type VerificationPath,
   type VouchingChain,
 } from "@mizan/shared";
+/*
+ * Public predicates — usable by routes, eval harnesses, and future agent
+ * surfaces. Test-only step internals (assertGateInputs, mergeParallelSignals,
+ * escalateBriefProjection, buildDraftPrompt, decideDraftAction, stubs,
+ * SeedCaseSchema) live on the `@mizan/mastra/testing` entry point.
+ */
 export {
   deriveVerificationPath,
   DOCUMENTARY_MIN_CONFIDENCE,
 } from "./steps/computeVerificationPath.ts";
 export { forceEscalate } from "./steps/forcedEscalateGate/predicate.ts";
-export { assertGateInputs, escalateBriefProjection } from "./steps/forcedEscalateGate/index.ts";
-export { mergeParallelSignals } from "./steps/mergeSignals.ts";
-export {
-  buildDraftPrompt,
-  decideDraftAction,
-  type DraftDecision,
-} from "./steps/draftOrganizerMessage/prompt.ts";
-export { reverseImageStub } from "./tools/reverse-image-stub.ts";
-export { aiGenStub } from "./tools/ai-gen-stub.ts";
 export type { PartialBriefState } from "./schemas/partial-brief-state.ts";
 export { CorpusSchema, ClauseSchema, type Corpus, type Clause } from "./schemas/corpus.ts";
 export { allCorpusClauseIds, loadPolicyCorpora } from "./corpus/load.ts";
 export { chunkCorpusRecords, type ChunkRecord } from "./corpus/chunk.ts";
-export { SeedCaseSchema, type SeedCase } from "./seeds/seed-case-schema.ts";
 export { CreatorIdSchema } from "./schemas/extractions/creator-id.ts";
 export { flushLangfuse } from "./observability/flush.ts";
 export {

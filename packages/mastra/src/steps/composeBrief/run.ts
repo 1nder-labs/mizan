@@ -1,4 +1,4 @@
-import { briefs, cases, eq, makeDb } from "@mizan/db";
+import { briefs, makeDb } from "@mizan/db";
 import {
   BriefPayloadSchema,
   PolicyCitationSchema,
@@ -102,7 +102,19 @@ function buildPromptBody(
   );
 }
 
-/** Persists the composed brief and advances case status. */
+/**
+ * Persists the composed brief without flipping case status.
+ *
+ * `cases.status = READY_FOR_REVIEW` is intentionally deferred to a
+ * terminal step (`finalizeCaseStatus`) that runs after
+ * `draftOrganizerMessage` and `forcedEscalateGate`. The old
+ * "insert-brief-and-flip-status" batch let a reviewer poll
+ * `READY_FOR_REVIEW` for the 1–5s window between composeBrief and the
+ * gate firing, observing a stale REQUEST_DOCS recommendation that would
+ * be overwritten to ESCALATE moments later. Splitting persistence from
+ * status transition keeps the case in RUNNING until every post-LLM
+ * mutation has committed.
+ */
 export async function persistBrief(
   env: CloudflareBindings,
   caseId: string,
@@ -110,7 +122,7 @@ export async function persistBrief(
   brief: BriefPayload,
 ): Promise<void> {
   const db = makeDb(env.DB);
-  const insertStmt = db
+  await db
     .insert(briefs)
     .values({
       case_id: caseId,
@@ -120,11 +132,6 @@ export async function persistBrief(
       payload_json: brief,
     })
     .onConflictDoNothing({ target: [briefs.case_id, briefs.run_id] });
-  const updateStmt = db
-    .update(cases)
-    .set({ status: "READY_FOR_REVIEW", updated_at: new Date() })
-    .where(eq(cases.id, caseId));
-  await db.batch([insertStmt, updateStmt]);
 }
 
 export { type ComposeContext };

@@ -11,6 +11,7 @@ import { extractBankStatement } from "../steps/extractBankStatement.ts";
 import { extractCategoryDocs } from "../steps/extractCategoryDocs.ts";
 import { extractCreatorIdDoc } from "../steps/extractCreatorIdDoc.ts";
 import { extractStoryClaims } from "../steps/extractStoryClaims.ts";
+import { finalizeCaseStatus } from "../steps/finalizeCaseStatus.ts";
 import { forcedEscalateGate } from "../steps/forcedEscalateGate/index.ts";
 import { matchPolicy } from "../steps/matchPolicy/index.ts";
 import { mergeSignals } from "../steps/mergeSignals.ts";
@@ -45,5 +46,6 @@ export const briefWorkflow = createWorkflow({
   .then(composeBrief)
   .then(draftOrganizerMessage)
   .then(forcedEscalateGate)
+  .then(finalizeCaseStatus)
   .then(awaitReviewerAction)
   .commit();

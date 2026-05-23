@@ -24,7 +24,14 @@ export const AiGenResultSchema = z
 export const ReverseImageHitSchema = z
   .object({
     url: z.string(),
-    confidence: z.number(),
+    /*
+     * `.finite()` rejects NaN and ±Infinity at parse time so a malformed
+     * stub or vendor response cannot smuggle non-comparable values into
+     * downstream confidence-threshold checks. Strict-mode providers emit
+     * `{ type: "number" }` for `.finite()` — no extra JSON Schema
+     * keywords, so cross-provider compatibility is preserved.
+     */
+    confidence: z.number().finite(),
   })
   .strict();
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { mergeParallelSignals } from "@mizan/mastra";
+import { mergeParallelSignals } from "@mizan/mastra/testing";
 import type {
   PartialBriefState,
   PhotoSignalPayload,

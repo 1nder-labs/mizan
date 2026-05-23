@@ -1,5 +1,4 @@
 import { createStep } from "@mastra/core/workflows";
-import { generateObject } from "ai";
 import type { z } from "zod";
 import type { ModelConfig, ModelKind } from "../../models/factory.ts";
 import {
@@ -8,17 +7,11 @@ import {
 } from "../../schemas/partial-brief-state.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
 import { loadCaseContext, type CaseContext } from "../../runtime/case-loader.ts";
-import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
-import { makeTelemetry } from "../../runtime/telemetry.ts";
+import { runStructuredLlmWithMessages, type StructuredLlmMessage } from "./runStructuredLlm.ts";
 
 export interface ExtractorPrompt {
   readonly system: string;
-  readonly messages: Array<{
-    role: "user";
-    content: Array<
-      { type: "text"; text: string } | { type: "image"; image: Uint8Array; mediaType?: string }
-    >;
-  }>;
+  readonly messages: ReadonlyArray<StructuredLlmMessage>;
 }
 
 export interface ExtractorDef<TOutput> {
@@ -36,11 +29,16 @@ export interface ExtractorDef<TOutput> {
 /**
  * Wraps an extractor as a Mastra step.
  *
- * Errors from `generateObject` propagate unchanged — including the test-only
- * `MissingMockResponseError` thrown by the mock provider. Tests are expected
- * to register canned responses for every extractor a case exercises;
- * silently no-opping on a missing mock would let test outcomes diverge from
- * production behavior, which is exactly the bug class Phase 4's review caught.
+ * Errors from `generateObject` propagate unchanged — including the
+ * test-only `MissingMockResponseError` thrown by the mock provider.
+ * Tests are expected to register canned responses for every extractor a
+ * case exercises; silently no-opping on a missing mock would let test
+ * outcomes diverge from production behavior, which is exactly the bug
+ * class Phase 4's review caught.
+ *
+ * The orchestration goes through `runStructuredLlmWithMessages` so every
+ * LLM call site in this package — extractors, signal steps, compose,
+ * draft — shares one model-resolution / telemetry / retry / parse path.
  */
 export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
   return createStep({
@@ -52,36 +50,18 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
       const ctx = getCtx(requestContext);
       const caseRow = await loadCaseContext(env, inputData.caseId);
       const prompt = await def.buildPrompt(caseRow, env);
-      const resolved = resolveLanguageModel({
+      const extracted = await runStructuredLlmWithMessages({
         env,
-        kind: def.modelKind,
-        ...(def.modelOverride ? { override: def.modelOverride } : {}),
-      });
-      const schemaName = `${def.name}.extract`;
-      const { object } = await generateObject({
-        model: resolved.model,
+        ctx,
+        stepName: def.name,
+        schemaName: `${def.name}.extract`,
+        modelKind: def.modelKind,
         schema: def.schema,
-        schemaName,
         system: prompt.system,
-        messages: [...prompt.messages],
+        messages: prompt.messages,
         abortSignal,
-        maxRetries: 2,
-        experimental_telemetry: makeTelemetry({
-          stepName: def.name,
-          callPurpose: "extract",
-          runtimeContext: ctx,
-          provider: resolved.config.provider,
-          model: resolved.config.model,
-        }),
       });
-      /*
-       * Symmetry with `runStructuredLlm`: re-validate the model output
-       * against the same Zod schema before merging into workflow state.
-       * `generateObject` already validates internally, but the explicit
-       * post-parse keeps every LLM call site in this package on the same
-       * "schema is the source of truth at the workflow boundary" contract.
-       */
-      return def.mergeInto(inputData, def.schema.parse(object));
+      return def.mergeInto(inputData, extracted);
     },
   });
 }

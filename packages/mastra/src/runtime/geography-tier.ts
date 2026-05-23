@@ -1,14 +1,14 @@
 import type { GeographyTier } from "@mizan/shared";
 
-/*
+/**
  * ISO-3166 alpha-2 to OFAC / risk tier lookup.
  *
- * OFAC: full comprehensive sanctions program in effect (1997 SSOMA for Sudan,
- *   EO 14038 BELA for Belarus, etc.).
- * OFAC_ADJACENT: partial sanctions, regional risk overlap, or humanitarian
- *   corridors that require enhanced due diligence.
- * AT_RISK: high humanitarian or verification risk per LaunchGood policy.
- * SAFE: default for unknown or unmapped codes.
+ * - `OFAC`: full comprehensive sanctions program in effect
+ *   (1997 SSOMA for Sudan, EO 14038 BELA for Belarus, etc.).
+ * - `OFAC_ADJACENT`: partial sanctions, regional risk overlap, or
+ *   humanitarian corridors that require enhanced due diligence.
+ * - `AT_RISK`: high humanitarian or verification risk per LaunchGood policy.
+ * - `SAFE`: default for unknown or unmapped codes.
  *
  * Update reference: https://ofac.treasury.gov/sanctions-programs-and-country-information
  */

@@ -71,6 +71,19 @@ function assertBranchAgreement(
   if (!classifyEqual(base.classify, other.classify)) {
     throw new Error(`mergeSignals: ${branchName} branch diverged on classify`);
   }
+  /*
+   * Compare the non-signals payload that every branch is supposed to
+   * inherit unchanged from upstream. Any future parallel step that
+   * mutates `extractions` or `policy_matches` from inside its branch
+   * would otherwise lose information here — the merge picks
+   * `photoSignal` as the canonical base.
+   */
+  if (!shallowJsonEqual(base.extractions, other.extractions)) {
+    throw new Error(`mergeSignals: ${branchName} branch diverged on extractions`);
+  }
+  if (!shallowJsonEqual(base.policy_matches, other.policy_matches)) {
+    throw new Error(`mergeSignals: ${branchName} branch diverged on policy_matches`);
+  }
 }
 
 function classifyEqual(
@@ -84,6 +97,13 @@ function classifyEqual(
     a.geography_tier === b.geography_tier &&
     a.verification_path === b.verification_path
   );
+}
+
+/** Structural equality via JSON serialisation — adequate for workflow-state slots. */
+function shallowJsonEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return a === b;
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 export const mergeSignals = createStep({

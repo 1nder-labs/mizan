@@ -10,16 +10,17 @@ import { z } from "zod";
 import {
   BriefPayloadSchema,
   PhotoSignalPayloadSchema,
-  SeedCaseSchema,
   StoryCoherencePayloadSchema,
   VerificationPathSchema,
   VouchingChainSchema,
+  tierFor,
 } from "@mizan/mastra";
 import type { VerificationPath } from "@mizan/mastra";
 import {
   case006Responses,
   case007Responses,
   case008Responses,
+  SeedCaseSchema,
   serializeMockResponses,
 } from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
@@ -29,6 +30,7 @@ const BASE = "http://localhost";
 interface CommunityCaseFixture {
   readonly id: string;
   readonly file: string;
+  readonly geography: string;
   readonly responses: () => Record<string, unknown>;
   readonly expectedPath: VerificationPath;
   readonly forcedEscalate: boolean;
@@ -39,6 +41,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
   {
     id: "11111111-1111-4111-8111-111111111106",
     file: "case-006.json",
+    geography: "YE",
     responses: case006Responses,
     expectedPath: VerificationPathSchema.parse("community_vouching"),
     forcedEscalate: false,
@@ -47,6 +50,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
   {
     id: "11111111-1111-4111-8111-111111111107",
     file: "case-007.json",
+    geography: "SD",
     responses: case007Responses,
     expectedPath: VerificationPathSchema.parse("institutional_vouching"),
     forcedEscalate: false,
@@ -55,6 +59,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
   {
     id: "11111111-1111-4111-8111-111111111108",
     file: "case-008.json",
+    geography: "PS",
     responses: case008Responses,
     expectedPath: VerificationPathSchema.parse("none"),
     forcedEscalate: true,
@@ -202,7 +207,7 @@ describe("phase 4 community-vouching workflow", () => {
       const brief = BriefPayloadSchema.parse(JSON.parse(parsedBriefRow.payload_json));
 
       expect(brief.verification_path).toBe(entry.expectedPath);
-      expect(brief.geography_tier).toBe(geographyTierFor(entry.expectedPath, entry.forcedEscalate));
+      expect(brief.geography_tier).toBe(tierFor(entry.geography));
 
       if (entry.forcedEscalate) {
         expect(brief.recommendation).toBe("ESCALATE");
@@ -276,14 +281,4 @@ function assertSseStream(sse: string): void {
   expect(sse.length).toBeGreaterThan(0);
   expect(sse).toMatch(/data:\s*\{/);
   expect(sse).toMatch(/"type"\s*:\s*"finish"/);
-}
-
-function geographyTierFor(
-  expectedPath: VerificationPath,
-  forcedEscalate: boolean,
-): "SAFE" | "AT_RISK" | "OFAC_ADJACENT" | "OFAC" {
-  if (forcedEscalate) return "OFAC_ADJACENT";
-  if (expectedPath === "institutional_vouching") return "OFAC";
-  if (expectedPath === "community_vouching") return "OFAC_ADJACENT";
-  return "SAFE";
 }

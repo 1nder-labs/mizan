@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { reverseImageStub } from "@mizan/mastra";
+import { reverseImageStub } from "@mizan/mastra/testing";
 
 const SALT = "11111111-1111-4111-8111-111111111101";
 

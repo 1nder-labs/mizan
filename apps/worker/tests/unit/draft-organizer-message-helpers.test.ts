@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { buildDraftPrompt } from "@mizan/mastra";
 import type { BriefPayload } from "@mizan/mastra";
+import { buildDraftPrompt } from "@mizan/mastra/testing";
 
 const sampleBrief: BriefPayload = {
   recommendation: "REQUEST_DOCS",

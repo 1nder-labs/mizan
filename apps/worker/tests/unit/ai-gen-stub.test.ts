@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { aiGenStub } from "@mizan/mastra";
+import { aiGenStub } from "@mizan/mastra/testing";
 
 const SALT = "11111111-1111-4111-8111-111111111101";
 
