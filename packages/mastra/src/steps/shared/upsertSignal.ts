@@ -1,8 +1,6 @@
 import { makeDb, signals, type NewSignal } from "@mizan/db";
 import type { CloudflareBindings } from "@mizan/worker/env";
-import type { PhotoSignalPayload } from "../../schemas/photo-signal.ts";
-import type { VouchingChain } from "../../schemas/vouching.ts";
-import type { StoryCoherencePayload } from "../../schemas/brief.ts";
+import type { PhotoSignalPayload, StoryCoherencePayload, VouchingChain } from "@mizan/shared";
 
 /** Discriminated union of (signal_type, payload) pairs upsertable from Phase 4 steps. */
 export type SignalUpsertInput =

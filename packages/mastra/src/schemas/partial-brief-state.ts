@@ -2,43 +2,21 @@ import { z } from "zod";
 import {
   BriefPayloadSchema,
   GeographyTierSchema,
+  PhotoSignalPayloadSchema,
   PolicyCitationSchema,
   StoryCoherencePayloadSchema,
   VerificationPathSchema,
+  VouchingChainSchema,
 } from "@mizan/shared";
 import { ExtractionsSchema } from "./extractions/index.ts";
-import { VouchingChainSchema } from "./vouching.ts";
-import { PhotoSignalPayloadSchema } from "./photo-signal.ts";
 
-/*
- * `PartialBriefStateSchema` is the workflow-state schema and is never
- * passed to `generateObject`, so it keeps `.optional()` freely. Persisted
- * payload schemas live in `@mizan/shared/schemas/brief.ts` — re-exported
- * below for backwards-compatible import paths.
+/**
+ * Workflow-state schema — what each Mastra step sees as its input and
+ * emits as its output. Strictly internal to the mastra workflow; never
+ * persisted, never passed to `generateObject`. Persisted-payload schemas
+ * live in `@mizan/shared` (single source of truth) and are referenced
+ * here for the nested shape definitions.
  */
-
-export {
-  BriefPayloadSchema,
-  DraftedOrganizerMessageSchema,
-  GeographyTierSchema,
-  MissingDocSchema,
-  PolicyCitationSchema,
-  RecommendationEnum,
-  ReviewerQuestionSchema,
-  StoryCoherencePayloadSchema,
-  VerificationPathSchema,
-  type BriefPayload,
-  type DraftedOrganizerMessage,
-  type GeographyTier,
-  type MissingDoc,
-  type PolicyCitation,
-  type PolicySource,
-  type Recommendation,
-  type ReviewerQuestion,
-  type StoryCoherencePayload,
-  type VerificationPath,
-} from "@mizan/shared";
-
 export const PartialBriefStateSchema = z.object({
   caseId: z.string(),
   runId: z.string(),

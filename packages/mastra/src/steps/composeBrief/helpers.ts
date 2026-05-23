@@ -1,10 +1,6 @@
 import { z } from "zod";
-import type {
-  GeographyTier,
-  PartialBriefState,
-  PolicyCitation,
-  VerificationPath,
-} from "../../schemas/brief.ts";
+import type { GeographyTier, PolicyCitation, VerificationPath } from "@mizan/shared";
+import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
 
 export function buildClauseIdSchema(availableClauseIds: readonly string[]): z.ZodType<string> {
   const [first, second, ...rest] = availableClauseIds;

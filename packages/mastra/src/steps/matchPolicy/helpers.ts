@@ -1,7 +1,7 @@
 import type { VectorizeMatch } from "@cloudflare/workers-types";
+import { PolicyCitationSchema, type PolicyCitation } from "@mizan/shared";
 import type { CaseContext } from "../../runtime/case-loader.ts";
-import type { PartialBriefState } from "../../schemas/brief.ts";
-import { PolicyCitationSchema, type PolicyCitation } from "../../schemas/brief.ts";
+import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
 import type { Corpus } from "../../schemas/corpus.ts";
 
 /** Builds the semantic query string from case context and extractor outputs. */

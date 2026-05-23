@@ -1,6 +1,6 @@
 import { createStep } from "@mastra/core/workflows";
 import { z } from "zod";
-import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/brief.ts";
+import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/partial-brief-state.ts";
 
 /**
  * Re-joins the three signal-emitting parallel branches back into a single

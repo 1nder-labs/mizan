@@ -1,4 +1,4 @@
-import type { BriefPayload } from "../../schemas/brief.ts";
+import type { BriefPayload } from "@mizan/shared";
 
 export const BASE_CREATOR = {
   document_type: "passport" as const,

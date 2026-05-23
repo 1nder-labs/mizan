@@ -1,9 +1,6 @@
 import { createStep } from "@mastra/core/workflows";
-import {
-  PartialBriefStateSchema,
-  type PartialBriefState,
-  type VerificationPath,
-} from "../schemas/brief.ts";
+import type { VerificationPath } from "@mizan/shared";
+import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/partial-brief-state.ts";
 import type { CategoryDocsSchema } from "../schemas/extractions/category-docs.ts";
 import type { BankStatementSchema } from "../schemas/extractions/bank-statement.ts";
 import type { CreatorIdSchema } from "../schemas/extractions/creator-id.ts";

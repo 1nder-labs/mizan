@@ -1,6 +1,7 @@
 import { createStep } from "@mastra/core/workflows";
 import { clampInt } from "@mizan/shared";
-import { PartialBriefStateSchema, type BriefPayload } from "../../schemas/brief.ts";
+import type { BriefPayload } from "@mizan/shared";
+import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
 import { persistBrief, runComposeBriefGeneration } from "./run.ts";
 

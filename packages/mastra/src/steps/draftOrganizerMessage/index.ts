@@ -1,10 +1,7 @@
 import { createStep } from "@mastra/core/workflows";
+import { DraftedOrganizerMessageSchema, type BriefPayload } from "@mizan/shared";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
-import {
-  DraftedOrganizerMessageSchema,
-  PartialBriefStateSchema,
-  type BriefPayload,
-} from "../../schemas/brief.ts";
+import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
 import { runStructuredLlm } from "../shared/runStructuredLlm.ts";
 import { wrapUntrustedData } from "../shared/untrusted-data.ts";
 import { updatePersistedBrief } from "../shared/updateBrief.ts";

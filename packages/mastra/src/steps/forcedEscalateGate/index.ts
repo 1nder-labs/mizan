@@ -1,10 +1,10 @@
 import { createStep } from "@mastra/core/workflows";
+import type { BriefPayload } from "@mizan/shared";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
 import {
   PartialBriefStateSchema,
-  type BriefPayload,
   type PartialBriefState,
-} from "../../schemas/brief.ts";
+} from "../../schemas/partial-brief-state.ts";
 import { updatePersistedBrief } from "../shared/updateBrief.ts";
 import { forceEscalate } from "./predicate.ts";
 

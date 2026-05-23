@@ -1,4 +1,5 @@
-import type { BriefPayload, PartialBriefState } from "../../schemas/brief.ts";
+import type { BriefPayload } from "@mizan/shared";
+import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
 
 /** Concrete payload passed to the compose-tier draft step. */
 export type DraftPromptPayload = Pick<

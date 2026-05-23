@@ -1,4 +1,4 @@
-import type { BriefPayload, GeographyTier, VerificationPath } from "../../schemas/brief.ts";
+import type { BriefPayload, GeographyTier, VerificationPath } from "@mizan/shared";
 
 /**
  * Geography tiers that trigger the forced-escalate override when no

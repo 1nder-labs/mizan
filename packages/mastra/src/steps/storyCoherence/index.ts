@@ -1,12 +1,8 @@
 import { createStep } from "@mastra/core/workflows";
-import { clampUnit } from "@mizan/shared";
+import { StoryCoherencePayloadSchema, clampUnit, type StoryCoherencePayload } from "@mizan/shared";
 import { loadCaseContext } from "../../runtime/case-loader.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
-import {
-  PartialBriefStateSchema,
-  StoryCoherencePayloadSchema,
-  type StoryCoherencePayload,
-} from "../../schemas/brief.ts";
+import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
 import { runStructuredLlm } from "../shared/runStructuredLlm.ts";
 import { upsertSignal } from "../shared/upsertSignal.ts";
 import { STORY_COHERENCE_SYSTEM, buildStoryCoherencePayload } from "./prompt.ts";

@@ -1,5 +1,5 @@
 import type { CaseContext } from "../../runtime/case-loader.ts";
-import type { PartialBriefState } from "../../schemas/brief.ts";
+import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
 import { wrapUntrustedData } from "../shared/untrusted-data.ts";
 
 export const STORY_COHERENCE_SYSTEM =

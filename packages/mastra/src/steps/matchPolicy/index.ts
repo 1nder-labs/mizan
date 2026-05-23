@@ -3,7 +3,8 @@ import type { VectorizeIndex } from "@cloudflare/workers-types";
 import { loadCaseContext } from "../../runtime/case-loader.ts";
 import { getEnv } from "../../runtime/context-accessors.ts";
 import { resolveQueryEmbedding } from "../../runtime/model-resolver.ts";
-import { type PolicyCitation, PartialBriefStateSchema } from "../../schemas/brief.ts";
+import type { PolicyCitation } from "@mizan/shared";
+import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
 import { loadPolicyCorpora } from "../../corpus/load.ts";
 import {
   buildPolicyQuery,

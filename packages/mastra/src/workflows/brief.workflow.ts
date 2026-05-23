@@ -1,6 +1,6 @@
 import { createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { BriefPayloadSchema } from "../schemas/brief.ts";
+import { BriefPayloadSchema } from "@mizan/shared";
 import { awaitReviewerAction } from "../steps/awaitReviewerAction.ts";
 import { classifyCampaign } from "../steps/classifyCampaign.ts";
 import { classifyVouchingChain } from "../steps/classifyVouchingChain/index.ts";

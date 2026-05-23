@@ -1,6 +1,6 @@
 import { briefs, eq, makeDb, and } from "@mizan/db";
 import type { CloudflareBindings } from "@mizan/worker/env";
-import type { BriefPayload } from "../../schemas/brief.ts";
+import type { BriefPayload } from "@mizan/shared";
 
 /**
  * Updates an existing brief row after a post-composeBrief mutation

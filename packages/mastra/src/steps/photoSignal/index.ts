@@ -1,7 +1,7 @@
 import { createStep } from "@mastra/core/workflows";
 import { loadCaseContext } from "../../runtime/case-loader.ts";
 import { getEnv } from "../../runtime/context-accessors.ts";
-import { PartialBriefStateSchema } from "../../schemas/brief.ts";
+import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
 import { aiGenStub } from "../../tools/ai-gen-stub.ts";
 import { reverseImageStub } from "../../tools/reverse-image-stub.ts";
 import { upsertSignal } from "../shared/upsertSignal.ts";

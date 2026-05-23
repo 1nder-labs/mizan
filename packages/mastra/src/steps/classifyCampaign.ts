@@ -2,7 +2,8 @@ import { createStep } from "@mastra/core/workflows";
 import { loadCaseContext } from "../runtime/case-loader.ts";
 import { tierFor } from "../runtime/geography-tier.ts";
 import { getEnv } from "../runtime/context-accessors.ts";
-import { PartialBriefStateSchema, VerificationPathSchema } from "../schemas/brief.ts";
+import { VerificationPathSchema } from "@mizan/shared";
+import { PartialBriefStateSchema } from "../schemas/partial-brief-state.ts";
 
 const INITIAL_VERIFICATION_PATH = VerificationPathSchema.parse("documentary");
 

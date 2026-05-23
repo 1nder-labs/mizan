@@ -2,8 +2,10 @@ import { createStep } from "@mastra/core/workflows";
 import { generateObject } from "ai";
 import type { z } from "zod";
 import type { ModelConfig, ModelKind } from "../../models/factory.ts";
-import type { PartialBriefState } from "../../schemas/brief.ts";
-import { PartialBriefStateSchema } from "../../schemas/brief.ts";
+import {
+  PartialBriefStateSchema,
+  type PartialBriefState,
+} from "../../schemas/partial-brief-state.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
 import { loadCaseContext, type CaseContext } from "../../runtime/case-loader.ts";
 import { resolveLanguageModel } from "../../runtime/model-resolver.ts";

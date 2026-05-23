@@ -1,13 +1,13 @@
 import { createStep } from "@mastra/core/workflows";
 import { loadCaseContext } from "../../runtime/case-loader.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
-import { PartialBriefStateSchema } from "../../schemas/brief.ts";
+import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
 import {
   VouchingChainSchema,
   assertCommunityVouchingCorroborated,
   assertPartnerOrgCorroborated,
   assertVouchingChain,
-} from "../../schemas/vouching.ts";
+} from "@mizan/shared";
 import { runStructuredLlm } from "../shared/runStructuredLlm.ts";
 import { upsertSignal } from "../shared/upsertSignal.ts";
 import { CLASSIFY_VOUCHING_SYSTEM, buildVouchingPayload } from "./prompt.ts";

@@ -1,7 +1,7 @@
 import { cases, eq, makeDb } from "@mizan/db";
 import type { Case } from "@mizan/db";
 import type { CloudflareBindings } from "@mizan/worker/env";
-import { CaseOverlaySchema, type CaseOverlay } from "../schemas/case-overlay.ts";
+import { CaseOverlaySchema, type CaseOverlay } from "@mizan/shared";
 
 export type CaseRow = Case;
 

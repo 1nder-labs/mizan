@@ -4,8 +4,8 @@ import {
   PolicyCitationSchema,
   type BriefPayload,
   type PolicyCitation,
-} from "../../schemas/brief.ts";
-import type { PartialBriefState } from "../../schemas/brief.ts";
+} from "@mizan/shared";
+import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
 import type { CloudflareBindings } from "@mizan/worker/env";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
 import { runStructuredLlm } from "../shared/runStructuredLlm.ts";

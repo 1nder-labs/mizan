@@ -1,4 +1,4 @@
-import type { GeographyTier } from "../schemas/brief.ts";
+import type { GeographyTier } from "@mizan/shared";
 
 /*
  * ISO-3166 alpha-2 to OFAC / risk tier lookup.
