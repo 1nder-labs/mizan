@@ -6,6 +6,7 @@ const sampleBrief: BriefPayload = {
   recommendation: "REQUEST_DOCS",
   verification_path: "none",
   geography_tier: "AT_RISK",
+  policy_grounded: true,
   missing_docs: [{ docType: "bank_statement", reason: "Incomplete period" }],
   reviewer_questions: [],
   extracted_claims: "Documents partially extracted; bank statement missing.",

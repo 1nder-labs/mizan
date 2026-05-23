@@ -97,19 +97,29 @@ export const StoryCoherencePayloadSchema = z
 
 /**
  * Reviewer brief payload — Phase 3 adds `policy_citations`; Phase 4 adds
- * `drafted_organizer_message` and `forced_escalate_reason` written by
- * later workflow steps.
+ * `drafted_organizer_message`, `forced_escalate_reason`, and
+ * `policy_grounded` written by later workflow steps.
  *
- * `composeBrief` emits a subset (without the two later-step fields and
- * with a dynamic `policy_citations` schema) via `buildPerCallBriefSchema`
- * in `@mizan/mastra/steps/composeBrief/run.ts`; the full schema below is
+ * `composeBrief` emits a subset (without the later-step fields and with
+ * a dynamic `policy_citations` schema) via `buildPerCallBriefSchema` in
+ * `@mizan/mastra/steps/composeBrief/run.ts`; the full schema below is
  * the canonical storage shape used everywhere else.
+ *
+ * `policy_grounded` is `false` when `matchPolicy` returned zero clauses
+ * — the brief was composed without policy citations and the reviewer
+ * surface must flag it. Stitched onto the brief by `composeBrief` after
+ * the LLM call (deterministic, not emitted by the model).
  */
 export const BriefPayloadSchema = z
   .object({
     recommendation: RecommendationEnum,
     verification_path: VerificationPathSchema,
     geography_tier: GeographyTierSchema,
+    policy_grounded: z
+      .boolean()
+      .describe(
+        "True when composeBrief had at least one policy clause to ground on; false when matchPolicy returned zero results.",
+      ),
     missing_docs: z.array(MissingDocSchema),
     reviewer_questions: z.array(ReviewerQuestionSchema),
     extracted_claims: z

@@ -6,12 +6,22 @@
  *
  * Runs inside the Cloudflare Workers Miniflare pool so it talks to a
  * real D1 instance with the production schema + migrations applied.
+ *
+ * Two layers are covered:
+ *
+ *   1. SQL-level — raw `INSERT … ON CONFLICT DO UPDATE` mirrors the
+ *      exact statement Drizzle emits and pins the unique-index contract.
+ *   2. Wrapper-level — calls `upsertSignal()` directly so the Drizzle
+ *      glue, error-wrapping (`upsertSignal failed (case_id=… run_id=…
+ *      signal_type=…)`), and discriminated `SignalUpsertInput` typing
+ *      are exercised end-to-end.
  */
 
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import type { PhotoSignalPayload, StoryCoherencePayload } from "@mizan/mastra";
+import type { PhotoSignalPayload, StoryCoherencePayload, VouchingChain } from "@mizan/mastra";
+import { upsertSignal } from "@mizan/mastra/steps/shared/upsertSignal.ts";
 
 const TEST_CASE_ID = "22222222-2222-4222-8222-222222222001";
 const TEST_RUN_ID = "33333333-3333-4333-8333-333333333001";
@@ -123,6 +133,71 @@ describe("upsertSignal idempotency", () => {
       .run();
     expect(await countSignalRows(TEST_CASE_ID, TEST_RUN_ID, "story_coherence")).toBe(1);
     expect(await countSignalRows(TEST_CASE_ID, TEST_RUN_ID, "photo_dup")).toBe(1);
+  });
+});
+
+const WRAPPER_CASE_ID = "44444444-4444-4444-8444-444444444001";
+const WRAPPER_RUN_ID = "55555555-5555-4555-8555-555555555001";
+const WRAPPER_VOUCHING_FIRST: VouchingChain = {
+  structure: "individual-to-individual",
+  weakest_link_narrative: "first call",
+};
+const WRAPPER_VOUCHING_SECOND: VouchingChain = {
+  structure: "individual-to-individual",
+  weakest_link_narrative: "second call overwrites the first",
+};
+
+describe("upsertSignal wrapper", () => {
+  beforeAll(async () => {
+    await applyD1Migrations(env.DB, inject("migrations"));
+    await env.DB.prepare(
+      `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
+       VALUES (?, 'DRAFT', 'medical', 'US', NULL, NULL, 'wrapper-test', ?, ?)
+       ON CONFLICT(id) DO NOTHING`,
+    )
+      .bind(WRAPPER_CASE_ID, Date.now(), Date.now())
+      .run();
+    await env.DB.prepare("DELETE FROM signals WHERE case_id = ? AND run_id = ?")
+      .bind(WRAPPER_CASE_ID, WRAPPER_RUN_ID)
+      .run();
+  });
+
+  it("inserts a vouching_chain row on the first call", async () => {
+    await upsertSignal({
+      env,
+      caseId: WRAPPER_CASE_ID,
+      runId: WRAPPER_RUN_ID,
+      signalType: "vouching_chain",
+      payload: WRAPPER_VOUCHING_FIRST,
+    });
+    expect(await countSignalRows(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "vouching_chain")).toBe(1);
+  });
+
+  it("overwrites payload on a second wrapper call with the same key", async () => {
+    await upsertSignal({
+      env,
+      caseId: WRAPPER_CASE_ID,
+      runId: WRAPPER_RUN_ID,
+      signalType: "vouching_chain",
+      payload: WRAPPER_VOUCHING_SECOND,
+    });
+    expect(await countSignalRows(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "vouching_chain")).toBe(1);
+    const row = await loadSignalRow(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "vouching_chain");
+    const persisted = JSON.parse(row.payload_json) as VouchingChain;
+    expect(persisted.weakest_link_narrative).toBe("second call overwrites the first");
+  });
+
+  it("rejects writes that violate the cases foreign key (error message includes triage tuple)", async () => {
+    const MISSING_CASE = "99999999-9999-4999-8999-999999999999";
+    await expect(
+      upsertSignal({
+        env,
+        caseId: MISSING_CASE,
+        runId: WRAPPER_RUN_ID,
+        signalType: "vouching_chain",
+        payload: WRAPPER_VOUCHING_FIRST,
+      }),
+    ).rejects.toThrow(/upsertSignal failed.*case_id=99999999-9999-4999-8999-999999999999/);
   });
 });
 

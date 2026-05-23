@@ -40,6 +40,7 @@ export const composeBrief = createStep({
       ...llmOutput,
       verification_path: inputData.classify.verification_path,
       geography_tier: inputData.classify.geography_tier,
+      policy_grounded: policyMatches.length > 0,
     });
     await persistBrief(env, inputData.caseId, inputData.runId, composed);
     return { ...inputData, brief: composed };

@@ -106,4 +106,61 @@ describe("mergeParallelSignals", () => {
     expect(merged.signals?.story).toBeUndefined();
     expect(merged.signals?.vouching).toEqual(VOUCHING);
   });
+
+  /*
+   * The `extractions` and `policy_matches` slots are populated upstream
+   * of the parallel block and every branch must inherit them unchanged.
+   * If a future signal step ever mutated those slots inside its branch,
+   * the merge would silently pick the photoSignal version and drop the
+   * mutation — exactly the bug class Review 3 caught for `classify`.
+   */
+  it("throws when storyCoherence branch diverges on extractions", () => {
+    const baseExtractions = { extractCreatorIdDoc: undefined };
+    expect(() =>
+      mergeParallelSignals({
+        photoSignal: baseBranch({ extractions: baseExtractions }, { photo: PHOTO }),
+        storyCoherence: baseBranch(
+          {
+            extractions: {
+              extractCreatorIdDoc: {
+                document_type: "passport",
+                full_name: "different",
+                document_number_redacted: "****",
+                issuing_country_iso: "US",
+                issue_date_iso: "2020-01-01",
+                expiry_date_iso: "2030-01-01",
+                matches_organizer_name: true,
+                confidence: 90,
+              },
+            },
+          },
+          { story: STORY },
+        ),
+        classifyVouchingChain: baseBranch({ extractions: baseExtractions }, { vouching: VOUCHING }),
+      }),
+    ).toThrow(/storyCoherence branch diverged on extractions/);
+  });
+
+  it("throws when classifyVouchingChain branch diverges on policy_matches", () => {
+    const basePolicyMatches: never[] = [];
+    expect(() =>
+      mergeParallelSignals({
+        photoSignal: baseBranch({ policy_matches: basePolicyMatches }, { photo: PHOTO }),
+        storyCoherence: baseBranch({ policy_matches: basePolicyMatches }, { story: STORY }),
+        classifyVouchingChain: baseBranch(
+          {
+            policy_matches: [
+              {
+                clauseId: "zakat.5.1",
+                source: "zakat",
+                excerpt: "Mutated mid-flight by a hypothetical branch step.",
+                relevance: 0.9,
+              },
+            ],
+          },
+          { vouching: VOUCHING },
+        ),
+      }),
+    ).toThrow(/classifyVouchingChain branch diverged on policy_matches/);
+  });
 });

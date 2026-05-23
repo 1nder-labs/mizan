@@ -7,6 +7,7 @@ function brief(recommendation: BriefPayload["recommendation"]): BriefPayload {
     recommendation,
     verification_path: "documentary",
     geography_tier: "SAFE",
+    policy_grounded: true,
     missing_docs: [],
     reviewer_questions: [],
     extracted_claims: "",

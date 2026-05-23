@@ -1,6 +1,6 @@
 import { createStep } from "@mastra/core/workflows";
 import type { z } from "zod";
-import type { ModelConfig, ModelKind } from "../../models/factory.ts";
+import type { ModelKind } from "../../models/factory.ts";
 import {
   PartialBriefStateSchema,
   type PartialBriefState,
@@ -18,7 +18,6 @@ export interface ExtractorDef<TOutput> {
   readonly name: string;
   readonly schema: z.ZodType<TOutput>;
   readonly modelKind: ModelKind;
-  readonly modelOverride?: ModelConfig;
   readonly buildPrompt: (
     caseRow: CaseContext,
     env: ReturnType<typeof getEnv>,

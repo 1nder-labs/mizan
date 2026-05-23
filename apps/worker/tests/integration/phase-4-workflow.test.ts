@@ -262,6 +262,18 @@ describe("phase 4 community-vouching workflow", () => {
         expect(vouching.structure).toBe("none");
       }
 
+      /*
+       * `finalizeCaseStatus` runs after `forcedEscalateGate` and must
+       * flip the case to READY_FOR_REVIEW. Asserting the persisted
+       * status (not just the brief) catches a class of bug where the
+       * status-transition step is removed or short-circuited — the
+       * brief writes succeed but the case stays stuck in RUNNING.
+       */
+      const statusRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+        .bind(caseId)
+        .first<{ status: string }>();
+      expect(statusRow?.status).toBe("READY_FOR_REVIEW");
+
       await env.DB.prepare("UPDATE cases SET status = 'DRAFT', current_run_id = NULL WHERE id = ?")
         .bind(caseId)
         .run();

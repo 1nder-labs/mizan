@@ -67,6 +67,7 @@ describe("smoke-001 canned brief contracts", () => {
       ...(compose as Record<string, unknown>),
       verification_path: VerificationPathSchema.parse("documentary"),
       geography_tier: GeographyTierSchema.parse("SAFE"),
+      policy_grounded: true,
     });
     expect(persisted.policy_citations.length).toBeGreaterThanOrEqual(2);
     expect(persisted.policy_citations.every((citation) => citation.clauseId.length > 0)).toBe(true);
@@ -78,6 +79,7 @@ describe("smoke-001 canned brief contracts", () => {
       ...(compose as Record<string, unknown>),
       verification_path: VerificationPathSchema.parse("none"),
       geography_tier: GeographyTierSchema.parse("OFAC_ADJACENT"),
+      policy_grounded: true,
     });
     expect(persisted.recommendation).toBe("READY_FOR_REVIEW");
     expect(

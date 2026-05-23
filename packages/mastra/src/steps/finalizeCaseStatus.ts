@@ -17,6 +17,12 @@ import { PartialBriefStateSchema } from "../schemas/partial-brief-state.ts";
  *
  * Idempotent: a queue-redelivered run that already flipped status
  * re-writes the same value.
+ *
+ * Uses `.returning({ id })` and asserts at least one row was updated.
+ * A silent no-op (e.g. case row deleted under us, wrong case_id, FK
+ * skew between workflow state and persisted rows) would otherwise let
+ * the workflow finish "successfully" while leaving the case stuck in
+ * RUNNING — invisible to reviewers and to the queue retry logic.
  */
 export const finalizeCaseStatus = createStep({
   id: "finalizeCaseStatus",
@@ -30,10 +36,16 @@ export const finalizeCaseStatus = createStep({
     }
     const env = getEnv(requestContext);
     const db = makeDb(env.DB);
-    await db
+    const updated = await db
       .update(cases)
       .set({ status: "READY_FOR_REVIEW", updated_at: new Date() })
-      .where(eq(cases.id, inputData.caseId));
+      .where(eq(cases.id, inputData.caseId))
+      .returning({ id: cases.id });
+    if (updated.length === 0) {
+      throw new Error(
+        `finalizeCaseStatus: case ${inputData.caseId} not found (run ${inputData.runId}) — status flip did not occur`,
+      );
+    }
     return inputData;
   },
 });

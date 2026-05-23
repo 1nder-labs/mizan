@@ -1,14 +1,11 @@
-import { createStep } from "@mastra/core/workflows";
-import { loadCaseContext } from "../../runtime/case-loader.ts";
-import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
-import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
 import {
   VouchingChainSchema,
   assertCommunityVouchingCorroborated,
   assertPartnerOrgCorroborated,
   assertVouchingChain,
+  type VouchingChain,
 } from "@mizan/shared";
-import { runStructuredLlm } from "../shared/runStructuredLlm.ts";
+import { makeLlmSignalStep } from "../shared/makeLlmSignalStep.ts";
 import { upsertSignal } from "../shared/upsertSignal.ts";
 import { CLASSIFY_VOUCHING_SYSTEM, buildVouchingPayload } from "./prompt.ts";
 
@@ -19,44 +16,33 @@ import { CLASSIFY_VOUCHING_SYSTEM, buildVouchingPayload } from "./prompt.ts";
  * `minLength` keyword used to forbid empty `partner_org_name`; the guard
  * lives at the application layer via `assertVouchingChain` so a hallucinated
  * partner-org variant with an empty name cannot bypass forced-escalate.
+ *
+ * Partner-org and community corroboration are also application-layer
+ * guards — they reject LLM outputs where the structure does not match
+ * the case's `story` / `vouching_narrative`. Wired through the LLM
+ * signal-step factory; this file declares only the slot-specific pieces.
  */
-export const classifyVouchingChain = createStep({
+export const classifyVouchingChain = makeLlmSignalStep<VouchingChain>({
   id: "classifyVouchingChain",
-  inputSchema: PartialBriefStateSchema,
-  outputSchema: PartialBriefStateSchema,
-  execute: async ({ inputData, requestContext, abortSignal }) => {
-    const env = getEnv(requestContext);
-    const ctx = getCtx(requestContext);
-    const caseRow = await loadCaseContext(env, inputData.caseId);
-    const raw = await runStructuredLlm({
-      env,
-      ctx,
-      stepName: "classifyVouchingChain",
-      schemaName: "classifyVouchingChain.classify",
-      modelKind: "extract",
-      schema: VouchingChainSchema,
-      system: CLASSIFY_VOUCHING_SYSTEM,
-      userPayload: buildVouchingPayload(caseRow),
-      abortSignal,
-    });
+  schemaName: "classifyVouchingChain.classify",
+  modelKind: "extract",
+  schema: VouchingChainSchema,
+  system: CLASSIFY_VOUCHING_SYSTEM,
+  buildUserPayload: ({ caseRow }) => buildVouchingPayload(caseRow),
+  postProcess: ({ raw, caseRow }) => {
     const corroborationSource = {
       story: caseRow.story,
       vouching_narrative: caseRow.vouching_narrative ?? null,
     };
-    const payload = assertCommunityVouchingCorroborated(
+    return assertCommunityVouchingCorroborated(
       assertPartnerOrgCorroborated(assertVouchingChain(raw), corroborationSource),
       corroborationSource,
     );
-    await upsertSignal({
-      env,
-      caseId: inputData.caseId,
-      runId: inputData.runId,
-      signalType: "vouching_chain",
-      payload,
-    });
-    return {
-      ...inputData,
-      signals: { ...inputData.signals, vouching: payload },
-    };
   },
+  persist: ({ env, caseId, runId, payload }) =>
+    upsertSignal({ env, caseId, runId, signalType: "vouching_chain", payload }),
+  mergeIntoState: (state, payload) => ({
+    ...state,
+    signals: { ...state.signals, vouching: payload },
+  }),
 });

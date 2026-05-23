@@ -114,41 +114,51 @@ function looksLikeRealCategory(category: CategoryDocs): boolean {
 }
 
 /**
+ * Asserts the workflow state required by `computeVerificationPath`.
+ *
+ * The workflow guarantees `classify` and `signals.vouching` are
+ * populated before this step runs (classifyCampaign + classifyVouchingChain
+ * → mergeSignals). Treating either as "fall through" would let a refactor
+ * that skipped or reordered upstream steps silently fail-open — routing
+ * to `documentary` based on extractor evidence alone, exactly the bug
+ * class Review 2 caught. Lifted to a pure helper so unit tests can pin
+ * the throws without spinning up a Mastra runtime.
+ */
+export function assertComputeVerificationPathInputs(
+  state: PartialBriefState,
+): NonNullable<PartialBriefState["classify"]> {
+  if (!state.classify) {
+    throw new Error(
+      `computeVerificationPath: classify missing for case ${state.caseId} run ${state.runId} — classifyCampaign must run first`,
+    );
+  }
+  if (!state.signals?.vouching) {
+    throw new Error(
+      `computeVerificationPath: signals.vouching missing for case ${state.caseId} run ${state.runId} — classifyVouchingChain / mergeSignals must run first`,
+    );
+  }
+  return state.classify;
+}
+
+/**
  * Deterministic step that overwrites `classify.verification_path`.
  *
- * Throws when `classifyCampaign` has not run — leaving geography unknown
- * downstream would let `forcedEscalateGate` silently no-op on OFAC cases.
+ * Throws when `classifyCampaign` or `classifyVouchingChain` / `mergeSignals`
+ * has not run — leaving either unknown downstream would let
+ * `forcedEscalateGate` silently no-op on OFAC cases. The pure
+ * `deriveVerificationPath` predicate is intentionally permissive for
+ * unit-test callers; the step is strict.
  */
 export const computeVerificationPath = createStep({
   id: "computeVerificationPath",
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
   execute: async ({ inputData }) => {
-    if (!inputData.classify) {
-      throw new Error(
-        `computeVerificationPath: classify missing for case ${inputData.caseId} run ${inputData.runId} — classifyCampaign must run first`,
-      );
-    }
-    /*
-     * The workflow guarantees `signals.vouching` is populated by
-     * `classifyVouchingChain` (via `mergeSignals`) before this step
-     * runs. Treating a missing vouching slot as "fall through to
-     * documentaryOrNone" would be silently fail-open if a refactor
-     * skipped or reordered those upstream steps — we'd route to
-     * `documentary` based on extractor evidence alone, exactly the
-     * class of bug Review 2 caught. The pure `deriveVerificationPath`
-     * predicate is intentionally permissive for unit-test callers; the
-     * step is strict.
-     */
-    if (!inputData.signals?.vouching) {
-      throw new Error(
-        `computeVerificationPath: signals.vouching missing for case ${inputData.caseId} run ${inputData.runId} — classifyVouchingChain / mergeSignals must run first`,
-      );
-    }
+    const classify = assertComputeVerificationPathInputs(inputData);
     const verification_path = deriveVerificationPath(inputData);
     return {
       ...inputData,
-      classify: { ...inputData.classify, verification_path },
+      classify: { ...classify, verification_path },
     };
   },
 });

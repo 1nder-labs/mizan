@@ -68,6 +68,7 @@ export {
  */
 export { assertGateInputs, escalateBriefProjection } from "./steps/forcedEscalateGate/index.ts";
 export { mergeParallelSignals } from "./steps/mergeSignals.ts";
+export { assertComputeVerificationPathInputs } from "./steps/computeVerificationPath.ts";
 export {
   buildDraftPrompt,
   decideDraftAction,

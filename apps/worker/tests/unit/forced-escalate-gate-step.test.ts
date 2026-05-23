@@ -6,6 +6,7 @@ const SAMPLE_BRIEF: BriefPayload = {
   recommendation: "READY_FOR_REVIEW",
   verification_path: "none",
   geography_tier: "OFAC_ADJACENT",
+  policy_grounded: true,
   missing_docs: [],
   reviewer_questions: [],
   extracted_claims: "",

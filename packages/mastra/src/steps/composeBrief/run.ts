@@ -33,17 +33,18 @@ const COMPOSE_SYSTEM =
  * Builds the LLM-output schema for composeBrief.
  *
  * Omits the deterministic and post-LLM fields (`verification_path`,
- * `geography_tier`, `drafted_organizer_message`, `forced_escalate_reason`)
- * so the model is not asked to emit them and so the JSON Schema satisfies
- * OpenAI strict-mode (all properties required). Replaces
- * `policy_citations.clauseId` with a closed enum so the model can only
- * cite from the clauses returned by the matchPolicy step.
+ * `geography_tier`, `policy_grounded`, `drafted_organizer_message`,
+ * `forced_escalate_reason`) so the model is not asked to emit them and
+ * so the JSON Schema satisfies OpenAI strict-mode (all properties
+ * required). Replaces `policy_citations.clauseId` with a closed enum so
+ * the model can only cite from the clauses returned by matchPolicy.
  */
 export function buildPerCallBriefSchema(availableClauseIds: readonly string[]) {
   const clauseIdSchema = buildClauseIdSchema(availableClauseIds);
   return BriefPayloadSchema.omit({
     verification_path: true,
     geography_tier: true,
+    policy_grounded: true,
     policy_citations: true,
     drafted_organizer_message: true,
     forced_escalate_reason: true,
@@ -57,7 +58,11 @@ export function buildPerCallBriefSchema(availableClauseIds: readonly string[]) {
 /** LLM-output shape from composeBrief (subset of BriefPayload). */
 export type ComposeBriefLlmOutput = Omit<
   BriefPayload,
-  "verification_path" | "geography_tier" | "drafted_organizer_message" | "forced_escalate_reason"
+  | "verification_path"
+  | "geography_tier"
+  | "policy_grounded"
+  | "drafted_organizer_message"
+  | "forced_escalate_reason"
 >;
 
 /** Runs composeBrief LLM generation with the dynamic citation schema. */

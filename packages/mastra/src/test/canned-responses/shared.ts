@@ -57,10 +57,10 @@ export const DEFAULT_SAFETY_CITATIONS: BriefPayload["policy_citations"] = [
 /**
  * Builds the LLM-output subset of a composeBrief payload for canned mocks.
  *
- * `verification_path` and `geography_tier` are NOT included — those are
- * deterministic fields stitched onto the brief by the composeBrief step
- * after the LLM call, sourced from `inputData.classify`. Canned mocks
- * must match the LLM's actual output shape so tests reflect production.
+ * `verification_path`, `geography_tier`, and `policy_grounded` are NOT
+ * included — those are deterministic fields stitched onto the brief by
+ * the composeBrief step after the LLM call. Canned mocks must match the
+ * LLM's actual output shape so tests reflect production.
  */
 export function briefPayload(
   recommendation: BriefPayload["recommendation"],
@@ -68,7 +68,11 @@ export function briefPayload(
   policyCitations: BriefPayload["policy_citations"] = DEFAULT_ZAKAT_CITATIONS,
 ): Omit<
   BriefPayload,
-  "verification_path" | "geography_tier" | "drafted_organizer_message" | "forced_escalate_reason"
+  | "verification_path"
+  | "geography_tier"
+  | "policy_grounded"
+  | "drafted_organizer_message"
+  | "forced_escalate_reason"
 > {
   return {
     recommendation,

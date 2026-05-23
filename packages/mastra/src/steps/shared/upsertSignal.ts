@@ -17,10 +17,17 @@ export type SignalUpsertInput =
  *
  * Wraps drizzle errors with the (case_id, run_id, signal_type) tuple for
  * on-call triage — D1's raw constraint errors do not surface workflow context.
+ *
+ * Accepts a structural `Pick<CloudflareBindings, "DB">` so integration
+ * tests can pass the `env` imported from `cloudflare:workers` without
+ * tripping `exactOptionalPropertyTypes` on unrelated bindings (KV, R2,
+ * etc.) whose overloaded `.get` signatures differ nominally between the
+ * workerd-generated `Cloudflare.Env` namespace and the
+ * `@cloudflare/workers-types` interfaces used by `CloudflareBindings`.
  */
 export async function upsertSignal(
   input: SignalUpsertInput & {
-    readonly env: CloudflareBindings;
+    readonly env: Pick<CloudflareBindings, "DB">;
     readonly caseId: string;
     readonly runId: string;
   },
