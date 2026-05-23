@@ -48,4 +48,18 @@ describe("forcedEscalateReason", () => {
     expect(reason).toContain("ML");
     expect(reason).toContain("no documentary chain");
   });
+
+  it("names the institutional-vouching branch for verification_path=institutional_vouching + OFAC", () => {
+    const reason = forcedEscalateReason({
+      verification_path: "institutional_vouching",
+      geography_tier: "OFAC",
+      geography: "SD",
+    });
+    expect(reason).toContain("verification_path=institutional_vouching");
+    expect(reason).toContain("geography_tier=OFAC");
+    expect(reason).toContain("SD");
+    expect(reason).toContain("institutional vouching insufficient");
+    expect(reason).toContain("OFAC SDN check");
+    expect(reason).not.toContain("no documentary chain");
+  });
 });

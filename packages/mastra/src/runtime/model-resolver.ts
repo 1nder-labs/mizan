@@ -16,20 +16,49 @@ type MockLanguageModelFactory = (serializedMap: string) => LanguageModelV3;
 /** Factory for a deterministic embedding — registered by `@mizan/mastra/testing`. */
 type MockEmbeddingFactory = (text: string) => number[];
 
-let registeredMockLanguageModel: MockLanguageModelFactory | null = null;
-let registeredMockEmbedding: MockEmbeddingFactory | null = null;
+interface MockProviderRegistry {
+  readonly mockLanguageModel: MockLanguageModelFactory | null;
+  readonly mockEmbedding: MockEmbeddingFactory | null;
+}
+
+/**
+ * Module-private registry; written ONCE by `registerTestProviders` and
+ * read by `resolveLanguageModel` / `resolve*Embedding` below. Freezing
+ * after the first set call enforces the "test-only, configured at
+ * import time" contract: the resolver branches on env-gated mock
+ * variables, so the registry never needs to change at runtime, and a
+ * second call from a test file that forgot it would otherwise mask the
+ * symptom of a duplicate test bootstrap.
+ */
+let registry: MockProviderRegistry = { mockLanguageModel: null, mockEmbedding: null };
+let registryFrozen = false;
 
 /**
  * Registers test-only mock providers. Production never calls this — only
- * `@mizan/mastra/testing` does. Production builds therefore never import
- * the test scaffolding and never trigger the mock branches below.
+ * `@mizan/mastra/testing` does, exactly once as a side-effect of being
+ * imported. Throws on a second call so divergent registrations cannot
+ * silently overwrite each other.
  */
 export function registerTestProviders(opts: {
   readonly mockLanguageModel?: MockLanguageModelFactory;
   readonly mockEmbedding?: MockEmbeddingFactory;
 }): void {
-  if (opts.mockLanguageModel) registeredMockLanguageModel = opts.mockLanguageModel;
-  if (opts.mockEmbedding) registeredMockEmbedding = opts.mockEmbedding;
+  if (registryFrozen) {
+    throw new Error(
+      "registerTestProviders: test providers already registered for this isolate — import @mizan/mastra/testing exactly once per process",
+    );
+  }
+  registry = {
+    mockLanguageModel: opts.mockLanguageModel ?? null,
+    mockEmbedding: opts.mockEmbedding ?? null,
+  };
+  registryFrozen = true;
+}
+
+/** Test-only escape hatch. Used by the registry-isolation unit test to reset between cases. */
+export function __resetTestProvidersForTesting(): void {
+  registry = { mockLanguageModel: null, mockEmbedding: null };
+  registryFrozen = false;
 }
 
 export interface ResolveLanguageModelArgs {
@@ -45,9 +74,9 @@ export interface ResolvedLanguageModel {
 }
 
 export function resolveLanguageModel(args: ResolveLanguageModelArgs): ResolvedLanguageModel {
-  if (args.env.MOCK_LLM_RESPONSES && registeredMockLanguageModel) {
+  if (args.env.MOCK_LLM_RESPONSES && registry.mockLanguageModel) {
     return {
-      model: registeredMockLanguageModel(args.env.MOCK_LLM_RESPONSES),
+      model: registry.mockLanguageModel(args.env.MOCK_LLM_RESPONSES),
       config: args.override ?? { provider: "anthropic", model: "mock-llm" },
     };
   }
@@ -61,8 +90,8 @@ export async function resolveQueryEmbedding(
   value: string,
   opts?: { readonly abortSignal?: AbortSignal },
 ): Promise<number[]> {
-  if (shouldMockEmbeddings(env) && registeredMockEmbedding) {
-    return registeredMockEmbedding(value);
+  if (shouldMockEmbeddings(env) && registry.mockEmbedding) {
+    return registry.mockEmbedding(value);
   }
   return embedPolicyText({
     env,
@@ -76,8 +105,8 @@ export async function resolveBatchEmbeddings(
   values: readonly string[],
 ): Promise<number[][]> {
   if (values.length === 0) return [];
-  if (shouldMockEmbeddings(env) && registeredMockEmbedding) {
-    const fn = registeredMockEmbedding;
+  if (shouldMockEmbeddings(env) && registry.mockEmbedding) {
+    const fn = registry.mockEmbedding;
     return values.map((value) => fn(value));
   }
   return embedPolicyTexts({ env, values });

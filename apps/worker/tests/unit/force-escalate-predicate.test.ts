@@ -24,17 +24,18 @@ const TIERS: ReadonlyArray<GeographyTier> = ["SAFE", "AT_RISK", "OFAC_ADJACENT",
  *
  * The gate fires when both:
  *   - recommendation is not already at-or-above ESCALATE, AND
- *   - one of the two path/tier predicate branches matches:
- *     A. verification_path = "none"               + tier ∈ {AT_RISK, OFAC_ADJACENT, OFAC}
- *     B. verification_path = "community_vouching" + tier = OFAC
+ *   - one of the three path/tier predicate branches matches:
+ *     A. verification_path = "none"                   + tier ∈ {AT_RISK, OFAC_ADJACENT, OFAC}
+ *     B. verification_path = "community_vouching"    + tier = OFAC
+ *     C. verification_path = "institutional_vouching" + tier = OFAC
  *
- * Branch B was added in pass-5 fixes to close the length-only
- * community-vouching corroboration bypass on full-sanctions OFAC
- * geographies. `assertCommunityVouchingCorroborated` only enforces a
- * 20-char floor, so the LLM-classified path has no token-grounding —
- * acceptable for AT_RISK / OFAC_ADJACENT per PRD §6 Phase 4 (case-006
- * Yemen relief stays REQUEST_DOCS), but a full-sanctions OFAC geography
- * (SD, SY, IR, etc.) cannot rely on that alone.
+ * Branches B and C close the circular-corroboration bypass on
+ * full-sanctions OFAC geographies. Both vouching paths are signed off
+ * by application-side guards that the organizer can manipulate
+ * (`vouching_narrative` is organizer-controlled), so OFAC tiers
+ * require explicit human validation including OFAC SDN-list checks
+ * the AI cannot perform. AT_RISK / OFAC_ADJACENT vouching paths stay
+ * permissive — PRD §6 Phase 4 accepts both at those tiers.
  */
 const OVERRIDABLE_RECOMMENDATIONS: ReadonlySet<BriefPayload["recommendation"]> = new Set([
   "READY_FOR_REVIEW",
@@ -47,7 +48,7 @@ const NO_PATH_ESCALATING_TIERS: ReadonlySet<GeographyTier> = new Set([
   "OFAC",
 ]);
 
-const COMMUNITY_VOUCHING_ESCALATING_TIERS: ReadonlySet<GeographyTier> = new Set(["OFAC"]);
+const VOUCHING_ESCALATING_TIERS: ReadonlySet<GeographyTier> = new Set(["OFAC"]);
 
 interface TruthTableRow {
   readonly recommendation: BriefPayload["recommendation"];
@@ -65,8 +66,11 @@ function expectedFromSpec(
   if (verification_path === "none") {
     return NO_PATH_ESCALATING_TIERS.has(geography_tier);
   }
-  if (verification_path === "community_vouching") {
-    return COMMUNITY_VOUCHING_ESCALATING_TIERS.has(geography_tier);
+  if (
+    verification_path === "community_vouching" ||
+    verification_path === "institutional_vouching"
+  ) {
+    return VOUCHING_ESCALATING_TIERS.has(geography_tier);
   }
   return false;
 }
@@ -120,18 +124,46 @@ describe("forceEscalate spec rules", () => {
     }
   });
 
-  it("never fires when verification_path is documentary or institutional regardless of tier", () => {
-    for (const path of ["documentary", "institutional_vouching"] as const) {
-      for (const tier of TIERS) {
-        expect(
-          forceEscalate({
-            recommendation: "READY_FOR_REVIEW",
-            verification_path: path,
-            geography_tier: tier,
-          }),
-        ).toBe(false);
-      }
+  it("never fires when verification_path is documentary regardless of tier", () => {
+    for (const tier of TIERS) {
+      expect(
+        forceEscalate({
+          recommendation: "READY_FOR_REVIEW",
+          verification_path: "documentary",
+          geography_tier: tier,
+        }),
+      ).toBe(false);
     }
+  });
+
+  it("fires for institutional_vouching + OFAC (closes circular partner-name corroboration bypass)", () => {
+    expect(
+      forceEscalate({
+        recommendation: "READY_FOR_REVIEW",
+        verification_path: "institutional_vouching",
+        geography_tier: "OFAC",
+      }),
+    ).toBe(true);
+  });
+
+  it("does NOT fire for institutional_vouching + OFAC_ADJACENT", () => {
+    expect(
+      forceEscalate({
+        recommendation: "READY_FOR_REVIEW",
+        verification_path: "institutional_vouching",
+        geography_tier: "OFAC_ADJACENT",
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT fire for institutional_vouching + AT_RISK", () => {
+    expect(
+      forceEscalate({
+        recommendation: "READY_FOR_REVIEW",
+        verification_path: "institutional_vouching",
+        geography_tier: "AT_RISK",
+      }),
+    ).toBe(false);
   });
 
   it("fires for community_vouching + OFAC (closes length-only corroboration bypass on full-sanctions geos)", () => {

@@ -15,22 +15,33 @@ const FORCE_ESCALATE_NO_PATH_TIERS: ReadonlySet<GeographyTier> = new Set([
 
 /**
  * Geography tiers that trigger the forced-escalate override when the
- * verification path is `community_vouching`. The community path is
- * corroborated by length-only narrative (see
- * `assertCommunityVouchingCorroborated`), so the LLM-classified
- * accountability chain has no token-grounding floor. On full-sanctions
- * OFAC geographies (SD, SY, IR, KP, BY, RU, CU) the residual
- * classification risk is too high to route without explicit human
- * validation of the chain.
+ * verification path is `community_vouching` OR `institutional_vouching`.
+ *
+ * Both paths are corroborated by application-side guards that are
+ * structurally circular against an adversarial LLM:
+ *
+ *   - community_vouching: `assertCommunityVouchingCorroborated` only
+ *     enforces a 20-char vouching_narrative length floor; a generic
+ *     platitude passes.
+ *   - institutional_vouching: `assertPartnerOrgCorroborated` cross-
+ *     references the LLM-emitted `partner_org_name` against the same
+ *     organizer-controlled `vouching_narrative` — the attacker can
+ *     write the name they want extracted into the narrative and the
+ *     guard signs off. The needle floor (4 alphanumeric chars) admits
+ *     common humanitarian-prose words ("CARE", "ECHO", "SAVE").
+ *
+ * On full-sanctions OFAC geographies (SD, SY, IR, KP, BY, RU, CU) the
+ * residual classification risk on either path is too high to route
+ * without explicit human validation, including OFAC SDN-list cross-
+ * checks the AI cannot perform.
  *
  * Narrower than the no-path tier set: OFAC_ADJACENT and AT_RISK
- * community-vouching are intentionally NOT escalated. PRD §6 Phase 4
- * accepts community vouching as sufficient evidence in those tiers
- * (case-006 Yemen REQUEST_DOCS path depends on this). Broadening this
- * predicate would require a PRD edit — flag the scope explicitly so a
- * future reviewer sees the carve-out instead of widening it by reflex.
+ * community / institutional vouching are NOT escalated — PRD §6
+ * Phase 4 accepts both paths as sufficient evidence in those tiers
+ * (case-006 Yemen REQUEST_DOCS path depends on this). The carve-out
+ * is intentional; broadening it would require a PRD edit.
  */
-const FORCE_ESCALATE_COMMUNITY_VOUCHING_TIERS: ReadonlySet<GeographyTier> = new Set(["OFAC"]);
+const FORCE_ESCALATE_VOUCHING_TIERS: ReadonlySet<GeographyTier> = new Set(["OFAC"]);
 
 /** Recommendations that are already at-or-above ESCALATE; the gate is a no-op. */
 const NON_OVERRIDABLE_RECOMMENDATIONS: ReadonlySet<BriefPayload["recommendation"]> = new Set([
@@ -40,10 +51,11 @@ const NON_OVERRIDABLE_RECOMMENDATIONS: ReadonlySet<BriefPayload["recommendation"
 
 /**
  * Returns true when the forced-escalate gate should override
- * composeBrief output. Fires on two predicates:
+ * composeBrief output. Fires on three predicates:
  *
- *   1. verification_path = "none" AND tier ∈ {AT_RISK, OFAC_ADJACENT, OFAC}
- *   2. verification_path = "community_vouching" AND tier = OFAC
+ *   1. verification_path = "none"                  AND tier ∈ {AT_RISK, OFAC_ADJACENT, OFAC}
+ *   2. verification_path = "community_vouching"    AND tier = OFAC
+ *   3. verification_path = "institutional_vouching" AND tier = OFAC
  *
  * `forced_escalate_reason` carries the predicate that fired so the
  * reviewer brief explains *why* the gate triggered.
@@ -57,8 +69,11 @@ export function forceEscalate(input: {
   if (input.verification_path === "none") {
     return FORCE_ESCALATE_NO_PATH_TIERS.has(input.geography_tier);
   }
-  if (input.verification_path === "community_vouching") {
-    return FORCE_ESCALATE_COMMUNITY_VOUCHING_TIERS.has(input.geography_tier);
+  if (
+    input.verification_path === "community_vouching" ||
+    input.verification_path === "institutional_vouching"
+  ) {
+    return FORCE_ESCALATE_VOUCHING_TIERS.has(input.geography_tier);
   }
   return false;
 }
@@ -76,7 +91,13 @@ export function forcedEscalateReason(input: {
   if (input.verification_path === "community_vouching") {
     return (
       `verification_path=community_vouching + geography_tier=${input.geography_tier} ` +
-      `(case in ${input.geography}: community vouching insufficient for high-risk jurisdiction)`
+      `(case in ${input.geography}: community vouching insufficient for full-sanctions jurisdiction)`
+    );
+  }
+  if (input.verification_path === "institutional_vouching") {
+    return (
+      `verification_path=institutional_vouching + geography_tier=${input.geography_tier} ` +
+      `(case in ${input.geography}: institutional vouching insufficient for full-sanctions jurisdiction — requires manual OFAC SDN check)`
     );
   }
   return (

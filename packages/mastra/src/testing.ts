@@ -18,7 +18,7 @@
  *    surface) needs; the test layer goes through this subpath.
  */
 
-import { registerTestProviders } from "./runtime/model-resolver.ts";
+import { __resetTestProvidersForTesting, registerTestProviders } from "./runtime/model-resolver.ts";
 import { mockProvider } from "./test/mock-provider.ts";
 
 const MOCK_EMBEDDING_DIMENSION = 1536;
@@ -36,10 +36,22 @@ function deterministicEmbedding(text: string): number[] {
   return vector;
 }
 
-registerTestProviders({
-  mockLanguageModel: mockProvider,
-  mockEmbedding: deterministicEmbedding,
-});
+/**
+ * Re-registers the default mock LLM + embedding providers. Used by
+ * tests that explicitly reset the provider registry (e.g.
+ * `register-test-providers.test.ts`) to leave it in the
+ * default-mocks-installed state subsequent tests expect.
+ */
+export function installDefaultMockProviders(): void {
+  registerTestProviders({
+    mockLanguageModel: mockProvider,
+    mockEmbedding: deterministicEmbedding,
+  });
+}
+
+installDefaultMockProviders();
+
+export { __resetTestProvidersForTesting, registerTestProviders };
 
 export {
   mockProvider,

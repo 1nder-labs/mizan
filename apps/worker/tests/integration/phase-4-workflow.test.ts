@@ -50,14 +50,22 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     expectedRecommendation: "REQUEST_DOCS",
   },
   {
+    /*
+     * Sudan (SD) = OFAC. Institutional vouching alone is insufficient
+     * at full-sanctions geographies even with a real partner-org name —
+     * `assertPartnerOrgCorroborated` is structurally circular against
+     * an adversarial LLM, and OFAC SDN-list checks require human
+     * review. forcedEscalateGate overrides composeBrief's
+     * READY_FOR_REVIEW output to ESCALATE accordingly.
+     */
     id: "11111111-1111-4111-8111-111111111107",
     file: "case-007.json",
     geography: "SD",
     responses: case007Responses,
     expectedPath: VerificationPathSchema.parse("institutional_vouching"),
-    forcedEscalate: false,
+    forcedEscalate: true,
     expectsDraftedMessage: false,
-    expectedRecommendation: "READY_FOR_REVIEW",
+    expectedRecommendation: "ESCALATE",
   },
   {
     id: "11111111-1111-4111-8111-111111111108",
@@ -239,19 +247,19 @@ describe("phase 4 community-vouching workflow", () => {
     expect(brief.verification_path).toBe(entry.expectedPath);
     expect(brief.geography_tier).toBe(tierFor(entry.geography));
     /**
-     * Recommendation contract (PR test plan items 2/3/4): every
-     * community-vouching case has exactly one expected recommendation —
-     * REQUEST_DOCS for case-006 (draft path), READY_FOR_REVIEW for
-     * case-007 (institutional clean run), ESCALATE for case-008
-     * (forced gate fires).
+     * Recommendation contract: every community-vouching fixture pins
+     * exactly one expected recommendation — REQUEST_DOCS for case-006
+     * (community + OFAC_ADJACENT, draft path), ESCALATE for case-007
+     * (institutional + OFAC, forced gate), ESCALATE for case-008
+     * (none + OFAC_ADJACENT, forced gate).
      */
     expect(brief.recommendation).toBe(entry.expectedRecommendation);
 
     if (entry.forcedEscalate) {
       const reason = brief.forced_escalate_reason ?? "";
       expect(reason.length).toBeGreaterThan(0);
-      expect(reason).toContain("verification_path=none");
-      expect(reason).toContain("no documentary chain");
+      expect(reason).toContain(`verification_path=${entry.expectedPath}`);
+      expect(reason).toContain(entry.geography);
       expect(brief.drafted_organizer_message).toBeUndefined();
     } else {
       expect(brief.forced_escalate_reason).toBeUndefined();
