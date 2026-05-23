@@ -68,13 +68,13 @@
       "name": "@mizan/db",
       "version": "0.0.0",
       "dependencies": {
+        "@mizan/shared": "workspace:*",
         "drizzle-orm": "0.45.2",
         "drizzle-zod": "0.8.3",
         "zod": "4.4.3",
       },
       "devDependencies": {
         "@better-auth/cli": "1.4.22",
-        "@mizan/mastra": "workspace:*",
         "better-auth": "1.6.9",
         "drizzle-kit": "0.31.10",
         "typescript": "6.0.3",
@@ -120,6 +120,9 @@
     "packages/shared": {
       "name": "@mizan/shared",
       "version": "0.0.0",
+      "dependencies": {
+        "zod": "4.4.3",
+      },
       "devDependencies": {
         "typescript": "6.0.3",
       },

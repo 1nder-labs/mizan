@@ -39,14 +39,18 @@ export {
 export type { StoryCoherencePayload } from "./schemas/brief.ts";
 export {
   VouchingChainSchema,
+  assertCommunityVouchingCorroborated,
   assertPartnerOrgCorroborated,
   assertVouchingChain,
   type VouchingChain,
 } from "./schemas/vouching.ts";
 export { PhotoSignalPayloadSchema, type PhotoSignalPayload } from "./schemas/photo-signal.ts";
-export { deriveVerificationPath } from "./steps/computeVerificationPath.ts";
+export {
+  deriveVerificationPath,
+  DOCUMENTARY_MIN_CONFIDENCE,
+} from "./steps/computeVerificationPath.ts";
 export { forceEscalate } from "./steps/forcedEscalateGate/predicate.ts";
-export { assertGateInputs } from "./steps/forcedEscalateGate/index.ts";
+export { assertGateInputs, escalateBriefProjection } from "./steps/forcedEscalateGate/index.ts";
 export { mergeParallelSignals } from "./steps/mergeSignals.ts";
 export {
   buildDraftPrompt,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   VouchingChainSchema,
+  assertCommunityVouchingCorroborated,
   assertPartnerOrgCorroborated,
   assertVouchingChain,
 } from "@mizan/mastra";
@@ -175,5 +176,94 @@ describe("assertPartnerOrgCorroborated", () => {
         vouching_narrative: "Neighbors vouch for us.",
       }),
     ).toThrow(/not corroborated/);
+  });
+
+  it("rejects short partner names that cannot disambiguate", () => {
+    const chain = VouchingChainSchema.parse({
+      structure: "individual-via-partner-org",
+      partner_org_name: "Ai",
+      weakest_link_narrative: "via partner",
+    });
+    expect(() =>
+      assertPartnerOrgCorroborated(chain, {
+        story: "Ai works with our family.",
+        vouching_narrative: null,
+      }),
+    ).toThrow(/too short to corroborate/);
+  });
+
+  it("rejects a partner name that only appears inside an unrelated word (word-boundary check)", () => {
+    const chain = VouchingChainSchema.parse({
+      structure: "individual-via-partner-org",
+      partner_org_name: "Aid",
+      weakest_link_narrative: "via partner",
+    });
+    expect(() =>
+      assertPartnerOrgCorroborated(chain, {
+        story: "She was treated at the local AIDS clinic in Nairobi.",
+        vouching_narrative: null,
+      }),
+    ).toThrow(/too short to corroborate/);
+  });
+
+  it("accepts a multi-word partner name when both tokens appear contiguously", () => {
+    const chain = VouchingChainSchema.parse({
+      structure: "org-direct",
+      partner_org_name: "Sudan Aid Foundation",
+      weakest_link_narrative: "via partner",
+    });
+    expect(
+      assertPartnerOrgCorroborated(chain, {
+        story: "Our masjid rebuild is run by the Sudan Aid Foundation.",
+        vouching_narrative: null,
+      }),
+    ).toEqual(chain);
+  });
+});
+
+describe("assertCommunityVouchingCorroborated", () => {
+  const i2i = VouchingChainSchema.parse({
+    structure: "individual-to-individual",
+    weakest_link_narrative: "neighbour chain",
+  });
+
+  it("returns the chain unchanged when the source has a substantial vouching_narrative", () => {
+    expect(
+      assertCommunityVouchingCorroborated(i2i, {
+        vouching_narrative:
+          "Verified by three community elders who know the family personally for over a decade.",
+      }),
+    ).toEqual(i2i);
+  });
+
+  it("throws when vouching_narrative is null — Gaza-style misclassification guard", () => {
+    expect(() => assertCommunityVouchingCorroborated(i2i, { vouching_narrative: null })).toThrow(
+      /community-vouching path requires/,
+    );
+  });
+
+  it("throws when vouching_narrative is too short", () => {
+    expect(() => assertCommunityVouchingCorroborated(i2i, { vouching_narrative: "ok" })).toThrow(
+      /community-vouching path requires/,
+    );
+  });
+
+  it("passes structure=none through unchanged regardless of source", () => {
+    const none = VouchingChainSchema.parse({
+      structure: "none",
+      weakest_link_narrative: "no chain",
+    });
+    expect(assertCommunityVouchingCorroborated(none, { vouching_narrative: null })).toEqual(none);
+  });
+
+  it("passes partner structures through unchanged", () => {
+    const orgDirect = VouchingChainSchema.parse({
+      structure: "org-direct",
+      partner_org_name: "Direct Relief",
+      weakest_link_narrative: "x",
+    });
+    expect(assertCommunityVouchingCorroborated(orgDirect, { vouching_narrative: null })).toEqual(
+      orgDirect,
+    );
   });
 });

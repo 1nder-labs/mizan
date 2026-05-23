@@ -17,20 +17,9 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { users } from "./auth.schema.ts";
 
-import type {
-  BriefPayload,
-  CaseOverlay,
-  PhotoSignalPayload,
-  StoryCoherencePayload,
-  VouchingChain,
-} from "@mizan/mastra";
+import type { BriefPayload, CaseOverlay, SignalPayload } from "@mizan/shared";
 
-/**
- * Discriminant-aware union of signal payloads currently emitted by Phase 4
- * steps. Future signals (registry_lookup, sanctions_screen, ocr_mismatch)
- * extend this union when their steps ship.
- */
-export type SignalPayload = PhotoSignalPayload | StoryCoherencePayload | VouchingChain;
+export type { SignalPayload } from "@mizan/shared";
 
 export const cases = sqliteTable(
   "cases",

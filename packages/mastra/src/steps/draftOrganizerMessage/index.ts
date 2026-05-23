@@ -6,6 +6,7 @@ import {
   type BriefPayload,
 } from "../../schemas/brief.ts";
 import { runStructuredLlm } from "../shared/runStructuredLlm.ts";
+import { wrapUntrustedData } from "../shared/untrusted-data.ts";
 import { updatePersistedBrief } from "../shared/updateBrief.ts";
 import { buildDraftPrompt, decideDraftAction } from "./prompt.ts";
 
@@ -38,7 +39,7 @@ export const draftOrganizerMessage = createStep({
       modelKind: "compose",
       schema: DraftedOrganizerMessageSchema,
       system,
-      userPayload: JSON.stringify(userPayload),
+      userPayload: wrapUntrustedData(userPayload),
       abortSignal,
     });
     const updatedBrief: BriefPayload = { ...brief, drafted_organizer_message };

@@ -1,6 +1,4 @@
 import { briefs, cases, eq, makeDb } from "@mizan/db";
-import { generateObject } from "ai";
-import type { LanguageModelV3 } from "@ai-sdk/provider";
 import {
   BriefPayloadSchema,
   PolicyCitationSchema,
@@ -9,12 +7,15 @@ import {
 } from "../../schemas/brief.ts";
 import type { PartialBriefState } from "../../schemas/brief.ts";
 import type { CloudflareBindings } from "@mizan/worker/env";
-import type { ModelConfig } from "../../models/factory.ts";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
-import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
-import { makeTelemetry } from "../../runtime/telemetry.ts";
+import { runStructuredLlm } from "../shared/runStructuredLlm.ts";
 import { wrapUntrustedData } from "../shared/untrusted-data.ts";
-import { applyCitationFilter, buildClauseIdSchema, buildPromptWithClauses } from "./helpers.ts";
+import {
+  applyCitationFilter,
+  buildClauseIdSchema,
+  buildPromptWithClauses,
+  type ComposeBriefPromptBody,
+} from "./helpers.ts";
 
 interface ComposeContext {
   readonly env: CloudflareBindings;
@@ -68,61 +69,37 @@ export async function runComposeBriefGeneration(
     .map((match) => match.clauseId)
     .filter((id) => id.length > 0);
   const perCallSchema = buildPerCallBriefSchema(availableClauseIds);
-  const resolved = resolveLanguageModel({ env: composeContext.env, kind: "compose" });
-  const generateArgs = buildComposeArgs(
-    composeContext,
-    policyMatches,
-    perCallSchema,
-    resolved.model,
-    resolved.config,
-  );
-  const { object } = await generateObject(
-    composeContext.abortSignal
-      ? { ...generateArgs, abortSignal: composeContext.abortSignal }
-      : generateArgs,
-  );
-  const filtered = applyCitationFilter(object, new Set(availableClauseIds));
-  return perCallSchema.parse(filtered);
+  const allowedSet = new Set(availableClauseIds);
+  return runStructuredLlm({
+    env: composeContext.env,
+    ctx: composeContext.ctx,
+    stepName: "composeBrief",
+    schemaName: "composeBrief.compose",
+    modelKind: "compose",
+    schema: perCallSchema,
+    system: COMPOSE_SYSTEM,
+    userPayload: wrapUntrustedData(buildPromptBody(composeContext, policyMatches)),
+    abortSignal: composeContext.abortSignal,
+    postProcess: (parsed) => applyCitationFilter(parsed, allowedSet),
+  });
 }
 
-function buildComposeArgs(
+function buildPromptBody(
   composeContext: ComposeContext,
   policyMatches: readonly PolicyCitation[],
-  schema: ReturnType<typeof buildPerCallBriefSchema>,
-  model: LanguageModelV3,
-  config: ModelConfig,
-) {
-  const basePayload = {
-    caseId: composeContext.inputData.caseId,
-    category: composeContext.ctx.category,
-    geography: composeContext.ctx.geography,
-    extractions: composeContext.inputData.extractions ?? {},
-  };
-  return {
-    model,
-    schema,
-    schemaName: "composeBrief.compose",
-    system: COMPOSE_SYSTEM,
-    messages: [
-      {
-        role: "user" as const,
-        content: [
-          {
-            type: "text" as const,
-            text: wrapUntrustedData(buildPromptWithClauses(basePayload, policyMatches)),
-          },
-        ],
-      },
-    ],
-    maxRetries: 2,
-    experimental_telemetry: makeTelemetry({
-      stepName: "composeBrief",
-      callPurpose: "compose",
-      runtimeContext: composeContext.ctx,
-      provider: config.provider,
-      model: config.model,
-    }),
-  };
+): ComposeBriefPromptBody {
+  return buildPromptWithClauses(
+    {
+      caseId: composeContext.inputData.caseId,
+      category: composeContext.ctx.category,
+      geography: composeContext.ctx.geography,
+      verification_path: composeContext.inputData.classify?.verification_path ?? null,
+      geography_tier: composeContext.inputData.classify?.geography_tier ?? null,
+      extractions: composeContext.inputData.extractions ?? {},
+      signals: composeContext.inputData.signals ?? {},
+    },
+    policyMatches,
+  );
 }
 
 /** Persists the composed brief and advances case status. */

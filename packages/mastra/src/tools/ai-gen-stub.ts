@@ -1,16 +1,15 @@
-import { z } from "zod";
+import {
+  AiGenProbabilitySchema,
+  AiGenResultSchema,
+  type AiGenProbability,
+  type AiGenResult,
+} from "@mizan/shared";
 import { deterministicUnitFloat } from "./deterministic-hash.ts";
 
-export const AiGenProbabilitySchema = z.enum(["low", "medium", "high", "very_high"]);
+export { AiGenProbabilitySchema, AiGenResultSchema };
+export type { AiGenResult };
 
-export const AiGenResultSchema = z.object({
-  probability: AiGenProbabilitySchema,
-  model: z.literal("stub-v1"),
-});
-
-export type AiGenResult = z.infer<typeof AiGenResultSchema>;
-
-function bucketProbability(unit: number): z.infer<typeof AiGenProbabilitySchema> {
+function bucketProbability(unit: number): AiGenProbability {
   if (unit < 0.25) return "low";
   if (unit < 0.5) return "medium";
   if (unit < 0.75) return "high";

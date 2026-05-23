@@ -72,7 +72,14 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
           model: resolved.config.model,
         }),
       });
-      return def.mergeInto(inputData, object);
+      /*
+       * Symmetry with `runStructuredLlm`: re-validate the model output
+       * against the same Zod schema before merging into workflow state.
+       * `generateObject` already validates internally, but the explicit
+       * post-parse keeps every LLM call site in this package on the same
+       * "schema is the source of truth at the workflow boundary" contract.
+       */
+      return def.mergeInto(inputData, def.schema.parse(object));
     },
   });
 }

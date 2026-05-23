@@ -32,11 +32,20 @@ describe("composeBrief helpers", () => {
   });
 
   it("buildPromptWithClauses embeds available clause ids", () => {
-    const payload = buildPromptWithClauses({ caseId: "case-1" }, [
-      { clauseId: "zakat.5.1", source: "zakat", excerpt: "Medical", relevance: 0.9 },
-    ]);
-    expect(payload["available_clause_ids"]).toEqual(["zakat.5.1"]);
-    expect(String(payload["policy_clause_list"])).toContain("zakat.5.1");
+    const payload = buildPromptWithClauses(
+      {
+        caseId: "case-1",
+        category: "medical",
+        geography: "US",
+        verification_path: "documentary",
+        geography_tier: "SAFE",
+        extractions: {},
+        signals: {},
+      },
+      [{ clauseId: "zakat.5.1", source: "zakat", excerpt: "Medical", relevance: 0.9 }],
+    );
+    expect(payload.available_clause_ids).toEqual(["zakat.5.1"]);
+    expect(payload.policy_clause_list).toContain("zakat.5.1");
   });
 });
 

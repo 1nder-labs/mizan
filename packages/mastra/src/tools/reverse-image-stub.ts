@@ -1,17 +1,12 @@
-import { z } from "zod";
+import {
+  ReverseImageHitSchema,
+  ReverseImageResultSchema,
+  type ReverseImageResult,
+} from "@mizan/shared";
 import { deterministicUnitFloat } from "./deterministic-hash.ts";
 
-export const ReverseImageHitSchema = z.object({
-  url: z.string(),
-  confidence: z.number(),
-});
-
-export const ReverseImageResultSchema = z.object({
-  hits: ReverseImageHitSchema.array(),
-  checked_at: z.string(),
-});
-
-export type ReverseImageResult = z.infer<typeof ReverseImageResultSchema>;
+export { ReverseImageHitSchema, ReverseImageResultSchema };
+export type { ReverseImageResult };
 
 /**
  * Deterministic reverse-image stub keyed by `r2_key` + `salt`.

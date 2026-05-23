@@ -4,6 +4,7 @@ import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
 import { PartialBriefStateSchema } from "../../schemas/brief.ts";
 import {
   VouchingChainSchema,
+  assertCommunityVouchingCorroborated,
   assertPartnerOrgCorroborated,
   assertVouchingChain,
 } from "../../schemas/vouching.ts";
@@ -38,10 +39,14 @@ export const classifyVouchingChain = createStep({
       userPayload: buildVouchingPayload(caseRow),
       abortSignal,
     });
-    const payload = assertPartnerOrgCorroborated(assertVouchingChain(raw), {
+    const corroborationSource = {
       story: caseRow.story,
       vouching_narrative: caseRow.vouching_narrative ?? null,
-    });
+    };
+    const payload = assertCommunityVouchingCorroborated(
+      assertPartnerOrgCorroborated(assertVouchingChain(raw), corroborationSource),
+      corroborationSource,
+    );
     await upsertSignal({
       env,
       caseId: inputData.caseId,

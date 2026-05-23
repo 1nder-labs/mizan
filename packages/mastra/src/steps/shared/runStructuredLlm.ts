@@ -14,6 +14,10 @@ const MAX_RETRIES = 2;
  * object output — so the AI SDK's `generateObject` overload resolves its
  * RESULT type to `TOutput` directly (instead of leaving it on the
  * "enum vs object vs array" branch where it collapses to `unknown`).
+ *
+ * `postProcess` runs after the post-parse validation and before the
+ * return — it lets callers apply schema-aware projections (e.g.
+ * `applyCitationFilter` in composeBrief) without forking the helper.
  */
 export interface StructuredLlmInvocation<TOutput> {
   readonly env: CloudflareBindings;
@@ -25,6 +29,7 @@ export interface StructuredLlmInvocation<TOutput> {
   readonly system: string;
   readonly userPayload: string;
   readonly abortSignal: AbortSignal | undefined;
+  readonly postProcess?: (parsed: TOutput) => TOutput;
 }
 
 /**
@@ -46,7 +51,8 @@ export async function runStructuredLlm<TOutput>(
       ? { ...generateArgs, abortSignal: invocation.abortSignal }
       : generateArgs,
   );
-  return invocation.schema.parse(object);
+  const parsed = invocation.schema.parse(object);
+  return invocation.postProcess ? invocation.postProcess(parsed) : parsed;
 }
 
 function buildGenerateArgs<TOutput>(

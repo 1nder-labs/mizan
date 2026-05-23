@@ -14,6 +14,25 @@ interface GateInputs {
 }
 
 /**
+ * Pure projection that escalates a brief. Strips
+ * `drafted_organizer_message` because that field is REQUEST_DOCS-specific
+ * by contract — leaving it on an ESCALATE brief would misrepresent the
+ * recommendation to the reviewer. Exported for unit-level coverage so the
+ * strip behaviour is pinned without needing to spin up a workflow.
+ */
+export function escalateBriefProjection(input: {
+  readonly brief: BriefPayload;
+  readonly forced_escalate_reason: string;
+}): BriefPayload {
+  const { drafted_organizer_message: _, ...stripped } = input.brief;
+  return {
+    ...stripped,
+    recommendation: "ESCALATE",
+    forced_escalate_reason: input.forced_escalate_reason,
+  };
+}
+
+/**
  * Asserts the workflow state required by the forced-escalate gate.
  *
  * Fails loud when state is incomplete: a missing `brief` or `classify`
@@ -55,11 +74,7 @@ export const forcedEscalateGate = createStep({
     const forced_escalate_reason =
       `verification_path=${classify.verification_path} + geography_tier=${classify.geography_tier} ` +
       `(case in ${ctx.geography}: no documentary chain, high-risk jurisdiction)`;
-    const updatedBrief: BriefPayload = {
-      ...brief,
-      recommendation: "ESCALATE",
-      forced_escalate_reason,
-    };
+    const updatedBrief = escalateBriefProjection({ brief, forced_escalate_reason });
     await updatePersistedBrief({
       env,
       caseId: inputData.caseId,

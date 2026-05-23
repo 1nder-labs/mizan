@@ -206,7 +206,10 @@ describe("phase 4 community-vouching workflow", () => {
 
       if (entry.forcedEscalate) {
         expect(brief.recommendation).toBe("ESCALATE");
-        expect(brief.forced_escalate_reason?.length ?? 0).toBeGreaterThan(0);
+        const reason = brief.forced_escalate_reason ?? "";
+        expect(reason.length).toBeGreaterThan(0);
+        expect(reason).toContain("verification_path=none");
+        expect(reason).toContain("no documentary chain");
         expect(brief.drafted_organizer_message).toBeUndefined();
       } else {
         expect(brief.recommendation).not.toBe("ESCALATE");
@@ -263,14 +266,16 @@ describe("phase 4 community-vouching workflow", () => {
 });
 
 /**
- * Per Hono SSE conventions the worker emits at least one event per workflow
- * step plus a terminal `workflow-finish` event. Asserting on event names
- * catches truncated streams that an `sse.length > 0` check would miss.
+ * The brief route emits the AI SDK 6.x UI-message stream protocol via
+ * `toAISdkStream` (see `apps/worker/src/routes/cases.ts`). The stream
+ * terminates with a `finish` event whose JSON payload is appended last;
+ * asserting on the terminal event catches truncated streams that an
+ * `sse.length > 0` check would miss.
  */
 function assertSseStream(sse: string): void {
   expect(sse.length).toBeGreaterThan(0);
-  expect(sse).toContain("event:");
   expect(sse).toMatch(/data:\s*\{/);
+  expect(sse).toMatch(/"type"\s*:\s*"finish"/);
 }
 
 function geographyTierFor(

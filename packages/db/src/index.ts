@@ -39,5 +39,5 @@ export type Db = ReturnType<typeof makeDb>;
 export * from "./schema.ts";
 export * from "./auth.schema.ts";
 export * from "./zod.ts";
-export type { BriefPayload } from "@mizan/mastra";
+export type { BriefPayload } from "@mizan/shared";
 export { and, eq, inArray } from "drizzle-orm";

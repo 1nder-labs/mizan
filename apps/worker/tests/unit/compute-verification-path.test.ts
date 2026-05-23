@@ -175,4 +175,50 @@ describe("deriveVerificationPath", () => {
     );
     expect(path).toBe("community_vouching");
   });
+
+  it("returns none when extractor confidence is high but critical fields are blank (real-evidence guard)", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: { ...HIGH_CREATOR, full_name: "" },
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: HIGH_CATEGORY,
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
+
+  it("returns none when bank statement is high-confidence but currency is empty", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: { ...HIGH_BANK, currency: "" },
+          extractCategoryDocs: HIGH_CATEGORY,
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
+
+  it("returns none when org-registration category doc is high-confidence but org_name is blank", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: {
+            doc_kind: "org_registration",
+            org_name: "",
+            registration_number: "123",
+            jurisdiction: "US",
+            tax_exempt_status: null,
+            confidence: 80,
+          },
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
 });

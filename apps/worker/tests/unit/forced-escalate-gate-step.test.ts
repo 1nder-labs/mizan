@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { assertGateInputs } from "@mizan/mastra";
+import { assertGateInputs, escalateBriefProjection } from "@mizan/mastra";
 import type { BriefPayload, PartialBriefState } from "@mizan/mastra";
 
 const SAMPLE_BRIEF: BriefPayload = {
@@ -47,5 +47,37 @@ describe("assertGateInputs (forcedEscalateGate state guards)", () => {
     expect(() =>
       assertGateInputs({ caseId: "case-xyz", runId: "run-abc" } satisfies PartialBriefState),
     ).toThrow(/case-xyz/);
+  });
+});
+
+describe("escalateBriefProjection", () => {
+  it("strips drafted_organizer_message and sets ESCALATE + reason", () => {
+    const briefIn: BriefPayload = {
+      ...SAMPLE_BRIEF,
+      recommendation: "REQUEST_DOCS",
+      drafted_organizer_message: {
+        message: "Please send your government ID.",
+        missing_items: ["creator_id"],
+      },
+    };
+    const out = escalateBriefProjection({
+      brief: briefIn,
+      forced_escalate_reason: "verification_path=none + geography_tier=OFAC_ADJACENT",
+    });
+    expect(out.recommendation).toBe("ESCALATE");
+    expect(out.drafted_organizer_message).toBeUndefined();
+    expect(out.forced_escalate_reason).toContain("verification_path=none");
+  });
+
+  it("preserves other fields verbatim", () => {
+    const out = escalateBriefProjection({
+      brief: SAMPLE_BRIEF,
+      forced_escalate_reason: "reason",
+    });
+    expect(out.policy_citations).toEqual(SAMPLE_BRIEF.policy_citations);
+    expect(out.missing_docs).toEqual(SAMPLE_BRIEF.missing_docs);
+    expect(out.extracted_claims).toBe(SAMPLE_BRIEF.extracted_claims);
+    expect(out.verification_path).toBe(SAMPLE_BRIEF.verification_path);
+    expect(out.geography_tier).toBe(SAMPLE_BRIEF.geography_tier);
   });
 });

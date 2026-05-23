@@ -1,5 +1,10 @@
 import { z } from "zod";
-import type { PolicyCitation } from "../../schemas/brief.ts";
+import type {
+  GeographyTier,
+  PartialBriefState,
+  PolicyCitation,
+  VerificationPath,
+} from "../../schemas/brief.ts";
 
 export function buildClauseIdSchema(availableClauseIds: readonly string[]): z.ZodType<string> {
   const [first, second, ...rest] = availableClauseIds;
@@ -8,11 +13,30 @@ export function buildClauseIdSchema(availableClauseIds: readonly string[]): z.Zo
   return z.union([z.literal(first), z.literal(second), ...rest.map((id) => z.literal(id))]);
 }
 
+/** Structured body the composeBrief LLM sees before the clause-list block is appended. */
+export interface ComposeBriefBasePayload {
+  caseId: string;
+  category: string;
+  geography: string;
+  verification_path: VerificationPath | null;
+  geography_tier: GeographyTier | null;
+  extractions: NonNullable<PartialBriefState["extractions"]> | Record<string, never>;
+  signals: NonNullable<PartialBriefState["signals"]> | Record<string, never>;
+}
+
+/** Final prompt body sent to the composeBrief LLM, including the clause-grounding block. */
+export interface ComposeBriefPromptBody extends ComposeBriefBasePayload {
+  policy_instruction: string;
+  policy_matches: readonly PolicyCitation[];
+  available_clause_ids: readonly string[];
+  policy_clause_list: string;
+}
+
 /** Appends the cite-from-list instruction block to the composeBrief user payload. */
 export function buildPromptWithClauses(
-  basePayload: Record<string, unknown>,
+  basePayload: ComposeBriefBasePayload,
   policyMatches: readonly PolicyCitation[],
-): Record<string, unknown> {
+): ComposeBriefPromptBody {
   const clauseBlock = policyMatches
     .map((match) => `- ${match.clauseId} (${match.source}): ${match.excerpt}`)
     .join("\n");
