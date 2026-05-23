@@ -203,6 +203,66 @@ describe("deriveVerificationPath", () => {
     expect(path).toBe("none");
   });
 
+  it("returns none when school category doc is high-confidence but student_name is blank", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: {
+            doc_kind: "school",
+            student_name: "",
+            institution_name: "Some Madrasa",
+            tuition_summary: "Term 1 tuition",
+            amount_claimed: "500 USD",
+            confidence: 82,
+          },
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
+
+  it("returns none when school category doc is high-confidence but institution_name is blank", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: {
+            doc_kind: "school",
+            student_name: "Aisha Khan",
+            institution_name: "",
+            tuition_summary: "Term 1 tuition",
+            amount_claimed: "500 USD",
+            confidence: 82,
+          },
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
+
+  it("returns documentary for school doc with all critical fields populated above confidence floor", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: {
+            doc_kind: "school",
+            student_name: "Aisha Khan",
+            institution_name: "Some Madrasa",
+            tuition_summary: "Term 1 tuition",
+            amount_claimed: "500 USD",
+            confidence: 82,
+          },
+        },
+      }),
+    );
+    expect(path).toBe("documentary");
+  });
+
   it("returns none when org-registration category doc is high-confidence but org_name is blank", () => {
     const path = deriveVerificationPath(
       baseState({

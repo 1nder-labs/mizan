@@ -119,6 +119,13 @@ function buildPromptBody(
  * be overwritten to ESCALATE moments later. Splitting persistence from
  * status transition keeps the case in RUNNING until every post-LLM
  * mutation has committed.
+ *
+ * Uses `onConflictDoUpdate` (not `onConflictDoNothing`) so a
+ * compose-only retry — queue redelivery between composeBrief and the
+ * post-compose steps — overwrites the prior run's brief row instead of
+ * leaving stale Run-1 data behind a freshly successful Run-2. This
+ * mirrors `upsertSignal`'s contract: every Phase-4 row keyed on
+ * (case_id, run_id) is unconditionally last-write-wins.
  */
 export async function persistBrief(
   env: CloudflareBindings,
@@ -136,7 +143,14 @@ export async function persistBrief(
       confidence: brief.confidence,
       payload_json: brief,
     })
-    .onConflictDoNothing({ target: [briefs.case_id, briefs.run_id] });
+    .onConflictDoUpdate({
+      target: [briefs.case_id, briefs.run_id],
+      set: {
+        recommendation: brief.recommendation,
+        confidence: brief.confidence,
+        payload_json: brief,
+      },
+    });
 }
 
 export { type ComposeContext };

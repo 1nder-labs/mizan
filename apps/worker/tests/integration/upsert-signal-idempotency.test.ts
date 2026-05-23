@@ -82,18 +82,19 @@ async function loadSignalRow(
   return row;
 }
 
+/**
+ * `upsertSignal` writes to D1 via Drizzle. It is exported only from an
+ * internal step path; instead of binding to the package internals the
+ * first describe block exercises the unique-index contract directly
+ * with two raw inserts that mirror what `upsertSignal`'s
+ * `onConflictDoUpdate` produces. The behaviour validated there is the
+ * SQL-level idempotency, not the wrapper's TypeScript glue (the second
+ * describe block covers the wrapper end-to-end).
+ */
 describe("upsertSignal idempotency", () => {
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-    /*
-     * `upsertSignal` writes to D1 via Drizzle. It is exported only from
-     * an internal step path; instead of binding to the package internals
-     * we exercise the unique-index contract directly with two raw inserts
-     * that mirror what `upsertSignal`'s `onConflictDoUpdate` produces.
-     * The behaviour we are validating is the SQL-level idempotency, not
-     * the wrapper's TypeScript glue.
-     */
-    // ensure the case row exists so the signals FK passes
+    /** Ensures the case row exists so the signals FK passes. */
     await env.DB.prepare(
       `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
        VALUES (?, 'DRAFT', 'medical', 'US', NULL, NULL, 'idempotency-test', ?, ?)
@@ -101,7 +102,7 @@ describe("upsertSignal idempotency", () => {
     )
       .bind(TEST_CASE_ID, Date.now(), Date.now())
       .run();
-    // baseline: ensure no rows exist for our (case_id, run_id, signal_type)
+    /** Baseline: no rows for our (case_id, run_id, signal_type). */
     await env.DB.prepare("DELETE FROM signals WHERE case_id = ? AND run_id = ?")
       .bind(TEST_CASE_ID, TEST_RUN_ID)
       .run();
@@ -224,10 +225,10 @@ async function runUpsert(
     .run();
 }
 
-/*
- * Touch the unused `exports` import to keep the integration-test setup
- * symmetric with the other integration files (some of which require
- * `exports.default.fetch`). Keeps the import surface deterministic for
- * Miniflare's auto-detection.
+/**
+ * Touches the unused `exports` import to keep the integration-test
+ * setup symmetric with the other integration files (some of which
+ * require `exports.default.fetch`). Keeps the import surface
+ * deterministic for Miniflare's auto-detection.
  */
 void exports;

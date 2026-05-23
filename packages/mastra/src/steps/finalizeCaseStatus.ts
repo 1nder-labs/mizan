@@ -1,7 +1,34 @@
 import { createStep } from "@mastra/core/workflows";
 import { cases, eq, makeDb } from "@mizan/db";
 import { getEnv } from "../runtime/context-accessors.ts";
-import { PartialBriefStateSchema } from "../schemas/partial-brief-state.ts";
+import {
+  PartialBriefStateSchema,
+  type PartialBriefState,
+} from "../schemas/partial-brief-state.ts";
+
+/**
+ * Asserts that the workflow state contains a brief by the time
+ * `finalizeCaseStatus` runs. Lifted to a pure helper so unit tests can
+ * pin the throw without spinning up a Mastra runtime.
+ */
+export function assertFinalizeCaseStatusInputs(state: PartialBriefState): void {
+  if (!state.brief) {
+    throw new Error(
+      `finalizeCaseStatus: brief missing for case ${state.caseId} run ${state.runId}`,
+    );
+  }
+}
+
+/**
+ * Builds the "case row not found" error message thrown when the status
+ * UPDATE matched zero rows. Pure helper — exported so tests can pin
+ * the exact triage tuple shape without invoking D1.
+ */
+export function buildCaseNotFoundError(caseId: string, runId: string): Error {
+  return new Error(
+    `finalizeCaseStatus: case ${caseId} not found (run ${runId}) — status flip did not occur`,
+  );
+}
 
 /**
  * Terminal-step that flips `cases.status` to `READY_FOR_REVIEW`.
@@ -29,11 +56,7 @@ export const finalizeCaseStatus = createStep({
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
   execute: async ({ inputData, requestContext }) => {
-    if (!inputData.brief) {
-      throw new Error(
-        `finalizeCaseStatus: brief missing for case ${inputData.caseId} run ${inputData.runId}`,
-      );
-    }
+    assertFinalizeCaseStatusInputs(inputData);
     const env = getEnv(requestContext);
     const db = makeDb(env.DB);
     const updated = await db
@@ -42,9 +65,7 @@ export const finalizeCaseStatus = createStep({
       .where(eq(cases.id, inputData.caseId))
       .returning({ id: cases.id });
     if (updated.length === 0) {
-      throw new Error(
-        `finalizeCaseStatus: case ${inputData.caseId} not found (run ${inputData.runId}) — status flip did not occur`,
-      );
+      throw buildCaseNotFoundError(inputData.caseId, inputData.runId);
     }
     return inputData;
   },

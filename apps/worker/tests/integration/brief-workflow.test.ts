@@ -158,10 +158,10 @@ describe("brief workflow integration", () => {
       expect(sse.length).toBeGreaterThan(0);
 
       const briefRow = await env.DB.prepare(
-        "SELECT id, payload_json FROM briefs WHERE case_id = ?",
+        "SELECT id, run_id, payload_json FROM briefs WHERE case_id = ?",
       )
         .bind(caseId)
-        .first<{ id: string; payload_json: string }>();
+        .first<{ id: string; run_id: string; payload_json: string }>();
       expect(briefRow).toBeTruthy();
       /*
        * Documentary-seed contract (PR test plan item 1): every brief
@@ -174,6 +174,24 @@ describe("brief workflow integration", () => {
       const brief = BriefPayloadSchema.parse(JSON.parse(briefRow?.payload_json ?? "{}"));
       expect(brief.recommendation).toBe("READY_FOR_REVIEW");
       expect(brief.verification_path).toBe("documentary");
+
+      /*
+       * Phase-4 signal contract: every workflow run emits exactly three
+       * signal rows — `photo_dup`, `story_coherence`, `vouching_chain`
+       * — scoped to the brief's `run_id`. Documentary cases ride the
+       * same parallel signal block as community-vouching cases, so
+       * regressing the upsert wiring in photoSignal or storyCoherence
+       * would manifest here as a row-count drift. Catches a class of
+       * bug Review 5 flagged: docs E2E previously skipped Phase-4
+       * checks and broken signal wiring would have shipped silently.
+       */
+      const signalRows = await env.DB.prepare(
+        "SELECT signal_type FROM signals WHERE case_id = ? AND run_id = ?",
+      )
+        .bind(caseId, briefRow?.run_id)
+        .all<{ signal_type: string }>();
+      const types = signalRows.results.map((row) => row.signal_type).sort();
+      expect(types).toEqual(["photo_dup", "story_coherence", "vouching_chain"]);
 
       const caseRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
         .bind(caseId)

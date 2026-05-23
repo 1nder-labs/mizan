@@ -58,6 +58,17 @@ export function mergeParallelSignals(input: ParallelSignalsInput): PartialBriefS
   };
 }
 
+/**
+ * Asserts that a parallel branch's non-signals state matches the canonical
+ * `photoSignal` branch.
+ *
+ * Compares `caseId`, `runId`, `classify`, `extractions`, and
+ * `policy_matches` — every slot a branch is supposed to inherit
+ * unchanged from upstream. Whole-object equality on `classify` (via
+ * `shallowJsonEqual`) is intentional: a field-list comparator would
+ * silently drop divergences on any future classify field, exactly the
+ * bug class Review 5 caught for the prior 3-field shape.
+ */
 function assertBranchAgreement(
   base: PartialBriefState,
   other: PartialBriefState,
@@ -68,35 +79,15 @@ function assertBranchAgreement(
       `mergeSignals: ${branchName} branch diverged on caseId/runId — expected (${base.caseId}/${base.runId})`,
     );
   }
-  if (!classifyEqual(base.classify, other.classify)) {
+  if (!shallowJsonEqual(base.classify, other.classify)) {
     throw new Error(`mergeSignals: ${branchName} branch diverged on classify`);
   }
-  /*
-   * Compare the non-signals payload that every branch is supposed to
-   * inherit unchanged from upstream. Any future parallel step that
-   * mutates `extractions` or `policy_matches` from inside its branch
-   * would otherwise lose information here — the merge picks
-   * `photoSignal` as the canonical base.
-   */
   if (!shallowJsonEqual(base.extractions, other.extractions)) {
     throw new Error(`mergeSignals: ${branchName} branch diverged on extractions`);
   }
   if (!shallowJsonEqual(base.policy_matches, other.policy_matches)) {
     throw new Error(`mergeSignals: ${branchName} branch diverged on policy_matches`);
   }
-}
-
-function classifyEqual(
-  a: PartialBriefState["classify"],
-  b: PartialBriefState["classify"],
-): boolean {
-  if (a === undefined && b === undefined) return true;
-  if (a === undefined || b === undefined) return false;
-  return (
-    a.category === b.category &&
-    a.geography_tier === b.geography_tier &&
-    a.verification_path === b.verification_path
-  );
 }
 
 /** Structural equality via JSON serialisation — adequate for workflow-state slots. */

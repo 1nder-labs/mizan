@@ -1,5 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import { getEmbeddingModel, resolveBatchEmbeddings, resolveQueryEmbedding } from "@mizan/mastra";
+/*
+ * `@mizan/mastra/testing` registers the deterministic mock embedding
+ * provider as a side-effect. Without this import the resolver falls
+ * through to the real `embedPolicyText` path and this file passes only
+ * when another test (e.g. `model-resolver.test.ts`) has been loaded
+ * first — a load-order pollution bug Review 5 flagged. Importing the
+ * registration here keeps the file isolation-safe.
+ */
+import "@mizan/mastra/testing";
 import { makeStubBindings } from "../helpers/test-bindings.ts";
 
 const EMBEDDING_DIM = 1536;

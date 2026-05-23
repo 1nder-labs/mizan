@@ -70,6 +70,10 @@ export { assertGateInputs, escalateBriefProjection } from "./steps/forcedEscalat
 export { mergeParallelSignals } from "./steps/mergeSignals.ts";
 export { assertComputeVerificationPathInputs } from "./steps/computeVerificationPath.ts";
 export {
+  assertFinalizeCaseStatusInputs,
+  buildCaseNotFoundError,
+} from "./steps/finalizeCaseStatus.ts";
+export {
   buildDraftPrompt,
   decideDraftAction,
   type DraftDecision,
