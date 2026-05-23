@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
+import { BriefPayloadSchema } from "@mizan/mastra";
 import {
   responsesForCaseIndex,
   SEED_CASE_IDS,
@@ -156,10 +157,23 @@ describe("brief workflow integration", () => {
       const sse = await drainSse(res);
       expect(sse.length).toBeGreaterThan(0);
 
-      const briefRow = await env.DB.prepare("SELECT id FROM briefs WHERE case_id = ?")
+      const briefRow = await env.DB.prepare(
+        "SELECT id, payload_json FROM briefs WHERE case_id = ?",
+      )
         .bind(caseId)
-        .first();
+        .first<{ id: string; payload_json: string }>();
       expect(briefRow).toBeTruthy();
+      /*
+       * Documentary-seed contract (PR test plan item 1): every brief
+       * persists with `recommendation === "READY_FOR_REVIEW"` and
+       * `verification_path === "documentary"`. Asserting on the parsed
+       * payload (not just the row existing) catches a class of
+       * regressions where the brief lands with a different
+       * recommendation but the workflow still finishes successfully.
+       */
+      const brief = BriefPayloadSchema.parse(JSON.parse(briefRow?.payload_json ?? "{}"));
+      expect(brief.recommendation).toBe("READY_FOR_REVIEW");
+      expect(brief.verification_path).toBe("documentary");
 
       const caseRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
         .bind(caseId)

@@ -35,6 +35,7 @@ interface CommunityCaseFixture {
   readonly expectedPath: VerificationPath;
   readonly forcedEscalate: boolean;
   readonly expectsDraftedMessage: boolean;
+  readonly expectedRecommendation: "READY_FOR_REVIEW" | "REQUEST_DOCS" | "ESCALATE";
 }
 
 const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
@@ -46,6 +47,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     expectedPath: VerificationPathSchema.parse("community_vouching"),
     forcedEscalate: false,
     expectsDraftedMessage: true,
+    expectedRecommendation: "REQUEST_DOCS",
   },
   {
     id: "11111111-1111-4111-8111-111111111107",
@@ -55,6 +57,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     expectedPath: VerificationPathSchema.parse("institutional_vouching"),
     forcedEscalate: false,
     expectsDraftedMessage: false,
+    expectedRecommendation: "READY_FOR_REVIEW",
   },
   {
     id: "11111111-1111-4111-8111-111111111108",
@@ -64,6 +67,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     expectedPath: VerificationPathSchema.parse("none"),
     forcedEscalate: true,
     expectsDraftedMessage: false,
+    expectedRecommendation: "ESCALATE",
   },
 ];
 
@@ -208,16 +212,24 @@ describe("phase 4 community-vouching workflow", () => {
 
       expect(brief.verification_path).toBe(entry.expectedPath);
       expect(brief.geography_tier).toBe(tierFor(entry.geography));
+      /*
+       * Recommendation contract (PR test plan items 2/3/4): every
+       * community-vouching case has exactly one expected recommendation
+       * — REQUEST_DOCS for case-006 (draft path), READY_FOR_REVIEW for
+       * case-007 (institutional clean run), ESCALATE for case-008
+       * (forced gate fires). Asserting on `expectedRecommendation`
+       * directly catches the case where the gate fires for the wrong
+       * case or a clean run lands with an unexpected recommendation.
+       */
+      expect(brief.recommendation).toBe(entry.expectedRecommendation);
 
       if (entry.forcedEscalate) {
-        expect(brief.recommendation).toBe("ESCALATE");
         const reason = brief.forced_escalate_reason ?? "";
         expect(reason.length).toBeGreaterThan(0);
         expect(reason).toContain("verification_path=none");
         expect(reason).toContain("no documentary chain");
         expect(brief.drafted_organizer_message).toBeUndefined();
       } else {
-        expect(brief.recommendation).not.toBe("ESCALATE");
         expect(brief.forced_escalate_reason).toBeUndefined();
       }
 
@@ -280,6 +292,69 @@ describe("phase 4 community-vouching workflow", () => {
     },
     60_000,
   );
+
+  /*
+   * PR test plan item 5: migration 0002 adds `signals_case_run_type_uniq`
+   * and 0003 drops the older `signals_case_run_idx`. `applyD1Migrations`
+   * has already replayed every migration on this D1 by the time this
+   * test runs, so the assertion below verifies the END state matches
+   * what the migration files describe — an explicit name-level check
+   * that complements the behavioural upsert idempotency tests.
+   */
+  it("D1 schema has signals_case_run_type_uniq and no signals_case_run_idx", async () => {
+    const indexes = await env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'signals'",
+    ).all<{ name: string }>();
+    const names = indexes.results.map((row) => row.name);
+    expect(names).toContain("signals_case_run_type_uniq");
+    expect(names).not.toContain("signals_case_run_idx");
+  });
+
+  /*
+   * PR test plan item 6: re-trigger the same case after a successful
+   * run. Each workflow invocation gets its own `run_id`, so the
+   * idempotency contract under test is per-run: every signal upsert
+   * inside one run must produce exactly one row for that
+   * (case_id, run_id, signal_type) triple. A regression that wrote two
+   * signal rows per run (e.g., a step that called `upsertSignal` twice
+   * without conflict resolution) would land COUNT=6 here instead of
+   * COUNT=3, which the unique-index from migration 0002 actually
+   * blocks at the SQL layer — making this test a belt-and-braces guard
+   * that wires the contract end-to-end through the live workflow.
+   */
+  it("re-triggering case-006 produces a fresh run with exactly 3 signal rows", async () => {
+    const target = COMMUNITY_CASES[0];
+    if (!target) throw new Error("expected case-006 in COMMUNITY_CASES[0]");
+    env.MOCK_LLM_RESPONSES = serializeMockResponses(target.responses());
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/cases/${target.id}/brief`, {
+        method: "POST",
+        headers: {
+          Cookie: adminCookie,
+          Accept: "text/event-stream",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    await drainSse(res);
+
+    const briefRow = await env.DB.prepare(
+      "SELECT run_id FROM briefs WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
+    )
+      .bind(target.id)
+      .first<{ run_id: string }>();
+    if (!briefRow) throw new Error("brief row missing after re-trigger");
+
+    const signalRows = await env.DB.prepare(
+      "SELECT signal_type FROM signals WHERE case_id = ? AND run_id = ?",
+    )
+      .bind(target.id, briefRow.run_id)
+      .all<{ signal_type: string }>();
+    expect(signalRows.results).toHaveLength(3);
+    const types = signalRows.results.map((row) => row.signal_type).sort();
+    expect(types).toEqual(["photo_dup", "story_coherence", "vouching_chain"]);
+  }, 60_000);
 });
 
 /**
