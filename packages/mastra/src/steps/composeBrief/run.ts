@@ -6,7 +6,7 @@ import {
   type PolicyCitation,
 } from "@mizan/shared";
 import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
 import { runStructuredLlm } from "../shared/runStructuredLlm.ts";
 import { wrapUntrustedData } from "../shared/untrusted-data.ts";

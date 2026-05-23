@@ -21,7 +21,7 @@ import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
 import type { PhotoSignalPayload, StoryCoherencePayload, VouchingChain } from "@mizan/mastra";
-import { upsertSignal } from "@mizan/mastra/steps/shared/upsertSignal.ts";
+import { upsertSignal } from "@mizan/mastra/testing";
 
 const TEST_CASE_ID = "22222222-2222-4222-8222-222222222001";
 const TEST_RUN_ID = "33333333-3333-4333-8333-333333333001";

@@ -1,9 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import type { BriefPayload, PartialBriefState } from "@mizan/mastra";
-import {
-  assertFinalizeCaseStatusInputs,
-  buildCaseNotFoundError,
-} from "@mizan/mastra/testing";
+import type { BriefPayload } from "@mizan/mastra";
+import type { PartialBriefState } from "@mizan/mastra/testing";
+import { assertFinalizeCaseStatusInputs, buildCaseNotFoundError } from "@mizan/mastra/testing";
 
 const SAMPLE_BRIEF: BriefPayload = {
   recommendation: "READY_FOR_REVIEW",
@@ -35,9 +33,9 @@ describe("assertFinalizeCaseStatusInputs", () => {
   });
 
   it("error message includes case_id and run_id for triage", () => {
-    expect(() =>
-      assertFinalizeCaseStatusInputs({ caseId: "case-xyz", runId: "run-abc" }),
-    ).toThrow(/case-xyz.*run-abc/);
+    expect(() => assertFinalizeCaseStatusInputs({ caseId: "case-xyz", runId: "run-abc" })).toThrow(
+      /case-xyz.*run-abc/,
+    );
   });
 });
 

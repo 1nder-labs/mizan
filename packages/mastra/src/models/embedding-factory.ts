@@ -1,6 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { embed, embedMany, type EmbeddingModel } from "ai";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 
 const EMBEDDING_MODEL_ID = "text-embedding-3-small";
 

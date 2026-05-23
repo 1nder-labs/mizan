@@ -61,13 +61,18 @@ export {
   serializeMockResponses,
 } from "./test/canned-responses/index.ts";
 
-/*
+/**
  * Step-internal helpers: decision projections, parallel-merge reducers,
- * deterministic stubs, seed-case schemas. These are only consumed by
- * tests + eval fixtures and would otherwise sprawl the main barrel.
+ * deterministic stubs, seed-case schemas, persisted-write wrappers, and
+ * pure helpers tests deep-import. These are only consumed by tests +
+ * eval fixtures and would otherwise sprawl the main barrel — keeping
+ * them on `./testing` means the main `@mizan/mastra` entry stays a
+ * production surface (predicates + factories + types persisted to
+ * `cases.brief_partial_json` or returned by route handlers).
  */
 export { assertGateInputs, escalateBriefProjection } from "./steps/forcedEscalateGate/index.ts";
-export { mergeParallelSignals } from "./steps/mergeSignals.ts";
+export { forcedEscalateReason } from "./steps/forcedEscalateGate/predicate.ts";
+export { mergeParallelSignals, mergeSignals } from "./steps/mergeSignals.ts";
 export { assertComputeVerificationPathInputs } from "./steps/computeVerificationPath.ts";
 export {
   assertFinalizeCaseStatusInputs,
@@ -79,6 +84,37 @@ export {
   decideDraftAction,
   type DraftDecision,
 } from "./steps/draftOrganizerMessage/prompt.ts";
+export { upsertSignal, type SignalUpsertInput } from "./steps/shared/upsertSignal.ts";
+export { updatePersistedBrief } from "./steps/shared/updateBrief.ts";
+export {
+  runStructuredLlm,
+  runStructuredLlmWithMessages,
+  type StructuredLlmInvocation,
+  type StructuredLlmInvocationWithMessages,
+  type StructuredLlmMessage,
+} from "./steps/shared/runStructuredLlm.ts";
+export {
+  persistBrief,
+  runComposeBriefGeneration,
+  buildPerCallBriefSchema,
+  type ComposeBriefLlmOutput,
+  type ComposeContext,
+} from "./steps/composeBrief/run.ts";
+export {
+  applyCitationFilter,
+  buildClauseIdSchema,
+  buildPromptWithClauses,
+  type ComposeBriefBasePayload,
+  type ComposeBriefPromptBody,
+} from "./steps/composeBrief/helpers.ts";
+export {
+  buildPolicyQuery,
+  parseMatchToCitation,
+  resolveExcerptMap,
+  resolvePolicySource,
+} from "./steps/matchPolicy/helpers.ts";
+export { composePhotoSignalPayload } from "./steps/photoSignal/helpers.ts";
 export { aiGenStub } from "./tools/ai-gen-stub.ts";
 export { reverseImageStub } from "./tools/reverse-image-stub.ts";
 export { SeedCaseSchema, type SeedCase } from "./seeds/seed-case-schema.ts";
+export type { PartialBriefState } from "./schemas/partial-brief-state.ts";

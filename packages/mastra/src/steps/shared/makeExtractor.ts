@@ -28,16 +28,18 @@ export interface ExtractorDef<TOutput> {
 /**
  * Wraps an extractor as a Mastra step.
  *
- * Errors from `generateObject` propagate unchanged — including the
- * test-only `MissingMockResponseError` thrown by the mock provider.
- * Tests are expected to register canned responses for every extractor a
- * case exercises; silently no-opping on a missing mock would let test
- * outcomes diverge from production behavior, which is exactly the bug
- * class Phase 4's review caught.
+ * Errors from the LLM call are wrapped by `runWithErrorContext` in
+ * `runStructuredLlm` with the step + schema + provider + model tuple so
+ * on-call operators see the failing call site directly. The test-only
+ * `MissingMockResponseError` thrown by the mock provider follows the
+ * same path — its message is preserved verbatim in the wrapped error's
+ * `cause`, so tests asserting on the original message must walk the
+ * `cause` chain (e.g. `error.cause instanceof MissingMockResponseError`).
  *
- * The orchestration goes through `runStructuredLlmWithMessages` so every
- * LLM call site in this package — extractors, signal steps, compose,
- * draft — shares one model-resolution / telemetry / retry / parse path.
+ * The orchestration goes through `runStructuredLlmWithMessages` so
+ * every LLM call site in this package — extractors, signal steps,
+ * compose, draft — shares one model-resolution / telemetry / retry /
+ * parse / error-wrap path.
  */
 export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
   return createStep({

@@ -1,5 +1,5 @@
 import type { RequestContext } from "@mastra/core/di";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import {
   MIZAN_CTX_KEY,
   MIZAN_ENV_KEY,

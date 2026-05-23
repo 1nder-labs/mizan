@@ -1,6 +1,6 @@
 import { createStep } from "@mastra/core/workflows";
 import type { z } from "zod";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import type { ModelKind } from "../../models/factory.ts";
 import { loadCaseContext, type CaseContext } from "../../runtime/case-loader.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";

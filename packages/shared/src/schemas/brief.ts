@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/*
+/**
  * Canonical persisted payload schemas — single source of truth for
  * `@mizan/db` JSON columns AND `@mizan/mastra` step boundaries.
  *

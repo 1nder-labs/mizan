@@ -86,7 +86,7 @@
       "devDependencies": {
         "@cloudflare/workers-types": "catalog:",
         "@mizan/mastra": "workspace:*",
-        "@mizan/worker": "workspace:*",
+        "@mizan/shared": "workspace:*",
         "ai": "6.0.175",
         "typescript": "6.0.3",
         "vitest": "4.1.5",
@@ -124,6 +124,7 @@
         "zod": "4.4.3",
       },
       "devDependencies": {
+        "@cloudflare/workers-types": "catalog:",
         "typescript": "6.0.3",
       },
     },

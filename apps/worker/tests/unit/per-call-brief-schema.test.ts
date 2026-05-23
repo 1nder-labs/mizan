@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { buildPerCallBriefSchema } from "@mizan/mastra/steps/composeBrief/run.ts";
+import { buildPerCallBriefSchema } from "@mizan/mastra/testing";
 
 const validPayload = {
   recommendation: "READY_FOR_REVIEW" as const,

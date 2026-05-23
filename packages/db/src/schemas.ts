@@ -95,26 +95,14 @@ export type NewWorkflowEvent = z.infer<typeof insertWorkflowEventsSchema>;
 export type UpdateWorkflowEvent = z.infer<typeof updateWorkflowEventsSchema>;
 
 /**
- * Shared action-payload schema used by Hono route validation (not a DB row
- * shape). Decoupled from `selectReviewerActionsSchema` because the
- * action-payload is a subset: only the three fields a reviewer submits.
+ * Route validation schemas (ReviewerActionSchema, EchoSchema, etc.) now
+ * live in `@mizan/shared/schemas/route-payloads.ts` — the API surface
+ * contract belongs in the shared boundary package, not in the
+ * DB-row-shape package.
  */
-export const ReviewerActionSchema = z.object({
-  action: z.enum(["APPROVE", "ESCALATE", "REQUEST_DOCS", "BLOCK", "OVERRIDE"]),
-  rationale: z.string().min(1).max(2000),
-  action_id: uuid,
-});
-
-export type ReviewerActionPayload = z.infer<typeof ReviewerActionSchema>;
-
-/**
- * Request body for the admin echo endpoint (`/api/admin/echo`).
- * Used in U9 route validation; defined here so `@mizan/db` is the single
- * source of truth for all validated payloads.
- */
-export const EchoSchema = z.object({
-  message: z.string().min(1).max(500),
-  action_id: z.string().uuid(),
-});
-
-export type EchoPayload = z.infer<typeof EchoSchema>;
+export {
+  EchoSchema,
+  ReviewerActionSchema,
+  type EchoPayload,
+  type ReviewerActionPayload,
+} from "@mizan/shared";

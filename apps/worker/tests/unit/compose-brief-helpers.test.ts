@@ -3,7 +3,7 @@ import {
   applyCitationFilter,
   buildClauseIdSchema,
   buildPromptWithClauses,
-} from "@mizan/mastra/steps/composeBrief/helpers.ts";
+} from "@mizan/mastra/testing";
 
 describe("composeBrief helpers", () => {
   it("buildClauseIdSchema accepts listed ids and rejects hallucinations", () => {

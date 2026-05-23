@@ -1,12 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { mergeSignals as mergeSignalsStep } from "@mizan/mastra/steps/mergeSignals.ts";
-import { mergeParallelSignals } from "@mizan/mastra/testing";
-import type {
-  PartialBriefState,
-  PhotoSignalPayload,
-  StoryCoherencePayload,
-  VouchingChain,
-} from "@mizan/mastra";
+import { mergeParallelSignals, mergeSignals as mergeSignalsStep } from "@mizan/mastra/testing";
+import type { PartialBriefState } from "@mizan/mastra/testing";
+import type { PhotoSignalPayload, StoryCoherencePayload, VouchingChain } from "@mizan/mastra";
 
 const CLASSIFY = {
   category: "emergency_relief",

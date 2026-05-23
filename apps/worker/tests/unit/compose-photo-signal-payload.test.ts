@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { composePhotoSignalPayload } from "@mizan/mastra/steps/photoSignal/helpers.ts";
+import { composePhotoSignalPayload } from "@mizan/mastra/testing";
 
 const REVERSE_EMPTY = { hits: [], checked_at: "2026-05-23T00:00:00.000Z" };
 const REVERSE_HIT = {

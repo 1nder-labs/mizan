@@ -6,7 +6,7 @@ import {
   GeographyTierSchema,
 } from "@mizan/mastra";
 import { case001Responses, case008Responses } from "@mizan/mastra/testing";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import type {
   D1Database,
   Fetcher,
@@ -20,6 +20,14 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 const SmokeSchema = z.object({ ok: z.literal(true) });
+
+/**
+ * Narrows the canned-response value at `"composeBrief.compose"` (typed
+ * `unknown` in the canned-response map) to a string-keyed bag we can
+ * spread without a TypeScript cast. `BriefPayloadSchema.parse` then
+ * validates the full shape against the canonical schema.
+ */
+const ComposeResponseSchema = z.record(z.string(), z.unknown());
 
 function evalEnv(apiKey: string): CloudflareBindings {
   return {
@@ -62,9 +70,9 @@ describe("smoke-001 live provider", () => {
 
 describe("smoke-001 canned brief contracts", () => {
   it("case-001 canned brief LLM output is shape-compatible with persisted BriefPayload", () => {
-    const compose = case001Responses()["composeBrief.compose"];
+    const compose = ComposeResponseSchema.parse(case001Responses()["composeBrief.compose"]);
     const persisted = BriefPayloadSchema.parse({
-      ...(compose as Record<string, unknown>),
+      ...compose,
       verification_path: VerificationPathSchema.parse("documentary"),
       geography_tier: GeographyTierSchema.parse("SAFE"),
       policy_grounded: true,
@@ -74,9 +82,9 @@ describe("smoke-001 canned brief contracts", () => {
   });
 
   it("case-008 canned brief triggers the forceEscalate predicate without manual mutation", () => {
-    const compose = case008Responses()["composeBrief.compose"];
+    const compose = ComposeResponseSchema.parse(case008Responses()["composeBrief.compose"]);
     const persisted = BriefPayloadSchema.parse({
-      ...(compose as Record<string, unknown>),
+      ...compose,
       verification_path: VerificationPathSchema.parse("none"),
       geography_tier: GeographyTierSchema.parse("OFAC_ADJACENT"),
       policy_grounded: true,

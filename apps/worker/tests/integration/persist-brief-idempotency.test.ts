@@ -13,7 +13,7 @@ import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
 import type { BriefPayload } from "@mizan/mastra";
-import { persistBrief } from "@mizan/mastra/steps/composeBrief/run.ts";
+import { persistBrief } from "@mizan/mastra/testing";
 
 const TEST_CASE_ID = "66666666-6666-4666-8666-666666666001";
 const TEST_RUN_ID = "77777777-7777-4777-8777-777777777001";
@@ -22,6 +22,7 @@ interface BriefRow {
   recommendation: string;
   confidence: number;
   payload_json: string;
+  composed_at: number;
 }
 
 const FIRST_BRIEF: BriefPayload = {
@@ -60,7 +61,7 @@ async function countBriefRows(caseId: string, runId: string): Promise<number> {
 
 async function loadBriefRow(caseId: string, runId: string): Promise<BriefRow> {
   const row = await env.DB.prepare(
-    "SELECT recommendation, confidence, payload_json FROM briefs WHERE case_id = ? AND run_id = ?",
+    "SELECT recommendation, confidence, payload_json, composed_at FROM briefs WHERE case_id = ? AND run_id = ?",
   )
     .bind(caseId, runId)
     .first<BriefRow>();
@@ -83,15 +84,28 @@ describe("persistBrief idempotency", () => {
       .run();
   });
 
+  let firstComposedAt = 0;
+
   it("first call inserts a single brief row", async () => {
     await persistBrief(env, TEST_CASE_ID, TEST_RUN_ID, FIRST_BRIEF);
     expect(await countBriefRows(TEST_CASE_ID, TEST_RUN_ID)).toBe(1);
     const row = await loadBriefRow(TEST_CASE_ID, TEST_RUN_ID);
     expect(row.recommendation).toBe("REQUEST_DOCS");
     expect(row.confidence).toBe(55);
+    firstComposedAt = row.composed_at;
+    expect(firstComposedAt).toBeGreaterThan(0);
   });
 
-  it("second call with same (case_id, run_id) keeps count at 1 and overwrites recommendation + confidence + payload", async () => {
+  it("second call with same (case_id, run_id) keeps count at 1 and overwrites recommendation + confidence + payload + composed_at", async () => {
+    /**
+     * Spin past the millisecond boundary so the second insert clock
+     * strictly differs from the first under Miniflare's resolution; we
+     * are asserting that `composed_at` is refreshed on conflict, not
+     * just that the column persists.
+     */
+    while (Date.now() === firstComposedAt) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
     await persistBrief(env, TEST_CASE_ID, TEST_RUN_ID, SECOND_BRIEF);
     expect(await countBriefRows(TEST_CASE_ID, TEST_RUN_ID)).toBe(1);
     const row = await loadBriefRow(TEST_CASE_ID, TEST_RUN_ID);
@@ -99,13 +113,12 @@ describe("persistBrief idempotency", () => {
     expect(row.confidence).toBe(88);
     const persisted = JSON.parse(row.payload_json) as BriefPayload;
     expect(persisted.extracted_claims).toBe("second run overwrites the first");
+    expect(row.composed_at).toBeGreaterThan(firstComposedAt);
   });
 
   it("rejects writes that violate the cases foreign key (error message includes triage tuple)", async () => {
     const MISSING_CASE = "88888888-8888-4888-8888-888888888888";
-    await expect(
-      persistBrief(env, MISSING_CASE, TEST_RUN_ID, FIRST_BRIEF),
-    ).rejects.toThrow(
+    await expect(persistBrief(env, MISSING_CASE, TEST_RUN_ID, FIRST_BRIEF)).rejects.toThrow(
       /persistBrief failed.*case_id=88888888-8888-4888-8888-888888888888.*run_id=77777777-7777-4777-8777-777777777001/,
     );
   });

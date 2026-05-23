@@ -1,6 +1,6 @@
 import { DEFAULT_SAFETY_CITATIONS, briefPayload } from "./shared.ts";
 
-/*
+/**
  * Community-vouching cases (006-008) place placeholder PNG bytes at every
  * R2 key so the workflow can exercise its extractor steps end-to-end.
  * The extractors' canned responses below intentionally report low

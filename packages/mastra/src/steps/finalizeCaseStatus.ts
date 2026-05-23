@@ -1,10 +1,7 @@
 import { createStep } from "@mastra/core/workflows";
 import { cases, eq, makeDb } from "@mizan/db";
 import { getEnv } from "../runtime/context-accessors.ts";
-import {
-  PartialBriefStateSchema,
-  type PartialBriefState,
-} from "../schemas/partial-brief-state.ts";
+import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/partial-brief-state.ts";
 
 /**
  * Asserts that the workflow state contains a brief by the time

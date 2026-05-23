@@ -3,13 +3,13 @@ import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { z } from "zod";
 import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
 import { makeTelemetry } from "../../runtime/telemetry.ts";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import type { ModelConfig, ModelKind } from "../../models/factory.ts";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
 
 const MAX_RETRIES = 2;
 
-/*
+/**
  * AI SDK 6 canonical structured-output API.
  *
  * `generateObject` is deprecated in 6.x in favour of
@@ -88,25 +88,32 @@ export async function runStructuredLlmWithMessages<TOutput>(
         : generateArgs,
     ),
   );
-  /*
+  /**
    * `result.output` is the parsed-and-validated object emitted by
    * `Output.object`. The SDK throws `NoObjectGeneratedError` on parse /
    * validation failure before this line, so the local `schema.parse`
    * below is a defensive re-validation that also runs the Zod schema's
    * transforms and refinements (no-op for our schemas today, but cheap
-   * insurance against a future schema gaining a `.transform`).
+   * insurance against a future schema gaining a `.transform`). The
+   * `runWithErrorContext` wrapper re-runs the call site's triage tuple
+   * around `schema.parse` too so a downstream Zod failure surfaces with
+   * step + schema + provider context instead of a raw issue list.
    */
-  const parsed = invocation.schema.parse(result.output);
+  const parsed = await runWithErrorContext(invocation, resolved.config, () =>
+    Promise.resolve(invocation.schema.parse(result.output)),
+  );
   return invocation.postProcess ? invocation.postProcess(parsed) : parsed;
 }
 
 /**
- * Wraps the `generateText` call so any SDK / provider error surfaces
- * with the step + schema + provider tuple in its message. Raw SDK
- * errors are otherwise opaque on-call ("AI_APICallError: 500") and
- * forced operators to grep correlation IDs to find which step / model
- * tripped. Mirrors the contextual wrapping `upsertSignal` and
- * `persistBrief` apply to D1 errors.
+ * Wraps the `generateText` call (and the post-parse) so any SDK,
+ * provider, or schema error surfaces with the step + schema + provider
+ * tuple in its message. Raw SDK errors are otherwise opaque on-call
+ * ("AI_APICallError: 500", "ZodError: [...]") and forced operators to
+ * grep correlation IDs to find which step / model tripped. Mirrors the
+ * contextual wrapping `upsertSignal` and `persistBrief` apply to D1
+ * errors. `AbortError` and `DOMException(name="AbortError")` pass
+ * through unchanged so cancel semantics are preserved.
  */
 async function runWithErrorContext<TOutput, TResult>(
   invocation: StructuredLlmInvocationWithMessages<TOutput>,
@@ -116,7 +123,7 @@ async function runWithErrorContext<TOutput, TResult>(
   try {
     return await invoke();
   } catch (cause) {
-    if (cause instanceof Error && cause.name === "AbortError") {
+    if (isAbortError(cause)) {
       throw cause;
     }
     throw new Error(
@@ -126,6 +133,11 @@ async function runWithErrorContext<TOutput, TResult>(
       { cause },
     );
   }
+}
+
+/** True for both `AbortError` instances and `DOMException(name="AbortError")`. */
+function isAbortError(value: unknown): boolean {
+  return value instanceof Error && value.name === "AbortError";
 }
 
 function buildGenerateArgs<TOutput>(

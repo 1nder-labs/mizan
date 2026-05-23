@@ -1,5 +1,5 @@
 import { makeDb, signals, type NewSignal } from "@mizan/db";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import type { PhotoSignalPayload, StoryCoherencePayload, VouchingChain } from "@mizan/shared";
 
 /** Discriminated union of (signal_type, payload) pairs upsertable from Phase 4 steps. */

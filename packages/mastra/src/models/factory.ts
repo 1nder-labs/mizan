@@ -2,7 +2,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 
 export type LlmProvider = "anthropic" | "openai" | "openrouter";
 

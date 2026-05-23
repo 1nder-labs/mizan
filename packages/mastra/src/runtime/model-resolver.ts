@@ -1,6 +1,6 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { withMastra } from "@mastra/ai-sdk";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import {
   embedPolicyText,
   embedPolicyTexts,

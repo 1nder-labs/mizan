@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { deriveVerificationPath } from "@mizan/mastra";
-import type { PartialBriefState } from "@mizan/mastra";
+import type { PartialBriefState } from "@mizan/mastra/testing";
 
 function baseState(overrides: Partial<PartialBriefState> = {}): PartialBriefState {
   return {
@@ -363,4 +363,3 @@ describe("deriveVerificationPath", () => {
     expect(path).toBe("none");
   });
 });
-

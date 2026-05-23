@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { PartialBriefState } from "@mizan/mastra";
+import type { PartialBriefState } from "@mizan/mastra/testing";
 import { assertComputeVerificationPathInputs } from "@mizan/mastra/testing";
 
 function baseState(overrides: Partial<PartialBriefState> = {}): PartialBriefState {

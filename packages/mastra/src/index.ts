@@ -1,61 +1,56 @@
 /**
- * `@mizan/mastra` barrel — per-request Mastra factory + public re-exports.
+ * `@mizan/mastra` barrel — per-request Mastra factory + production surface.
  *
- * Returns `MizanMastraBundle` (Mastra instance + a `flush` closure that
- * drains the Langfuse exporter when configured) instead of the raw Mastra
- * instance, because Cloudflare Workers need an explicit drain step in
- * `executionCtx.waitUntil(...)` before the isolate is reclaimed.
+ * Returns `MizanMastraBundle` (Mastra instance + Langfuse exporter handle)
+ * instead of the raw Mastra instance, because Cloudflare Workers need an
+ * explicit drain step in `executionCtx.waitUntil(...)` before the isolate
+ * is reclaimed.
  *
  * Observability uses `@mastra/langfuse` — the official Mastra-native
- * Langfuse exporter. The earlier `@vercel/otel` + `langfuse-vercel` wiring
- * targeted plain AI-SDK apps and bypassed Mastra's workflow-aware span
- * propagation; this rewiring brings every step + tool span into the same
- * trace tree automatically.
+ * exporter, which carries Mastra's workflow-aware span propagation
+ * instead of the AI-SDK-flat spans produced by `@vercel/otel`.
+ *
+ * Surface boundary: this barrel exports what production callers (routes,
+ * eval harnesses, future agent surfaces) need — predicates, factories,
+ * persisted contracts (re-exported from `@mizan/shared` for ergonomics).
+ * Step-internal helpers, persistence wrappers, prompt builders, and the
+ * `PartialBriefState` workflow accumulator type live on
+ * `@mizan/mastra/testing` so consumers can't accidentally take a
+ * dependency on workflow-internal shapes.
  */
 
 import { Mastra } from "@mastra/core";
 import { D1Store } from "@mastra/cloudflare-d1";
 import { Observability } from "@mastra/observability";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import { buildLangfuseExporter, LangfuseExporter } from "./observability/langfuse.ts";
 import { briefWorkflow } from "./workflows/brief.workflow.ts";
 
 export type { BriefStreamPart } from "./schemas/stream.ts";
-export {
-  BriefPayloadSchema,
-  CaseOverlaySchema,
-  DraftedOrganizerMessageSchema,
-  GeographyTierSchema,
-  PhotoSignalPayloadSchema,
-  PolicyCitationSchema,
-  StoryCoherencePayloadSchema,
-  VerificationPathSchema,
-  VouchingChainSchema,
-  assertCommunityVouchingCorroborated,
-  assertPartnerOrgCorroborated,
-  assertVouchingChain,
-  type BriefPayload,
-  type CaseOverlay,
-  type DraftedOrganizerMessage,
-  type GeographyTier,
-  type PhotoSignalPayload,
-  type PolicyCitation,
-  type StoryCoherencePayload,
-  type VerificationPath,
-  type VouchingChain,
+export type {
+  BriefPayload,
+  CaseOverlay,
+  CloudflareBindings,
+  DraftedOrganizerMessage,
+  GeographyTier,
+  PhotoSignalPayload,
+  PolicyCitation,
+  StoryCoherencePayload,
+  VerificationPath,
+  VouchingChain,
 } from "@mizan/shared";
-/*
- * Public predicates — usable by routes, eval harnesses, and future agent
- * surfaces. Test-only step internals (assertGateInputs, mergeParallelSignals,
- * escalateBriefProjection, buildDraftPrompt, decideDraftAction, stubs,
- * SeedCaseSchema) live on the `@mizan/mastra/testing` entry point.
+
+/**
+ * Public predicates — usable by routes, eval harnesses, and future
+ * agent surfaces. Step internals (assertGateInputs, mergeParallelSignals,
+ * escalateBriefProjection, persistBrief, upsertSignal, prompt builders,
+ * stubs, seed schemas, PartialBriefState) live on `@mizan/mastra/testing`.
  */
 export {
   deriveVerificationPath,
   DOCUMENTARY_MIN_CONFIDENCE,
 } from "./steps/computeVerificationPath.ts";
 export { forceEscalate } from "./steps/forcedEscalateGate/predicate.ts";
-export type { PartialBriefState } from "./schemas/partial-brief-state.ts";
 export { CorpusSchema, ClauseSchema, type Corpus, type Clause } from "./schemas/corpus.ts";
 export { allCorpusClauseIds, loadPolicyCorpora } from "./corpus/load.ts";
 export { chunkCorpusRecords, type ChunkRecord } from "./corpus/chunk.ts";
@@ -89,17 +84,27 @@ export {
   type ResolveLanguageModelArgs,
 } from "./runtime/model-resolver.ts";
 export { tierFor } from "./runtime/geography-tier.ts";
+
+/**
+ * The schema re-exports below preserve the previous import ergonomics
+ * (consumers of `@mizan/mastra` historically pulled persisted schemas
+ * from this barrel). Long-term, `@mizan/shared` is the canonical entry;
+ * this re-export block stays slim and additions land in `@mizan/shared`.
+ */
 export {
-  buildPolicyQuery,
-  parseMatchToCitation,
-  resolveExcerptMap,
-  resolvePolicySource,
-} from "./steps/matchPolicy/helpers.ts";
-export {
-  applyCitationFilter,
-  buildClauseIdSchema,
-  buildPromptWithClauses,
-} from "./steps/composeBrief/helpers.ts";
+  BriefPayloadSchema,
+  CaseOverlaySchema,
+  DraftedOrganizerMessageSchema,
+  GeographyTierSchema,
+  PhotoSignalPayloadSchema,
+  PolicyCitationSchema,
+  StoryCoherencePayloadSchema,
+  VerificationPathSchema,
+  VouchingChainSchema,
+  assertCommunityVouchingCorroborated,
+  assertPartnerOrgCorroborated,
+  assertVouchingChain,
+} from "@mizan/shared";
 
 export interface MizanMastraBundle {
   readonly mastra: Mastra;
