@@ -5,7 +5,7 @@
   "workspaces": {
     ".": {
       "entry": ["scripts/*.ts", "scripts/lib/*.ts"],
-      "ignoreDependencies": ["@socketsecurity/bun-security-scanner", "zod", "@mizan/mastra"]
+      "ignoreDependencies": ["@socketsecurity/bun-security-scanner", "zod"]
     },
     "apps/worker": {
       "entry": ["tests/**/*.test.ts"],

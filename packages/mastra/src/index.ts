@@ -27,18 +27,6 @@ import { buildLangfuseExporter, LangfuseExporter } from "./observability/langfus
 import { briefWorkflow } from "./workflows/brief.workflow.ts";
 
 export type { BriefStreamPart } from "./schemas/stream.ts";
-export type {
-  BriefPayload,
-  CaseOverlay,
-  CloudflareBindings,
-  DraftedOrganizerMessage,
-  GeographyTier,
-  PhotoSignalPayload,
-  PolicyCitation,
-  StoryCoherencePayload,
-  VerificationPath,
-  VouchingChain,
-} from "@mizan/shared";
 
 /**
  * Public predicates — usable by routes, eval harnesses, and future
@@ -84,27 +72,6 @@ export {
   type ResolveLanguageModelArgs,
 } from "./runtime/model-resolver.ts";
 export { tierFor } from "./runtime/geography-tier.ts";
-
-/**
- * The schema re-exports below preserve the previous import ergonomics
- * (consumers of `@mizan/mastra` historically pulled persisted schemas
- * from this barrel). Long-term, `@mizan/shared` is the canonical entry;
- * this re-export block stays slim and additions land in `@mizan/shared`.
- */
-export {
-  BriefPayloadSchema,
-  CaseOverlaySchema,
-  DraftedOrganizerMessageSchema,
-  GeographyTierSchema,
-  PhotoSignalPayloadSchema,
-  PolicyCitationSchema,
-  StoryCoherencePayloadSchema,
-  VerificationPathSchema,
-  VouchingChainSchema,
-  assertCommunityVouchingCorroborated,
-  assertPartnerOrgCorroborated,
-  assertVouchingChain,
-} from "@mizan/shared";
 
 export interface MizanMastraBundle {
   readonly mastra: Mastra;

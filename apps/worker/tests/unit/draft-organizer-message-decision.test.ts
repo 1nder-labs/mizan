@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { BriefPayload } from "@mizan/mastra";
+import type { BriefPayload } from "@mizan/shared";
 import type { PartialBriefState } from "@mizan/mastra/testing";
 import { decideDraftAction } from "@mizan/mastra/testing";
 

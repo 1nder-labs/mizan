@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import { BriefPayloadSchema } from "@mizan/mastra";
+import { BriefPayloadSchema } from "@mizan/shared";
 import {
   responsesForCaseIndex,
   SEED_CASE_IDS,

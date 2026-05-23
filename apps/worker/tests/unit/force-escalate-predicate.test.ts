@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { forceEscalate } from "@mizan/mastra";
-import type { BriefPayload, GeographyTier, VerificationPath } from "@mizan/mastra";
+import type { BriefPayload, GeographyTier, VerificationPath } from "@mizan/shared";
 
 const RECOMMENDATIONS: ReadonlyArray<BriefPayload["recommendation"]> = [
   "READY_FOR_REVIEW",

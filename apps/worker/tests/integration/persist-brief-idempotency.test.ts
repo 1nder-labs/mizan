@@ -12,7 +12,7 @@
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import type { BriefPayload } from "@mizan/mastra";
+import type { BriefPayload } from "@mizan/shared";
 import { persistBrief } from "@mizan/mastra/testing";
 
 const TEST_CASE_ID = "66666666-6666-4666-8666-666666666001";

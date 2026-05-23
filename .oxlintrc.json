@@ -23,7 +23,7 @@
   },
   "overrides": [
     {
-      "files": ["**/*.eval.ts", "scripts/**/*.ts"],
+      "files": ["**/*.eval.ts", "scripts/**/*.ts", "**/src/testing.ts"],
       "rules": {
         "typescript/consistent-type-assertions": "off",
         "typescript/no-explicit-any": "off",

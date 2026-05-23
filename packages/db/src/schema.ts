@@ -21,6 +21,24 @@ import type { BriefPayload, CaseOverlay, SignalPayload } from "@mizan/shared";
 
 export type { SignalPayload } from "@mizan/shared";
 
+/**
+ * Single source of truth for the `reviewer_actions.action` enum.
+ *
+ * Drizzle's column type and the shared `ReviewerActionSchema` (HTTP
+ * route validation) both reference this tuple so a future enum-value
+ * addition lands in one place — and a divergence between the column
+ * and the route validator is impossible at compile time.
+ */
+export const REVIEWER_ACTION_VALUES = [
+  "APPROVE",
+  "ESCALATE",
+  "REQUEST_DOCS",
+  "BLOCK",
+  "OVERRIDE",
+] as const;
+
+export type ReviewerActionValue = (typeof REVIEWER_ACTION_VALUES)[number];
+
 export const cases = sqliteTable(
   "cases",
   {
@@ -138,9 +156,7 @@ export const reviewer_actions = sqliteTable(
     reviewer_id: text("reviewer_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    action: text("action", {
-      enum: ["APPROVE", "ESCALATE", "REQUEST_DOCS", "BLOCK", "OVERRIDE"] as const,
-    }).notNull(),
+    action: text("action", { enum: REVIEWER_ACTION_VALUES }).notNull(),
     rationale: text("rationale").notNull(),
     acted_at: integer("acted_at", { mode: "timestamp_ms" })
       .notNull()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { BriefPayload } from "@mizan/mastra";
+import type { BriefPayload } from "@mizan/shared";
 import { buildDraftPrompt } from "@mizan/mastra/testing";
 
 const sampleBrief: BriefPayload = {

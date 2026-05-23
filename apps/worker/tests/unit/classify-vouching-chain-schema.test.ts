@@ -4,7 +4,7 @@ import {
   assertCommunityVouchingCorroborated,
   assertPartnerOrgCorroborated,
   assertVouchingChain,
-} from "@mizan/mastra";
+} from "@mizan/shared";
 
 describe("VouchingChainSchema", () => {
   it("parses none variant", () => {

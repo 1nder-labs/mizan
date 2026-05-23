@@ -1,28 +1,10 @@
-import { z } from "zod";
-
 /**
- * Shape of every committed seed JSON file under
- * `packages/mastra/src/seeds/{documentary,community-vouching}`.
+ * Re-export of the canonical seed-case schema from `@mizan/shared`.
  *
- * Imported by integration tests and seed scripts so the on-disk JSON is
- * validated at the boundary instead of cast with `as`.
+ * The shape lives in `@mizan/shared` so deploy scripts can validate
+ * seeds without dragging in `@mizan/mastra/testing`. This file remains
+ * the conventional import location for the `@mizan/mastra` testing
+ * barrel, which is the import path used by integration tests and eval
+ * fixtures.
  */
-export const SeedCaseSchema = z
-  .object({
-    id: z.string().uuid(),
-    status: z.enum(["DRAFT", "QUEUED", "RUNNING", "READY_FOR_REVIEW"]),
-    category: z.string().min(1),
-    geography: z.string().min(1),
-    claimed_zakat_category: z.string().min(1),
-    organizer_name: z.string().min(1),
-    story: z.string().min(1),
-    vouching_narrative: z.string().min(1).optional(),
-    r2_keys: z.object({
-      creator_id: z.string().min(1),
-      bank_statement: z.string().min(1),
-      category_doc: z.string().min(1),
-    }),
-  })
-  .strict();
-
-export type SeedCase = z.infer<typeof SeedCaseSchema>;
+export { SeedCaseSchema, type SeedCase } from "@mizan/shared";

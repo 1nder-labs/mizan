@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { BriefPayload, DraftedOrganizerMessage } from "@mizan/mastra";
+import type { BriefPayload, DraftedOrganizerMessage } from "@mizan/shared";
 import { escalateBriefProjection } from "@mizan/mastra/testing";
 
 const DRAFT: DraftedOrganizerMessage = {
@@ -19,24 +19,22 @@ const REQUEST_DOCS_BRIEF: BriefPayload = {
   policy_citations: [],
 };
 
-/*
- * Production workflow ordering is:
+/**
+ * Pass 8 reordered the workflow so `forcedEscalateGate` now runs
+ * BEFORE `draftOrganizerMessage` — the gate fires first, the draft
+ * LLM sees the (possibly escalated) recommendation and skips when it
+ * lands on ESCALATE. In the happy path the brief therefore never has
+ * `drafted_organizer_message` set at gate time, and the strip in
+ * `escalateBriefProjection` is a defensive no-op.
  *
- *     composeBrief → draftOrganizerMessage → forcedEscalateGate
- *
- * `draftOrganizerMessage` attaches `drafted_organizer_message` to a
- * REQUEST_DOCS brief; if the brief then trips the forced-escalate
- * predicate (path=none + high-risk tier), `escalateBriefProjection`
- * MUST strip the draft on its way to ESCALATE — a leftover draft on an
- * ESCALATE recommendation would misrepresent reviewer guidance.
- *
- * The individual projections are unit-tested in
- * `forced-escalate-gate-step.test.ts` and
- * `draft-organizer-message-decision.test.ts`. This test pins the
- * COMPOSITION — the chain the workflow actually runs — so a refactor
- * that changed projection order would fail here loudly.
+ * This test exists for the retry / migration / refactor path: if a
+ * future workflow change re-introduces drafted_organizer_message
+ * before the gate, the projection's strip MUST still fire so a
+ * leftover draft on an ESCALATE recommendation cannot reach the
+ * reviewer. The individual projections are unit-tested elsewhere;
+ * this file pins the composition.
  */
-describe("draft → forced-escalate projection chain (workflow ordering)", () => {
+describe("forced-escalate projection drops any pre-existing draft (defensive composition)", () => {
   it("strips drafted_organizer_message when the gate fires on a REQUEST_DOCS+drafted brief", () => {
     const afterDraft: BriefPayload = { ...REQUEST_DOCS_BRIEF, drafted_organizer_message: DRAFT };
     expect(afterDraft.drafted_organizer_message).toEqual(DRAFT);

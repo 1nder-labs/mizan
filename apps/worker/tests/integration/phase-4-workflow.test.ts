@@ -7,15 +7,15 @@ import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
 import { z } from "zod";
+import { tierFor } from "@mizan/mastra";
 import {
   BriefPayloadSchema,
   PhotoSignalPayloadSchema,
   StoryCoherencePayloadSchema,
   VerificationPathSchema,
   VouchingChainSchema,
-  tierFor,
-} from "@mizan/mastra";
-import type { VerificationPath } from "@mizan/mastra";
+  type VerificationPath,
+} from "@mizan/shared";
 import {
   case006Responses,
   case007Responses,

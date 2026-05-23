@@ -39,7 +39,7 @@ export async function updatePersistedBrief(input: {
   }
   if (rows.length === 0) {
     throw new Error(
-      `updatePersistedBrief: no row matched (case_id=${input.caseId}, run_id=${input.runId})`,
+      `updatePersistedBrief failed (case_id=${input.caseId} run_id=${input.runId}): no row matched`,
     );
   }
 }

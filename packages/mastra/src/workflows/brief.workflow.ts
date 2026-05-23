@@ -20,7 +20,8 @@ import { storyCoherence } from "../steps/storyCoherence/index.ts";
 
 /**
  * Brief workflow — Phase 4 inserts trust-signal steps between extractors and
- * matchPolicy, plus draftOrganizerMessage + forcedEscalateGate after composeBrief.
+ * matchPolicy, plus forcedEscalateGate + draftOrganizerMessage after
+ * composeBrief.
  *
  * The three signal-extraction steps (photoSignal, storyCoherence,
  * classifyVouchingChain) run in `.parallel(...)` because they share no
@@ -28,6 +29,14 @@ import { storyCoherence } from "../steps/storyCoherence/index.ts";
  * `mergeSignals` re-joins the parallel outputs into a single
  * `PartialBriefStateSchema` so every downstream step keeps the standard
  * step-input shape.
+ *
+ * Post-compose ordering is forcedEscalateGate → draftOrganizerMessage
+ * → finalizeCaseStatus. The gate fires first so an OFAC + community
+ * vouching REQUEST_DOCS case is overridden to ESCALATE before the
+ * draft LLM runs — `draftOrganizerMessage` then sees ESCALATE and
+ * short-circuits, saving the call. Closes the wasted-call /
+ * transient-divergence window Pass 8 flagged on
+ * draft-before-gate ordering.
  */
 export const briefWorkflow = createWorkflow({
   id: "brief",
@@ -44,8 +53,8 @@ export const briefWorkflow = createWorkflow({
   .then(computeVerificationPath)
   .then(matchPolicy)
   .then(composeBrief)
-  .then(draftOrganizerMessage)
   .then(forcedEscalateGate)
+  .then(draftOrganizerMessage)
   .then(finalizeCaseStatus)
   .then(awaitReviewerAction)
   .commit();

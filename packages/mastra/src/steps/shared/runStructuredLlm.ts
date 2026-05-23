@@ -75,11 +75,30 @@ export async function runStructuredLlm<TOutput>(
   });
 }
 
-/** Variant accepting multimodal messages (used by image-bearing extractors). */
+/**
+ * Variant accepting multimodal messages (used by image-bearing
+ * extractors). Wraps model resolution, the `generateText` call, the
+ * defensive `schema.parse`, AND the optional `postProcess` hook in
+ * `runWithErrorContext` — every error path between the call site and
+ * the LLM (provider key missing, network failure, schema-parse
+ * failure, citation-filter throw) surfaces with the same step + schema
+ * + provider triage tuple so on-call grep finds the failing seam in
+ * one place.
+ *
+ * `resolveLanguageModel` is wrapped with a `null` provider/model
+ * because the resolver itself is what may fail — at that point the
+ * concrete provider/model that would have been chosen is unknowable.
+ * The error message renders them as `provider=unresolved model=unresolved`
+ * so an on-call operator can grep for the resolver-stage failure mode
+ * specifically. Once resolution succeeds, subsequent wraps use the
+ * real `config` and the message names the actual provider that tripped.
+ */
 export async function runStructuredLlmWithMessages<TOutput>(
   invocation: StructuredLlmInvocationWithMessages<TOutput>,
 ): Promise<TOutput> {
-  const resolved = resolveLanguageModel({ env: invocation.env, kind: invocation.modelKind });
+  const resolved = await runWithErrorContext(invocation, null, () =>
+    Promise.resolve(resolveLanguageModel({ env: invocation.env, kind: invocation.modelKind })),
+  );
   const generateArgs = buildGenerateArgs(invocation, resolved.model, resolved.config);
   const result = await runWithErrorContext(invocation, resolved.config, () =>
     generateText(
@@ -94,15 +113,14 @@ export async function runStructuredLlmWithMessages<TOutput>(
    * validation failure before this line, so the local `schema.parse`
    * below is a defensive re-validation that also runs the Zod schema's
    * transforms and refinements (no-op for our schemas today, but cheap
-   * insurance against a future schema gaining a `.transform`). The
-   * `runWithErrorContext` wrapper re-runs the call site's triage tuple
-   * around `schema.parse` too so a downstream Zod failure surfaces with
-   * step + schema + provider context instead of a raw issue list.
+   * insurance against a future schema gaining a `.transform`).
+   * `postProcess` runs inside the same wrap so a downstream citation
+   * filter or normalizer throw surfaces with the triage tuple too.
    */
-  const parsed = await runWithErrorContext(invocation, resolved.config, () =>
-    Promise.resolve(invocation.schema.parse(result.output)),
-  );
-  return invocation.postProcess ? invocation.postProcess(parsed) : parsed;
+  return runWithErrorContext(invocation, resolved.config, async () => {
+    const parsed = invocation.schema.parse(result.output);
+    return invocation.postProcess ? invocation.postProcess(parsed) : parsed;
+  });
 }
 
 /**
@@ -117,7 +135,7 @@ export async function runStructuredLlmWithMessages<TOutput>(
  */
 async function runWithErrorContext<TOutput, TResult>(
   invocation: StructuredLlmInvocationWithMessages<TOutput>,
-  config: ModelConfig,
+  config: ModelConfig | null,
   invoke: () => Promise<TResult>,
 ): Promise<TResult> {
   try {
@@ -126,8 +144,10 @@ async function runWithErrorContext<TOutput, TResult>(
     if (isAbortError(cause)) {
       throw cause;
     }
+    const providerLabel = config?.provider ?? "unresolved";
+    const modelLabel = config?.model ?? "unresolved";
     throw new Error(
-      `runStructuredLlm failed (step=${invocation.stepName} schema=${invocation.schemaName} provider=${config.provider} model=${config.model}): ${
+      `runStructuredLlm failed (step=${invocation.stepName} schema=${invocation.schemaName} provider=${providerLabel} model=${modelLabel}): ${
         cause instanceof Error ? cause.message : String(cause)
       }`,
       { cause },

@@ -1,30 +1,7 @@
-import type {
-  D1Database,
-  Fetcher,
-  KVNamespace,
-  Queue,
-  R2Bucket,
-  VectorizeIndex,
-} from "@cloudflare/workers-types";
-import type { CloudflareBindings } from "../../src/env.ts";
-
-const STUB_BINDINGS = {
-  DB: {} as D1Database,
-  KV: {} as KVNamespace,
-  R2_BUCKET: {} as R2Bucket,
-  VECTORIZE: {} as VectorizeIndex,
-  BRIEF_QUEUE: {} as Queue,
-  ASSETS: {} as Fetcher,
-} satisfies Pick<
-  CloudflareBindings,
-  "DB" | "KV" | "R2_BUCKET" | "VECTORIZE" | "BRIEF_QUEUE" | "ASSETS"
->;
-
-export function makeStubBindings(overrides: Partial<CloudflareBindings> = {}): CloudflareBindings {
-  return {
-    ...STUB_BINDINGS,
-    DEFAULT_LLM_PROVIDER: "anthropic",
-    LANGFUSE_HOST: "",
-    ...overrides,
-  };
-}
+/**
+ * Re-export of the canonical test-bindings helper from
+ * `@mizan/shared/testing`. The shape of stub bindings is identical for
+ * apps/worker tests and packages/eval; consolidating in shared/testing
+ * means one source of truth — see Pass 8 maintainability finding #15.
+ */
+export { makeStubBindings } from "@mizan/shared/testing";

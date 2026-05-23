@@ -52,5 +52,3 @@ async function uncachedLoad(env: CloudflareBindings, caseId: string): Promise<Ca
   const overlay = CaseOverlaySchema.parse(row.brief_partial_json);
   return { ...row, ...overlay };
 }
-
-export { CaseOverlaySchema };

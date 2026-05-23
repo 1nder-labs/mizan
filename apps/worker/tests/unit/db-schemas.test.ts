@@ -1,22 +1,17 @@
 /**
- * Runtime validation tests for drizzle-zod refinements and custom schemas.
+ * Runtime validation tests for drizzle-zod refinements and the
+ * shared HTTP-route validation schemas.
  *
- * These tests confirm that the `.parse()` calls throw (validation error) or
- * succeed for the expected inputs — covering the custom refinements added in
- * `packages/db/src/zod.ts`.
- *
- * `expect(() => schema.parse(...)).toThrow()` is the idiomatic vitest pattern
- * for zod 4 parse errors (throws a `ZodError`).
+ * Confirms that `.parse()` throws on invalid inputs or returns
+ * narrowed values on valid inputs — covering the custom refinements
+ * declared in `packages/db/src/schemas.ts` and the route-payload
+ * schemas in `packages/shared/src/schemas/route-payloads.ts`.
  */
 
 import { describe, expect, it } from "bun:test";
-import {
-  EchoSchema,
-  ReviewerActionSchema,
-  insertBriefsSchema,
-  insertCasesSchema,
-  insertReviewerActionsSchema,
-} from "@mizan/db";
+import { insertBriefsSchema, insertCasesSchema, insertReviewerActionsSchema } from "@mizan/db";
+import { REVIEWER_ACTION_VALUES } from "@mizan/db";
+import { EchoSchema, REVIEWER_ACTION_ENUM, ReviewerActionSchema } from "@mizan/shared";
 
 describe("insertCasesSchema refinements", () => {
   it("throws when category is empty string (min:1)", () => {
@@ -117,5 +112,19 @@ describe("EchoSchema", () => {
       action_id: "550e8400-e29b-41d4-a716-446655440000",
     });
     expect(result.message).toBe("hello world");
+  });
+});
+
+/**
+ * `REVIEWER_ACTION_ENUM` (consumed by `ReviewerActionSchema` in
+ * `@mizan/shared`) and `REVIEWER_ACTION_VALUES` (consumed by the
+ * Drizzle `reviewer_actions.action` column in `@mizan/db/schema.ts`)
+ * must stay synchronised. `@mizan/shared` cannot import from
+ * `@mizan/db` without inverting the layering, so the constant lives
+ * in two places — this test catches drift the moment it appears.
+ */
+describe("reviewer action enum parity", () => {
+  it("@mizan/shared route enum matches @mizan/db column enum", () => {
+    expect([...REVIEWER_ACTION_ENUM]).toEqual([...REVIEWER_ACTION_VALUES]);
   });
 });

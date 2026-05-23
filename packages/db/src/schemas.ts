@@ -93,16 +93,3 @@ export const updateWorkflowEventsSchema = createUpdateSchema(workflow_events);
 export type WorkflowEvent = z.infer<typeof selectWorkflowEventsSchema>;
 export type NewWorkflowEvent = z.infer<typeof insertWorkflowEventsSchema>;
 export type UpdateWorkflowEvent = z.infer<typeof updateWorkflowEventsSchema>;
-
-/**
- * Route validation schemas (ReviewerActionSchema, EchoSchema, etc.) now
- * live in `@mizan/shared/schemas/route-payloads.ts` — the API surface
- * contract belongs in the shared boundary package, not in the
- * DB-row-shape package.
- */
-export {
-  EchoSchema,
-  ReviewerActionSchema,
-  type EchoPayload,
-  type ReviewerActionPayload,
-} from "@mizan/shared";

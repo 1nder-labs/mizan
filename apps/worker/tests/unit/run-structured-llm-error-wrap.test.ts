@@ -75,7 +75,7 @@ describe("runStructuredLlm error wrapping", () => {
     ).rejects.toThrow(/missing\.schema/);
   });
 
-  /*
+  /**
    * Pre-aborted signal: the mock provider is purely synchronous and
    * does not consult the signal, so the request still completes. The
    * AbortError passthrough lives behind the SDK's own abort plumbing,

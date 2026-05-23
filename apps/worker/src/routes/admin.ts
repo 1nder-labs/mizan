@@ -15,7 +15,7 @@
 
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { EchoSchema } from "@mizan/db";
+import { EchoSchema } from "@mizan/shared";
 import type { CloudflareBindings } from "../env.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { requireRole, type RoleVariables } from "../middleware/require-role.ts";

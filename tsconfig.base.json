@@ -31,6 +31,7 @@
       "@mizan/mastra": ["./packages/mastra/src/index.ts"],
       "@mizan/mastra/testing": ["./packages/mastra/src/testing.ts"],
       "@mizan/shared": ["./packages/shared/src/index.ts"],
+      "@mizan/shared/testing": ["./packages/shared/src/testing.ts"],
       "@mizan/eval": ["./packages/eval/src/index.ts"]
     }
   }

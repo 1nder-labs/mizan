@@ -1,20 +1,12 @@
+import { forceEscalate, resolveLanguageModel } from "@mizan/mastra";
+import { case001Responses, case008Responses } from "@mizan/mastra/testing";
 import {
   BriefPayloadSchema,
-  forceEscalate,
-  resolveLanguageModel,
-  VerificationPathSchema,
   GeographyTierSchema,
-} from "@mizan/mastra";
-import { case001Responses, case008Responses } from "@mizan/mastra/testing";
-import type { CloudflareBindings } from "@mizan/shared";
-import type {
-  D1Database,
-  Fetcher,
-  KVNamespace,
-  Queue,
-  R2Bucket,
-  VectorizeIndex,
-} from "@cloudflare/workers-types";
+  VerificationPathSchema,
+  type CloudflareBindings,
+} from "@mizan/shared";
+import { makeStubBindings } from "@mizan/shared/testing";
 import { generateText, Output } from "ai";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -30,17 +22,7 @@ const SmokeSchema = z.object({ ok: z.literal(true) });
 const ComposeResponseSchema = z.record(z.string(), z.unknown());
 
 function evalEnv(apiKey: string): CloudflareBindings {
-  return {
-    DB: {} as D1Database,
-    KV: {} as KVNamespace,
-    R2_BUCKET: {} as R2Bucket,
-    VECTORIZE: {} as VectorizeIndex,
-    BRIEF_QUEUE: {} as Queue,
-    ASSETS: {} as Fetcher,
-    DEFAULT_LLM_PROVIDER: "anthropic",
-    LANGFUSE_HOST: "",
-    ANTHROPIC_API_KEY: apiKey,
-  };
+  return makeStubBindings({ ANTHROPIC_API_KEY: apiKey });
 }
 
 describe("smoke-001 live provider", () => {
