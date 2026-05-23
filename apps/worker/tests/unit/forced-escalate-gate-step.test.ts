@@ -49,6 +49,29 @@ describe("assertGateInputs (forcedEscalateGate state guards)", () => {
       assertGateInputs({ caseId: "case-xyz", runId: "run-abc" } satisfies PartialBriefState),
     ).toThrow(/case-xyz/);
   });
+
+  /*
+   * `composeBrief` stitches `verification_path` and `geography_tier`
+   * onto the brief from `inputData.classify` so the reviewer-visible
+   * brief shows the same numbers the gate predicates on. A future
+   * post-compose step that overwrote either field would otherwise
+   * produce a silent brief/state divergence — the gate predicates
+   * `classify` while the reviewer reads `brief.*`. These tests pin the
+   * alignment guard so the drift fails loud the moment it appears.
+   */
+  it("throws when brief.verification_path diverges from classify.verification_path", () => {
+    const driftedBrief: BriefPayload = { ...SAMPLE_BRIEF, verification_path: "documentary" };
+    expect(() =>
+      assertGateInputs(makeState({ brief: driftedBrief, classify: SAMPLE_CLASSIFY })),
+    ).toThrow(/brief\.verification_path=documentary but classify\.verification_path=none/);
+  });
+
+  it("throws when brief.geography_tier diverges from classify.geography_tier", () => {
+    const driftedBrief: BriefPayload = { ...SAMPLE_BRIEF, geography_tier: "SAFE" };
+    expect(() =>
+      assertGateInputs(makeState({ brief: driftedBrief, classify: SAMPLE_CLASSIFY })),
+    ).toThrow(/brief\.geography_tier=SAFE but classify\.geography_tier=OFAC_ADJACENT/);
+  });
 });
 
 describe("escalateBriefProjection", () => {

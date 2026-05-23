@@ -47,7 +47,9 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
     execute: async ({ inputData, requestContext, abortSignal }) => {
       const env = getEnv(requestContext);
       const ctx = getCtx(requestContext);
+      abortSignal?.throwIfAborted();
       const caseRow = await loadCaseContext(env, inputData.caseId);
+      abortSignal?.throwIfAborted();
       const prompt = await def.buildPrompt(caseRow, env);
       const extracted = await runStructuredLlmWithMessages({
         env,
@@ -60,6 +62,7 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
         messages: prompt.messages,
         abortSignal,
       });
+      abortSignal?.throwIfAborted();
       return def.mergeInto(inputData, extracted);
     },
   });

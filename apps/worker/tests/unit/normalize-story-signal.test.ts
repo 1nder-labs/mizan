@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { normalizeStorySignal } from "@mizan/mastra/steps/storyCoherence/index.ts";
+import { normalizeStorySignal } from "@mizan/mastra/testing";
 
 /**
  * Pins clamp behaviour: `StoryCoherencePayloadSchema` documents a

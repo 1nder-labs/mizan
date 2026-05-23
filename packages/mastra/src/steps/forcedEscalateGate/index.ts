@@ -6,7 +6,7 @@ import {
   type PartialBriefState,
 } from "../../schemas/partial-brief-state.ts";
 import { updatePersistedBrief } from "../shared/updateBrief.ts";
-import { forceEscalate } from "./predicate.ts";
+import { forceEscalate, forcedEscalateReason } from "./predicate.ts";
 
 interface GateInputs {
   readonly brief: BriefPayload;
@@ -39,6 +39,14 @@ export function escalateBriefProjection(input: {
  * means an upstream step failed without raising, and a silent
  * pass-through could let a high-risk no-verification case escape
  * escalation. Exported for unit-level coverage of the guard rules.
+ *
+ * Also asserts that the deterministic gate inputs on the brief
+ * (`verification_path`, `geography_tier`) still equal what the workflow
+ * state's `classify` slot carries. composeBrief stitches them on at
+ * compose time so the reviewer-visible brief shows the same numbers the
+ * gate predicates on; a future post-compose step that overwrote either
+ * field would otherwise produce a brief/state divergence the gate
+ * silently ignored. Catches that drift the moment it appears.
  */
 export function assertGateInputs(input: PartialBriefState): GateInputs {
   if (!input.brief) {
@@ -49,6 +57,16 @@ export function assertGateInputs(input: PartialBriefState): GateInputs {
   if (!input.classify) {
     throw new Error(
       `forcedEscalateGate: classify missing for case ${input.caseId} run ${input.runId}`,
+    );
+  }
+  if (input.brief.verification_path !== input.classify.verification_path) {
+    throw new Error(
+      `forcedEscalateGate: brief.verification_path=${input.brief.verification_path} but classify.verification_path=${input.classify.verification_path} for case ${input.caseId} run ${input.runId}`,
+    );
+  }
+  if (input.brief.geography_tier !== input.classify.geography_tier) {
+    throw new Error(
+      `forcedEscalateGate: brief.geography_tier=${input.brief.geography_tier} but classify.geography_tier=${input.classify.geography_tier} for case ${input.caseId} run ${input.runId}`,
     );
   }
   return { brief: input.brief, classify: input.classify };
@@ -71,9 +89,11 @@ export const forcedEscalateGate = createStep({
     }
     const env = getEnv(requestContext);
     const ctx = getCtx(requestContext);
-    const forced_escalate_reason =
-      `verification_path=${classify.verification_path} + geography_tier=${classify.geography_tier} ` +
-      `(case in ${ctx.geography}: no documentary chain, high-risk jurisdiction)`;
+    const forced_escalate_reason = forcedEscalateReason({
+      verification_path: classify.verification_path,
+      geography_tier: classify.geography_tier,
+      geography: ctx.geography,
+    });
     const updatedBrief = escalateBriefProjection({ brief, forced_escalate_reason });
     await updatePersistedBrief({
       env,

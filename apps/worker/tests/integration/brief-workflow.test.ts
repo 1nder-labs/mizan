@@ -175,7 +175,7 @@ describe("brief workflow integration", () => {
       expect(brief.recommendation).toBe("READY_FOR_REVIEW");
       expect(brief.verification_path).toBe("documentary");
 
-      /*
+      /**
        * Phase-4 signal contract: every workflow run emits exactly three
        * signal rows — `photo_dup`, `story_coherence`, `vouching_chain`
        * — scoped to the brief's `run_id`. Documentary cases ride the

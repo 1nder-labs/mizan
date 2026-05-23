@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { mergeSignals as mergeSignalsStep } from "@mizan/mastra/steps/mergeSignals.ts";
 import { mergeParallelSignals } from "@mizan/mastra/testing";
 import type {
   PartialBriefState,
@@ -96,15 +97,34 @@ describe("mergeParallelSignals", () => {
     ).toThrow(/classifyVouchingChain branch diverged on classify/);
   });
 
-  it("supports missing optional signal slots (a branch may legitimately not write its slot)", () => {
-    const merged = mergeParallelSignals({
-      photoSignal: baseBranch({}, { photo: PHOTO }),
-      storyCoherence: baseBranch({}, {}),
-      classifyVouchingChain: baseBranch({}, { vouching: VOUCHING }),
-    });
-    expect(merged.signals?.photo).toEqual(PHOTO);
-    expect(merged.signals?.story).toBeUndefined();
-    expect(merged.signals?.vouching).toEqual(VOUCHING);
+  it("throws when the story slot is missing — a parallel signal step degraded silently", () => {
+    expect(() =>
+      mergeParallelSignals({
+        photoSignal: baseBranch({}, { photo: PHOTO }),
+        storyCoherence: baseBranch({}, {}),
+        classifyVouchingChain: baseBranch({}, { vouching: VOUCHING }),
+      }),
+    ).toThrow(/missing signal slot\(s\) \[story\]/);
+  });
+
+  it("throws when both story and vouching slots are missing — names every missing slot in one message", () => {
+    expect(() =>
+      mergeParallelSignals({
+        photoSignal: baseBranch({}, { photo: PHOTO }),
+        storyCoherence: baseBranch({}, {}),
+        classifyVouchingChain: baseBranch({}, {}),
+      }),
+    ).toThrow(/missing signal slot\(s\) \[story, vouching\]/);
+  });
+
+  it("throws when the photo slot is missing", () => {
+    expect(() =>
+      mergeParallelSignals({
+        photoSignal: baseBranch({}, {}),
+        storyCoherence: baseBranch({}, { story: STORY }),
+        classifyVouchingChain: baseBranch({}, { vouching: VOUCHING }),
+      }),
+    ).toThrow(/missing signal slot\(s\) \[photo\]/);
   });
 
   /*
@@ -162,5 +182,71 @@ describe("mergeParallelSignals", () => {
         ),
       }),
     ).toThrow(/classifyVouchingChain branch diverged on policy_matches/);
+  });
+
+  /**
+   * Symmetric coverage of the runId-divergence guard. The
+   * storyCoherence-side throw is already pinned above; this asserts the
+   * same rule fires when the classifyVouchingChain branch carries a
+   * different runId — guards against a copy-paste regression that
+   * tightened one branch and forgot the other.
+   */
+  it("throws when classifyVouchingChain branch diverges on runId", () => {
+    expect(() =>
+      mergeParallelSignals({
+        photoSignal: baseBranch({}, { photo: PHOTO }),
+        storyCoherence: baseBranch({}, { story: STORY }),
+        classifyVouchingChain: baseBranch({ runId: "different-run" }, { vouching: VOUCHING }),
+      }),
+    ).toThrow(/classifyVouchingChain branch diverged on caseId\/runId/);
+  });
+
+  it("throws when classifyVouchingChain branch diverges on caseId", () => {
+    expect(() =>
+      mergeParallelSignals({
+        photoSignal: baseBranch({}, { photo: PHOTO }),
+        storyCoherence: baseBranch({}, { story: STORY }),
+        classifyVouchingChain: baseBranch({ caseId: "different-case" }, { vouching: VOUCHING }),
+      }),
+    ).toThrow(/classifyVouchingChain branch diverged on caseId\/runId/);
+  });
+});
+
+/**
+ * The Mastra parallel-block output is typed `unknown` at this layer
+ * because `.parallel([...])` returns a `Record<string, unknown>` that
+ * downstream consumers refine themselves. `mergeSignals`' inputSchema
+ * is `z.unknown()` for the same reason; the strict
+ * `ParallelBranchesSchema` parse inside the step is what actually
+ * validates the input. These tests pin the rejection so a future
+ * refactor that softened the schema would fail loudly.
+ */
+describe("mergeSignals step ParallelBranchesSchema validation", () => {
+  const stepExecute = mergeSignalsStep.execute;
+  if (typeof stepExecute !== "function") {
+    throw new Error("expected mergeSignals step to expose an execute function");
+  }
+
+  it("throws when one of the three required branches is missing", async () => {
+    await expect(
+      stepExecute({
+        inputData: {
+          photoSignal: { caseId: "c", runId: "r" },
+          storyCoherence: { caseId: "c", runId: "r" },
+        },
+        requestContext: {},
+        abortSignal: undefined,
+      } as never),
+    ).rejects.toThrow();
+  });
+
+  it("throws when input is not an object at all", async () => {
+    await expect(
+      stepExecute({
+        inputData: "not-an-object",
+        requestContext: {},
+        abortSignal: undefined,
+      } as never),
+    ).rejects.toThrow();
   });
 });

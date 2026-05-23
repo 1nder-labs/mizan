@@ -33,12 +33,18 @@ function parseParallelBranches(input: unknown): ParallelSignalsInput {
 /**
  * Combines parallel-branch outputs into a single PartialBriefState.
  *
- * Validates that all three branches agree on caseId, runId, and classify
- * before picking the photoSignal branch as the canonical non-signals
- * carrier. Silent divergence would let an upstream parallel step's
- * concurrent mutation (e.g. a hypothetical future step that wrote to
- * `extractions` from inside a parallel branch) drop another branch's
+ * Validates that all three branches agree on caseId, runId, classify,
+ * extractions, and policy_matches before picking the photoSignal branch
+ * as the canonical non-signals carrier. Silent divergence would let an
+ * upstream parallel step's concurrent mutation drop another branch's
  * state on the floor.
+ *
+ * Also asserts every parallel branch wrote its signal slot —
+ * `assertParallelSignalsComplete` mirrors `computeVerificationPath`'s
+ * strict-step contract and the brief-workflow integration's trio check.
+ * A missing slot means a parallel step degraded silently, and
+ * downstream gates (forced escalate, draft) would otherwise consume
+ * partial signal state and produce a misleading brief.
  */
 export function mergeParallelSignals(input: ParallelSignalsInput): PartialBriefState {
   const { photoSignal: a, storyCoherence: b, classifyVouchingChain: c } = input;
@@ -47,15 +53,45 @@ export function mergeParallelSignals(input: ParallelSignalsInput): PartialBriefS
   const photo = a.signals?.photo;
   const story = b.signals?.story;
   const vouching = c.signals?.vouching;
+  assertParallelSignalsComplete(a.caseId, a.runId, { photo, story, vouching });
   return {
     ...a,
     signals: {
       ...a.signals,
-      ...(photo ? { photo } : {}),
-      ...(story ? { story } : {}),
-      ...(vouching ? { vouching } : {}),
+      photo,
+      story,
+      vouching,
     },
   };
+}
+
+type SignalsSlot = NonNullable<PartialBriefState["signals"]>;
+
+/**
+ * Throws if any of the three parallel branches did not write its
+ * signal slot. Each branch is a `.then`-compatible step whose contract
+ * is "populate exactly one slot in `state.signals`"; a missing slot at
+ * this seam means that step degraded silently (caught its own error,
+ * returned early, or skipped the upsert).
+ */
+function assertParallelSignalsComplete(
+  caseId: string,
+  runId: string,
+  slots: {
+    readonly photo: SignalsSlot["photo"] | undefined;
+    readonly story: SignalsSlot["story"] | undefined;
+    readonly vouching: SignalsSlot["vouching"] | undefined;
+  },
+): void {
+  const missing: string[] = [];
+  if (!slots.photo) missing.push("photo");
+  if (!slots.story) missing.push("story");
+  if (!slots.vouching) missing.push("vouching");
+  if (missing.length > 0) {
+    throw new Error(
+      `mergeSignals: missing signal slot(s) [${missing.join(", ")}] for case ${caseId} run ${runId} — a parallel signal step degraded silently`,
+    );
+  }
 }
 
 /**

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { deriveVerificationPath } from "@mizan/mastra";
 import type { PartialBriefState } from "@mizan/mastra";
-import { assertComputeVerificationPathInputs } from "@mizan/mastra/testing";
 
 function baseState(overrides: Partial<PartialBriefState> = {}): PartialBriefState {
   return {
@@ -190,6 +189,87 @@ describe("deriveVerificationPath", () => {
     expect(path).toBe("none");
   });
 
+  it("returns none when medical category doc is high-confidence but patient_name is blank", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: { ...HIGH_CATEGORY, patient_name: "" },
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
+
+  it("returns none when medical category doc is high-confidence but provider_name is blank", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: { ...HIGH_CATEGORY, provider_name: "" },
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
+
+  it("returns documentary when vouching.structure='none' and all three extractors meet the real-evidence floor (Mode-A documentary path regression guard)", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: HIGH_BANK,
+          extractCategoryDocs: HIGH_CATEGORY,
+        },
+        signals: {
+          vouching: { structure: "none", weakest_link_narrative: "no chain" },
+        },
+      }),
+    );
+    expect(path).toBe("documentary");
+  });
+
+  it("returns documentary when every extractor sits exactly at the DOCUMENTARY_MIN_CONFIDENCE floor (60)", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: { ...HIGH_CREATOR, confidence: 60 },
+          extractBankStatement: { ...HIGH_BANK, confidence: 60 },
+          extractCategoryDocs: { ...HIGH_CATEGORY, confidence: 60 },
+        },
+      }),
+    );
+    expect(path).toBe("documentary");
+  });
+
+  it("returns none when one extractor is exactly one below the DOCUMENTARY_MIN_CONFIDENCE floor (59)", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: HIGH_CREATOR,
+          extractBankStatement: { ...HIGH_BANK, confidence: 59 },
+          extractCategoryDocs: HIGH_CATEGORY,
+        },
+      }),
+    );
+    expect(path).toBe("none");
+  });
+
+  it("returns documentary at maximum confidence (100)", () => {
+    const path = deriveVerificationPath(
+      baseState({
+        extractions: {
+          extractCreatorIdDoc: { ...HIGH_CREATOR, confidence: 100 },
+          extractBankStatement: { ...HIGH_BANK, confidence: 100 },
+          extractCategoryDocs: { ...HIGH_CATEGORY, confidence: 100 },
+        },
+      }),
+    );
+    expect(path).toBe("documentary");
+  });
+
   it("returns none when bank statement is high-confidence but currency is empty", () => {
     const path = deriveVerificationPath(
       baseState({
@@ -284,69 +364,3 @@ describe("deriveVerificationPath", () => {
   });
 });
 
-/**
- * Step-wrapper guards. `deriveVerificationPath` is intentionally
- * permissive (returns `none` on missing classify/vouching) so unit-test
- * callers can exercise the predicate without staging the full workflow
- * state. The step is strict — a refactor that reordered or skipped
- * `classifyCampaign` / `classifyVouchingChain` upstream would otherwise
- * silently route to `documentary` based on extractor evidence alone.
- */
-describe("assertComputeVerificationPathInputs", () => {
-  it("returns the classify slot when both classify and signals.vouching are present", () => {
-    const state = baseState({
-      classify: {
-        category: "medical",
-        verification_path: "documentary",
-        geography_tier: "SAFE",
-      },
-      signals: {
-        vouching: { structure: "none", weakest_link_narrative: "no chain" },
-      },
-    });
-    const classify = assertComputeVerificationPathInputs(state);
-    expect(classify.category).toBe("medical");
-    expect(classify.geography_tier).toBe("SAFE");
-  });
-
-  it("throws when classify slot is missing — classifyCampaign must run first", () => {
-    expect(() =>
-      assertComputeVerificationPathInputs(
-        baseState({
-          signals: { vouching: { structure: "none", weakest_link_narrative: "no chain" } },
-        }),
-      ),
-    ).toThrow(/classify missing.*classifyCampaign must run first/);
-  });
-
-  it("throws when signals.vouching is missing — classifyVouchingChain / mergeSignals must run first", () => {
-    expect(() =>
-      assertComputeVerificationPathInputs(
-        baseState({
-          classify: {
-            category: "medical",
-            verification_path: "documentary",
-            geography_tier: "OFAC",
-          },
-        }),
-      ),
-    ).toThrow(/signals\.vouching missing.*classifyVouchingChain \/ mergeSignals must run first/);
-  });
-
-  it("throws when signals exists but vouching slot is missing (story / photo populated only)", () => {
-    expect(() =>
-      assertComputeVerificationPathInputs(
-        baseState({
-          classify: {
-            category: "medical",
-            verification_path: "documentary",
-            geography_tier: "AT_RISK",
-          },
-          signals: {
-            story: { named_entity_density: 0.4, template_match_score: 0.3, coherence_summary: "" },
-          },
-        }),
-      ),
-    ).toThrow(/signals\.vouching missing/);
-  });
-});

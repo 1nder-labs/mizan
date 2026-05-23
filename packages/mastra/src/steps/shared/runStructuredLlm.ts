@@ -81,10 +81,12 @@ export async function runStructuredLlmWithMessages<TOutput>(
 ): Promise<TOutput> {
   const resolved = resolveLanguageModel({ env: invocation.env, kind: invocation.modelKind });
   const generateArgs = buildGenerateArgs(invocation, resolved.model, resolved.config);
-  const result = await generateText(
-    invocation.abortSignal
-      ? { ...generateArgs, abortSignal: invocation.abortSignal }
-      : generateArgs,
+  const result = await runWithErrorContext(invocation, resolved.config, () =>
+    generateText(
+      invocation.abortSignal
+        ? { ...generateArgs, abortSignal: invocation.abortSignal }
+        : generateArgs,
+    ),
   );
   /*
    * `result.output` is the parsed-and-validated object emitted by
@@ -96,6 +98,34 @@ export async function runStructuredLlmWithMessages<TOutput>(
    */
   const parsed = invocation.schema.parse(result.output);
   return invocation.postProcess ? invocation.postProcess(parsed) : parsed;
+}
+
+/**
+ * Wraps the `generateText` call so any SDK / provider error surfaces
+ * with the step + schema + provider tuple in its message. Raw SDK
+ * errors are otherwise opaque on-call ("AI_APICallError: 500") and
+ * forced operators to grep correlation IDs to find which step / model
+ * tripped. Mirrors the contextual wrapping `upsertSignal` and
+ * `persistBrief` apply to D1 errors.
+ */
+async function runWithErrorContext<TOutput, TResult>(
+  invocation: StructuredLlmInvocationWithMessages<TOutput>,
+  config: ModelConfig,
+  invoke: () => Promise<TResult>,
+): Promise<TResult> {
+  try {
+    return await invoke();
+  } catch (cause) {
+    if (cause instanceof Error && cause.name === "AbortError") {
+      throw cause;
+    }
+    throw new Error(
+      `runStructuredLlm failed (step=${invocation.stepName} schema=${invocation.schemaName} provider=${config.provider} model=${config.model}): ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`,
+      { cause },
+    );
+  }
 }
 
 function buildGenerateArgs<TOutput>(

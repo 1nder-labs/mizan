@@ -49,7 +49,16 @@ export interface LlmSignalStepDef<TPayload> {
   readonly mergeIntoState: (state: PartialBriefState, payload: TPayload) => PartialBriefState;
 }
 
-/** Builds a Mastra step from an LLM-signal definition. */
+/**
+ * Builds a Mastra step from an LLM-signal definition.
+ *
+ * `abortSignal.throwIfAborted()` runs at every boundary the LLM SDK
+ * cannot itself intercept (before loadCaseContext, after the LLM
+ * completes, before the upsert). `generateText` forwards the same
+ * signal to the underlying provider, so an abort raised mid-LLM bubbles
+ * up there; the extra checkpoints close the windows around the LLM
+ * call where a late cancel would otherwise still hit D1.
+ */
 export function makeLlmSignalStep<TPayload>(def: LlmSignalStepDef<TPayload>) {
   return createStep({
     id: def.id,
@@ -58,7 +67,9 @@ export function makeLlmSignalStep<TPayload>(def: LlmSignalStepDef<TPayload>) {
     execute: async ({ inputData, requestContext, abortSignal }) => {
       const env = getEnv(requestContext);
       const ctx = getCtx(requestContext);
+      abortSignal?.throwIfAborted();
       const caseRow = await loadCaseContext(env, inputData.caseId);
+      abortSignal?.throwIfAborted();
       const raw = await runStructuredLlm({
         env,
         ctx,
@@ -70,6 +81,7 @@ export function makeLlmSignalStep<TPayload>(def: LlmSignalStepDef<TPayload>) {
         userPayload: def.buildUserPayload({ caseRow, inputData }),
         abortSignal,
       });
+      abortSignal?.throwIfAborted();
       const payload = def.postProcess({ raw, caseRow, inputData });
       await def.persist({ env, caseId: inputData.caseId, runId: inputData.runId, payload });
       return def.mergeIntoState(inputData, payload);

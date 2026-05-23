@@ -73,6 +73,7 @@ export {
   assertFinalizeCaseStatusInputs,
   buildCaseNotFoundError,
 } from "./steps/finalizeCaseStatus.ts";
+export { normalizeStorySignal } from "./steps/storyCoherence/index.ts";
 export {
   buildDraftPrompt,
   decideDraftAction,

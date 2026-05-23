@@ -186,112 +186,130 @@ describe("phase 4 community-vouching workflow", () => {
   it.each(COMMUNITY_CASES.map((entry) => [entry.id, entry] as const))(
     "case %s routes correctly with three signal rows",
     async (caseId, entry) => {
-      env.MOCK_LLM_RESPONSES = serializeMockResponses(entry.responses());
-      const res = await exports.default.fetch(
-        new Request(`${BASE}/api/cases/${caseId}/brief`, {
-          method: "POST",
-          headers: {
-            Cookie: adminCookie,
-            Accept: "text/event-stream",
-            "Idempotency-Key": crypto.randomUUID(),
-          },
-        }),
-      );
-      expect(res.status).toBe(200);
-      const sse = await drainSse(res);
-      assertSseStream(sse);
-
-      const briefRow = await env.DB.prepare(
-        "SELECT payload_json, run_id FROM briefs WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
-      )
-        .bind(caseId)
-        .first<{ payload_json: string; run_id: string }>();
-      if (!briefRow) throw new Error("brief row missing");
-      const parsedBriefRow = BriefRowSchema.parse(briefRow);
-      const brief = BriefPayloadSchema.parse(JSON.parse(parsedBriefRow.payload_json));
-
-      expect(brief.verification_path).toBe(entry.expectedPath);
-      expect(brief.geography_tier).toBe(tierFor(entry.geography));
-      /*
-       * Recommendation contract (PR test plan items 2/3/4): every
-       * community-vouching case has exactly one expected recommendation
-       * — REQUEST_DOCS for case-006 (draft path), READY_FOR_REVIEW for
-       * case-007 (institutional clean run), ESCALATE for case-008
-       * (forced gate fires). Asserting on `expectedRecommendation`
-       * directly catches the case where the gate fires for the wrong
-       * case or a clean run lands with an unexpected recommendation.
-       */
-      expect(brief.recommendation).toBe(entry.expectedRecommendation);
-
-      if (entry.forcedEscalate) {
-        const reason = brief.forced_escalate_reason ?? "";
-        expect(reason.length).toBeGreaterThan(0);
-        expect(reason).toContain("verification_path=none");
-        expect(reason).toContain("no documentary chain");
-        expect(brief.drafted_organizer_message).toBeUndefined();
-      } else {
-        expect(brief.forced_escalate_reason).toBeUndefined();
+      try {
+        await runCommunityCaseAssertions(caseId, entry);
+      } finally {
+        /**
+         * Unconditional teardown — the original reset on the happy path
+         * left case rows stuck in RUNNING when any assertion failed,
+         * which then poisoned the downstream re-trigger idempotency
+         * test (it observed unexpected status rather than the real
+         * regression). `try/finally` guarantees the DRAFT reset runs
+         * even when expectations fail mid-flight.
+         */
+        await env.DB.prepare(
+          "UPDATE cases SET status = 'DRAFT', current_run_id = NULL WHERE id = ?",
+        )
+          .bind(caseId)
+          .run();
       }
-
-      if (entry.expectsDraftedMessage) {
-        expect(brief.recommendation).toBe("REQUEST_DOCS");
-        expect(brief.drafted_organizer_message?.message.length ?? 0).toBeGreaterThan(0);
-        expect((brief.drafted_organizer_message?.missing_items ?? []).length).toBeGreaterThan(0);
-      } else if (!entry.forcedEscalate) {
-        expect(brief.drafted_organizer_message).toBeUndefined();
-      }
-
-      const signalRows = await env.DB.prepare(
-        "SELECT signal_type, payload_json, run_id FROM signals WHERE case_id = ? AND run_id = ?",
-      )
-        .bind(caseId, parsedBriefRow.run_id)
-        .all<{ signal_type: string; payload_json: string; run_id: string }>();
-      const parsedRows = signalRows.results.map((row) => SignalRowSchema.parse(row));
-      expect(parsedRows).toHaveLength(3);
-      const types = parsedRows.map((row) => row.signal_type).sort();
-      expect(types).toEqual(["photo_dup", "story_coherence", "vouching_chain"]);
-
-      const photoRow = parsedRows.find((row) => row.signal_type === "photo_dup");
-      const storyRow = parsedRows.find((row) => row.signal_type === "story_coherence");
-      const vouchingRow = parsedRows.find((row) => row.signal_type === "vouching_chain");
-      if (!photoRow || !storyRow || !vouchingRow) throw new Error("expected all three signals");
-
-      PhotoSignalPayloadSchema.parse(JSON.parse(photoRow.payload_json));
-      StoryCoherencePayloadSchema.parse(JSON.parse(storyRow.payload_json));
-      const vouching = VouchingChainSchema.parse(JSON.parse(vouchingRow.payload_json));
-
-      if (entry.expectedPath === "institutional_vouching") {
-        if (
-          vouching.structure !== "individual-via-partner-org" &&
-          vouching.structure !== "org-direct"
-        ) {
-          throw new Error(`expected partner structure, got ${vouching.structure}`);
-        }
-        expect(vouching.partner_org_name).toBe("Sudan Aid Foundation");
-      } else if (entry.expectedPath === "community_vouching") {
-        expect(vouching.structure).toBe("individual-to-individual");
-      } else if (entry.expectedPath === "none") {
-        expect(vouching.structure).toBe("none");
-      }
-
-      /*
-       * `finalizeCaseStatus` runs after `forcedEscalateGate` and must
-       * flip the case to READY_FOR_REVIEW. Asserting the persisted
-       * status (not just the brief) catches a class of bug where the
-       * status-transition step is removed or short-circuited — the
-       * brief writes succeed but the case stays stuck in RUNNING.
-       */
-      const statusRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
-        .bind(caseId)
-        .first<{ status: string }>();
-      expect(statusRow?.status).toBe("READY_FOR_REVIEW");
-
-      await env.DB.prepare("UPDATE cases SET status = 'DRAFT', current_run_id = NULL WHERE id = ?")
-        .bind(caseId)
-        .run();
     },
     60_000,
   );
+
+  /** Asserts every contract a community-vouching workflow run must satisfy. */
+  async function runCommunityCaseAssertions(
+    caseId: string,
+    entry: CommunityCaseFixture,
+  ): Promise<void> {
+    env.MOCK_LLM_RESPONSES = serializeMockResponses(entry.responses());
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/cases/${caseId}/brief`, {
+        method: "POST",
+        headers: {
+          Cookie: adminCookie,
+          Accept: "text/event-stream",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const sse = await drainSse(res);
+    assertSseStream(sse);
+
+    const briefRow = await env.DB.prepare(
+      "SELECT payload_json, run_id FROM briefs WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
+    )
+      .bind(caseId)
+      .first<{ payload_json: string; run_id: string }>();
+    if (!briefRow) throw new Error("brief row missing");
+    const parsedBriefRow = BriefRowSchema.parse(briefRow);
+    const brief = BriefPayloadSchema.parse(JSON.parse(parsedBriefRow.payload_json));
+
+    expect(brief.verification_path).toBe(entry.expectedPath);
+    expect(brief.geography_tier).toBe(tierFor(entry.geography));
+    /**
+     * Recommendation contract (PR test plan items 2/3/4): every
+     * community-vouching case has exactly one expected recommendation —
+     * REQUEST_DOCS for case-006 (draft path), READY_FOR_REVIEW for
+     * case-007 (institutional clean run), ESCALATE for case-008
+     * (forced gate fires).
+     */
+    expect(brief.recommendation).toBe(entry.expectedRecommendation);
+
+    if (entry.forcedEscalate) {
+      const reason = brief.forced_escalate_reason ?? "";
+      expect(reason.length).toBeGreaterThan(0);
+      expect(reason).toContain("verification_path=none");
+      expect(reason).toContain("no documentary chain");
+      expect(brief.drafted_organizer_message).toBeUndefined();
+    } else {
+      expect(brief.forced_escalate_reason).toBeUndefined();
+    }
+
+    if (entry.expectsDraftedMessage) {
+      expect(brief.recommendation).toBe("REQUEST_DOCS");
+      expect(brief.drafted_organizer_message?.message.length ?? 0).toBeGreaterThan(0);
+      expect((brief.drafted_organizer_message?.missing_items ?? []).length).toBeGreaterThan(0);
+    } else if (!entry.forcedEscalate) {
+      expect(brief.drafted_organizer_message).toBeUndefined();
+    }
+
+    const signalRows = await env.DB.prepare(
+      "SELECT signal_type, payload_json, run_id FROM signals WHERE case_id = ? AND run_id = ?",
+    )
+      .bind(caseId, parsedBriefRow.run_id)
+      .all<{ signal_type: string; payload_json: string; run_id: string }>();
+    const parsedRows = signalRows.results.map((row) => SignalRowSchema.parse(row));
+    expect(parsedRows).toHaveLength(3);
+    const types = parsedRows.map((row) => row.signal_type).sort();
+    expect(types).toEqual(["photo_dup", "story_coherence", "vouching_chain"]);
+
+    const photoRow = parsedRows.find((row) => row.signal_type === "photo_dup");
+    const storyRow = parsedRows.find((row) => row.signal_type === "story_coherence");
+    const vouchingRow = parsedRows.find((row) => row.signal_type === "vouching_chain");
+    if (!photoRow || !storyRow || !vouchingRow) throw new Error("expected all three signals");
+
+    PhotoSignalPayloadSchema.parse(JSON.parse(photoRow.payload_json));
+    StoryCoherencePayloadSchema.parse(JSON.parse(storyRow.payload_json));
+    const vouching = VouchingChainSchema.parse(JSON.parse(vouchingRow.payload_json));
+
+    if (entry.expectedPath === "institutional_vouching") {
+      if (
+        vouching.structure !== "individual-via-partner-org" &&
+        vouching.structure !== "org-direct"
+      ) {
+        throw new Error(`expected partner structure, got ${vouching.structure}`);
+      }
+      expect(vouching.partner_org_name).toBe("Sudan Aid Foundation");
+    } else if (entry.expectedPath === "community_vouching") {
+      expect(vouching.structure).toBe("individual-to-individual");
+    } else if (entry.expectedPath === "none") {
+      expect(vouching.structure).toBe("none");
+    }
+
+    /**
+     * `finalizeCaseStatus` runs after `forcedEscalateGate` and must
+     * flip the case to READY_FOR_REVIEW. Asserting the persisted
+     * status (not just the brief) catches a class of bug where the
+     * status-transition step is removed or short-circuited — the
+     * brief writes succeed but the case stays stuck in RUNNING.
+     */
+    const statusRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string }>();
+    expect(statusRow?.status).toBe("READY_FOR_REVIEW");
+  }
 
   /*
    * PR test plan item 5: migration 0002 adds `signals_case_run_type_uniq`

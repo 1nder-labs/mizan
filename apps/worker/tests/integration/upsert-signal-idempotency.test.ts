@@ -200,6 +200,78 @@ describe("upsertSignal wrapper", () => {
       }),
     ).rejects.toThrow(/upsertSignal failed.*case_id=99999999-9999-4999-8999-999999999999/);
   });
+
+  it("upserts a photo_dup payload via the wrapper and overwrites on re-call", async () => {
+    const first: PhotoSignalPayload = {
+      creator_id: {
+        reverseImage: { hits: [], checked_at: "2026-05-23T00:00:00.000Z" },
+        aiGen: { probability: "low", model: "stub-v1" },
+      },
+      category_doc: {
+        reverseImage: { hits: [], checked_at: "2026-05-23T00:00:00.000Z" },
+        aiGen: { probability: "low", model: "stub-v1" },
+      },
+    };
+    await upsertSignal({
+      env,
+      caseId: WRAPPER_CASE_ID,
+      runId: WRAPPER_RUN_ID,
+      signalType: "photo_dup",
+      payload: first,
+    });
+    expect(await countSignalRows(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "photo_dup")).toBe(1);
+
+    const second: PhotoSignalPayload = {
+      ...first,
+      creator_id: {
+        ...first.creator_id,
+        aiGen: { probability: "very_high", model: "stub-v1" },
+      },
+    };
+    await upsertSignal({
+      env,
+      caseId: WRAPPER_CASE_ID,
+      runId: WRAPPER_RUN_ID,
+      signalType: "photo_dup",
+      payload: second,
+    });
+    expect(await countSignalRows(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "photo_dup")).toBe(1);
+    const row = await loadSignalRow(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "photo_dup");
+    const persisted = JSON.parse(row.payload_json) as PhotoSignalPayload;
+    expect(persisted.creator_id.aiGen.probability).toBe("very_high");
+  });
+
+  it("upserts a story_coherence payload via the wrapper and overwrites on re-call", async () => {
+    const first: StoryCoherencePayload = {
+      named_entity_density: 0.4,
+      template_match_score: 0.5,
+      coherence_summary: "first call",
+    };
+    await upsertSignal({
+      env,
+      caseId: WRAPPER_CASE_ID,
+      runId: WRAPPER_RUN_ID,
+      signalType: "story_coherence",
+      payload: first,
+    });
+    expect(await countSignalRows(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "story_coherence")).toBe(1);
+
+    const second: StoryCoherencePayload = {
+      ...first,
+      coherence_summary: "second call overwrites the first",
+    };
+    await upsertSignal({
+      env,
+      caseId: WRAPPER_CASE_ID,
+      runId: WRAPPER_RUN_ID,
+      signalType: "story_coherence",
+      payload: second,
+    });
+    expect(await countSignalRows(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "story_coherence")).toBe(1);
+    const row = await loadSignalRow(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "story_coherence");
+    const persisted = JSON.parse(row.payload_json) as StoryCoherencePayload;
+    expect(persisted.coherence_summary).toBe("second call overwrites the first");
+  });
 });
 
 async function runUpsert(

@@ -128,29 +128,41 @@ function buildPromptBody(
  * (case_id, run_id) is unconditionally last-write-wins.
  */
 export async function persistBrief(
-  env: CloudflareBindings,
+  env: Pick<CloudflareBindings, "DB">,
   caseId: string,
   runId: string,
   brief: BriefPayload,
 ): Promise<void> {
   const db = makeDb(env.DB);
-  await db
-    .insert(briefs)
-    .values({
-      case_id: caseId,
-      run_id: runId,
-      recommendation: brief.recommendation,
-      confidence: brief.confidence,
-      payload_json: brief,
-    })
-    .onConflictDoUpdate({
-      target: [briefs.case_id, briefs.run_id],
-      set: {
+  const composedAt = new Date();
+  try {
+    await db
+      .insert(briefs)
+      .values({
+        case_id: caseId,
+        run_id: runId,
         recommendation: brief.recommendation,
         confidence: brief.confidence,
         payload_json: brief,
-      },
-    });
+        composed_at: composedAt,
+      })
+      .onConflictDoUpdate({
+        target: [briefs.case_id, briefs.run_id],
+        set: {
+          recommendation: brief.recommendation,
+          confidence: brief.confidence,
+          payload_json: brief,
+          composed_at: composedAt,
+        },
+      });
+  } catch (cause) {
+    throw new Error(
+      `persistBrief failed (case_id=${caseId} run_id=${runId}): ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`,
+      { cause },
+    );
+  }
 }
 
 export { type ComposeContext };
