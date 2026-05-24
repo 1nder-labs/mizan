@@ -14,7 +14,7 @@
  */
 
 import { LangfuseExporter } from "@mastra/langfuse";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 
 /** Returns a configured exporter or null when credentials are missing. */
 export function buildLangfuseExporter(env: CloudflareBindings): LangfuseExporter | null {

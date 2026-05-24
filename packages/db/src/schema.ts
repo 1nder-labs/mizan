@@ -17,13 +17,27 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { users } from "./auth.schema.ts";
 
-/**
- * Forward-declared placeholder replaced by import from `@mizan/mastra` once schemas land.
- */
-import type { BriefPayload, CaseOverlay } from "@mizan/mastra";
+import type { BriefPayload, CaseOverlay, SignalPayload } from "@mizan/shared";
 
-/** Minimal placeholder — Phase 2 expands with signal-specific evidence fields. */
-type SignalPayload = Record<string, unknown>;
+export type { SignalPayload } from "@mizan/shared";
+
+/**
+ * Single source of truth for the `reviewer_actions.action` enum.
+ *
+ * Drizzle's column type and the shared `ReviewerActionSchema` (HTTP
+ * route validation) both reference this tuple so a future enum-value
+ * addition lands in one place — and a divergence between the column
+ * and the route validator is impossible at compile time.
+ */
+export const REVIEWER_ACTION_VALUES = [
+  "APPROVE",
+  "ESCALATE",
+  "REQUEST_DOCS",
+  "BLOCK",
+  "OVERRIDE",
+] as const;
+
+export type ReviewerActionValue = (typeof REVIEWER_ACTION_VALUES)[number];
 
 export const cases = sqliteTable(
   "cases",
@@ -39,6 +53,7 @@ export const cases = sqliteTable(
         "SUSPENDED_HITL",
         "READY_FOR_REVIEW",
         "ACTIONED",
+        "FAILED",
       ] as const,
     })
       .notNull()
@@ -117,7 +132,16 @@ export const signals = sqliteTable(
       .notNull()
       .$defaultFn(() => new Date()),
   },
-  (table) => [index("signals_case_run_idx").on(table.case_id, table.run_id)],
+  /**
+   * `signals_case_run_type_uniq` is a covering composite index whose
+   * leading prefix `(case_id, run_id)` already serves the case+run
+   * lookup pattern. A separate `signals_case_run_idx` would only add
+   * write-amplification on every upsertSignal call without buying any
+   * read path SQLite cannot already satisfy.
+   */
+  (table) => [
+    uniqueIndex("signals_case_run_type_uniq").on(table.case_id, table.run_id, table.signal_type),
+  ],
 );
 
 export const reviewer_actions = sqliteTable(
@@ -133,9 +157,7 @@ export const reviewer_actions = sqliteTable(
     reviewer_id: text("reviewer_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    action: text("action", {
-      enum: ["APPROVE", "ESCALATE", "REQUEST_DOCS", "BLOCK", "OVERRIDE"] as const,
-    }).notNull(),
+    action: text("action", { enum: REVIEWER_ACTION_VALUES }).notNull(),
     rationale: text("rationale").notNull(),
     acted_at: integer("acted_at", { mode: "timestamp_ms" })
       .notNull()

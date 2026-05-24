@@ -22,14 +22,45 @@ function parseResponseMap(serializedMap?: string): MockResponseMap {
   return MockResponseMapSchema.parse(JSON.parse(serializedMap));
 }
 
+/**
+ * Resolves a canned response by `schemaName`. Lookup order:
+ *   1. Dotted form (`<step>.<role>`) — the internal convention used
+ *      throughout `runStructuredLlm` and the fixture maps. Tried
+ *      first because that's the canonical key shape, and trying it
+ *      first means a sanitized name that legitimately contains
+ *      underscores still resolves cleanly without the dot rewrite
+ *      colliding with the underscore.
+ *   2. The raw sanitized form as received from the provider wire
+ *      (`<step>_<role>`), in case a fixture was keyed against the
+ *      OpenAI-regex-safe shape directly.
+ *   3. `default` — catch-all for tests that don't care which schema
+ *      fired.
+ */
 function lookupResponse(map: MockResponseMap, schemaName: string | undefined): JsonValue {
-  if (schemaName && schemaName in map) {
-    const hit = map[schemaName];
-    if (hit !== undefined) return hit;
+  if (schemaName) {
+    const dotted = schemaName.replace(/_/g, ".");
+    const viaDotted = map[dotted];
+    if (viaDotted !== undefined) return viaDotted;
+    const direct = map[schemaName];
+    if (direct !== undefined) return direct;
   }
   const fallback = map["default"];
   if (fallback !== undefined) return fallback;
-  throw new Error(`mock provider: no canned response for schema ${schemaName ?? "missing"}`);
+  throw new MissingMockResponseError(schemaName);
+}
+
+/**
+ * Thrown by the test-only `mockProvider` when no canned response is registered
+ * for a given `schemaName`. Consumers use `instanceof` identity matching to
+ * distinguish this from real LLM provider errors.
+ */
+export class MissingMockResponseError extends Error {
+  readonly schemaName: string | undefined;
+  constructor(schemaName: string | undefined) {
+    super(`mock provider: no canned response for schema ${schemaName ?? "missing"}`);
+    this.name = "MissingMockResponseError";
+    this.schemaName = schemaName;
+  }
 }
 
 function schemaNameFromOptions(options: LanguageModelV3CallOptions): string | undefined {

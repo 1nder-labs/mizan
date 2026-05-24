@@ -1,12 +1,12 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { embed, embedMany, type EmbeddingModel } from "ai";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 
 const EMBEDDING_MODEL_ID = "text-embedding-3-small";
 
 export type EmbeddingEnv = Pick<
   CloudflareBindings,
-  "OPENAI_API_KEY" | "MOCK_EMBEDDINGS" | "MOCK_LLM_RESPONSES"
+  "OPENAI_API_KEY" | "MOCK_EMBEDDINGS" | "MOCK_LLM_RESPONSES" | "MOCK_PROVIDERS_ALLOWED"
 >;
 
 export function getEmbeddingModel(env: { readonly OPENAI_API_KEY?: string }): EmbeddingModel {

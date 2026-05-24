@@ -6,24 +6,9 @@
  * Requires admin user from `bun run db:seed` and applied migrations.
  */
 
-import { CaseOverlaySchema } from "@mizan/mastra";
+import { CaseOverlaySchema, SeedCaseSchema, type SeedCase } from "@mizan/shared";
 import { z } from "zod";
 import { SEED_CASE_FILES, seedJsonPath } from "./seed-helpers.ts";
-
-const SeedFileSchema = z.object({
-  id: z.string(),
-  status: z.string(),
-  category: z.string(),
-  geography: z.string(),
-  claimed_zakat_category: z.string(),
-  organizer_name: z.string(),
-  story: z.string(),
-  r2_keys: z.object({
-    creator_id: z.string(),
-    bank_statement: z.string(),
-    category_doc: z.string(),
-  }),
-});
 
 const AdminLookupSchema = z.array(z.object({ results: z.array(z.object({ id: z.string() })) }));
 
@@ -60,11 +45,12 @@ function sqlEscape(value: string): string {
   return value.replace(/'/g, "''");
 }
 
-async function seedCase(seed: z.infer<typeof SeedFileSchema>, adminId: string): Promise<void> {
+async function seedCase(seed: SeedCase, adminId: string): Promise<void> {
   const overlay = CaseOverlaySchema.parse({
     story: seed.story,
     organizer_name: seed.organizer_name,
     r2_keys: seed.r2_keys,
+    ...(seed.vouching_narrative ? { vouching_narrative: seed.vouching_narrative } : {}),
   });
   const overlayJson = sqlEscape(JSON.stringify(overlay));
   const sql = `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
@@ -87,6 +73,6 @@ const adminId = await fetchAdminUserId();
 
 for (const filename of SEED_CASE_FILES) {
   const text = await Bun.file(seedJsonPath(filename)).text();
-  const seed = SeedFileSchema.parse(JSON.parse(text));
+  const seed = SeedCaseSchema.parse(JSON.parse(text));
   await seedCase(seed, adminId);
 }

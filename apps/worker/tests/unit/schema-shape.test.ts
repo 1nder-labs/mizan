@@ -15,9 +15,9 @@ import { expectTypeOf } from "expect-type";
 import type { Brief, Case, ReviewerAction, Signal } from "@mizan/db";
 
 describe("Case schema shape", () => {
-  it("status field carries the 6-value literal union", () => {
+  it("status field carries the 7-value literal union", () => {
     expectTypeOf<Case["status"]>().toEqualTypeOf<
-      "DRAFT" | "QUEUED" | "RUNNING" | "SUSPENDED_HITL" | "READY_FOR_REVIEW" | "ACTIONED"
+      "DRAFT" | "QUEUED" | "RUNNING" | "SUSPENDED_HITL" | "READY_FOR_REVIEW" | "ACTIONED" | "FAILED"
     >();
   });
 

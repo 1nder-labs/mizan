@@ -1,5 +1,5 @@
 import type { RequestContext } from "@mastra/core/di";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import {
   MIZAN_CTX_KEY,
   MIZAN_ENV_KEY,
@@ -7,10 +7,38 @@ import {
   type MizanRuntimeContext,
 } from "../observability/runtime-context.ts";
 
-function isCloudflareBindings(value: unknown): value is CloudflareBindings {
+/**
+ * Required binding handles the Mastra runtime expects on every
+ * request. Validated separately from env-var fields because a missing
+ * handle (KV, R2, queue, vectorize, fetcher) almost always means a
+ * `wrangler.jsonc` regression — surfacing the gap here, at the
+ * boundary, prevents downstream `cannot read 'put' of undefined`
+ * crashes deep inside a step's persistence path.
+ */
+const REQUIRED_BINDING_KEYS = [
+  "DB",
+  "KV",
+  "R2_BUCKET",
+  "VECTORIZE",
+  "BRIEF_QUEUE",
+  "ASSETS",
+] as const;
+
+const REQUIRED_STRING_ENV_KEYS = ["DEFAULT_LLM_PROVIDER", "LANGFUSE_HOST"] as const;
+
+export function isCloudflareBindings(value: unknown): value is CloudflareBindings {
   if (typeof value !== "object" || value === null) return false;
-  const dbBinding = Object.getOwnPropertyDescriptor(value, "DB")?.value;
-  return typeof dbBinding === "object" && dbBinding !== null;
+  for (const key of REQUIRED_BINDING_KEYS) {
+    if (!(key in value)) return false;
+    const binding = Object.getOwnPropertyDescriptor(value, key)?.value;
+    if (typeof binding !== "object" || binding === null) return false;
+  }
+  for (const key of REQUIRED_STRING_ENV_KEYS) {
+    if (!(key in value)) return false;
+    const envValue = Object.getOwnPropertyDescriptor(value, key)?.value;
+    if (typeof envValue !== "string") return false;
+  }
+  return true;
 }
 
 /** Reads Cloudflare bindings from the Mastra request context. */

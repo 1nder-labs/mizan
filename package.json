@@ -33,13 +33,15 @@
     "auth:generate": "bun --filter @mizan/db auth:generate"
   },
   "devDependencies": {
+    "@mizan/shared": "workspace:*",
     "@socketsecurity/bun-security-scanner": "1.1.2",
     "@types/bun": "1.3.13",
     "knip": "6.12.0",
     "lefthook": "2.1.6",
     "oxfmt": "0.48.0",
     "oxlint": "1.63.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "zod": "4.4.3"
   },
   "overrides": {
     "drizzle-orm": "0.45.2",

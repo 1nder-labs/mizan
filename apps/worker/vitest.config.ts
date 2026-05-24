@@ -12,6 +12,17 @@ export default defineConfig({
             wrangler: { configPath: "./wrangler.jsonc" },
             miniflare: {
               assets: { binding: "ASSETS", directory: "." },
+              /**
+               * Production fail-closed guard for the mock LLM /
+               * embedding providers. Tests run with the flag set so
+               * `resolveLanguageModel` enters the mock branch;
+               * production `wrangler deploy` never sets it, so a
+               * stray `MOCK_LLM_RESPONSES` cannot accidentally
+               * activate mock replay in prod.
+               */
+              bindings: {
+                MOCK_PROVIDERS_ALLOWED: "1",
+              },
             },
           }),
         ],

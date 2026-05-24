@@ -79,11 +79,23 @@ async function streamBriefResponse(
   } finally {
     c.req.raw.signal.removeEventListener("abort", onAbort);
     if (c.req.raw.signal.aborted) {
-      await restoreDraft(c.env, caseId);
+      await setCaseStatus(c.env, caseId, "DRAFT");
     }
   }
 }
 
+/**
+ * Pre-stream POST handler for `/api/cases/:id/brief`. Errors thrown
+ * before SSE headers go out are caught here, the case is flipped to
+ * FAILED so it surfaces in operator queries for stuck / broken cases,
+ * and the response is redacted to a stable error envelope — the
+ * underlying message stays in worker logs (Cloudflare observability
+ * captures the throw) so on-call sees the failure without leaking
+ * workflow internals to the reviewer. The producer guard accepts
+ * FAILED as a retry-allowed source status, so the next POST simply
+ * grabs a fresh runId. Mid-stream failures take the SSE error-event
+ * path instead and never reach this catch.
+ */
 async function handleBriefPost(c: BriefContext): Promise<Response> {
   const caseId = c.req.param("id");
   if (!caseId) return c.json({ error: "case id missing" }, 400);
@@ -92,9 +104,13 @@ async function handleBriefPost(c: BriefContext): Promise<Response> {
   try {
     return await streamBriefResponse(c, caseId, runId, caseRow);
   } catch (error) {
-    await restoreDraft(c.env, caseId);
-    const message = error instanceof Error ? error.message : "workflow failed";
-    return c.json({ error: message }, 500);
+    await setCaseStatus(c.env, caseId, "FAILED");
+    console.error(
+      `[brief] workflow failed (case_id=${caseId} run_id=${runId}): ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return c.json({ error: "workflow_failed", case_id: caseId, run_id: runId }, 500);
   }
 }
 
@@ -105,10 +121,17 @@ export const caseRoutes = new Hono<{
   .use("*", requireRole(["reviewer", "admin"]))
   .post("/:id/brief", idempotencyKey, producerGuard, handleBriefPost);
 
-async function restoreDraft(env: CloudflareBindings, caseId: string): Promise<void> {
+/**
+ * Updates `cases.status` on the request-boundary failure paths.
+ * Abort (client disconnect) → DRAFT so the reviewer can retry.
+ * Pre-stream throw → FAILED so the row surfaces in operator queries
+ * for stuck / broken cases instead of looking like a fresh draft.
+ */
+async function setCaseStatus(
+  env: CloudflareBindings,
+  caseId: string,
+  status: "DRAFT" | "FAILED",
+): Promise<void> {
   const db = makeDb(env.DB);
-  await db
-    .update(cases)
-    .set({ status: "DRAFT", updated_at: new Date() })
-    .where(eq(cases.id, caseId));
+  await db.update(cases).set({ status, updated_at: new Date() }).where(eq(cases.id, caseId));
 }

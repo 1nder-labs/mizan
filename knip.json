@@ -5,7 +5,7 @@
   "workspaces": {
     ".": {
       "entry": ["scripts/*.ts", "scripts/lib/*.ts"],
-      "ignoreDependencies": ["@socketsecurity/bun-security-scanner", "zod", "@mizan/mastra"]
+      "ignoreDependencies": ["@socketsecurity/bun-security-scanner"]
     },
     "apps/worker": {
       "entry": ["tests/**/*.test.ts"],
@@ -18,10 +18,7 @@
     "packages/db": {
       "ignoreDependencies": ["better-auth"]
     },
-    "packages/mastra": {
-      "ignore": ["src/test/**/*"],
-      "ignoreDependencies": ["@mizan/worker"]
-    },
+    "packages/mastra": {},
     "packages/shared": {},
     "packages/eval": {
       "entry": ["src/**/*.eval.ts"]

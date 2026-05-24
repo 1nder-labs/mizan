@@ -96,6 +96,26 @@ describe("producerGuard integration", () => {
     expect(res.status).toBe(409);
   });
 
+  it("returns 200 and grants a fresh runId when retrying a FAILED case", async () => {
+    const caseId = crypto.randomUUID();
+    await insertCase(caseId, "FAILED", reviewerId);
+    const previousRunId = crypto.randomUUID();
+    await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
+      .bind(previousRunId, caseId)
+      .run();
+    const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
+    expect(res.status).toBe(200);
+    const body: { runId?: string; caseId?: string } = await res.json();
+    expect(body).toMatchObject({ caseId });
+    expect(typeof body.runId).toBe("string");
+    expect(body.runId).not.toBe(previousRunId);
+    const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(row?.status).toBe("RUNNING");
+    expect(row?.current_run_id).toBe(body.runId);
+  });
+
   it("allows exactly one winner in a concurrent race", async () => {
     const caseId = crypto.randomUUID();
     await insertCase(caseId, "DRAFT", reviewerId);

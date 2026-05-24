@@ -28,14 +28,11 @@
 
     "paths": {
       "@mizan/db": ["./packages/db/src/index.ts"],
-      "@mizan/db/*": ["./packages/db/src/*"],
       "@mizan/mastra": ["./packages/mastra/src/index.ts"],
-      "@mizan/mastra/*": ["./packages/mastra/src/*"],
+      "@mizan/mastra/testing": ["./packages/mastra/src/testing.ts"],
       "@mizan/shared": ["./packages/shared/src/index.ts"],
-      "@mizan/shared/*": ["./packages/shared/src/*"],
-      "@mizan/eval": ["./packages/eval/src/index.ts"],
-      "@mizan/eval/*": ["./packages/eval/src/*"],
-      "@mizan/worker/env": ["./apps/worker/src/env.ts"]
+      "@mizan/shared/testing": ["./packages/shared/src/testing.ts"],
+      "@mizan/eval": ["./packages/eval/src/index.ts"]
     }
   }
 }

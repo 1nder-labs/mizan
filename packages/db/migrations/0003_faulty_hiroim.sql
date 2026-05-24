@@ -1,0 +1,1 @@
+DROP INDEX `signals_case_run_idx`;

@@ -5,6 +5,7 @@
     "": {
       "name": "mizan",
       "devDependencies": {
+        "@mizan/shared": "workspace:*",
         "@socketsecurity/bun-security-scanner": "1.1.2",
         "@types/bun": "1.3.13",
         "knip": "6.12.0",
@@ -12,6 +13,7 @@
         "oxfmt": "0.48.0",
         "oxlint": "1.63.0",
         "typescript": "6.0.3",
+        "zod": "4.4.3",
       },
     },
     "apps/web": {
@@ -68,13 +70,13 @@
       "name": "@mizan/db",
       "version": "0.0.0",
       "dependencies": {
+        "@mizan/shared": "workspace:*",
         "drizzle-orm": "0.45.2",
         "drizzle-zod": "0.8.3",
         "zod": "4.4.3",
       },
       "devDependencies": {
         "@better-auth/cli": "1.4.22",
-        "@mizan/mastra": "workspace:*",
         "better-auth": "1.6.9",
         "drizzle-kit": "0.31.10",
         "typescript": "6.0.3",
@@ -84,9 +86,8 @@
       "name": "@mizan/eval",
       "version": "0.0.0",
       "devDependencies": {
-        "@cloudflare/workers-types": "catalog:",
         "@mizan/mastra": "workspace:*",
-        "@mizan/worker": "workspace:*",
+        "@mizan/shared": "workspace:*",
         "ai": "6.0.175",
         "typescript": "6.0.3",
         "vitest": "4.1.5",
@@ -100,7 +101,6 @@
         "@ai-sdk/anthropic": "3.0.75",
         "@ai-sdk/openai": "3.0.62",
         "@ai-sdk/provider": "3.0.10",
-        "@mastra/ai-sdk": "1.4.1",
         "@mastra/cloudflare-d1": "1.0.5",
         "@mastra/core": "1.32.1",
         "@mastra/langfuse": "1.2.0",
@@ -120,7 +120,11 @@
     "packages/shared": {
       "name": "@mizan/shared",
       "version": "0.0.0",
+      "dependencies": {
+        "zod": "4.4.3",
+      },
       "devDependencies": {
+        "@cloudflare/workers-types": "catalog:",
         "typescript": "6.0.3",
       },
     },
@@ -1720,8 +1724,6 @@
     "@ai-sdk/ui-utils-v5/@ai-sdk/provider": ["@ai-sdk/provider@1.1.3", "", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-qZMxYJ0qqX/RfnuIaab+zp8UAeJn/ygXXAffR5I4N0n1IrvA6qBsjc8hXLmBiMV2zoXlifkacF7sEFnYnjBcqg=="],
 
     "@ai-sdk/ui-utils-v5/@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@2.2.8", "", { "dependencies": { "@ai-sdk/provider": "1.1.3", "nanoid": "^3.3.8", "secure-json-parse": "^2.7.0" }, "peerDependencies": { "zod": "^3.23.8" } }, "sha512-fqhG+4sCVv8x7nFzYnFo19ryhAa3w096Kmc3hWxMQfW/TubPOmt3A6tYZhl4mUfQWWQMsuSkLrtjlWuXBVSGQA=="],
-
-    "@ai-sdk/ui-utils-v5/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
     "@babel/core/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
 

@@ -16,6 +16,3 @@ export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     z.record(z.string(), JsonValueSchema),
   ]),
 );
-
-/** String-keyed map of JSON-serializable claim values. */
-export const JsonRecordSchema = z.record(z.string(), JsonValueSchema);

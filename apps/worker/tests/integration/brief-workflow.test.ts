@@ -6,8 +6,12 @@ import { readFileSync } from "node:fs";
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import { responsesForCaseIndex, SEED_CASE_IDS, serializeMockResponses } from "@mizan/mastra";
-import type { CloudflareBindings } from "../../src/env.ts";
+import { BriefPayloadSchema } from "@mizan/shared";
+import {
+  responsesForCaseIndex,
+  SEED_CASE_IDS,
+  serializeMockResponses,
+} from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 
 const BASE = "http://localhost";
@@ -70,10 +74,6 @@ async function loadSeed(filename: string): Promise<SeedJson> {
     import.meta.url,
   ).pathname;
   return JSON.parse(readFileSync(path, "utf8")) as SeedJson;
-}
-
-function workerEnv(): CloudflareBindings {
-  return env as CloudflareBindings;
 }
 
 async function seedCases(adminUserId: string): Promise<void> {
@@ -142,7 +142,7 @@ describe("brief workflow integration", () => {
   it.each(SEED_CASE_IDS.map((id, index) => [id, index] as const))(
     "case %s completes workflow and persists brief",
     async (caseId, index) => {
-      workerEnv().MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(index));
+      env.MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(index));
       const res = await exports.default.fetch(
         new Request(`${BASE}/api/cases/${caseId}/brief`, {
           method: "POST",
@@ -157,10 +157,41 @@ describe("brief workflow integration", () => {
       const sse = await drainSse(res);
       expect(sse.length).toBeGreaterThan(0);
 
-      const briefRow = await env.DB.prepare("SELECT id FROM briefs WHERE case_id = ?")
+      const briefRow = await env.DB.prepare(
+        "SELECT id, run_id, payload_json FROM briefs WHERE case_id = ?",
+      )
         .bind(caseId)
-        .first();
+        .first<{ id: string; run_id: string; payload_json: string }>();
       expect(briefRow).toBeTruthy();
+      /*
+       * Documentary-seed contract (PR test plan item 1): every brief
+       * persists with `recommendation === "READY_FOR_REVIEW"` and
+       * `verification_path === "documentary"`. Asserting on the parsed
+       * payload (not just the row existing) catches a class of
+       * regressions where the brief lands with a different
+       * recommendation but the workflow still finishes successfully.
+       */
+      const brief = BriefPayloadSchema.parse(JSON.parse(briefRow?.payload_json ?? "{}"));
+      expect(brief.recommendation).toBe("READY_FOR_REVIEW");
+      expect(brief.verification_path).toBe("documentary");
+
+      /**
+       * Phase-4 signal contract: every workflow run emits exactly three
+       * signal rows — `photo_dup`, `story_coherence`, `vouching_chain`
+       * — scoped to the brief's `run_id`. Documentary cases ride the
+       * same parallel signal block as community-vouching cases, so
+       * regressing the upsert wiring in photoSignal or storyCoherence
+       * would manifest here as a row-count drift. Catches a class of
+       * bug Review 5 flagged: docs E2E previously skipped Phase-4
+       * checks and broken signal wiring would have shipped silently.
+       */
+      const signalRows = await env.DB.prepare(
+        "SELECT signal_type FROM signals WHERE case_id = ? AND run_id = ?",
+      )
+        .bind(caseId, briefRow?.run_id)
+        .all<{ signal_type: string }>();
+      const types = signalRows.results.map((row) => row.signal_type).sort();
+      expect(types).toEqual(["photo_dup", "story_coherence", "vouching_chain"]);
 
       const caseRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
         .bind(caseId)
@@ -223,7 +254,7 @@ describe("brief workflow integration", () => {
       )
       .run();
 
-    workerEnv().MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(0));
+    env.MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(0));
     const headers = {
       Cookie: adminCookie,
       Accept: "text/event-stream",

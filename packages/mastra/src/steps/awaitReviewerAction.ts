@@ -1,5 +1,6 @@
 import { createStep } from "@mastra/core/workflows";
-import { BriefPayloadSchema, PartialBriefStateSchema } from "../schemas/brief.ts";
+import { BriefPayloadSchema } from "@mizan/shared";
+import { PartialBriefStateSchema } from "../schemas/partial-brief-state.ts";
 
 /**
  * Phase 7 replaces this pass-through with `.suspend()` HITL.

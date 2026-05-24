@@ -2,7 +2,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 
 export type LlmProvider = "anthropic" | "openai" | "openrouter";
 
@@ -20,7 +20,7 @@ interface ProviderModelMap {
 
 const PROVIDER_DEFAULTS: Record<LlmProvider, ProviderModelMap> = {
   anthropic: { extract: "claude-haiku-4-5", compose: "claude-opus-4-7" },
-  openai: { extract: "gpt-4o-mini", compose: "gpt-4o" },
+  openai: { extract: "gpt-5.4-mini-2026-03-17", compose: "gpt-5.4-mini-2026-03-17" },
   openrouter: {
     extract: "anthropic/claude-3.5-haiku",
     compose: "anthropic/claude-3.5-sonnet",

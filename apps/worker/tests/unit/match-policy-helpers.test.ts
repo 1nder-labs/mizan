@@ -4,8 +4,8 @@ import {
   parseMatchToCitation,
   resolveExcerptMap,
   resolvePolicySource,
-} from "@mizan/mastra/steps/matchPolicy/helpers.ts";
-import { loadPolicyCorpora } from "@mizan/mastra/corpus/load.ts";
+} from "@mizan/mastra/testing";
+import { loadPolicyCorpora } from "@mizan/mastra";
 
 describe("matchPolicy helpers", () => {
   it("buildPolicyQuery joins non-empty fields", () => {

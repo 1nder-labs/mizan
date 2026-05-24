@@ -1,23 +1,67 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
-import { withMastra } from "@mastra/ai-sdk";
-import type { CloudflareBindings } from "@mizan/worker/env";
+import type { CloudflareBindings } from "@mizan/shared";
 import {
   embedPolicyText,
   embedPolicyTexts,
   type EmbeddingEnv,
 } from "../models/embedding-factory.ts";
 import { getDefaultModel, getModel, type ModelConfig, type ModelKind } from "../models/factory.ts";
-import { mockProvider } from "../test/mock-provider.ts";
 
-type WithMastraOpts = Parameters<typeof withMastra>[1];
+/** Factory for a mock LanguageModel — registered by `@mizan/mastra/testing`. */
+type MockLanguageModelFactory = (serializedMap: string) => LanguageModelV3;
 
-const MOCK_EMBEDDING_DIMENSION = 1536;
+/** Factory for a deterministic embedding — registered by `@mizan/mastra/testing`. */
+type MockEmbeddingFactory = (text: string) => number[];
+
+interface MockProviderRegistry {
+  readonly mockLanguageModel: MockLanguageModelFactory | null;
+  readonly mockEmbedding: MockEmbeddingFactory | null;
+}
+
+/**
+ * Module-private registry; written ONCE by `registerTestProviders` and
+ * read by `resolveLanguageModel` / `resolve*Embedding` below. Freezing
+ * after the first set call enforces the "test-only, configured at
+ * import time" contract: the resolver branches on env-gated mock
+ * variables, so the registry never needs to change at runtime, and a
+ * second call from a test file that forgot it would otherwise mask the
+ * symptom of a duplicate test bootstrap.
+ */
+let registry: MockProviderRegistry = { mockLanguageModel: null, mockEmbedding: null };
+let registryFrozen = false;
+
+/**
+ * Registers test-only mock providers. Production never calls this — only
+ * `@mizan/mastra/testing` does, exactly once as a side-effect of being
+ * imported. Throws on a second call so divergent registrations cannot
+ * silently overwrite each other.
+ */
+export function registerTestProviders(opts: {
+  readonly mockLanguageModel?: MockLanguageModelFactory;
+  readonly mockEmbedding?: MockEmbeddingFactory;
+}): void {
+  if (registryFrozen) {
+    throw new Error(
+      "registerTestProviders: test providers already registered for this isolate — import @mizan/mastra/testing exactly once per process",
+    );
+  }
+  registry = {
+    mockLanguageModel: opts.mockLanguageModel ?? null,
+    mockEmbedding: opts.mockEmbedding ?? null,
+  };
+  registryFrozen = true;
+}
+
+/** Test-only escape hatch. Used by the registry-isolation unit test to reset between cases. */
+export function __resetTestProvidersForTesting(): void {
+  registry = { mockLanguageModel: null, mockEmbedding: null };
+  registryFrozen = false;
+}
 
 export interface ResolveLanguageModelArgs {
   readonly env: CloudflareBindings;
   readonly kind: ModelKind;
   readonly override?: ModelConfig;
-  readonly withMastraOpts?: WithMastraOpts;
 }
 
 export interface ResolvedLanguageModel {
@@ -25,16 +69,37 @@ export interface ResolvedLanguageModel {
   readonly config: ModelConfig;
 }
 
+/**
+ * Resolves a LanguageModelV3 for the given call kind. Returns the bare
+ * AI SDK model — `withMastra(raw, opts)` is intentionally NOT wrapped
+ * here because we use neither input/output processors nor thread
+ * memory at the extractor / signal / compose call sites, and the
+ * wrapper mangles AI SDK 6 image content parts on the way to OpenAI's
+ * Responses API. Telemetry rides on `experimental_telemetry` on every
+ * `generateText` call in `runStructuredLlm`, not on the model wrapper.
+ * Re-introduce `withMastra` only when a call site actually needs a
+ * processor or thread memory.
+ */
 export function resolveLanguageModel(args: ResolveLanguageModelArgs): ResolvedLanguageModel {
-  if (args.env.MOCK_LLM_RESPONSES) {
+  if (mockProvidersAllowed(args.env) && args.env.MOCK_LLM_RESPONSES && registry.mockLanguageModel) {
     return {
-      model: mockProvider(args.env.MOCK_LLM_RESPONSES),
+      model: registry.mockLanguageModel(args.env.MOCK_LLM_RESPONSES),
       config: args.override ?? { provider: "anthropic", model: "mock-llm" },
     };
   }
   const config = args.override ?? getDefaultModel(args.env, args.kind);
-  const raw = getModel(config, args.env);
-  return { model: withMastra(raw, args.withMastraOpts ?? {}), config };
+  return { model: getModel(config, args.env), config };
+}
+
+/**
+ * Production fail-closed guard. The mock branch only fires when the
+ * caller explicitly opted in via `MOCK_PROVIDERS_ALLOWED="1"`. Both the
+ * `MOCK_LLM_RESPONSES` body AND the `registry.mockLanguageModel`
+ * factory must also be present — defence in depth so a stray env-var
+ * smuggled into production cannot replay attacker-controlled JSON.
+ */
+function mockProvidersAllowed(env: { readonly MOCK_PROVIDERS_ALLOWED?: string }): boolean {
+  return env.MOCK_PROVIDERS_ALLOWED === "1";
 }
 
 export async function resolveQueryEmbedding(
@@ -42,7 +107,9 @@ export async function resolveQueryEmbedding(
   value: string,
   opts?: { readonly abortSignal?: AbortSignal },
 ): Promise<number[]> {
-  if (shouldMockEmbeddings(env)) return deterministicEmbedding(value);
+  if (shouldMockEmbeddings(env) && registry.mockEmbedding) {
+    return registry.mockEmbedding(value);
+  }
   return embedPolicyText({
     env,
     value,
@@ -55,25 +122,16 @@ export async function resolveBatchEmbeddings(
   values: readonly string[],
 ): Promise<number[][]> {
   if (values.length === 0) return [];
-  if (shouldMockEmbeddings(env)) return values.map((value) => deterministicEmbedding(value));
+  if (shouldMockEmbeddings(env) && registry.mockEmbedding) {
+    const fn = registry.mockEmbedding;
+    return values.map((value) => fn(value));
+  }
   return embedPolicyTexts({ env, values });
 }
 
 function shouldMockEmbeddings(env: EmbeddingEnv): boolean {
+  if (!mockProvidersAllowed(env)) return false;
   return Boolean(env.MOCK_EMBEDDINGS) || Boolean(env.MOCK_LLM_RESPONSES && !env.OPENAI_API_KEY);
-}
-
-function deterministicEmbedding(text: string): number[] {
-  const vector = Array.from<number>({ length: MOCK_EMBEDDING_DIMENSION }).fill(0);
-  let seed = 0;
-  for (let i = 0; i < text.length; i += 1) {
-    seed = (seed * 31 + text.charCodeAt(i)) >>> 0;
-  }
-  for (let i = 0; i < MOCK_EMBEDDING_DIMENSION; i += 1) {
-    seed = (seed * 1664525 + 1013904223 + i) >>> 0;
-    vector[i] = (seed % 1000) / 1000 - 0.5;
-  }
-  return vector;
 }
 
 export type { EmbeddingEnv };

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "bun:test";
+import { CreatorIdSchema } from "@mizan/mastra";
 import {
-  CreatorIdSchema,
+  case001Responses,
+  MissingMockResponseError,
   mockProvider,
   serializeMockResponses,
-  case001Responses,
-} from "@mizan/mastra";
+} from "@mizan/mastra/testing";
 
 describe("mockProvider + extractor schemas", () => {
   it("replays canned creator-id extraction keyed by schemaName", async () => {
@@ -21,13 +22,18 @@ describe("mockProvider + extractor schemas", () => {
     expect(parsed.full_name).toBe("Mizan Demo Patient");
   });
 
-  it("throws when schema key is missing and no default is provided", async () => {
+  it("throws MissingMockResponseError when schema key is missing and no default is provided", async () => {
     const model = mockProvider("{}");
-    await expect(
-      model.doGenerate({
+    let caught: unknown;
+    try {
+      await model.doGenerate({
         prompt: [{ role: "user", content: [{ type: "text", text: "extract" }] }],
         responseFormat: { type: "json", name: "missing.key" },
-      }),
-    ).rejects.toThrow("mock provider");
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(MissingMockResponseError);
+    expect((caught as MissingMockResponseError).schemaName).toBe("missing.key");
   });
 });
