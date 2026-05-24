@@ -1,5 +1,5 @@
 import { createStep } from "@mastra/core/workflows";
-import { cases, eq, makeDb } from "@mizan/db";
+import { makeDb, transitionCase } from "@mizan/db";
 import { getEnv } from "../runtime/context-accessors.ts";
 import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/partial-brief-state.ts";
 
@@ -39,14 +39,25 @@ export function buildCaseNotFoundError(caseId: string, runId: string): Error {
  * status could observe REQUEST_DOCS while the gate was about to flip
  * the recommendation to ESCALATE — and act on the wrong brief.
  *
- * Idempotent: a queue-redelivered run that already flipped status
- * re-writes the same value.
+ * Routes through the canonical `transitionCase` helper so the
+ * `current_run_id` pin and source-status guard protect against:
+ *   - a stale workflow completion overwriting a row that already
+ *     advanced under a NEWER run (producer guard claimed a fresh
+ *     runId);
+ *   - a DLQ-flipped FAILED row being silently flipped back to
+ *     READY_FOR_REVIEW by a late-arriving completion.
  *
- * Uses `.returning({ id })` and asserts at least one row was updated.
- * A silent no-op (e.g. case row deleted under us, wrong case_id, FK
- * skew between workflow state and persisted rows) would otherwise let
- * the workflow finish "successfully" while leaving the case stuck in
- * RUNNING — invisible to reviewers and to the queue retry logic.
+ * The transition only matches `status = 'RUNNING'`; any other
+ * terminal state means the row is no longer ours to advance, and we
+ * throw `buildCaseNotFoundError` so the queue retry / DLQ machinery
+ * sees the failure instead of silently completing.
+ *
+ * Idempotent within a run: a queue-redelivered run that already
+ * flipped status sees `status = 'READY_FOR_REVIEW'` and throws on
+ * the second attempt — the consumer's outer catch reverts the claim
+ * (which is a no-op because `revertClaim` only matches RUNNING) and
+ * retries; the next redelivery's `classifyRedelivery` returns
+ * `ack-terminal` and acks cleanly.
  */
 export const finalizeCaseStatus = createStep({
   id: "finalizeCaseStatus",
@@ -55,13 +66,13 @@ export const finalizeCaseStatus = createStep({
   execute: async ({ inputData, requestContext }) => {
     assertFinalizeCaseStatusInputs(inputData);
     const env = getEnv(requestContext);
-    const db = makeDb(env.DB);
-    const updated = await db
-      .update(cases)
-      .set({ status: "READY_FOR_REVIEW", updated_at: new Date() })
-      .where(eq(cases.id, inputData.caseId))
-      .returning({ id: cases.id });
-    if (updated.length === 0) {
+    const updated = await transitionCase(makeDb(env.DB), {
+      caseId: inputData.caseId,
+      runId: inputData.runId,
+      from: "RUNNING",
+      to: "READY_FOR_REVIEW",
+    });
+    if (!updated) {
       throw buildCaseNotFoundError(inputData.caseId, inputData.runId);
     }
     return inputData;

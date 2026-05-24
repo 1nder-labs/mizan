@@ -65,3 +65,5 @@ export {
 } from "./schemas/route-payloads.ts";
 
 export { SeedCaseSchema, type SeedCase } from "./schemas/seed-case.ts";
+
+export { BriefQueueMessageSchema, type BriefQueueMessage } from "./schemas/queue-message.ts";

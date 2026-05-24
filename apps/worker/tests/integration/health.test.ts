@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import worker from "../../src/index.ts";
 
 describe("GET /health", () => {
-  it("returns 200 with expected JSON body (unit style — direct worker.fetch)", async () => {
+  it("returns 200 with minimal JSON body (unit style — direct worker.fetch)", async () => {
     const ctx = createExecutionContext();
     const req = new Request("http://localhost/health");
     const res = await worker.fetch(req, env, ctx);
@@ -12,43 +12,16 @@ describe("GET /health", () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({
-      status: "ok",
-      runtime: "cloudflare-workers",
-    });
-    expect(body).toHaveProperty("bindings");
-    expect(body).toEqual(
-      expect.objectContaining({
-        bindings: expect.arrayContaining([
-          "DB",
-          "R2_BUCKET",
-          "VECTORIZE",
-          "KV",
-          "BRIEF_QUEUE",
-          "ASSETS",
-        ]),
-      }),
-    );
+    expect(body).toEqual({ status: "ok" });
+    expect(body).not.toHaveProperty("bindings");
+    expect(body).not.toHaveProperty("runtime");
   });
 
-  it("returns 200 (integration style — exports.default.fetch)", async () => {
+  it("returns 200 with minimal JSON body (integration style — exports.default.fetch)", async () => {
     const res = await exports.default.fetch("http://localhost/health");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual(
-      expect.objectContaining({
-        status: "ok",
-        runtime: "cloudflare-workers",
-        bindings: expect.arrayContaining([
-          "DB",
-          "R2_BUCKET",
-          "VECTORIZE",
-          "KV",
-          "BRIEF_QUEUE",
-          "ASSETS",
-        ]),
-      }),
-    );
+    expect(body).toEqual({ status: "ok" });
   });
 
   it("every Cloudflare binding is defined in env", () => {

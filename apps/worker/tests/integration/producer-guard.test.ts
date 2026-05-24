@@ -14,7 +14,7 @@ const BASE = "http://localhost";
 function makeApp() {
   return new Hono<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>().post(
     "/:id/brief",
-    producerGuard,
+    producerGuard("RUNNING"),
     (c) => c.json({ runId: c.get("runId"), caseId: c.get("caseRow").id }),
   );
 }
@@ -125,5 +125,60 @@ describe("producerGuard integration", () => {
     ]);
     const statuses = [first.status, second.status].sort();
     expect(statuses).toEqual([200, 409]);
+  });
+
+  it("target QUEUED on DRAFT case returns 200 and sets status QUEUED", async () => {
+    const queuedApp = new Hono<{
+      Bindings: CloudflareBindings;
+      Variables: ProducerVariables;
+    }>().post("/:id/brief", producerGuard("QUEUED"), (c) =>
+      c.json({ runId: c.get("runId"), status: c.get("caseRow").status }),
+    );
+    const caseId = crypto.randomUUID();
+    await insertCase(caseId, "DRAFT", reviewerId);
+    const res = await queuedApp.fetch(
+      new Request(`${BASE}/${caseId}/brief`, { method: "POST" }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    const body: { runId?: string; status?: string } = await res.json();
+    expect(body.status).toBe("QUEUED");
+    const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string }>();
+    expect(row?.status).toBe("QUEUED");
+  });
+
+  it("target QUEUED on RUNNING case returns 202 replay", async () => {
+    const queuedApp = new Hono<{
+      Bindings: CloudflareBindings;
+      Variables: ProducerVariables;
+    }>().post("/:id/brief", producerGuard("QUEUED"), (c) => c.json({ ok: true }));
+    const caseId = crypto.randomUUID();
+    await insertCase(caseId, "RUNNING", reviewerId);
+    const inFlightRunId = crypto.randomUUID();
+    await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
+      .bind(inFlightRunId, caseId)
+      .run();
+    const res = await queuedApp.fetch(
+      new Request(`${BASE}/${caseId}/brief`, { method: "POST" }),
+      env,
+    );
+    expect(res.status).toBe(202);
+    const body: { status?: string; run_id?: string; replay?: boolean } = await res.json();
+    expect(body).toEqual({ status: "RUNNING", run_id: inFlightRunId, replay: true });
+  });
+
+  it("409 body for target RUNNING on in-flight case does not leak the existing runId", async () => {
+    const caseId = crypto.randomUUID();
+    await insertCase(caseId, "RUNNING", reviewerId);
+    await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
+      .bind(crypto.randomUUID(), caseId)
+      .run();
+    const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
+    expect(res.status).toBe(409);
+    const body: Record<string, unknown> = await res.json();
+    expect(body).not.toHaveProperty("runId");
+    expect(body).not.toHaveProperty("run_id");
   });
 });

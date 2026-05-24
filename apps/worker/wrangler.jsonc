@@ -29,6 +29,13 @@
         "dead_letter_queue": "mizan-brief-jobs-dlq",
         "retry_delay": 30,
       },
+      {
+        "queue": "mizan-brief-jobs-dlq",
+        "max_batch_size": 1,
+        "max_batch_timeout": 5,
+        "max_concurrency": 1,
+        "max_retries": 1,
+      },
     ],
   },
   "assets": {
