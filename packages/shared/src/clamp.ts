@@ -1,7 +1,12 @@
 /**
  * Clamps an integer to [min, max]; truncates fractional values.
+ * Non-finite inputs (NaN, ±Infinity) collapse to `min` so a malformed
+ * LLM emission cannot smuggle a NaN through to persisted state. Pass-9
+ * review flagged this as a claimed-but-missing fix; the guard now
+ * actually lands.
  */
 export function clampInt(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, Math.trunc(value)));
 }
 

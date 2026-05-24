@@ -26,7 +26,7 @@ const REQUIRED_BINDING_KEYS = [
 
 const REQUIRED_STRING_ENV_KEYS = ["DEFAULT_LLM_PROVIDER", "LANGFUSE_HOST"] as const;
 
-function isCloudflareBindings(value: unknown): value is CloudflareBindings {
+export function isCloudflareBindings(value: unknown): value is CloudflareBindings {
   if (typeof value !== "object" || value === null) return false;
   for (const key of REQUIRED_BINDING_KEYS) {
     if (!(key in value)) return false;

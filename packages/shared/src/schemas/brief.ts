@@ -127,7 +127,10 @@ export const BriefPayloadSchema = z
       .describe(
         "1-2 sentence plain-text summary of the verified claims supporting the recommendation.",
       ),
-    confidence: z.number().describe("0-100 reviewer confidence integer."),
+    confidence: z
+      .number()
+      .finite()
+      .describe("0-100 reviewer confidence integer; non-finite values rejected at parse."),
     policy_citations: PolicyCitationSchema.array().default([]),
     drafted_organizer_message: DraftedOrganizerMessageSchema.optional(),
     forced_escalate_reason: z.string().optional(),

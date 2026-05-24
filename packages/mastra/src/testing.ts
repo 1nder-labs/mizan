@@ -96,6 +96,7 @@ export {
   decideDraftAction,
   type DraftDecision,
 } from "./steps/draftOrganizerMessage/prompt.ts";
+export { isCloudflareBindings } from "./runtime/context-accessors.ts";
 export { upsertSignal, type SignalUpsertInput } from "./steps/shared/upsertSignal.ts";
 export { updatePersistedBrief } from "./steps/shared/updateBrief.ts";
 export {
