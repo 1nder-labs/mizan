@@ -1,7 +1,7 @@
 import { createStep } from "@mastra/core/workflows";
 import type { VerificationPath } from "@mizan/shared";
 import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/partial-brief-state.ts";
-import type { CategoryDocsSchema } from "../schemas/extractions/category-docs.ts";
+import type { CategoryDocVariantSchema } from "../schemas/extractions/category-docs.ts";
 import type { BankStatementSchema } from "../schemas/extractions/bank-statement.ts";
 import type { CreatorIdSchema } from "../schemas/extractions/creator-id.ts";
 import type { z } from "zod";
@@ -19,7 +19,7 @@ export const DOCUMENTARY_MIN_CONFIDENCE = 60;
 
 type CreatorId = z.infer<typeof CreatorIdSchema>;
 type BankStatement = z.infer<typeof BankStatementSchema>;
-type CategoryDocs = z.infer<typeof CategoryDocsSchema>;
+type CategoryDocVariant = z.infer<typeof CategoryDocVariantSchema>;
 
 /**
  * Collapses extractor + vouching outputs into the canonical verification path.
@@ -56,17 +56,18 @@ function documentaryOrNone(state: PartialBriefState): VerificationPath {
   const bank = ext.extractBankStatement;
   const category = ext.extractCategoryDocs;
   if (!creator || !bank || !category) return "none";
+  const categoryVariant = category.doc;
   if (
     !meetsConfidenceFloor(creator) ||
     !meetsConfidenceFloor(bank) ||
-    !meetsConfidenceFloor(category)
+    !meetsConfidenceFloor(categoryVariant)
   ) {
     return "none";
   }
   if (
     !looksLikeRealCreatorId(creator) ||
     !looksLikeRealBank(bank) ||
-    !looksLikeRealCategory(category)
+    !looksLikeRealCategory(categoryVariant)
   ) {
     return "none";
   }
@@ -99,27 +100,19 @@ function looksLikeRealBank(bank: BankStatement): boolean {
   );
 }
 
-function looksLikeRealCategory(category: CategoryDocs): boolean {
-  switch (category.doc_kind) {
+function looksLikeRealCategory(variant: CategoryDocVariant): boolean {
+  switch (variant.doc_kind) {
     case "medical":
-      return isNonEmpty(category.patient_name) && isNonEmpty(category.provider_name);
+      return isNonEmpty(variant.patient_name) && isNonEmpty(variant.provider_name);
     case "school":
-      return isNonEmpty(category.student_name) && isNonEmpty(category.institution_name);
+      return isNonEmpty(variant.student_name) && isNonEmpty(variant.institution_name);
     case "org_registration":
       return (
-        isNonEmpty(category.org_name) &&
-        isNonEmpty(category.registration_number) &&
-        isNonEmpty(category.jurisdiction)
+        isNonEmpty(variant.org_name) &&
+        isNonEmpty(variant.registration_number) &&
+        isNonEmpty(variant.jurisdiction)
       );
-    default:
-      return assertExhaustive(category);
   }
-}
-
-/** Compile-time exhaustiveness guard for `looksLikeRealCategory`. */
-function assertExhaustive(value: never): false {
-  void value;
-  return false;
 }
 
 /**

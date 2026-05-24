@@ -79,7 +79,7 @@ async function streamBriefResponse(
   } finally {
     c.req.raw.signal.removeEventListener("abort", onAbort);
     if (c.req.raw.signal.aborted) {
-      await restoreDraft(c.env, caseId);
+      await setCaseStatus(c.env, caseId, "DRAFT");
     }
   }
 }
@@ -101,7 +101,7 @@ async function handleBriefPost(c: BriefContext): Promise<Response> {
   try {
     return await streamBriefResponse(c, caseId, runId, caseRow);
   } catch (error) {
-    await restoreDraft(c.env, caseId);
+    await setCaseStatus(c.env, caseId, "FAILED");
     console.error(
       `[brief] workflow failed (case_id=${caseId} run_id=${runId}): ${
         error instanceof Error ? error.message : String(error)
@@ -118,10 +118,17 @@ export const caseRoutes = new Hono<{
   .use("*", requireRole(["reviewer", "admin"]))
   .post("/:id/brief", idempotencyKey, producerGuard, handleBriefPost);
 
-async function restoreDraft(env: CloudflareBindings, caseId: string): Promise<void> {
+/**
+ * Updates `cases.status` on the request-boundary failure paths.
+ * Abort (client disconnect) → DRAFT so the reviewer can retry.
+ * Pre-stream throw → FAILED so the row surfaces in operator queries
+ * for stuck / broken cases instead of looking like a fresh draft.
+ */
+async function setCaseStatus(
+  env: CloudflareBindings,
+  caseId: string,
+  status: "DRAFT" | "FAILED",
+): Promise<void> {
   const db = makeDb(env.DB);
-  await db
-    .update(cases)
-    .set({ status: "DRAFT", updated_at: new Date() })
-    .where(eq(cases.id, caseId));
+  await db.update(cases).set({ status, updated_at: new Date() }).where(eq(cases.id, caseId));
 }

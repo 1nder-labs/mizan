@@ -22,6 +22,7 @@ const SAFE_COUNTRIES: ReadonlySet<string> = new Set([
   "US",
   "CA",
   "GB",
+  "UK",
   "AU",
   "NZ",
   "DE",

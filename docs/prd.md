@@ -536,7 +536,7 @@ _Other:_
   - `storyCoherence` — named-entity density + template-match against seeded corpus
   - `classifyVouchingChain` — discriminated-union zod schema: structure (none / individual-to-individual / individual-via-partner-org / org-direct) + partner_org_name + weakest_link_narrative
   - `computeVerificationPath` — deterministic predicate returning path classification. Vouching is the dominant signal: `institutional_vouching` (org partner), `community_vouching` (peer chain), or `none` when the LLM emits `structure="none"`. `documentary` is reachable only when vouching is explicitly `none` (or unset) AND every required extractor (creator ID, bank statement, category doc) is present at confidence ≥ 60. Placeholder/low-quality uploads therefore route to `none` instead of masking a high-risk case via successful key presence alone.
-  - `forcedEscalateGate` — pure TypeScript predicate after `composeBrief`: when `recommendation` not in (`ESCALATE`, `BLOCK`) AND `verification_path === "none"` AND `geography_tier` in (`AT_RISK`, `OFAC_ADJACENT`, `OFAC`) → forces recommendation to `ESCALATE`. AT_RISK is included as defense-in-depth: a no-verification case in a high-humanitarian-risk jurisdiction must reach a human reviewer even when no active sanctions program is in effect.
+  - `forcedEscalateGate` — pure TypeScript predicate after `composeBrief` and BEFORE `draftOrganizerMessage`: a case is auto-allowed iff `geography_tier === "SAFE"` OR (`verification_path === "documentary"` AND `geography_tier !== "OFAC"`). Everything else with an overridable recommendation (not already `ESCALATE` / `BLOCK`) forces to `ESCALATE` and sets `forced_escalate_reason`. Truth table (rows = path, columns = tier): `documentary` escalates only on `OFAC`; vouching paths (`institutional_vouching`, `community_vouching`) and `none` escalate on every non-SAFE tier. Vouching corroboration is organizer-controlled narrative (structurally circular against an adversarial LLM); documentary on OFAC still needs a manual SDN-list cross-check the AI cannot perform. The gate runs BEFORE `draftOrganizerMessage` so an OFAC + community-vouching `REQUEST_DOCS` case is overridden to `ESCALATE` before the draft LLM fires — `draftOrganizerMessage` then sees `ESCALATE` and short-circuits, saving a wasted call.
 - New step `draftOrganizerMessage` — generates the specific missing-evidence ask per LaunchGood policy
 - 3 community-vouching seeded cases at `src/seeds/community-vouching/*.json`:
   - Yemen family relief (community-vouching, OFAC-adjacent)
@@ -549,19 +549,28 @@ _Other:_
 
 **Acceptance criteria:**
 
-- case-008 (Gaza, `none` path, OFAC_ADJACENT geography) is forced to `ESCALATE` by `forcedEscalateGate`; case-006 and case-007 are not forced when a vouching path exists
-- All 3 community-vouching cases write one row per signal_type to the `signals` table, keyed by `(case_id, run_id, signal_type)` so retries are idempotent (3 signal types × 3 cases = 9 rows total when each runs to completion)
+- case-008 (Gaza, `none` path, OFAC_ADJACENT geography) is forced to `ESCALATE` by `forcedEscalateGate`
+- case-006 (Yemen, `community_vouching`, OFAC_ADJACENT) is also forced to `ESCALATE` per the tightened predicate — community-vouching corroboration is organizer-controlled, so any non-SAFE tier requires human validation
+- case-007 (Sudan, `institutional_vouching`, OFAC) is forced to `ESCALATE` — institutional partner-name corroboration is structurally circular, and OFAC tier additionally requires a manual SDN-list cross-check
+- All 3 community-vouching cases write one row per signal_type to the `signals` table, keyed by `(case_id, run_id, signal_type)` so retries are idempotent (3 signal types × 3 cases = 9 rows per successful run)
 - `briefs.payload_json` includes `verification_path` and `geography_tier` so reviewer UIs can audit gate inputs directly without parsing `forced_escalate_reason` prose
-- Brief explicitly says "no documentary verification path; trust = vouching strength" when applicable
+- `forced_escalate_reason` includes a path-specific phrase ("no verification chain", "community vouching insufficient", "institutional vouching insufficient", or "documentary evidence still requires manual OFAC SDN check") plus the `(path, tier, geography)` tuple so the reviewer can audit the override without re-running the predicate
 - Forced-ESCALATE rule unit-testable in isolation (no LLM dependency)
-- Drafted-organizer-message text names specific missing items per policy
+- Drafted-organizer-message text names specific missing items per policy (fires only on non-forced REQUEST_DOCS briefs — i.e., `geography_tier === "SAFE"` cases that compose with missing docs)
 
 **Implementation notes:**
 
-- `forcedEscalateGate` runs AFTER `composeBrief` and `draftOrganizerMessage`: when `brief.recommendation` is not in (`ESCALATE`, `BLOCK`) AND `classify.verification_path === "none"` AND `classify.geography_tier` is in (`AT_RISK`, `OFAC_ADJACENT`, `OFAC`), the step overrides `brief.recommendation` to `ESCALATE` and sets `forced_escalate_reason`. AI proposal + deterministic override = clean human/AI boundary signal in the demo video
-- Mocked reverse-image-search returns shape: `{ hits: Array<{ url: string; confidence: number }>; checked_at: string }`
-- Mocked AI-gen detection returns shape: `{ probability: enum, model: 'mock-v1' }` — clamp probability via post-parse helper
-- `classifyVouchingChain` uses discriminated-union zod schema so the `partner_org_name` field is required only when structure is `individual-via-partner-org` or `org-direct`
+- Workflow order is `composeBrief → forcedEscalateGate → draftOrganizerMessage → finalizeCaseStatus`. The gate is the deterministic safety net over the AI proposal; running it BEFORE the draft means an OFAC + non-documentary case escalates first and the draft step skips (saves the LLM call and prevents a transient reviewer-visible draft on an ESCALATE brief).
+- Canonical gate predicate: `auto-allowed = (geography_tier === "SAFE") || (verification_path === "documentary" && geography_tier !== "OFAC")`. `forceEscalate` returns the negation of `auto-allowed`, gated on `recommendation ∈ { READY_FOR_REVIEW, REQUEST_DOCS }`.
+- AI proposal + deterministic override = clean human/AI boundary signal in the demo video.
+- `classifyVouchingChain` uses an envelope-wrapped tagged union (`{ chain: <variant> }`) because cross-provider strict mode (OpenAI Responses API + Anthropic 2026-04-30) rejects top-level `anyOf` / `oneOf`. `postProcess` unwraps to the variant before persistence. `partner_org_name` is required only on `individual-via-partner-org` / `org-direct` variants. The step also gates the LLM call app-side: when `vouching_narrative` is null / empty / shorter than 20 characters the step deterministically emits `structure: "none"` without spending a token (LLMs hallucinate token-level counts; the gate enforces the threshold instead).
+- `classifyCampaign` uses an explicit `SAFE_COUNTRIES` allowlist; unknown / typo'd / empty geography codes default to `OFAC_ADJACENT` (fail-safe), not `SAFE`. A misconfigured fixture must not coerce a high-risk case onto the auto-allowed path.
+- `extractCategoryDocs` uses an envelope-wrapped tagged union (`{ doc: <medical | school | org_registration> }`) for the same strict-mode reason as vouching. Variants keep their own required fields; downstream `looksLikeRealCategory` narrows on `doc.doc_kind`.
+- Mocked reverse-image-search returns shape: `{ hits: Array<{ url: string; confidence: number }>; checked_at: string }`.
+- Mocked AI-gen detection returns shape: `{ probability: enum, model: 'mock-v1' }` — clamp probability via post-parse helper.
+- LLM image content goes through `packages/mastra/src/util/image-format.ts:toImagePart`: sniffs the IANA media type from magic bytes (R2 keys carry conventional extensions, not enforced) and builds the full `data:<mediaType>;base64,<payload>` URL because AI SDK 6's OpenAI provider on the Responses API rejects raw `Uint8Array` AND raw base64 strings.
+- `runStructuredLlm` sanitises schema names through `^[a-zA-Z0-9_-]+$` before forwarding to OpenAI — internal `schemaName` convention `<step>.<role>` (dot-namespaced) is kept stable for mock-response keying and telemetry but normalised at the provider boundary.
+- `resolveLanguageModel` returns the bare AI SDK model (no `withMastra` wrap). `withMastra(model, opts)` is OPTIONAL per Mastra docs — only needed for processors / memory persistence. We use neither at extractor / signal / compose call sites, and the current wrapper mangles AI SDK 6 image content parts before they reach OpenAI ("image data not valid" on every multimodal call). Telemetry rides on `experimental_telemetry` on every `generateText` call.
 
 **Tests (per §7.11):**
 

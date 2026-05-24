@@ -2,6 +2,20 @@ import { describe, expect, it } from "bun:test";
 import { deriveVerificationPath } from "@mizan/mastra";
 import type { PartialBriefState } from "@mizan/mastra/testing";
 
+type CategoryDocsValue = NonNullable<
+  NonNullable<PartialBriefState["extractions"]>["extractCategoryDocs"]
+>;
+type CategoryVariant = CategoryDocsValue["doc"];
+
+/**
+ * Wraps a category variant in the `{ doc }` envelope the schema
+ * requires. Keeps test fixtures focused on the variant fields under
+ * test without dragging the wrapper through every call site.
+ */
+function category(variant: CategoryVariant): CategoryDocsValue {
+  return { doc: variant };
+}
+
 function baseState(overrides: Partial<PartialBriefState> = {}): PartialBriefState {
   return {
     caseId: "case-id",
@@ -30,18 +44,18 @@ const HIGH_BANK = {
   confidence: 82,
 };
 
-const HIGH_CATEGORY = {
+const HIGH_CATEGORY = category({
   doc_kind: "medical" as const,
   patient_name: "A",
   provider_name: "B",
   treatment_summary: "C",
   amount_claimed: "1 USD",
   confidence: 75,
-};
+});
 
 const LOW_CREATOR = { ...HIGH_CREATOR, confidence: 15 };
 const LOW_BANK = { ...HIGH_BANK, confidence: 20 };
-const LOW_CATEGORY = { ...HIGH_CATEGORY, confidence: 10 };
+const LOW_CATEGORY = category({ ...HIGH_CATEGORY.doc, confidence: 10 });
 
 describe("deriveVerificationPath", () => {
   it("returns documentary when all three extractors are present AND above the confidence floor", () => {
@@ -195,7 +209,10 @@ describe("deriveVerificationPath", () => {
         extractions: {
           extractCreatorIdDoc: HIGH_CREATOR,
           extractBankStatement: HIGH_BANK,
-          extractCategoryDocs: { ...HIGH_CATEGORY, patient_name: "" },
+          extractCategoryDocs: category({
+            ...(HIGH_CATEGORY.doc as CategoryVariant & { doc_kind: "medical" }),
+            patient_name: "",
+          }),
         },
       }),
     );
@@ -208,7 +225,10 @@ describe("deriveVerificationPath", () => {
         extractions: {
           extractCreatorIdDoc: HIGH_CREATOR,
           extractBankStatement: HIGH_BANK,
-          extractCategoryDocs: { ...HIGH_CATEGORY, provider_name: "" },
+          extractCategoryDocs: category({
+            ...(HIGH_CATEGORY.doc as CategoryVariant & { doc_kind: "medical" }),
+            provider_name: "",
+          }),
         },
       }),
     );
@@ -237,7 +257,7 @@ describe("deriveVerificationPath", () => {
         extractions: {
           extractCreatorIdDoc: { ...HIGH_CREATOR, confidence: 60 },
           extractBankStatement: { ...HIGH_BANK, confidence: 60 },
-          extractCategoryDocs: { ...HIGH_CATEGORY, confidence: 60 },
+          extractCategoryDocs: category({ ...HIGH_CATEGORY.doc, confidence: 60 }),
         },
       }),
     );
@@ -263,7 +283,7 @@ describe("deriveVerificationPath", () => {
         extractions: {
           extractCreatorIdDoc: { ...HIGH_CREATOR, confidence: 100 },
           extractBankStatement: { ...HIGH_BANK, confidence: 100 },
-          extractCategoryDocs: { ...HIGH_CATEGORY, confidence: 100 },
+          extractCategoryDocs: category({ ...HIGH_CATEGORY.doc, confidence: 100 }),
         },
       }),
     );
@@ -289,14 +309,14 @@ describe("deriveVerificationPath", () => {
         extractions: {
           extractCreatorIdDoc: HIGH_CREATOR,
           extractBankStatement: HIGH_BANK,
-          extractCategoryDocs: {
+          extractCategoryDocs: category({
             doc_kind: "school",
             student_name: "",
             institution_name: "Some Madrasa",
             tuition_summary: "Term 1 tuition",
             amount_claimed: "500 USD",
             confidence: 82,
-          },
+          }),
         },
       }),
     );
@@ -309,14 +329,14 @@ describe("deriveVerificationPath", () => {
         extractions: {
           extractCreatorIdDoc: HIGH_CREATOR,
           extractBankStatement: HIGH_BANK,
-          extractCategoryDocs: {
+          extractCategoryDocs: category({
             doc_kind: "school",
             student_name: "Aisha Khan",
             institution_name: "",
             tuition_summary: "Term 1 tuition",
             amount_claimed: "500 USD",
             confidence: 82,
-          },
+          }),
         },
       }),
     );
@@ -329,14 +349,14 @@ describe("deriveVerificationPath", () => {
         extractions: {
           extractCreatorIdDoc: HIGH_CREATOR,
           extractBankStatement: HIGH_BANK,
-          extractCategoryDocs: {
+          extractCategoryDocs: category({
             doc_kind: "school",
             student_name: "Aisha Khan",
             institution_name: "Some Madrasa",
             tuition_summary: "Term 1 tuition",
             amount_claimed: "500 USD",
             confidence: 82,
-          },
+          }),
         },
       }),
     );
@@ -349,14 +369,14 @@ describe("deriveVerificationPath", () => {
         extractions: {
           extractCreatorIdDoc: HIGH_CREATOR,
           extractBankStatement: HIGH_BANK,
-          extractCategoryDocs: {
+          extractCategoryDocs: category({
             doc_kind: "org_registration",
             org_name: "",
             registration_number: "123",
             jurisdiction: "US",
             tax_exempt_status: null,
             confidence: 80,
-          },
+          }),
         },
       }),
     );

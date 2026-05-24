@@ -23,9 +23,19 @@ function parseResponseMap(serializedMap?: string): MockResponseMap {
 }
 
 function lookupResponse(map: MockResponseMap, schemaName: string | undefined): JsonValue {
-  if (schemaName && schemaName in map) {
-    const hit = map[schemaName];
-    if (hit !== undefined) return hit;
+  if (schemaName) {
+    const direct = map[schemaName];
+    if (direct !== undefined) return direct;
+    /*
+     * `runStructuredLlm` sanitises schema names through
+     * `^[a-zA-Z0-9_-]+$` before forwarding to OpenAI's Responses API,
+     * turning the internal `<step>.<role>` convention into
+     * `<step>_<role>` on the wire. Canned-response maps key on the
+     * original dot-namespaced form, so reverse the substitution here.
+     */
+    const dotted = schemaName.replace(/_/g, ".");
+    const viaDotted = map[dotted];
+    if (viaDotted !== undefined) return viaDotted;
   }
   const fallback = map["default"];
   if (fallback !== undefined) return fallback;

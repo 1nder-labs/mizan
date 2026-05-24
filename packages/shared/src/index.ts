@@ -43,11 +43,13 @@ export {
 } from "./schemas/photo-signal.ts";
 
 export {
-  VouchingChainSchema,
+  VouchingChainEnvelopeSchema,
+  VouchingChainVariantSchema,
   assertCommunityVouchingCorroborated,
   assertPartnerOrgCorroborated,
   assertVouchingChain,
   type VouchingChain,
+  type VouchingChainEnvelope,
 } from "./schemas/vouching.ts";
 
 export type { SignalPayload } from "./schemas/signal-payload.ts";

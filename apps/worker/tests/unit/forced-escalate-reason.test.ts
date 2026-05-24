@@ -18,7 +18,8 @@ describe("forcedEscalateReason", () => {
     expect(reason).toContain("verification_path=none");
     expect(reason).toContain("geography_tier=OFAC_ADJACENT");
     expect(reason).toContain("PS");
-    expect(reason).toContain("no verification chain");
+    expect(reason).toContain("no documentary verification path; trust = vouching strength");
+    expect(reason).toContain("no vouching chain available");
   });
 
   it("names the community-vouching branch for verification_path=community_vouching", () => {

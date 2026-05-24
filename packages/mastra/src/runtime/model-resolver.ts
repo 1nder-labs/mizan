@@ -82,7 +82,18 @@ export function resolveLanguageModel(args: ResolveLanguageModelArgs): ResolvedLa
   }
   const config = args.override ?? getDefaultModel(args.env, args.kind);
   const raw = getModel(config, args.env);
-  return { model: withMastra(raw, args.withMastraOpts ?? {}), config };
+  /**
+   * `withMastra(raw, opts)` is OPTIONAL per Mastra docs — it adds
+   * processors and memory persistence. We use neither at the
+   * extractor / signal / compose call sites, so we pass the bare AI
+   * SDK model. Telemetry rides on `experimental_telemetry` on every
+   * `generateText` call (`runStructuredLlm`), not on the model
+   * wrapper. Re-enable `withMastra` here only when a call site
+   * actually needs an input/output processor or thread memory.
+   */
+  void withMastra;
+  void args.withMastraOpts;
+  return { model: raw, config };
 }
 
 /**

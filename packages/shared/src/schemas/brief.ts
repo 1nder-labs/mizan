@@ -60,7 +60,7 @@ export const PolicyCitationSchema = z
     clauseId: z.string(),
     source: z.enum(["zakat", "safety"]),
     excerpt: z.string(),
-    relevance: z.number(),
+    relevance: z.number().finite(),
   })
   .strict();
 
@@ -83,11 +83,13 @@ export const StoryCoherencePayloadSchema = z
   .object({
     named_entity_density: z
       .number()
+      .finite()
       .describe(
         "Density of named entities (people, places, organizations) per 100 words. Caller clamps to [0,1].",
       ),
     template_match_score: z
       .number()
+      .finite()
       .describe(
         "Similarity to common scam-pattern templates. Caller clamps to [0,1]; higher = closer match.",
       ),

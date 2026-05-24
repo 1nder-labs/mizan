@@ -1,12 +1,16 @@
+import { existsSync } from "node:fs";
 import { z } from "zod";
 
-/** 1×1 PNG used for synthetic anonymized document fixtures. */
-export const MINIMAL_PNG_BYTES = Uint8Array.from(
-  atob(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2ZkAAAAASUVORK5CYII=",
-  ),
-  (c) => c.charCodeAt(0),
-);
+/**
+ * Real-image fixture dimensions. Vision LLMs (OpenAI, Anthropic)
+ * reject the 1×1 PNG that earlier seed builds shipped — the workflow
+ * needs a parseable photo for the extractor to call at all. We fetch
+ * from `picsum.photos` on demand and cache to disk; subsequent seed
+ * runs reuse the cached file so the network round-trip happens once.
+ */
+const FIXTURE_WIDTH = 600;
+const FIXTURE_HEIGHT = 400;
+const FIXTURE_SOURCE = `https://picsum.photos/${FIXTURE_WIDTH}/${FIXTURE_HEIGHT}`;
 
 export const DOCUMENTARY_SEED_FILES = [
   "case-001.json",
@@ -71,10 +75,25 @@ export async function allFixtureKeys(): Promise<string[]> {
   return [...keys];
 }
 
-/** Writes minimal PNG bytes for every seed fixture key under docs/fixtures/. */
+/**
+ * Materialises real-image fixtures for every seed key. Files missing
+ * on disk are fetched fresh from `picsum.photos`; cached files are
+ * left in place so re-runs don't churn the network or change the
+ * bytes the workflow sees. R2 keys carry a `.png` extension by
+ * convention; the bytes are typically JPEG (picsum), which
+ * `toImagePart` sniffs from magic bytes at the LLM boundary — the
+ * extension on the key is irrelevant.
+ */
 export async function materializeLocalFixtures(): Promise<void> {
   const keys = await allFixtureKeys();
   for (const key of keys) {
-    await Bun.write(fixturePath(key), MINIMAL_PNG_BYTES);
+    const target = fixturePath(key);
+    if (existsSync(target)) continue;
+    const res = await fetch(FIXTURE_SOURCE, { redirect: "follow" });
+    if (!res.ok) {
+      throw new Error(`fixture fetch failed (${res.status}) for ${key}`);
+    }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    await Bun.write(target, bytes);
   }
 }

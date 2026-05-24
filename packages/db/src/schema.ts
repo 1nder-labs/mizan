@@ -53,6 +53,7 @@ export const cases = sqliteTable(
         "SUSPENDED_HITL",
         "READY_FOR_REVIEW",
         "ACTIONED",
+        "FAILED",
       ] as const,
     })
       .notNull()

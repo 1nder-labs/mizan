@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import {
-  VouchingChainSchema,
+  VouchingChainVariantSchema,
   assertCommunityVouchingCorroborated,
   assertPartnerOrgCorroborated,
   assertVouchingChain,
 } from "@mizan/shared";
 
-describe("VouchingChainSchema", () => {
+describe("VouchingChainVariantSchema", () => {
   it("parses none variant", () => {
-    const parsed = VouchingChainSchema.parse({
+    const parsed = VouchingChainVariantSchema.parse({
       structure: "none",
       weakest_link_narrative: "no chain available",
     });
@@ -16,7 +16,7 @@ describe("VouchingChainSchema", () => {
   });
 
   it("parses individual-to-individual variant", () => {
-    const parsed = VouchingChainSchema.parse({
+    const parsed = VouchingChainVariantSchema.parse({
       structure: "individual-to-individual",
       weakest_link_narrative: "neighbor-to-neighbor chain",
     });
@@ -24,7 +24,7 @@ describe("VouchingChainSchema", () => {
   });
 
   it("parses individual-via-partner-org variant with partner_org_name", () => {
-    const parsed = VouchingChainSchema.parse({
+    const parsed = VouchingChainVariantSchema.parse({
       structure: "individual-via-partner-org",
       partner_org_name: "Sudan Aid Foundation",
       weakest_link_narrative: "via partner",
@@ -36,7 +36,7 @@ describe("VouchingChainSchema", () => {
   });
 
   it("parses org-direct variant with partner_org_name", () => {
-    const parsed = VouchingChainSchema.parse({
+    const parsed = VouchingChainVariantSchema.parse({
       structure: "org-direct",
       partner_org_name: "Direct Relief",
       weakest_link_narrative: "org owns disbursement",
@@ -49,7 +49,7 @@ describe("VouchingChainSchema", () => {
 
   it("rejects individual-via-partner-org without partner_org_name", () => {
     expect(() =>
-      VouchingChainSchema.parse({
+      VouchingChainVariantSchema.parse({
         structure: "individual-via-partner-org",
         weakest_link_narrative: "missing partner",
       }),
@@ -58,7 +58,7 @@ describe("VouchingChainSchema", () => {
 
   it("rejects org-direct without partner_org_name", () => {
     expect(() =>
-      VouchingChainSchema.parse({
+      VouchingChainVariantSchema.parse({
         structure: "org-direct",
         weakest_link_narrative: "missing partner",
       }),
@@ -67,7 +67,7 @@ describe("VouchingChainSchema", () => {
 
   it("rejects unknown structure discriminator", () => {
     expect(() =>
-      VouchingChainSchema.parse({
+      VouchingChainVariantSchema.parse({
         structure: "unknown-variant",
         weakest_link_narrative: "x",
       }),
@@ -77,7 +77,7 @@ describe("VouchingChainSchema", () => {
 
 describe("assertVouchingChain", () => {
   it("returns the chain unchanged when structure is none", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "none",
       weakest_link_narrative: "no chain",
     });
@@ -85,7 +85,7 @@ describe("assertVouchingChain", () => {
   });
 
   it("returns the chain unchanged when partner_org_name is non-empty", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "individual-via-partner-org",
       partner_org_name: "Sudan Aid Foundation",
       weakest_link_narrative: "via partner",
@@ -94,7 +94,7 @@ describe("assertVouchingChain", () => {
   });
 
   it("throws on individual-via-partner-org with empty partner_org_name", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "individual-via-partner-org",
       partner_org_name: "",
       weakest_link_narrative: "empty name",
@@ -103,7 +103,7 @@ describe("assertVouchingChain", () => {
   });
 
   it("throws on org-direct with empty partner_org_name", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "org-direct",
       partner_org_name: "   ",
       weakest_link_narrative: "whitespace name",
@@ -114,7 +114,7 @@ describe("assertVouchingChain", () => {
 
 describe("assertPartnerOrgCorroborated", () => {
   it("passes through chains with no partner_org_name (none / i2i)", () => {
-    const noneChain = VouchingChainSchema.parse({
+    const noneChain = VouchingChainVariantSchema.parse({
       structure: "none",
       weakest_link_narrative: "no chain",
     });
@@ -124,7 +124,7 @@ describe("assertPartnerOrgCorroborated", () => {
   });
 
   it("rejects an institutional structure when vouching_narrative is null — story-only mention insufficient", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "individual-via-partner-org",
       partner_org_name: "Sudan Aid Foundation",
       weakest_link_narrative: "via partner",
@@ -138,7 +138,7 @@ describe("assertPartnerOrgCorroborated", () => {
   });
 
   it("rejects an institutional structure when vouching_narrative is too short", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "individual-via-partner-org",
       partner_org_name: "Sudan Aid Foundation",
       weakest_link_narrative: "via partner",
@@ -152,7 +152,7 @@ describe("assertPartnerOrgCorroborated", () => {
   });
 
   it("accepts when partner_org_name appears in a sufficiently long vouching_narrative", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "org-direct",
       partner_org_name: "Direct Relief",
       weakest_link_narrative: "direct",
@@ -166,7 +166,7 @@ describe("assertPartnerOrgCorroborated", () => {
   });
 
   it("is case-insensitive when matching the narrative", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "org-direct",
       partner_org_name: "ICRC",
       weakest_link_narrative: "direct",
@@ -181,7 +181,7 @@ describe("assertPartnerOrgCorroborated", () => {
   });
 
   it("throws when partner is mentioned only in the story (not in vouching_narrative)", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "individual-via-partner-org",
       partner_org_name: "Red Cross",
       weakest_link_narrative: "via partner",
@@ -196,7 +196,7 @@ describe("assertPartnerOrgCorroborated", () => {
   });
 
   it("throws when partner is fully fabricated — not in story or narrative", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "individual-via-partner-org",
       partner_org_name: "Fabricated Charity Inc",
       weakest_link_narrative: "via partner",
@@ -211,7 +211,7 @@ describe("assertPartnerOrgCorroborated", () => {
   });
 
   it("rejects short partner names that cannot disambiguate", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "individual-via-partner-org",
       partner_org_name: "Ai",
       weakest_link_narrative: "via partner",
@@ -226,7 +226,7 @@ describe("assertPartnerOrgCorroborated", () => {
   });
 
   it("rejects a partner name that only appears inside an unrelated word (word-boundary check)", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "individual-via-partner-org",
       partner_org_name: "Aid",
       weakest_link_narrative: "via partner",
@@ -241,7 +241,7 @@ describe("assertPartnerOrgCorroborated", () => {
   });
 
   it("accepts a multi-word partner name when both tokens appear contiguously in the narrative", () => {
-    const chain = VouchingChainSchema.parse({
+    const chain = VouchingChainVariantSchema.parse({
       structure: "org-direct",
       partner_org_name: "Sudan Aid Foundation",
       weakest_link_narrative: "via partner",
@@ -256,7 +256,7 @@ describe("assertPartnerOrgCorroborated", () => {
 });
 
 describe("assertCommunityVouchingCorroborated", () => {
-  const i2i = VouchingChainSchema.parse({
+  const i2i = VouchingChainVariantSchema.parse({
     structure: "individual-to-individual",
     weakest_link_narrative: "neighbour chain",
   });
@@ -283,7 +283,7 @@ describe("assertCommunityVouchingCorroborated", () => {
   });
 
   it("passes structure=none through unchanged regardless of source", () => {
-    const none = VouchingChainSchema.parse({
+    const none = VouchingChainVariantSchema.parse({
       structure: "none",
       weakest_link_narrative: "no chain",
     });
@@ -291,7 +291,7 @@ describe("assertCommunityVouchingCorroborated", () => {
   });
 
   it("passes partner structures through unchanged", () => {
-    const orgDirect = VouchingChainSchema.parse({
+    const orgDirect = VouchingChainVariantSchema.parse({
       structure: "org-direct",
       partner_org_name: "Direct Relief",
       weakest_link_narrative: "x",

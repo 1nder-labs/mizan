@@ -6,7 +6,7 @@ import {
   PolicyCitationSchema,
   StoryCoherencePayloadSchema,
   VerificationPathSchema,
-  VouchingChainSchema,
+  VouchingChainVariantSchema,
 } from "@mizan/shared";
 import { ExtractionsSchema } from "./extractions/index.ts";
 
@@ -33,7 +33,7 @@ export const PartialBriefStateSchema = z.object({
     .object({
       photo: PhotoSignalPayloadSchema.optional(),
       story: StoryCoherencePayloadSchema.optional(),
-      vouching: VouchingChainSchema.optional(),
+      vouching: VouchingChainVariantSchema.optional(),
     })
     .optional(),
   brief: BriefPayloadSchema.optional(),

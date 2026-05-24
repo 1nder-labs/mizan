@@ -25,18 +25,29 @@ import { runStructuredLlm } from "./runStructuredLlm.ts";
  * factory — pulling them in would force the factory to model a
  * zero-LLM variant for negligible code reuse.
  */
-export interface LlmSignalStepDef<TPayload> {
+export interface LlmSignalStepDef<TWire, TPayload = TWire> {
   readonly id: string;
   readonly schemaName: string;
   readonly modelKind: ModelKind;
-  readonly schema: z.ZodType<TPayload>;
+  /**
+   * LLM-output schema. Cross-provider strict mode (OpenAI + Anthropic
+   * 2026-04-30) requires `type: "object"` at the root, so steps whose
+   * canonical payload is a tagged union wrap it in an envelope schema
+   * (e.g. `{ chain: <variant> }`) and unwrap in `postProcess`.
+   */
+  readonly schema: z.ZodType<TWire>;
   readonly system: string;
   readonly buildUserPayload: (args: {
     readonly caseRow: CaseContext;
     readonly inputData: PartialBriefState;
   }) => string;
+  /**
+   * Normalises the LLM-wire shape into the canonical persisted
+   * payload. Most steps return the raw shape unchanged (TWire =
+   * TPayload); envelope-wrapped variants unwrap here.
+   */
   readonly postProcess: (args: {
-    readonly raw: TPayload;
+    readonly raw: TWire;
     readonly caseRow: CaseContext;
     readonly inputData: PartialBriefState;
   }) => TPayload;
@@ -59,7 +70,7 @@ export interface LlmSignalStepDef<TPayload> {
  * up there; the extra checkpoints close the windows around the LLM
  * call where a late cancel would otherwise still hit D1.
  */
-export function makeLlmSignalStep<TPayload>(def: LlmSignalStepDef<TPayload>) {
+export function makeLlmSignalStep<TWire, TPayload = TWire>(def: LlmSignalStepDef<TWire, TPayload>) {
   return createStep({
     id: def.id,
     inputSchema: PartialBriefStateSchema,

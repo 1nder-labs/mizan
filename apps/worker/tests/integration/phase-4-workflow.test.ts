@@ -13,7 +13,7 @@ import {
   PhotoSignalPayloadSchema,
   StoryCoherencePayloadSchema,
   VerificationPathSchema,
-  VouchingChainSchema,
+  VouchingChainVariantSchema,
   type VerificationPath,
 } from "@mizan/shared";
 import {
@@ -74,7 +74,7 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     expectedPath: VerificationPathSchema.parse("none"),
     forcedEscalate: true,
     expectedRecommendation: "ESCALATE",
-    expectedReasonPhrase: "no verification chain",
+    expectedReasonPhrase: "no vouching chain available",
   },
 ];
 
@@ -284,7 +284,7 @@ describe("phase 4 community-vouching workflow", () => {
 
     PhotoSignalPayloadSchema.parse(JSON.parse(photoRow.payload_json));
     StoryCoherencePayloadSchema.parse(JSON.parse(storyRow.payload_json));
-    const vouching = VouchingChainSchema.parse(JSON.parse(vouchingRow.payload_json));
+    const vouching = VouchingChainVariantSchema.parse(JSON.parse(vouchingRow.payload_json));
 
     if (entry.expectedPath === "institutional_vouching") {
       if (

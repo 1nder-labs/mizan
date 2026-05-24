@@ -1,54 +1,82 @@
 import { z } from "zod";
 
 /**
- * Vouching-chain classification output.
+ * Vouching-chain classification.
  *
- * Uses `z.union` (not `z.discriminatedUnion`) so the emitted JSON Schema
- * is `anyOf` rather than `oneOf` — Anthropic + OpenAI structured-output
- * strict modes accept `anyOf` across providers, but neither accepts
- * `oneOf`. TypeScript narrowing on the `structure` literal still works
- * at the call site (`if (chain.structure === "individual-via-partner-org")`).
+ * Cross-provider strict-mode (OpenAI + Anthropic 2026-04-30) requires
+ * top-level `type: "object"` and rejects top-level `anyOf` / `oneOf`.
+ * We wrap the four discriminated variants in an object root under
+ * `chain`. The variant union uses `z.union` (emits `anyOf`, accepted
+ * inside properties; `z.discriminatedUnion` would emit `oneOf` which
+ * OpenAI strict mode rejects).
  *
- * String length constraints live in the LLM's instructional prompt via
- * `.describe()` rather than as `minLength`/`maxLength` keywords, which
- * Anthropic's strict mode rejects. The step layer post-validates
- * `partner_org_name` non-emptiness because empty strings would bypass
- * the forced-escalate gate.
+ * String length constraints live in `.describe()` rather than as
+ * `minLength` / `maxLength` keywords — Anthropic strict mode rejects
+ * those keywords. The application-side guards below (executed after
+ * Zod parse) enforce the security-critical invariants.
  */
-export const VouchingChainSchema = z.union([
-  z
-    .object({
-      structure: z.literal("none"),
-      weakest_link_narrative: z.string().describe("Plain text. Max 2000 characters."),
-    })
-    .strict(),
-  z
-    .object({
-      structure: z.literal("individual-to-individual"),
-      weakest_link_narrative: z.string().describe("Plain text. Max 2000 characters."),
-    })
-    .strict(),
-  z
-    .object({
-      structure: z.literal("individual-via-partner-org"),
-      partner_org_name: z
-        .string()
-        .describe("Non-empty institution name copied from the campaign data. Max 200 characters."),
-      weakest_link_narrative: z.string().describe("Plain text. Max 2000 characters."),
-    })
-    .strict(),
-  z
-    .object({
-      structure: z.literal("org-direct"),
-      partner_org_name: z
-        .string()
-        .describe("Non-empty institution name copied from the campaign data. Max 200 characters."),
-      weakest_link_narrative: z.string().describe("Plain text. Max 2000 characters."),
-    })
-    .strict(),
+
+const NoneVariant = z
+  .object({
+    structure: z.literal("none"),
+    weakest_link_narrative: z.string().describe("Plain text. Max 2000 characters."),
+  })
+  .strict();
+
+const IndividualToIndividualVariant = z
+  .object({
+    structure: z.literal("individual-to-individual"),
+    weakest_link_narrative: z.string().describe("Plain text. Max 2000 characters."),
+  })
+  .strict();
+
+const IndividualViaPartnerOrgVariant = z
+  .object({
+    structure: z.literal("individual-via-partner-org"),
+    partner_org_name: z
+      .string()
+      .describe("Non-empty institution name copied from the campaign data. Max 200 characters."),
+    weakest_link_narrative: z.string().describe("Plain text. Max 2000 characters."),
+  })
+  .strict();
+
+const OrgDirectVariant = z
+  .object({
+    structure: z.literal("org-direct"),
+    partner_org_name: z
+      .string()
+      .describe("Non-empty institution name copied from the campaign data. Max 200 characters."),
+    weakest_link_narrative: z.string().describe("Plain text. Max 2000 characters."),
+  })
+  .strict();
+
+export const VouchingChainVariantSchema = z.union([
+  NoneVariant,
+  IndividualToIndividualVariant,
+  IndividualViaPartnerOrgVariant,
+  OrgDirectVariant,
 ]);
 
-export type VouchingChain = z.infer<typeof VouchingChainSchema>;
+/**
+ * LLM-output root schema. The variant lives under `chain` so the top
+ * level stays a single object — required for cross-provider strict
+ * mode. Consumers access `output.chain.structure` for narrowing.
+ */
+export const VouchingChainEnvelopeSchema = z
+  .object({
+    chain: VouchingChainVariantSchema,
+  })
+  .strict();
+
+/**
+ * Persisted shape for the `signals.vouching` slot — the variant
+ * directly (no envelope). The envelope lives only on the LLM-output
+ * wire (see `VouchingChainEnvelopeSchema`); persisted state stores
+ * the variant so downstream readers keep accessing
+ * `signals.vouching.structure` without an extra hop.
+ */
+export type VouchingChain = z.infer<typeof VouchingChainVariantSchema>;
+export type VouchingChainEnvelope = z.infer<typeof VouchingChainEnvelopeSchema>;
 
 /** Application-side guard for the security-critical empty-partner-name case. */
 export function assertVouchingChain(chain: VouchingChain): VouchingChain {
@@ -82,25 +110,13 @@ function normaliseForMatch(value: string): string {
  * organizer's `vouching_narrative` — specifically, NOT against the
  * free-form `story` field.
  *
- * The story field is for general campaign context; partner names that
- * appear there alone are usually incidental ("the Red Cross helped us
- * during the flood") and do not constitute an organizer's claim of an
- * accountability chain. `vouching_narrative` is the explicit slot where
- * organizers attest to the chain that handles their funds — so the
- * partner-org variant must be grounded there.
- *
  * Rules (applied in order; first failure throws):
  *   1. `vouching_narrative` must be present and at least
- *      `MIN_INSTITUTIONAL_NARRATIVE_CHARS` characters after trim —
- *      a one-liner is not a chain attestation.
+ *      `MIN_INSTITUTIONAL_NARRATIVE_CHARS` characters after trim.
  *   2. `partner_org_name` must be at least
- *      `MIN_CORROBORATION_NEEDLE_CHARS` alphanumeric characters so a
- *      two-letter "partner" cannot pass.
+ *      `MIN_CORROBORATION_NEEDLE_CHARS` alphanumeric characters.
  *   3. The normalised partner name must appear as a whole-word
- *      substring of the normalised narrative; the token-boundary match
- *      blocks "Aid" from passing inside "AIDS clinic".
- *
- * Non-institutional structures pass through unchanged.
+ *      substring of the normalised narrative.
  */
 export function assertPartnerOrgCorroborated(
   chain: VouchingChain,
@@ -134,16 +150,9 @@ const MIN_COMMUNITY_NARRATIVE_CHARS = 20;
 
 /**
  * Cross-references a community-vouching classification against the
- * organizer-supplied `vouching_narrative`.
- *
- * `structure === "individual-to-individual"` claims a peer accountability
- * chain; the LLM must have grounded that claim in non-empty source text
- * (otherwise a Gaza-style "no chain" case can be relabelled as
- * `community_vouching`, bypassing the forced-escalate gate). The check
- * requires a `vouching_narrative` of at least
- * `MIN_COMMUNITY_NARRATIVE_CHARS` post-trim characters.
- *
- * Other structures pass through unchanged.
+ * organizer-supplied `vouching_narrative`. A `structure === "individual-to-individual"`
+ * claim needs `vouching_narrative` of at least `MIN_COMMUNITY_NARRATIVE_CHARS`
+ * characters after trim. Other structures pass through unchanged.
  */
 export function assertCommunityVouchingCorroborated(
   chain: VouchingChain,

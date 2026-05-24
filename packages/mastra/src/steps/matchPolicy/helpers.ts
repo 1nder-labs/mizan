@@ -7,15 +7,15 @@ import type { Corpus } from "../../schemas/corpus.ts";
 /** Builds the semantic query string from case context and extractor outputs. */
 export function buildPolicyQuery(caseRow: CaseContext, inputData: PartialBriefState): string {
   const parts: string[] = [caseRow.story, caseRow.claimed_zakat_category ?? "", caseRow.category];
-  const categoryDoc = inputData.extractions?.extractCategoryDocs;
-  if (categoryDoc?.doc_kind === "medical") {
-    parts.push(categoryDoc.treatment_summary, categoryDoc.provider_name);
+  const categoryVariant = inputData.extractions?.extractCategoryDocs?.doc;
+  if (categoryVariant?.doc_kind === "medical") {
+    parts.push(categoryVariant.treatment_summary, categoryVariant.provider_name);
   }
-  if (categoryDoc?.doc_kind === "school") {
-    parts.push(categoryDoc.tuition_summary, categoryDoc.institution_name);
+  if (categoryVariant?.doc_kind === "school") {
+    parts.push(categoryVariant.tuition_summary, categoryVariant.institution_name);
   }
-  if (categoryDoc?.doc_kind === "org_registration") {
-    parts.push(categoryDoc.org_name, categoryDoc.jurisdiction);
+  if (categoryVariant?.doc_kind === "org_registration") {
+    parts.push(categoryVariant.org_name, categoryVariant.jurisdiction);
   }
   const storyClaims = inputData.extractions?.extractStoryClaims?.claims ?? [];
   for (const claim of storyClaims) {

@@ -59,10 +59,10 @@ export function forceEscalate(input: {
 const REASON_BY_PATH: Readonly<Record<VerificationPath, string>> = {
   documentary: "documentary evidence still requires manual OFAC SDN check at full-sanctions tier",
   institutional_vouching:
-    "institutional vouching insufficient for non-SAFE jurisdiction — partner-org corroboration is organizer-supplied",
+    "no documentary verification path; trust = vouching strength — institutional vouching insufficient for non-SAFE jurisdiction (partner-org corroboration is organizer-supplied)",
   community_vouching:
-    "community vouching insufficient for non-SAFE jurisdiction — narrative corroboration is organizer-supplied",
-  none: "no verification chain — high-risk jurisdiction",
+    "no documentary verification path; trust = vouching strength — community vouching insufficient for non-SAFE jurisdiction (narrative corroboration is organizer-supplied)",
+  none: "no documentary verification path; trust = vouching strength — no vouching chain available, high-risk jurisdiction",
 };
 
 /**

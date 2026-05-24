@@ -6,6 +6,7 @@ import { makeTelemetry } from "../../runtime/telemetry.ts";
 import type { CloudflareBindings } from "@mizan/shared";
 import type { ModelConfig, ModelKind } from "../../models/factory.ts";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
+import { toImagePart } from "../../util/image-format.ts";
 
 const MAX_RETRIES = 2;
 
@@ -160,6 +161,17 @@ function isAbortError(value: unknown): boolean {
   return value instanceof Error && value.name === "AbortError";
 }
 
+/**
+ * OpenAI's Responses API rejects `text.format.name` values containing
+ * dots (`/^[a-zA-Z0-9_-]+$/`). Our internal `schemaName` convention
+ * uses `<stepName>.<role>` (e.g. `extractCreatorIdDoc.extract`) for
+ * mock-response keying and telemetry. Sanitise here so the canonical
+ * name stays the same everywhere except on the provider wire.
+ */
+function sanitizeSchemaName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
 function buildGenerateArgs<TOutput>(
   invocation: StructuredLlmInvocationWithMessages<TOutput>,
   model: LanguageModelV3,
@@ -167,18 +179,17 @@ function buildGenerateArgs<TOutput>(
 ) {
   return {
     model,
-    output: Output.object({ schema: invocation.schema, name: invocation.schemaName }),
+    output: Output.object({
+      schema: invocation.schema,
+      name: sanitizeSchemaName(invocation.schemaName),
+    }),
     system: invocation.system,
     messages: invocation.messages.map((message) => ({
       role: message.role,
       content: message.content.map((part) =>
         part.type === "text"
           ? { type: "text" as const, text: part.text }
-          : {
-              type: "image" as const,
-              image: part.image,
-              ...(part.mediaType ? { mediaType: part.mediaType } : {}),
-            },
+          : toImagePart(part.image, invocation.stepName),
       ),
     })),
     maxRetries: MAX_RETRIES,
