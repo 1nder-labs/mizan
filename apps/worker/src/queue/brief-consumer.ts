@@ -128,22 +128,48 @@ async function processMessage(
   }
 
   const action = classifyRedelivery(row, message.runId, msg.attempts);
-  if (action === "retry-running") {
-    msg.retry();
-    return;
+  switch (action) {
+    case "ack-mismatch":
+    case "ack-terminal":
+    case "ack-running":
+      msg.ack();
+      return;
+    case "retry-running":
+      msg.retry();
+      return;
+    case "claim": {
+      const claimed = await claimRun(db, message);
+      if (!claimed) {
+        msg.ack();
+        return;
+      }
+      await executeClaimedRun(msg, env, db, executionCtx, message, claimed);
+      return;
+    }
+    default:
+      assertUnreachableAction(action, msg, message);
+      return;
   }
-  if (action !== "claim") {
-    msg.ack();
-    return;
-  }
+}
 
-  const claimed = await claimRun(db, message);
-  if (!claimed) {
-    msg.ack();
-    return;
-  }
-
-  await executeClaimedRun(msg, env, db, executionCtx, message, claimed);
+/**
+ * Compile-time guard: adding a sixth `RedeliveryAction` variant
+ * without a matching `case` above causes this assertion to fail
+ * typecheck — `action` would no longer narrow to `never`. Runtime
+ * fallback acks loudly so production never silently drops a
+ * message on the unhandled branch.
+ */
+function assertUnreachableAction(
+  action: never,
+  msg: QueueMessage,
+  message: BriefQueueMessage,
+): void {
+  console.error("brief queue unhandled redelivery action", {
+    action,
+    caseId: message.caseId,
+    runId: message.runId,
+  });
+  msg.ack();
 }
 
 /**

@@ -2,10 +2,11 @@
  * Integration tests: DLQ consumer flips exhausted retries to FAILED.
  */
 
-import { applyD1Migrations } from "cloudflare:test";
+import { applyD1Migrations, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
 import { z } from "zod";
+import { handleBriefQueue } from "../../src/queue/brief-consumer.ts";
 import { handleDlq } from "../../src/queue/dlq-consumer.ts";
 import { makeTestBatch } from "../helpers/queue-batch.ts";
 import {
@@ -112,4 +113,71 @@ describe("Mode B DLQ consumer", () => {
       .first<{ status: string }>();
     expect(row?.status).toBe("DRAFT");
   });
+
+  /**
+   * End-to-end chain proof for defence-in-depth exit #3 of pattern #3
+   * (cloudflare-queues-mode-b-background-engineering.md): fresh-but-
+   * crashed RUNNING redeliveries retry through the queue's retry loop,
+   * then on exhaustion the DLQ flips the row to FAILED, then a fresh
+   * POST re-enqueues with a new runId. Cloudflare's automatic retry-
+   * to-DLQ promotion is simulated by manually invoking `handleDlq`
+   * once the brief consumer has retried `max_retries` times.
+   */
+  it("retry-running × max_retries → handleDlq flips FAILED → fresh POST gets new runId (defence-in-depth chain)", async () => {
+    const caseId = crypto.randomUUID();
+    const runId = crypto.randomUUID();
+    await insertDraftCase(caseId, adminUserId);
+    await seedCaseStatus({ caseId, status: "RUNNING", runId });
+
+    const body = {
+      caseId,
+      runId,
+      enqueuedAt: Date.now(),
+      requestedBy: adminUserId,
+    };
+
+    for (const attempts of [2, 3, 4]) {
+      const tracked = trackedMessage(body, { attempts });
+      const ctx = createExecutionContext();
+      await handleBriefQueue(makeTestBatch([tracked.message]), getTestBindings(), ctx);
+      await waitOnExecutionContext(ctx);
+      expect(tracked.retry).toHaveBeenCalledTimes(1);
+      expect(tracked.ack).not.toHaveBeenCalled();
+    }
+
+    const midRow = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(midRow?.status).toBe("RUNNING");
+    expect(midRow?.current_run_id).toBe(runId);
+
+    const dlqAck = await runDlq(body);
+    expect(dlqAck).toHaveBeenCalledTimes(1);
+    const failedRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string }>();
+    expect(failedRow?.status).toBe("FAILED");
+
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/cases/${caseId}/brief`, {
+        method: "POST",
+        headers: {
+          Cookie: adminCookie,
+          Accept: "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+        },
+      }),
+    );
+    expect(res.status).toBe(202);
+    const next = EnqueueResponseSchema.parse(await res.json());
+    expect(next).toMatchObject({ status: "QUEUED", replay: false });
+    expect(next.run_id).not.toBe(runId);
+    const restartedRow = await env.DB.prepare(
+      "SELECT status, current_run_id FROM cases WHERE id = ?",
+    )
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(restartedRow?.status).toBe("QUEUED");
+    expect(restartedRow?.current_run_id).toBe(next.run_id);
+  }, 60_000);
 });

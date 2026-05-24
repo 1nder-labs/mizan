@@ -86,8 +86,7 @@ export function classifyRedelivery(
     case "FAILED":
       return "ack-terminal";
     case "RUNNING":
-      if (attempts === 1) return "ack-running";
-      return isStaleClaim(row, time) ? "claim" : "retry-running";
+      return classifyRunning(row, attempts, time);
     case "QUEUED":
       return "claim";
     case "DRAFT": {
@@ -97,6 +96,26 @@ export function classifyRedelivery(
     default:
       return assertNever(row.status, { caseId: row.id, runId });
   }
+}
+
+/**
+ * RUNNING-row classification fan-out by `attempts` and staleness.
+ *
+ * `attempts === 1` is the concurrent-duplicate branch: another consumer
+ * in the same delivery batch already claimed the row; we defer to that
+ * consumer and ack. Production Cloudflare Queues semantics make
+ * `attempts === 1 + RUNNING + correct runId` reachable ONLY through
+ * this duplicate path — a first delivery that lost the claim race.
+ * Do NOT "fix" this branch to `claim`: that would double-execute
+ * against the live consumer.
+ */
+function classifyRunning(
+  row: Case,
+  attempts: number,
+  time: ClassifyTimeInputs | undefined,
+): RedeliveryAction {
+  if (attempts === 1) return "ack-running";
+  return isStaleClaim(row, time) ? "claim" : "retry-running";
 }
 
 function isStaleClaim(row: Case, time: ClassifyTimeInputs | undefined): boolean {

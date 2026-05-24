@@ -85,8 +85,35 @@ jobs:
             echo "- Commit: ${{ github.sha }}"
             echo "- Runner: ubuntu-latest"
             echo ""
-            echo "Integration tests run locally via \`bun --filter @mizan/worker test:integration\` —"
-            echo "@cloudflare/vitest-pool-workers spawns one workerd per file plus a full Mastra/Langfuse/AI-SDK"
-            echo "graph recompile per boot, adding ~13 min for 5 files with no caching benefit. Re-enable in CI"
-            echo "once the pool supports cross-file workerd reuse or a faster local-runtime harness lands."
+            echo "Unit tests above; integration suite runs in the parallel \`verify-integration\` job."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  verify-integration:
+    name: Verify integration (Miniflare + @cloudflare/vitest-pool-workers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: secret-scan
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies (frozen lockfile · Socket scanner active)
+        run: bun install --frozen-lockfile --no-cache
+
+      - name: Run integration tests (vitest + Miniflare)
+        run: bun --filter @mizan/worker test:integration
+
+      - name: Upload integration test artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-failure-logs
+          path: |
+            apps/worker/**/*.log
+            apps/worker/**/test-results*.junit.xml
+          retention-days: 7
