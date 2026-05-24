@@ -128,6 +128,10 @@ async function processMessage(
   }
 
   const action = classifyRedelivery(row, message.runId, msg.attempts);
+  if (action === "retry-running") {
+    msg.retry();
+    return;
+  }
   if (action !== "claim") {
     msg.ack();
     return;

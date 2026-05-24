@@ -57,32 +57,55 @@ The factory also derives the in-flight response mode (`RUNNING → 409`, `QUEUED
 
 **Failure mode caught**: using one shared `ALLOWED_STATUSES` set across both targets — Mode B enqueue failure on a `READY_FOR_REVIEW` row would silently downgrade it to DRAFT.
 
-## 3. Crash recovery on RUNNING needs BOTH `msg.attempts > 1` AND row staleness
+## 3. Crash recovery on RUNNING: three-way split — ack, retry, or claim
 
 Cloudflare Queues delivers messages at-least-once. A redelivery against a row already in `RUNNING` has three causes that aren't distinguishable by row state alone:
 
 1. **Concurrent duplicate (first delivery)** — another consumer is running right now. Ack.
-2. **Slow workflow** — same consumer still alive, redelivery is racing the in-flight run. Ack to avoid double execution against a live run.
-3. **Crash recovery** — prior consumer claimed `QUEUED → RUNNING`, crashed before reverting. Row is stuck; redelivery must reclaim.
-
-`msg.attempts` alone splits (1) from (2)+(3). Cause (2) vs (3) needs a **freshness check** on `cases.updated_at` — every transition through `transitionCase` updates the timestamp, so a live consumer keeps the row "warm". `RUNNING_STALE_THRESHOLD_MS = 10 * 60 * 1000` is safely past the Cloudflare Worker wall-time cap (5 min on the paid plan).
+2. **Fresh redelivery while RUNNING** — either a slow workflow still alive, or a recent crash. **Cannot ack** (would orphan the row if it was a crash) and **cannot claim** (would double-execute against a live consumer). Tell the queue to retry.
+3. **Stale redelivery while RUNNING** — row hasn't been touched for longer than `RUNNING_STALE_THRESHOLD_MS = 10 * 60 * 1000` (safely past the 5-min Workers paid-plan wall-time cap). Crash proven; reclaim.
 
 ```ts
 case "RUNNING":
-  return isStaleClaim(row, time) && attempts > 1 ? "claim" : "ack-running";
+  if (attempts === 1) return "ack-running";
+  return isStaleClaim(row, time) ? "claim" : "retry-running";
 ```
 
-The atomic claim itself (`UPDATE ... WHERE status IN ('QUEUED','RUNNING') AND current_run_id = ?`) is the mutex; the staleness gate prevents the lookup from racing a live consumer; Mastra's runId-keyed D1 persistence is the deepest backstop.
+Consumer mapping:
 
-**Cloudflare Queues note**: push consumers (the `queue(batch, env, ctx)` handler) do NOT expose `visibility_timeout_seconds` in `wrangler.jsonc` — that knob is pull-consumer only. For push consumers, redelivery is governed by Worker wall-time + `max_retries`. The row-staleness check is the application-level equivalent of a visibility timeout.
+```ts
+if (action === "retry-running") {
+  msg.retry();
+  return;
+}
+if (action !== "claim") {
+  msg.ack();
+  return;
+}
+// claim path...
+```
+
+This gives a defence in depth:
+
+- Single-delivery duplicates ack immediately.
+- A fresh redelivery enters Cloudflare's retry loop (`retry_delay: 30`, `max_retries: 3`). One of three things happens within the retry window:
+  - The original consumer finishes naturally → row leaves RUNNING → next redelivery acks via `ack-terminal`.
+  - The row stales past the threshold → next redelivery reclaims via `claim`.
+  - Max retries exhaust → DLQ → DLQ consumer flips to FAILED → producer retry mints a fresh runId via `producerGuard`.
+- A stale redelivery skips the retry loop entirely and reclaims immediately.
+
+The atomic `claimRun` UPDATE (`status IN ('QUEUED','RUNNING') AND current_run_id = ?`) is the mutex; the staleness gate is the gate against racing a live consumer; Mastra's runId-keyed D1 persistence is the deepest backstop.
+
+**Cloudflare Queues note**: push consumers (the `queue(batch, env, ctx)` handler) do NOT expose `visibility_timeout_seconds` in `wrangler.jsonc` — that knob is pull-consumer only. For push consumers, redelivery is governed by Worker wall-time + `max_retries`. The row-staleness check plus the retry-running mapping together implement the application-level equivalent of a visibility timeout.
 
 **FAILED is terminal for this runId.** The DLQ flips QUEUED/RUNNING → FAILED. A redelivery for the SAME runId is stale wire — ack-terminal. Producer retry mints a fresh runId via `producerGuard`, so a legitimate retry never re-uses a FAILED runId.
 
 **Failure modes caught**:
 
-1. Blanket `ack-running` for ALL RUNNING redeliveries → crash recovery is dead code → stuck cases never reach DLQ.
+1. Blanket `ack-running` for ALL RUNNING redeliveries → fresh-crash redelivery is lost → row stuck RUNNING forever, never reaches DLQ.
 2. Blanket `claim` for RUNNING redeliveries → slow workflows trigger double execution.
 3. FAILED in claim sources → DLQ flip can be undone by a stale main-queue message before the DLQ consumer fires.
+4. `ack-running` collapsed with `retry-running` into one verb → consumer can't tell which side-effect is needed → footgun (#1's first incarnation).
 
 ## 4. Exhaustive switch + `assertNever` on the status enum
 
@@ -96,7 +119,8 @@ switch (row.status) {
   case "FAILED":
     return "ack-terminal";
   case "RUNNING":
-    return isStaleClaim(row, time) && attempts > 1 ? "claim" : "ack-running";
+    if (attempts === 1) return "ack-running";
+    return isStaleClaim(row, time) ? "claim" : "retry-running";
   case "QUEUED":
     return "claim";
   case "DRAFT":
@@ -240,7 +264,7 @@ Worker / D1 specifics, gathered through Phase 5:
 - **Migrations only via `drizzle-kit generate`.** Hand-written migrations are forbidden by project rule; one-shot backfills require explicit approval and inline JSDoc explaining why `drizzle-kit` couldn't emit it.
 - **`Case` type re-exported from `@mizan/db`.** Domain types are inferred from drizzle's `$inferSelect` via drizzle-zod schemas — consumers import `type Case from "@mizan/db"` rather than reaching into private schema files.
 - **No raw SQL outside test seeders.** Application code goes through Drizzle's typed builder. Test helpers (`seedCaseStatus`, `insertDraftCase`) live in `tests/integration/mode-b-helpers.ts` and use prepared statements with parameter binding — never string-interpolated SQL.
-- **`updated_at` is the heartbeat.** Pattern #3's staleness check reads `cases.updated_at`. Every transition path bumps it (via `transitionCase`'s `.set({ ..., updated_at: new Date() })`). Phase 4's `upsertSignal` and Phase 4 brief persistence also bump it on writes — together these make `updated_at` a reliable application-level lease for queue claims.
+- **`updated_at` is bumped by transitions only, NOT by `upsertSignal` or brief writes.** Pattern #3's staleness check reads `cases.updated_at`. Every transition path (claim, revert, set, DLQ flip) bumps it through `transitionCase`. `upsertSignal` writes to the `signals` table; brief insert writes to the `briefs` table; neither updates `cases.updated_at`. The case row is therefore effectively "frozen at claim timestamp" for the duration of a workflow run — `RUNNING_STALE_THRESHOLD_MS = 10 min` is measuring "time since claim", not "time since the consumer last did work". The 10-min window is comfortably past the 5-min Worker wall-time cap, and the `retry-running` mapping (pattern #3) covers crash-but-fresh windows by routing through the queue's retry loop instead of waiting the full staleness window.
 - **Strict-typed `from` parameter.** `CaseTransitionInput.from: CaseStatus | readonly CaseStatus[]` — the enum literal union means a typo in a transition source is a compile error. The `inArray(cases.status, sources)` predicate carries the enum constraint into the SQL guard.
 
 ## Status-machine invariants (cheat sheet)
@@ -259,7 +283,8 @@ POST + Accept JSON ───────┤
 Consumer claim:           atomic UPDATE WHERE status IN ('QUEUED','RUNNING')
                                                   AND current_run_id = ?
                                           (RUNNING included only when msg.attempts > 1
-                                           AND row.updated_at is past stale threshold)
+                                           AND row.updated_at past stale threshold;
+                                           attempts>1 + fresh row → msg.retry, not claim)
 
 Consumer revert:          atomic UPDATE WHERE status = 'RUNNING'
                                                   AND current_run_id = ?

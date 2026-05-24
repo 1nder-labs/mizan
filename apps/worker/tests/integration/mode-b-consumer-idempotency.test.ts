@@ -254,7 +254,7 @@ describe("Mode B consumer idempotency", () => {
     expect(signalCount?.count).toBe(0);
   });
 
-  it("acks a fresh-RUNNING redelivery (attempts > 1 but not past stale threshold) without reclaiming", async () => {
+  it("retries (does NOT ack) a fresh-RUNNING redelivery so the queue's retry loop covers crash-but-fresh windows", async () => {
     const caseId = crypto.randomUUID();
     const runId = crypto.randomUUID();
     await insertDraftCase(caseId, adminUserId);
@@ -273,8 +273,8 @@ describe("Mode B consumer idempotency", () => {
     await handleBriefQueue(makeTestBatch([message]), getTestBindings(), ctx);
     await waitOnExecutionContext(ctx);
 
-    expect(ack).toHaveBeenCalledTimes(1);
-    expect(retry).not.toHaveBeenCalled();
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(ack).not.toHaveBeenCalled();
     const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
       .bind(caseId)
       .first<{ status: string; current_run_id: string }>();

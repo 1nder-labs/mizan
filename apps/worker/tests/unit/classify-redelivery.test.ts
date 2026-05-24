@@ -68,13 +68,14 @@ describe("classifyRedelivery", () => {
     ).toBe("ack-running");
   });
 
-  it("returns ack-running for RUNNING on redelivery while still fresh (slow workflow, not crashed)", () => {
+  it("returns retry-running for RUNNING on redelivery while still fresh (slow workflow or crashed-but-fresh)", () => {
     const freshRow = makeCase({
       status: "RUNNING",
       current_run_id: RUN_ID,
       updated_at: new Date(FIXED_NOW - 30_000),
     });
-    expect(classifyRedelivery(freshRow, RUN_ID, 2, FRESH)).toBe("ack-running");
+    expect(classifyRedelivery(freshRow, RUN_ID, 2, FRESH)).toBe("retry-running");
+    expect(classifyRedelivery(freshRow, RUN_ID, 3, FRESH)).toBe("retry-running");
   });
 
   it("returns claim for RUNNING on redelivery once row is past the stale threshold (crash recovery)", () => {
@@ -108,12 +109,13 @@ describe("classifyRedelivery", () => {
     ).toBe("ack-mismatch");
   });
 
-  it("defaults to real Date.now when time inputs omitted", () => {
+  it("defaults to real Date.now when time inputs omitted (fresh row → retry-running on redelivery)", () => {
     const freshRow = makeCase({
       status: "RUNNING",
       current_run_id: RUN_ID,
       updated_at: new Date(),
     });
-    expect(classifyRedelivery(freshRow, RUN_ID, 5)).toBe("ack-running");
+    expect(classifyRedelivery(freshRow, RUN_ID, 5)).toBe("retry-running");
+    expect(classifyRedelivery(freshRow, RUN_ID, 1)).toBe("ack-running");
   });
 });

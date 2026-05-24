@@ -1,13 +1,29 @@
 import type { Case } from "@mizan/db";
 
-export type RedeliveryAction = "ack-mismatch" | "ack-terminal" | "ack-running" | "claim";
+export type RedeliveryAction =
+  | "ack-mismatch"
+  | "ack-terminal"
+  | "ack-running"
+  | "retry-running"
+  | "claim";
 
 /**
  * Stale-claim threshold for crash-recovery on RUNNING rows. Cloudflare
  * Workers cap wall-time at 5 minutes on the paid plan; a row that has
- * not had `updated_at` change for longer than this threshold has lost
- * its owning consumer and can be reclaimed by a redelivery. Margin
- * over the 5-min cap covers clock skew + slow last-step persistence.
+ * not had `updated_at` bumped by a `transitionCase` call for longer
+ * than this threshold has lost its owning consumer and can be
+ * reclaimed by a redelivery. Margin over the 5-min cap covers clock
+ * skew + last-step persistence latency.
+ *
+ * Important: `updated_at` is bumped on every `transitionCase` call —
+ * claim, revert, set, DLQ flip — but NOT on `upsertSignal` or brief
+ * inserts during workflow execution. The case row is effectively
+ * frozen at claim timestamp for the duration of the run; the staleness
+ * gate is therefore measuring "time since claim", not "time since the
+ * consumer last did work". For Phase 4's measured ~60s e2e brief
+ * runtime this gives a comfortable margin, but combined with the
+ * retry-loop fallback below, a crash mid-run does not have to wait
+ * the full staleness window before recovery starts.
  */
 export const RUNNING_STALE_THRESHOLD_MS = 10 * 60 * 1000;
 
@@ -17,30 +33,37 @@ export interface ClassifyTimeInputs {
 }
 
 /**
- * Classification for queue redelivery — decides whether to ack without
- * work or proceed to an atomic claim. Caller owns all side-effects
- * (ack/retry).
+ * Classification for queue redelivery — decides whether to ack, retry,
+ * or proceed to an atomic claim. The caller owns all side-effects.
  *
- * RUNNING handling is gated by BOTH `attempts` AND row staleness:
- *   - `attempts === 1` — concurrent duplicate delivery, defer to the
- *      in-flight consumer.
- *   - `attempts > 1` AND row is fresh (updated within
- *      `staleThresholdMs`) — slow workflow still alive; ack-running
- *      to avoid double-execution against a still-live consumer.
- *   - `attempts > 1` AND row is stale (no `updated_at` change for
- *      longer than the threshold) — crash recovery; reclaim. The
- *      atomic `claimRun` UPDATE plus `current_run_id` guard is the
- *      mutex, and Mastra's runId-keyed D1 persistence is the
- *      double-execution backstop against the same run.
+ * RUNNING fan-out by `attempts` and row staleness:
  *
- * SUSPENDED_HITL is terminal for this consumer: the workflow paused
- * itself awaiting reviewer action; the next move comes from
- * `POST /api/cases/:id/action` (Phase 7), not the queue.
+ *   - `attempts === 1` (any age) → `ack-running`
+ *     Concurrent duplicate from the first delivery batch; defer to
+ *     the in-flight consumer.
  *
- * FAILED is terminal for this runId: the DLQ flipped it. Producer
- * retry mints a fresh runId via `producerGuard`, so this WHERE never
- * matches a legitimate fresh attempt — only stale main-queue messages
- * for an already-DLQ'd run, which we ack.
+ *   - `attempts > 1` AND fresh row → `retry-running`
+ *     Redelivery while the row still looks alive. Cannot reclaim
+ *     (double-exec risk against a still-live consumer) and MUST NOT
+ *     ack (would orphan the row if the prior consumer actually
+ *     crashed). Asking the queue to retry preserves both invariants:
+ *     either the consumer recovers and the row transitions naturally,
+ *     or the row stales past `RUNNING_STALE_THRESHOLD_MS` and a later
+ *     redelivery flips to `claim`, or `max_retries` is reached and
+ *     the message hits the DLQ → DLQ consumer flips to FAILED →
+ *     producer mints a fresh runId on retry.
+ *
+ *   - `attempts > 1` AND stale row → `claim`
+ *     Crash recovery proven: the row hasn't had a transition for
+ *     longer than `RUNNING_STALE_THRESHOLD_MS`, so the prior consumer
+ *     can no longer be alive (well past the 5-min Worker wall-time
+ *     cap). The atomic `claimRun` UPDATE plus `current_run_id` guard
+ *     is the mutex; Mastra's runId-keyed D1 persistence is the
+ *     double-execution backstop against the same run.
+ *
+ * SUSPENDED_HITL / READY_FOR_REVIEW / ACTIONED / FAILED are terminal
+ * for this consumer (FAILED is terminal for this runId — the DLQ
+ * flipped it; producer retry mints a fresh runId).
  *
  * DRAFT is structurally orphan (producer-guard always mints QUEUED
  * before send). Log + ack.
@@ -63,7 +86,8 @@ export function classifyRedelivery(
     case "FAILED":
       return "ack-terminal";
     case "RUNNING":
-      return isStaleClaim(row, time) && attempts > 1 ? "claim" : "ack-running";
+      if (attempts === 1) return "ack-running";
+      return isStaleClaim(row, time) ? "claim" : "retry-running";
     case "QUEUED":
       return "claim";
     case "DRAFT": {
