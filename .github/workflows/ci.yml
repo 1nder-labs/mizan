@@ -85,35 +85,10 @@ jobs:
             echo "- Commit: ${{ github.sha }}"
             echo "- Runner: ubuntu-latest"
             echo ""
-            echo "Unit tests above; integration suite runs in the parallel \`verify-integration\` job."
+            echo "Integration tests run locally via \`bun --filter @mizan/worker test:integration\` —"
+            echo "the Vectorize binding has \`remote: true\` (Miniflare cannot simulate Vectorize), which"
+            echo "forces \`@cloudflare/vitest-pool-workers\` to open a Cloudflare remote-proxy session."
+            echo "GitHub Actions runners are not logged into Cloudflare, so the integration job is"
+            echo "skipped here until \`CLOUDFLARE_API_TOKEN\` is added as a repo secret + threaded into"
+            echo "the workflow. Local runs from a \`wrangler login\` shell cover the suite for now."
           } >> "$GITHUB_STEP_SUMMARY"
-
-  verify-integration:
-    name: Verify integration (Miniflare + @cloudflare/vitest-pool-workers)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: secret-scan
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun runtime
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
-
-      - name: Install dependencies (frozen lockfile · Socket scanner active)
-        run: bun install --frozen-lockfile --no-cache
-
-      - name: Run integration tests (vitest + Miniflare)
-        run: bun --filter @mizan/worker test:integration
-
-      - name: Upload integration test artefacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-failure-logs
-          path: |
-            apps/worker/**/*.log
-            apps/worker/**/test-results*.junit.xml
-          retention-days: 7
