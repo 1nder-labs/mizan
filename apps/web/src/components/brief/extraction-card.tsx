@@ -3,6 +3,9 @@
  * "tool use" cell: monospace tool name, status badge, collapsed input
  * preview that expands inline. Large payloads open in a `<Sheet>`
  * side drawer so the queue scroll position is preserved.
+ *
+ * `ToolPart` + `ToolState` live in `stream-types.ts` so the pure
+ * fold layer can reference them without depending on this UI leaf.
  */
 import { ChevronRight, Maximize2, Wrench } from "lucide-react";
 import { useState } from "react";
@@ -17,17 +20,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet.tsx";
 import { cn } from "@/lib/utils.ts";
-
-export type ToolState = "input-streaming" | "input-available" | "output-available" | "output-error";
-
-export interface ToolPart {
-  readonly id: string;
-  readonly name: string;
-  readonly state: ToolState;
-  readonly input?: unknown;
-  readonly output?: unknown;
-  readonly errorText?: string;
-}
+import type { ToolPart, ToolState } from "./stream-types.ts";
 
 const STATE_LABEL: Record<ToolState, string> = {
   "input-streaming": "Reading input",
@@ -58,6 +51,39 @@ function PayloadBlock({ value }: { readonly value: unknown }): React.JSX.Element
   );
 }
 
+/**
+ * Renders the input / output / error trio for a tool invocation.
+ * Used by both the inline-expanded card body and the side-drawer
+ * detail view so payload formatting changes land once.
+ */
+function ToolPayloadSections({
+  tool,
+  errorBlockClass,
+}: {
+  readonly tool: ToolPart;
+  readonly errorBlockClass: string;
+}): React.JSX.Element {
+  return (
+    <>
+      {tool.input !== undefined ? (
+        <div className="space-y-1">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Input</p>
+          <PayloadBlock value={tool.input} />
+        </div>
+      ) : null}
+      {tool.output !== undefined ? (
+        <div className="space-y-1">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Output</p>
+          <PayloadBlock value={tool.output} />
+        </div>
+      ) : null}
+      {tool.errorText ? (
+        <div className={errorBlockClass}>{tool.errorText}</div>
+      ) : null}
+    </>
+  );
+}
+
 function ExpandButton({ tool }: { readonly tool: ToolPart }): React.JSX.Element {
   return (
     <Sheet>
@@ -74,23 +100,10 @@ function ExpandButton({ tool }: { readonly tool: ToolPart }): React.JSX.Element 
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-4 overflow-auto px-4 pb-6">
-          {tool.input !== undefined ? (
-            <div className="space-y-1">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Input</p>
-              <PayloadBlock value={tool.input} />
-            </div>
-          ) : null}
-          {tool.output !== undefined ? (
-            <div className="space-y-1">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Output</p>
-              <PayloadBlock value={tool.output} />
-            </div>
-          ) : null}
-          {tool.errorText ? (
-            <div className="rounded-md border border-status-destructive-border bg-status-destructive p-3 text-xs text-status-destructive-foreground">
-              {tool.errorText}
-            </div>
-          ) : null}
+          <ToolPayloadSections
+            tool={tool}
+            errorBlockClass="rounded-md border border-status-destructive-border bg-status-destructive p-3 text-xs text-status-destructive-foreground"
+          />
         </div>
       </SheetContent>
     </Sheet>
@@ -135,23 +148,10 @@ function ToolHeader({
 function ToolBody({ tool }: { readonly tool: ToolPart }): React.JSX.Element {
   return (
     <div className="space-y-3 border-t border-border bg-muted/20 px-4 py-3">
-      {tool.input !== undefined ? (
-        <div className="space-y-1">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Input</p>
-          <PayloadBlock value={tool.input} />
-        </div>
-      ) : null}
-      {tool.output !== undefined ? (
-        <div className="space-y-1">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Output</p>
-          <PayloadBlock value={tool.output} />
-        </div>
-      ) : null}
-      {tool.errorText ? (
-        <div className="rounded-md border border-status-destructive-border bg-status-destructive p-2 text-xs text-status-destructive-foreground">
-          {tool.errorText}
-        </div>
-      ) : null}
+      <ToolPayloadSections
+        tool={tool}
+        errorBlockClass="rounded-md border border-status-destructive-border bg-status-destructive p-2 text-xs text-status-destructive-foreground"
+      />
     </div>
   );
 }

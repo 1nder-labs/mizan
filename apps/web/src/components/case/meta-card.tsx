@@ -1,7 +1,11 @@
 /**
- * Case meta card — id, category, geography, claimed Zakat category,
- * created timestamp, current run id. Read-only side panel that
- * sits next to the brief on wide viewports.
+ * Case meta card — category, geography, claimed Zakat category,
+ * created + updated timestamps. Read-only side panel that sits next
+ * to the brief on wide viewports. `current_run_id` is intentionally
+ * omitted from the wire response (internal column, narrow projection
+ * in `apps/worker/src/routes/cases-list.ts`); when a future plan
+ * requires surfacing it for resumability UX, add it to
+ * `CaseRowSchema` + `caseListProjection()` first.
  */
 import type { CaseRow } from "@mizan/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";

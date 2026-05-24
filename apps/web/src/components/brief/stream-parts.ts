@@ -2,9 +2,14 @@
  * Pure folding helpers for the workflow part stream. The component
  * runs `foldParts(parts)` on every useChat render and consumes the
  * derived `{ text, tools, steps }` tuple.
+ *
+ * Wire shape — pinned. `data-workflow` parts carry `{ event, step,
+ * label?, durationMs?, note? }`. Earlier prototypes accepted
+ * `stepId` / `kind` aliases; those were removed once the worker
+ * stabilised on `event` + `step`. If you find yourself adding an
+ * alias here, change the worker emitter instead.
  */
-import type { StepEntry, StepState } from "./step-progress.tsx";
-import type { ToolPart, ToolState } from "./extraction-card.tsx";
+import type { StepEntry, StepState, ToolPart, ToolState } from "./stream-types.ts";
 
 export interface BriefStreamView {
   readonly text: string;
@@ -82,21 +87,24 @@ function applyToolPart(map: Map<string, ToolPart>, part: PartLike): void {
   });
 }
 
+function nextStepState(event: string, previous: StepState): StepState {
+  if (event === "step.start") return "running";
+  if (event === "step.finish") return "done";
+  if (event === "step.fail") return "failed";
+  return previous;
+}
+
 function applyDataPart(map: Map<string, StepEntry>, part: PartLike): void {
   if (part.type !== "data-workflow") return;
   const data = asRecord(part.data) ?? {};
-  const stepId = asString(data.step) ?? asString(data.stepId);
-  const event = asString(data.event) ?? asString(data.kind);
+  const stepId = asString(data.step);
+  const event = asString(data.event);
   if (!stepId || !event) return;
   const previous = map.get(stepId);
-  let nextState: StepState = previous?.state ?? "pending";
-  if (event === "step.start") nextState = "running";
-  else if (event === "step.finish" || event === "step.done") nextState = "done";
-  else if (event === "step.fail" || event === "step.error") nextState = "failed";
   map.set(stepId, {
     id: stepId,
     label: asString(data.label) ?? previous?.label ?? stepId,
-    state: nextState,
+    state: nextStepState(event, previous?.state ?? "pending"),
     durationMs: asNumber(data.durationMs) ?? previous?.durationMs,
     note: asString(data.note) ?? previous?.note,
   });

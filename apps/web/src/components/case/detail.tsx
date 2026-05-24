@@ -4,57 +4,52 @@
  *   RUNNING                              -> <BriefStream> (U10)
  *   READY_FOR_REVIEW / ACTIONED + brief  -> persisted summary + tabs
  *   anything else                        -> empty / failure card
+ *
+ * Takes the shared `CaseDetailResponse["brief"]` directly — no
+ * web-only `CaseDetail` wrapper type. Component reaches into
+ * `brief.payload_json` for the rich brief body.
  */
-import type { BriefPayload, CaseRow } from "@mizan/shared";
+import type { CaseDetailResponse, CaseRow } from "@mizan/shared";
 import { BriefStream } from "@/components/brief/stream.tsx";
 import { BriefDetailTabs } from "./brief-details.tsx";
 import { BriefEmptyState } from "./brief-empty.tsx";
 import { BriefSummaryCard } from "./brief-summary.tsx";
+import { CaseDocList } from "./doc-list.tsx";
 import { CaseHeader } from "./header.tsx";
 import { CaseMetaCard } from "./meta-card.tsx";
 
+type BriefSummary = CaseDetailResponse["brief"];
+
 interface CaseDetailProps {
   readonly caseRow: CaseRow;
-  readonly briefPayload: BriefPayload | null;
-  readonly briefComposedAt: number | null;
+  readonly brief: BriefSummary;
 }
 
-function BriefPanel({
-  caseRow,
-  briefPayload,
-  briefComposedAt,
-}: CaseDetailProps): React.JSX.Element {
+function BriefPanel({ caseRow, brief }: CaseDetailProps): React.JSX.Element {
   if (caseRow.status === "RUNNING") {
     return <BriefStream caseId={caseRow.id} />;
   }
-  if (briefPayload && briefComposedAt) {
+  if (brief) {
     return (
       <div className="space-y-4">
-        <BriefSummaryCard payload={briefPayload} composedAt={briefComposedAt} />
-        <BriefDetailTabs payload={briefPayload} />
+        <BriefSummaryCard payload={brief.payload_json} composedAt={brief.composed_at} />
+        <BriefDetailTabs payload={brief.payload_json} />
       </div>
     );
   }
   return <BriefEmptyState status={caseRow.status} />;
 }
 
-export function CaseDetail({
-  caseRow,
-  briefPayload,
-  briefComposedAt,
-}: CaseDetailProps): React.JSX.Element {
+export function CaseDetail({ caseRow, brief }: CaseDetailProps): React.JSX.Element {
   return (
     <article className="mx-auto max-w-7xl space-y-8 px-6 py-8">
       <CaseHeader caseRow={caseRow} />
       <section className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
         <aside className="space-y-4">
           <CaseMetaCard caseRow={caseRow} />
+          <CaseDocList caseId={caseRow.id} />
         </aside>
-        <BriefPanel
-          caseRow={caseRow}
-          briefPayload={briefPayload}
-          briefComposedAt={briefComposedAt}
-        />
+        <BriefPanel caseRow={caseRow} brief={brief} />
       </section>
     </article>
   );

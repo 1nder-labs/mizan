@@ -1,7 +1,8 @@
 /**
- * Case detail page component. Subscribes to the prefetched case + brief
- * cache entry. `onFinish` invalidation from `<BriefStream>` re-fetches
- * and the status badge flips without a manual refresh.
+ * Case detail page component. Subscribes to the prefetched
+ * `CaseDetailResponse` cache entry. `onFinish` invalidation from
+ * `<BriefStream>` re-fetches and the status badge flips without a
+ * manual refresh.
  */
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
@@ -31,11 +32,7 @@ export function CaseDetailPage(): React.JSX.Element {
   }
   return (
     <main className="min-h-screen bg-background">
-      <CaseDetail
-        caseRow={data.case}
-        briefPayload={data.briefPayload}
-        briefComposedAt={data.brief?.composed_at ?? null}
-      />
+      <CaseDetail caseRow={data.case} brief={data.brief} />
     </main>
   );
 }

@@ -5,7 +5,7 @@
  * draft for ergonomics.
  */
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isCaseStatus, type CaseStatus, type QueueSearch } from "@mizan/shared";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -54,6 +54,10 @@ function StatusTabs({ search, onSearchChange }: FilterBarProps): React.JSX.Eleme
 
 function CategoryFilter({ search, onSearchChange }: FilterBarProps): React.JSX.Element {
   const [draft, setDraft] = useState(search.category ?? "");
+  const externalCategory = search.category ?? "";
+  useEffect(() => {
+    setDraft(externalCategory);
+  }, [externalCategory]);
   return (
     <form
       className="flex items-center gap-2"

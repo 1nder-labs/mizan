@@ -22,7 +22,7 @@ const queueApi = getRouteApi("/queue");
 export function QueuePage(): React.JSX.Element {
   const search = queueApi.useSearch();
   const navigate = useNavigate({ from: "/queue" });
-  const { data, isFetching, isPending, error } = useQuery(casesListQueryOptions(search));
+  const query = useQuery(casesListQueryOptions(search));
   const { signOut, signingOut } = useSignOut();
 
   function setSearch(next: Partial<QueueSearch>): void {
@@ -34,19 +34,26 @@ export function QueuePage(): React.JSX.Element {
       <QueueHeader context="Reviewer queue" onSignOut={signOut} signingOut={signingOut} />
       <section className="mx-auto max-w-7xl space-y-6 px-6 py-8">
         <QueueSummary
-          isPending={isPending}
-          showing={data?.cases.length ?? 0}
-          total={data?.total ?? 0}
+          isPending={query.isPending}
+          showing={query.data?.cases.length ?? 0}
+          total={query.data?.total ?? 0}
           sort={search.sort}
         />
         <QueueFilterBar search={search} onSearchChange={setSearch} />
-        {error ? <QueueError /> : null}
-        {isPending ? (
+        {query.error ? (
+          <QueueError
+            onRetry={() => {
+              void query.refetch();
+            }}
+            retrying={query.isFetching}
+          />
+        ) : null}
+        {query.isPending ? (
           <QueueSkeleton />
         ) : (
-          <QueueTable rows={data?.cases ?? []} search={search} onSearchChange={setSearch} />
+          <QueueTable rows={query.data?.cases ?? []} search={search} onSearchChange={setSearch} />
         )}
-        <QueueFooter refetching={isFetching} />
+        <QueueFooter refetching={query.isFetching} />
       </section>
     </main>
   );

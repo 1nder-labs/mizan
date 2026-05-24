@@ -6,16 +6,7 @@
 import { Check, Circle, Loader2, OctagonX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { cn } from "@/lib/utils.ts";
-
-export type StepState = "pending" | "running" | "done" | "failed";
-
-export interface StepEntry {
-  readonly id: string;
-  readonly label: string;
-  readonly state: StepState;
-  readonly durationMs?: number;
-  readonly note?: string;
-}
+import type { StepEntry, StepState } from "./stream-types.ts";
 
 function StepIcon({ state }: { readonly state: StepState }): React.JSX.Element {
   if (state === "done") return <Check className="size-3.5 text-status-success-foreground" />;

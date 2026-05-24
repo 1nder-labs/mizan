@@ -15,7 +15,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { queryKeys } from "@/lib/query-keys.ts";
 import { BriefCopy } from "./copy.tsx";
@@ -40,17 +40,44 @@ function streamApi(caseId: string): string {
   return `/api/cases/${caseId}/brief`;
 }
 
+/**
+ * Mode A SSE transport.
+ *
+ * `prepareSendMessagesRequest` returns an empty body — the worker
+ * (`apps/worker/src/routes/cases.ts:32-66`) reads inputs from URL
+ * params + producer-guard context and does NOT consume the request
+ * body. Sending an empty `{}` matches that contract exactly; the AI
+ * SDK 6 default would otherwise wrap the (empty) message in
+ * `{ messages: [...] }` which the worker would silently discard but
+ * is wasted bytes. `Accept: text/event-stream` matches the worker's
+ * `wantsEventStream(c)` content negotiation in
+ * `apps/worker/src/routes/cases.ts:33`.
+ */
+function buildTransport(caseId: string) {
+  return new DefaultChatTransport({
+    api: streamApi(caseId),
+    headers: { Accept: "text/event-stream" },
+    prepareSendMessagesRequest: () => ({ body: {} }),
+  });
+}
+
+/**
+ * Pins `sendMessage` to one POST per `caseId` mount. React 19
+ * StrictMode mounts effects twice in dev; firing twice would race
+ * the worker's producer guard.
+ */
+function useStreamOpener(caseId: string, sendMessage: (input: { text: string }) => void): void {
+  const openedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (openedFor.current === caseId) return;
+    openedFor.current = caseId;
+    sendMessage({ text: "" });
+  }, [caseId, sendMessage]);
+}
+
 export function BriefStream({ caseId }: BriefStreamProps): React.JSX.Element {
   const queryClient = useQueryClient();
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: streamApi(caseId),
-        headers: { Accept: "text/event-stream" },
-      }),
-    [caseId],
-  );
-
+  const transport = useMemo(() => buildTransport(caseId), [caseId]);
   const { messages, sendMessage, error, status } = useChat({
     id: `case-${caseId}`,
     transport,
@@ -59,15 +86,14 @@ export function BriefStream({ caseId }: BriefStreamProps): React.JSX.Element {
     },
   });
 
-  useEffect(() => {
-    void sendMessage({ text: "" });
-  }, [sendMessage]);
+  useStreamOpener(caseId, (input) => {
+    void sendMessage(input);
+  });
 
   const assistantParts = useMemo(
     () => messages.flatMap((message) => (message.role === "assistant" ? message.parts : [])),
     [messages],
   );
-
   const view = useMemo(() => foldParts(assistantParts), [assistantParts]);
   const fatal = error ?? (status === "error" ? new Error("Stream closed unexpectedly") : null);
 

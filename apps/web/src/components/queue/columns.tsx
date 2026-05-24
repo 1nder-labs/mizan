@@ -1,13 +1,15 @@
 /**
  * Column factory for the queue table. Pure — receives the current
- * search + a setter and returns column defs. Kept separate from the
- * table component so the per-column shape can be tested in
- * isolation if needed.
+ * search + a setter and returns column defs. Reads `latest_brief` off
+ * each row (denorm subquery in the worker) for the recommendation +
+ * verification-path columns so the queue surface stays a single
+ * round-trip.
  */
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CaseRow, QueueSearch, QueueSort } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
+import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -18,6 +20,10 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 
 function shortId(id: string): string {
   return id.slice(0, 8);
+}
+
+function humanVerificationPath(path: string): string {
+  return path.replace(/_/g, " ").toLowerCase();
 }
 
 function nextSort(current: QueueSort): QueueSort {
@@ -51,10 +57,7 @@ function UpdatedHeader({
   );
 }
 
-export function buildColumns(
-  search: QueueSearch,
-  onSearchChange: (next: Partial<QueueSearch>) => void,
-): ColumnDef<CaseRow>[] {
+function staticColumns(): ColumnDef<CaseRow>[] {
   return [
     {
       id: "id",
@@ -76,19 +79,41 @@ export function buildColumns(
       ),
     },
     {
-      id: "claimed_zakat_category",
-      header: "Zakat",
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">
-          {row.original.claimed_zakat_category ?? "—"}
-        </span>
-      ),
-    },
-    {
       id: "status",
       header: "Status",
       cell: ({ row }) => <CaseStatusBadge status={row.original.status} />,
     },
+    {
+      id: "recommendation",
+      header: "Recommendation",
+      cell: ({ row }) =>
+        row.original.latest_brief ? (
+          <RecommendationBadge recommendation={row.original.latest_brief.recommendation} />
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    },
+    {
+      id: "verification_path",
+      header: "Verification",
+      cell: ({ row }) =>
+        row.original.latest_brief ? (
+          <span className="text-xs capitalize text-muted-foreground">
+            {humanVerificationPath(row.original.latest_brief.verification_path)}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        ),
+    },
+  ];
+}
+
+export function buildColumns(
+  search: QueueSearch,
+  onSearchChange: (next: Partial<QueueSearch>) => void,
+): ColumnDef<CaseRow>[] {
+  return [
+    ...staticColumns(),
     {
       id: "updated",
       header: () => <UpdatedHeader search={search} onSearchChange={onSearchChange} />,
