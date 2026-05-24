@@ -22,20 +22,27 @@ function parseResponseMap(serializedMap?: string): MockResponseMap {
   return MockResponseMapSchema.parse(JSON.parse(serializedMap));
 }
 
+/**
+ * Resolves a canned response by `schemaName`. Lookup order:
+ *   1. Dotted form (`<step>.<role>`) — the internal convention used
+ *      throughout `runStructuredLlm` and the fixture maps. Tried
+ *      first because that's the canonical key shape, and trying it
+ *      first means a sanitized name that legitimately contains
+ *      underscores still resolves cleanly without the dot rewrite
+ *      colliding with the underscore.
+ *   2. The raw sanitized form as received from the provider wire
+ *      (`<step>_<role>`), in case a fixture was keyed against the
+ *      OpenAI-regex-safe shape directly.
+ *   3. `default` — catch-all for tests that don't care which schema
+ *      fired.
+ */
 function lookupResponse(map: MockResponseMap, schemaName: string | undefined): JsonValue {
   if (schemaName) {
-    const direct = map[schemaName];
-    if (direct !== undefined) return direct;
-    /*
-     * `runStructuredLlm` sanitises schema names through
-     * `^[a-zA-Z0-9_-]+$` before forwarding to OpenAI's Responses API,
-     * turning the internal `<step>.<role>` convention into
-     * `<step>_<role>` on the wire. Canned-response maps key on the
-     * original dot-namespaced form, so reverse the substitution here.
-     */
     const dotted = schemaName.replace(/_/g, ".");
     const viaDotted = map[dotted];
     if (viaDotted !== undefined) return viaDotted;
+    const direct = map[schemaName];
+    if (direct !== undefined) return direct;
   }
   const fallback = map["default"];
   if (fallback !== undefined) return fallback;

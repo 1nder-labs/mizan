@@ -28,29 +28,24 @@ import { CLASSIFY_VOUCHING_SYSTEM, buildVouchingPayload } from "./prompt.ts";
 const MIN_VOUCHING_NARRATIVE_CHARS = 20;
 
 /**
- * Classifies vouching-chain structure via an envelope-wrapped tagged
- * union.
+ * Workflow step that classifies vouching-chain structure.
  *
- * The LLM emits `{ chain: <variant> }` because cross-provider strict
- * mode (OpenAI + Anthropic) requires `type: "object"` at the response
- * root — a bare `z.union` of object variants violates that. The
- * envelope is unwrapped in `postProcess` before the corroboration
- * guards run, so persisted state still stores the variant directly
- * under `signals.vouching` (no extra hop for downstream readers).
- *
- * `minLength` is intentionally absent on `partner_org_name` (Anthropic
- * strict mode rejects the keyword); `assertVouchingChain` enforces the
- * non-empty invariant. `assertPartnerOrgCorroborated` and
- * `assertCommunityVouchingCorroborated` reject LLM outputs whose
- * structure cannot be grounded in the case's `vouching_narrative`.
- */
-/**
- * Workflow step. Gates the LLM call on an app-side narrative length
- * check — short / missing `vouching_narrative` deterministically
- * emits `structure: "none"` without spending a token. When the
- * narrative IS long enough, the LLM emits an envelope-wrapped
- * variant (cross-provider strict mode), and the corroboration guards
- * reject hallucinated institutional / community claims.
+ * Gating order:
+ *   1. App-side narrative length check — short / missing
+ *      `vouching_narrative` deterministically emits `structure: "none"`
+ *      without spending a token (LLMs hallucinate character counts).
+ *   2. LLM call emits `{ chain: <variant> }` — the envelope is
+ *      required because cross-provider strict mode (OpenAI +
+ *      Anthropic) rejects a bare `z.union` at the response root.
+ *      `postProcess` unwraps so persisted state stores the variant
+ *      directly under `signals.vouching` (no downstream-reader hop).
+ *   3. Corroboration guards (`assertVouchingChain`,
+ *      `assertPartnerOrgCorroborated`,
+ *      `assertCommunityVouchingCorroborated`) reject LLM outputs
+ *      whose structure cannot be grounded in the case's
+ *      `vouching_narrative`. `minLength` is intentionally absent on
+ *      `partner_org_name` because Anthropic strict mode rejects the
+ *      keyword; the non-empty invariant is enforced application-side.
  */
 export const classifyVouchingChain = createStep({
   id: "classifyVouchingChain",

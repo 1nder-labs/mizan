@@ -86,12 +86,15 @@ async function streamBriefResponse(
 
 /**
  * Pre-stream POST handler for `/api/cases/:id/brief`. Errors thrown
- * before SSE headers go out are caught here, the case is restored to
- * DRAFT, and the response is redacted to a stable error envelope —
- * the underlying message stays in worker logs (Cloudflare observability
+ * before SSE headers go out are caught here, the case is flipped to
+ * FAILED so it surfaces in operator queries for stuck / broken cases,
+ * and the response is redacted to a stable error envelope — the
+ * underlying message stays in worker logs (Cloudflare observability
  * captures the throw) so on-call sees the failure without leaking
- * workflow internals to the reviewer. Mid-stream failures take the
- * SSE error-event path instead and never reach this catch.
+ * workflow internals to the reviewer. The producer guard accepts
+ * FAILED as a retry-allowed source status, so the next POST simply
+ * grabs a fresh runId. Mid-stream failures take the SSE error-event
+ * path instead and never reach this catch.
  */
 async function handleBriefPost(c: BriefContext): Promise<Response> {
   const caseId = c.req.param("id");

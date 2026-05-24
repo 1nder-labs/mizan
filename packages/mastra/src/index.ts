@@ -72,6 +72,7 @@ export {
   type ResolveLanguageModelArgs,
 } from "./runtime/model-resolver.ts";
 export { tierFor } from "./runtime/geography-tier.ts";
+export { detectImageMediaType, toImagePart } from "./util/image-format.ts";
 
 export interface MizanMastraBundle {
   readonly mastra: Mastra;

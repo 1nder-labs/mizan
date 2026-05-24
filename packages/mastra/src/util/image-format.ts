@@ -86,11 +86,5 @@ export function toImagePart(
       }`,
     );
   }
-  const dataUrl = bytesToDataUrl(bytes, mediaType);
-  console.log(
-    `[toImagePart] source=${sourceHint ?? "?"} mediaType=${mediaType} bytes=${bytes.length} b64Len=${
-      dataUrl.length
-    } prefix=${dataUrl.slice(0, 40)} suffix=${dataUrl.slice(-20)}`,
-  );
-  return { type: "image", image: dataUrl };
+  return { type: "image", image: bytesToDataUrl(bytes, mediaType) };
 }

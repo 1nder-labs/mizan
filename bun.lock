@@ -101,7 +101,6 @@
         "@ai-sdk/anthropic": "3.0.75",
         "@ai-sdk/openai": "3.0.62",
         "@ai-sdk/provider": "3.0.10",
-        "@mastra/ai-sdk": "1.4.1",
         "@mastra/cloudflare-d1": "1.0.5",
         "@mastra/core": "1.32.1",
         "@mastra/langfuse": "1.2.0",

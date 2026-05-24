@@ -5,7 +5,14 @@ import type { CloudflareBindings } from "../env.ts";
 import type { RoleVariables } from "./require-role.ts";
 
 const RUNNING_STATUSES = ["QUEUED", "RUNNING"] as const;
-const ALLOWED_STATUSES = ["DRAFT", "READY_FOR_REVIEW", "ACTIONED"] as const;
+/**
+ * Statuses that may transition into RUNNING via this guard. FAILED is
+ * included so a case left in FAILED by a pre-stream throw in
+ * `handleBriefPost` can be retried by the reviewer without a manual DB
+ * fix — the failure surfaces to operators via the FAILED row, and the
+ * next POST grabs a fresh runId.
+ */
+const ALLOWED_STATUSES = ["DRAFT", "READY_FOR_REVIEW", "ACTIONED", "FAILED"] as const;
 
 export type ProducerVariables = RoleVariables & {
   runId: string;

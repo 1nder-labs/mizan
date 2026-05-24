@@ -1,5 +1,4 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
-import { withMastra } from "@mastra/ai-sdk";
 import type { CloudflareBindings } from "@mizan/shared";
 import {
   embedPolicyText,
@@ -7,8 +6,6 @@ import {
   type EmbeddingEnv,
 } from "../models/embedding-factory.ts";
 import { getDefaultModel, getModel, type ModelConfig, type ModelKind } from "../models/factory.ts";
-
-type WithMastraOpts = Parameters<typeof withMastra>[1];
 
 /** Factory for a mock LanguageModel — registered by `@mizan/mastra/testing`. */
 type MockLanguageModelFactory = (serializedMap: string) => LanguageModelV3;
@@ -65,7 +62,6 @@ export interface ResolveLanguageModelArgs {
   readonly env: CloudflareBindings;
   readonly kind: ModelKind;
   readonly override?: ModelConfig;
-  readonly withMastraOpts?: WithMastraOpts;
 }
 
 export interface ResolvedLanguageModel {
@@ -73,6 +69,17 @@ export interface ResolvedLanguageModel {
   readonly config: ModelConfig;
 }
 
+/**
+ * Resolves a LanguageModelV3 for the given call kind. Returns the bare
+ * AI SDK model — `withMastra(raw, opts)` is intentionally NOT wrapped
+ * here because we use neither input/output processors nor thread
+ * memory at the extractor / signal / compose call sites, and the
+ * wrapper mangles AI SDK 6 image content parts on the way to OpenAI's
+ * Responses API. Telemetry rides on `experimental_telemetry` on every
+ * `generateText` call in `runStructuredLlm`, not on the model wrapper.
+ * Re-introduce `withMastra` only when a call site actually needs a
+ * processor or thread memory.
+ */
 export function resolveLanguageModel(args: ResolveLanguageModelArgs): ResolvedLanguageModel {
   if (mockProvidersAllowed(args.env) && args.env.MOCK_LLM_RESPONSES && registry.mockLanguageModel) {
     return {
@@ -81,19 +88,7 @@ export function resolveLanguageModel(args: ResolveLanguageModelArgs): ResolvedLa
     };
   }
   const config = args.override ?? getDefaultModel(args.env, args.kind);
-  const raw = getModel(config, args.env);
-  /**
-   * `withMastra(raw, opts)` is OPTIONAL per Mastra docs — it adds
-   * processors and memory persistence. We use neither at the
-   * extractor / signal / compose call sites, so we pass the bare AI
-   * SDK model. Telemetry rides on `experimental_telemetry` on every
-   * `generateText` call (`runStructuredLlm`), not on the model
-   * wrapper. Re-enable `withMastra` here only when a call site
-   * actually needs an input/output processor or thread memory.
-   */
-  void withMastra;
-  void args.withMastraOpts;
-  return { model: raw, config };
+  return { model: getModel(config, args.env), config };
 }
 
 /**
