@@ -61,4 +61,13 @@ describe("mock providers fail-closed guard", () => {
     delete env.MOCK_LLM_RESPONSES;
     expect(resolvedMock(env)).toBe(false);
   });
+
+  it("skips mock branch when MOCK_LLM_RESPONSES is the empty string (falsy)", () => {
+    const env = makeStubBindings({
+      ANTHROPIC_API_KEY: "test-key",
+      MOCK_PROVIDERS_ALLOWED: "1",
+      MOCK_LLM_RESPONSES: "",
+    });
+    expect(resolvedMock(env)).toBe(false);
+  });
 });

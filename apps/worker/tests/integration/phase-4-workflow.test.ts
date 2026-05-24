@@ -34,8 +34,13 @@ interface CommunityCaseFixture {
   readonly responses: () => Record<string, unknown>;
   readonly expectedPath: VerificationPath;
   readonly forcedEscalate: boolean;
-  readonly expectsDraftedMessage: boolean;
   readonly expectedRecommendation: "READY_FOR_REVIEW" | "REQUEST_DOCS" | "ESCALATE";
+  /**
+   * Path-specific phrase from `forcedEscalateReason`'s
+   * `REASON_BY_PATH` lookup. Asserting on the phrase (not just the
+   * tuple) catches drift between the predicate and the reviewer copy.
+   */
+  readonly expectedReasonPhrase: string;
 }
 
 const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
@@ -47,8 +52,8 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     responses: case006Responses,
     expectedPath: VerificationPathSchema.parse("community_vouching"),
     forcedEscalate: true,
-    expectsDraftedMessage: false,
     expectedRecommendation: "ESCALATE",
+    expectedReasonPhrase: "community vouching insufficient",
   },
   {
     /** SD = OFAC, institutional-vouching → forced ESCALATE (no draft). */
@@ -58,8 +63,8 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     responses: case007Responses,
     expectedPath: VerificationPathSchema.parse("institutional_vouching"),
     forcedEscalate: true,
-    expectsDraftedMessage: false,
     expectedRecommendation: "ESCALATE",
+    expectedReasonPhrase: "institutional vouching insufficient",
   },
   {
     id: "11111111-1111-4111-8111-111111111108",
@@ -68,8 +73,8 @@ const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
     responses: case008Responses,
     expectedPath: VerificationPathSchema.parse("none"),
     forcedEscalate: true,
-    expectsDraftedMessage: false,
     expectedRecommendation: "ESCALATE",
+    expectedReasonPhrase: "no verification chain",
   },
 ];
 
@@ -255,16 +260,10 @@ describe("phase 4 community-vouching workflow", () => {
       expect(reason).toContain(`verification_path=${entry.expectedPath}`);
       expect(reason).toContain(`geography_tier=${tierFor(entry.geography)}`);
       expect(reason).toContain(entry.geography);
+      expect(reason).toContain(entry.expectedReasonPhrase);
       expect(brief.drafted_organizer_message).toBeUndefined();
     } else {
       expect(brief.forced_escalate_reason).toBeUndefined();
-    }
-
-    if (entry.expectsDraftedMessage) {
-      expect(brief.recommendation).toBe("REQUEST_DOCS");
-      expect(brief.drafted_organizer_message?.message.length ?? 0).toBeGreaterThan(0);
-      expect((brief.drafted_organizer_message?.missing_items ?? []).length).toBeGreaterThan(0);
-    } else if (!entry.forcedEscalate) {
       expect(brief.drafted_organizer_message).toBeUndefined();
     }
 

@@ -43,4 +43,10 @@ describe("tierFor", () => {
   it("fails safe to OFAC_ADJACENT for empty input", () => {
     expect(tierFor("")).toBe("OFAC_ADJACENT");
   });
+
+  it("fails safe to OFAC_ADJACENT for whitespace-only input", () => {
+    expect(tierFor("   ")).toBe("OFAC_ADJACENT");
+    expect(tierFor("\t")).toBe("OFAC_ADJACENT");
+    expect(tierFor(" \n ")).toBe("OFAC_ADJACENT");
+  });
 });

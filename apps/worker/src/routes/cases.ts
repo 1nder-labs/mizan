@@ -84,6 +84,15 @@ async function streamBriefResponse(
   }
 }
 
+/**
+ * Pre-stream POST handler for `/api/cases/:id/brief`. Errors thrown
+ * before SSE headers go out are caught here, the case is restored to
+ * DRAFT, and the response is redacted to a stable error envelope —
+ * the underlying message stays in worker logs (Cloudflare observability
+ * captures the throw) so on-call sees the failure without leaking
+ * workflow internals to the reviewer. Mid-stream failures take the
+ * SSE error-event path instead and never reach this catch.
+ */
 async function handleBriefPost(c: BriefContext): Promise<Response> {
   const caseId = c.req.param("id");
   if (!caseId) return c.json({ error: "case id missing" }, 400);
@@ -93,13 +102,6 @@ async function handleBriefPost(c: BriefContext): Promise<Response> {
     return await streamBriefResponse(c, caseId, runId, caseRow);
   } catch (error) {
     await restoreDraft(c.env, caseId);
-    /*
-     * Don't leak workflow internals to the reviewer surface. The
-     * original `error.message` already lives in worker logs (Cloudflare
-     * observability captures the throw); the response only carries a
-     * stable code + caseId + runId so the reviewer can quote them on
-     * an on-call ticket without exposing stack-style detail.
-     */
     console.error(
       `[brief] workflow failed (case_id=${caseId} run_id=${runId}): ${
         error instanceof Error ? error.message : String(error)
