@@ -13,7 +13,6 @@
       "@mizan/mastra/*": ["../../packages/mastra/src/*"],
       "@mizan/shared": ["../../packages/shared/src/index.ts"],
       "@mizan/shared/*": ["../../packages/shared/src/*"],
-      "@mizan/worker/index": ["../../apps/worker/src/index.ts"],
       "@mizan/eval": ["../../packages/eval/src/index.ts"],
       "@mizan/eval/*": ["../../packages/eval/src/*"]
     }

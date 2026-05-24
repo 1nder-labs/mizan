@@ -5,18 +5,30 @@
  * cache entry.
  */
 import { queryOptions } from "@tanstack/react-query";
+import type { InferResponseType } from "hono/client";
 import {
-  BriefPayloadSchema,
-  CaseRowSchema,
+  CaseDetailResponseSchema,
   QueueResponseSchema,
   type BriefPayload,
+  type CaseDetailResponse,
   type CaseRow,
   type QueueResponse,
   type QueueSearch,
 } from "@mizan/shared";
-import { z } from "zod";
 import { api } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
+
+/**
+ * Compile-time seam: if the worker's `GET /api/cases/:id` response
+ * diverges from `CaseDetailResponse`, this assignment fails to compile.
+ * This catches worker drift at the RPC boundary before zod parse failures
+ * surface at runtime.
+ */
+declare const _detailContract: InferResponseType<
+  (typeof api.cases)[":id"]["$get"]
+> extends CaseDetailResponse
+  ? true
+  : false;
 
 function toQuery(search: QueueSearch): Record<string, string> {
   const query: Record<string, string> = {
@@ -44,25 +56,9 @@ export function casesListQueryOptions(search: QueueSearch) {
   });
 }
 
-const BriefRecommendationEnum = z.enum(["READY_FOR_REVIEW", "REQUEST_DOCS", "ESCALATE", "BLOCK"]);
-
-const BriefSummarySchema = z.object({
-  recommendation: BriefRecommendationEnum,
-  confidence: z.number().int(),
-  composed_at: z.number().int(),
-  payload_json: BriefPayloadSchema,
-});
-
-type BriefSummary = z.infer<typeof BriefSummarySchema>;
-
-const CaseDetailResponseSchema = z.object({
-  case: CaseRowSchema,
-  brief: BriefSummarySchema.nullable(),
-});
-
 interface CaseDetail {
   readonly case: CaseRow;
-  readonly brief: BriefSummary | null;
+  readonly brief: CaseDetailResponse["brief"];
   readonly briefPayload: BriefPayload | null;
 }
 

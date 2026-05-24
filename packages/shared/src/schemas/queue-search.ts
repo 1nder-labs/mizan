@@ -27,7 +27,7 @@ export const QueueSearchSchema = z
     status: CaseStatusEnum.optional().catch(undefined),
     category: z.string().min(1).max(64).optional().catch(undefined),
     geography: z.string().min(1).max(64).optional().catch(undefined),
-    page: z.coerce.number().int().positive().default(1).catch(1),
+    page: z.coerce.number().int().positive().max(1000).default(1).catch(1),
     sort: QueueSortEnum.default("updated_desc").catch("updated_desc"),
   })
   .strict();

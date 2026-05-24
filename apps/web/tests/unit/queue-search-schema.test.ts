@@ -22,6 +22,11 @@ describe("QueueSearchSchema", () => {
     expect(parsed.page).toBe(1);
   });
 
+  test(".catch coalesces page above 1000 to 1", () => {
+    const parsed = QueueSearchSchema.parse({ page: "2000" });
+    expect(parsed.page).toBe(1);
+  });
+
   test("accepts a known status enum value", () => {
     const parsed = QueueSearchSchema.parse({ status: "READY_FOR_REVIEW" });
     expect(parsed.status).toBe("READY_FOR_REVIEW");
