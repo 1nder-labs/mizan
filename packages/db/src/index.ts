@@ -39,4 +39,5 @@ export type Db = ReturnType<typeof makeDb>;
 export * from "./schema.ts";
 export * from "./auth.schema.ts";
 export * from "./schemas.ts";
+export { transitionCase, type CaseTransitionInput } from "./case-transitions.ts";
 export { and, eq, inArray } from "drizzle-orm";

@@ -80,6 +80,9 @@ export const producerGuard = (target: ProducerTarget) => {
     if (existing.status === "QUEUED" || existing.status === "RUNNING") {
       return inFlightResponse(c, existing, onInFlight);
     }
+    if (!sources.includes(existing.status)) {
+      return c.json({ error: "invalid_source_status", current_status: existing.status }, 409);
+    }
 
     const runId = crypto.randomUUID();
     const updated = await db

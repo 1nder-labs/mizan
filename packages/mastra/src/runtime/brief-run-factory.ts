@@ -1,10 +1,6 @@
 import type { CloudflareBindings } from "@mizan/shared";
 import { createMastra, type MizanMastraBundle } from "../mastra-factory.ts";
-import {
-  makeRuntimeContext,
-  MIZAN_CTX_KEY,
-  type MizanRuntimeContext,
-} from "../observability/runtime-context.ts";
+import { makeRuntimeContext, type MizanRuntimeContext } from "../observability/runtime-context.ts";
 import { MIZAN_ENV_KEY } from "./context-accessors.ts";
 
 /**
@@ -41,21 +37,20 @@ export function buildBriefRunContext(
 
 /** Shape returned by `createBriefRun` — the run handle plus durable bookkeeping. */
 export interface BriefRunBundle {
-  readonly mastra: MizanMastraBundle["mastra"];
   readonly langfuse: MizanMastraBundle["langfuse"];
   readonly run: Awaited<
     ReturnType<ReturnType<MizanMastraBundle["mastra"]["getWorkflow"]>["createRun"]>
   >;
   readonly requestContext: ReturnType<typeof makeRuntimeContext>;
-  readonly ctx: MizanRuntimeContext;
 }
 
 /**
  * Single source of truth for booting a brief workflow run. Constructs the
  * per-request Mastra instance, resolves the `brief` workflow, pins the
  * caller-supplied `runId` for durable persistence, and primes the
- * `RequestContext` with the env + ctx slots every step reads via
- * `getEnv` / `getCtx`. Callers decide between `run.stream()` (Mode A) and
+ * `RequestContext` with the env slot every step reads via `getEnv`.
+ * `MIZAN_CTX_KEY` is already set by `makeRuntimeContext`, so we don't
+ * re-set it here. Callers decide between `run.stream()` (Mode A) and
  * `run.start()` (Mode B); both paths share this exact bootstrap.
  */
 export async function createBriefRun(
@@ -68,6 +63,5 @@ export async function createBriefRun(
   const run = await workflow.createRun({ runId: input.runId });
   const requestContext = makeRuntimeContext(ctx);
   requestContext.set(MIZAN_ENV_KEY, env);
-  requestContext.set(MIZAN_CTX_KEY, ctx);
-  return { mastra, langfuse, run, requestContext, ctx };
+  return { langfuse, run, requestContext };
 }

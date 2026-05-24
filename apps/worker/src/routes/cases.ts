@@ -9,7 +9,7 @@
 
 import { createBriefRun, flushLangfuse } from "@mizan/mastra";
 import { toAISdkStream } from "@mastra/ai-sdk";
-import { cases, eq, and, makeDb, type Case } from "@mizan/db";
+import { makeDb, transitionCase, type Case } from "@mizan/db";
 import { BriefQueueMessageSchema } from "@mizan/shared";
 import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import type { Context } from "hono";
@@ -115,11 +115,12 @@ async function revertQueuedClaim(
   caseId: string,
   runId: string,
 ): Promise<void> {
-  const db = makeDb(env.DB);
-  await db
-    .update(cases)
-    .set({ status: "DRAFT", updated_at: new Date() })
-    .where(and(eq(cases.id, caseId), eq(cases.current_run_id, runId), eq(cases.status, "QUEUED")));
+  await transitionCase(makeDb(env.DB), {
+    caseId,
+    runId,
+    from: "QUEUED",
+    to: "DRAFT",
+  });
 }
 
 /**
@@ -187,9 +188,10 @@ async function setCaseStatus(
   runId: string,
   status: "DRAFT" | "FAILED",
 ): Promise<void> {
-  const db = makeDb(env.DB);
-  await db
-    .update(cases)
-    .set({ status, updated_at: new Date() })
-    .where(and(eq(cases.id, caseId), eq(cases.current_run_id, runId), eq(cases.status, "RUNNING")));
+  await transitionCase(makeDb(env.DB), {
+    caseId,
+    runId,
+    from: "RUNNING",
+    to: status,
+  });
 }

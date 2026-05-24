@@ -1,6 +1,6 @@
 import type { ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
 import { createBriefRun, flushLangfuse } from "@mizan/mastra";
-import { cases, eq, and, inArray, makeDb } from "@mizan/db";
+import { cases, eq, makeDb, transitionCase, type Db } from "@mizan/db";
 import type { Case } from "@mizan/db";
 import { BriefQueueMessageSchema, type BriefQueueMessage } from "@mizan/shared";
 import type { CloudflareBindings } from "../env.ts";
@@ -8,46 +8,47 @@ import { classifyRedelivery } from "./brief-consumer-helpers.ts";
 
 type QueueMessage = MessageBatch<unknown>["messages"][number];
 
-async function loadCase(env: CloudflareBindings, caseId: string): Promise<Case | undefined> {
-  const db = makeDb(env.DB);
+async function loadCase(db: Db, caseId: string): Promise<Case | undefined> {
   const [row] = await db.select().from(cases).where(eq(cases.id, caseId)).limit(1);
   return row;
 }
 
 /**
- * Atomically transitions a case to RUNNING. Accepted source statuses:
- *   - QUEUED / FAILED → first delivery or producer retry after FAILED
- *   - RUNNING        → crash recovery (only reached when `msg.attempts > 1`
- *                      per `classifyRedelivery`; combined with the
- *                      `current_run_id` guard, this lets a redelivery
- *                      take over a claim whose owning consumer crashed
- *                      before reverting; Mastra's runId-keyed D1
- *                      persistence is the backstop against double
- *                      execution against the same run)
- * Race-loser sees `updated.length === 0` and acks.
+ * Atomically transitions a case to RUNNING. Accepted source statuses are
+ * narrow on purpose:
+ *
+ *   - QUEUED   — first delivery from the producer
+ *   - RUNNING  — crash recovery, only reached when `msg.attempts > 1`
+ *                per `classifyRedelivery`. Combined with the
+ *                `current_run_id` guard, this lets a redelivery take
+ *                over a claim whose owning consumer crashed before
+ *                reverting; Mastra's runId-keyed D1 persistence is the
+ *                backstop against double execution against the same run.
+ *
+ * FAILED is intentionally excluded so a DLQ flip (which keeps the same
+ * `current_run_id`) cannot be undone by a stale main-queue message
+ * still in flight. A producer retry from FAILED mints a fresh runId via
+ * `producerGuard`, which never collides with this WHERE.
+ *
+ * Returns the claimed row so the caller works against the post-claim
+ * snapshot, not the pre-claim one. Race-loser sees `undefined` and acks.
  */
-async function claimRun(env: CloudflareBindings, caseId: string, runId: string): Promise<boolean> {
-  const db = makeDb(env.DB);
-  const updated = await db
-    .update(cases)
-    .set({ status: "RUNNING", updated_at: new Date() })
-    .where(
-      and(
-        eq(cases.id, caseId),
-        eq(cases.current_run_id, runId),
-        inArray(cases.status, ["QUEUED", "FAILED", "RUNNING"]),
-      ),
-    )
-    .returning();
-  return updated.length > 0;
+async function claimRun(db: Db, message: BriefQueueMessage): Promise<Case | undefined> {
+  return transitionCase(db, {
+    caseId: message.caseId,
+    runId: message.runId,
+    from: ["QUEUED", "RUNNING"],
+    to: "RUNNING",
+  });
 }
 
-async function revertClaim(env: CloudflareBindings, caseId: string, runId: string): Promise<void> {
-  const db = makeDb(env.DB);
-  await db
-    .update(cases)
-    .set({ status: "QUEUED", updated_at: new Date() })
-    .where(and(eq(cases.id, caseId), eq(cases.current_run_id, runId), eq(cases.status, "RUNNING")));
+async function revertClaim(db: Db, caseId: string, runId: string): Promise<void> {
+  await transitionCase(db, {
+    caseId,
+    runId,
+    from: "RUNNING",
+    to: "QUEUED",
+  });
 }
 
 async function runWorkflow(
@@ -78,6 +79,7 @@ async function runWorkflow(
 async function executeClaimedRun(
   msg: QueueMessage,
   env: CloudflareBindings,
+  db: Db,
   executionCtx: ExecutionContext,
   message: BriefQueueMessage,
   row: Case,
@@ -87,7 +89,7 @@ async function executeClaimedRun(
     msg.ack();
   } catch (error) {
     try {
-      await revertClaim(env, message.caseId, message.runId);
+      await revertClaim(db, message.caseId, message.runId);
     } catch (revertErr) {
       console.error("brief queue revert claim failed", {
         caseId: message.caseId,
@@ -107,6 +109,7 @@ async function executeClaimedRun(
 async function processMessage(
   msg: QueueMessage,
   env: CloudflareBindings,
+  db: Db,
   executionCtx: ExecutionContext,
 ): Promise<void> {
   const parsed = BriefQueueMessageSchema.safeParse(msg.body);
@@ -117,7 +120,7 @@ async function processMessage(
   }
 
   const message = parsed.data;
-  const row = await loadCase(env, message.caseId);
+  const row = await loadCase(db, message.caseId);
   if (!row) {
     console.error("brief queue missing case", { caseId: message.caseId, runId: message.runId });
     msg.ack();
@@ -130,13 +133,13 @@ async function processMessage(
     return;
   }
 
-  const claimed = await claimRun(env, message.caseId, message.runId);
+  const claimed = await claimRun(db, message);
   if (!claimed) {
     msg.ack();
     return;
   }
 
-  await executeClaimedRun(msg, env, executionCtx, message, row);
+  await executeClaimedRun(msg, env, db, executionCtx, message, claimed);
 }
 
 /**
@@ -149,11 +152,15 @@ export async function handleBriefQueue(
   env: CloudflareBindings,
   ctx: ExecutionContext,
 ): Promise<void> {
+  const db = makeDb(env.DB);
   for (const msg of batch.messages) {
     try {
-      await processMessage(msg, env, ctx);
+      await processMessage(msg, env, db, ctx);
     } catch (error) {
       console.error("brief queue message handler failed", {
+        msgId: msg.id,
+        attempts: msg.attempts,
+        body: msg.body,
         msg: error instanceof Error ? error.message : String(error),
       });
       msg.retry();

@@ -94,6 +94,25 @@ describe("Mode B enqueue", () => {
     expect(res.status).toBe(202);
     expect(body).toMatchObject({ status: "QUEUED", replay: false });
     expect(body.run_id).not.toBe(staleRunId);
+    const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(row?.status).toBe("QUEUED");
+    expect(row?.current_run_id).toBe(body.run_id);
+    expect(row?.current_run_id).not.toBe(staleRunId);
+  });
+
+  it("returns 409 invalid_source_status (not race) when POST hits READY_FOR_REVIEW", async () => {
+    const caseId = crypto.randomUUID();
+    const completedRunId = crypto.randomUUID();
+    await insertDraftCase(caseId, adminUserId);
+    await seedCaseStatus({ caseId, status: "READY_FOR_REVIEW", runId: completedRunId });
+    const { res, body } = await postBrief(caseId, "application/json");
+    expect(res.status).toBe(409);
+    expect(body).toMatchObject({
+      error: "invalid_source_status",
+      current_status: "READY_FOR_REVIEW",
+    });
   });
 
   it("Mode A SSE path unchanged for Accept text/event-stream", async () => {

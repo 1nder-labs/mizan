@@ -93,5 +93,11 @@ describe("Mode B consumer concurrency", () => {
       .bind(caseId)
       .first<{ status: string }>();
     expect(row?.status).toBe("READY_FOR_REVIEW");
+    const signalCount = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+    )
+      .bind(caseId, runId)
+      .first<{ count: number }>();
+    expect(signalCount?.count).toBe(3);
   }, 120_000);
 });

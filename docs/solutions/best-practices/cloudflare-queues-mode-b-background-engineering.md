@@ -25,7 +25,7 @@ tags:
 
 # Cloudflare Queues — Mode B background processing engineering patterns
 
-Eight load-bearing patterns from Mizan Phase 5 (`feat/phase-5-background-mode`). Each was settled after a brutal multi-agent review surfaced a real bug; the failure mode is documented under each pattern so future work can recognise the same shape early.
+Ten load-bearing patterns from Mizan Phase 5 (`feat/phase-5-background-mode`). Each was settled after a brutal multi-agent review surfaced a real bug; the failure mode is documented under each pattern so future work can recognise the same shape early.
 
 ## 1. Content-negotiate on one endpoint, branch to two modes
 
@@ -57,24 +57,32 @@ The factory also derives the in-flight response mode (`RUNNING → 409`, `QUEUED
 
 **Failure mode caught**: using one shared `ALLOWED_STATUSES` set across both targets — Mode B enqueue failure on a `READY_FOR_REVIEW` row would silently downgrade it to DRAFT.
 
-## 3. `msg.attempts` is the only honest signal for crash recovery vs concurrent duplicate
+## 3. Crash recovery on RUNNING needs BOTH `msg.attempts > 1` AND row staleness
 
-Cloudflare Queues delivers messages at-least-once. A redelivery against a row already in `RUNNING` has two indistinguishable causes by row state alone:
+Cloudflare Queues delivers messages at-least-once. A redelivery against a row already in `RUNNING` has three causes that aren't distinguishable by row state alone:
 
-1. **Concurrent duplicate** — another consumer is actively running the workflow right now. Ack and let it finish.
-2. **Crash recovery** — the prior consumer claimed `QUEUED → RUNNING`, then crashed before reverting. The row is stuck; the redelivery must reclaim.
+1. **Concurrent duplicate (first delivery)** — another consumer is running right now. Ack.
+2. **Slow workflow** — same consumer still alive, redelivery is racing the in-flight run. Ack to avoid double execution against a live run.
+3. **Crash recovery** — prior consumer claimed `QUEUED → RUNNING`, crashed before reverting. Row is stuck; redelivery must reclaim.
 
-`msg.attempts === 1` ⇒ first delivery ⇒ concurrent duplicate ⇒ `ack-running`.
-`msg.attempts > 1` ⇒ redelivery ⇒ crash recovery ⇒ `claim`.
+`msg.attempts` alone splits (1) from (2)+(3). Cause (2) vs (3) needs a **freshness check** on `cases.updated_at` — every transition through `transitionCase` updates the timestamp, so a live consumer keeps the row "warm". `RUNNING_STALE_THRESHOLD_MS = 10 * 60 * 1000` is safely past the Cloudflare Worker wall-time cap (5 min on the paid plan).
 
 ```ts
 case "RUNNING":
-  return attempts > 1 ? "claim" : "ack-running";
+  return isStaleClaim(row, time) && attempts > 1 ? "claim" : "ack-running";
 ```
 
-The atomic claim itself (`UPDATE ... WHERE status IN ('QUEUED','FAILED','RUNNING') AND current_run_id = ?`) is the mutex; Mastra's runId-keyed D1 persistence is the backstop against double execution against the same run.
+The atomic claim itself (`UPDATE ... WHERE status IN ('QUEUED','RUNNING') AND current_run_id = ?`) is the mutex; the staleness gate prevents the lookup from racing a live consumer; Mastra's runId-keyed D1 persistence is the deepest backstop.
 
-**Failure mode caught**: blanket `ack-running` for ALL RUNNING redeliveries → crash recovery is dead code → stuck cases never reach DLQ → reviewer 202-replay loop forever.
+**Cloudflare Queues note**: push consumers (the `queue(batch, env, ctx)` handler) do NOT expose `visibility_timeout_seconds` in `wrangler.jsonc` — that knob is pull-consumer only. For push consumers, redelivery is governed by Worker wall-time + `max_retries`. The row-staleness check is the application-level equivalent of a visibility timeout.
+
+**FAILED is terminal for this runId.** The DLQ flips QUEUED/RUNNING → FAILED. A redelivery for the SAME runId is stale wire — ack-terminal. Producer retry mints a fresh runId via `producerGuard`, so a legitimate retry never re-uses a FAILED runId.
+
+**Failure modes caught**:
+
+1. Blanket `ack-running` for ALL RUNNING redeliveries → crash recovery is dead code → stuck cases never reach DLQ.
+2. Blanket `claim` for RUNNING redeliveries → slow workflows trigger double execution.
+3. FAILED in claim sources → DLQ flip can be undone by a stale main-queue message before the DLQ consumer fires.
 
 ## 4. Exhaustive switch + `assertNever` on the status enum
 
@@ -85,11 +93,11 @@ switch (row.status) {
   case "READY_FOR_REVIEW":
   case "ACTIONED":
   case "SUSPENDED_HITL":
+  case "FAILED":
     return "ack-terminal";
   case "RUNNING":
-    return attempts > 1 ? "claim" : "ack-running";
+    return isStaleClaim(row, time) && attempts > 1 ? "claim" : "ack-running";
   case "QUEUED":
-  case "FAILED":
     return "claim";
   case "DRAFT":
     console.error("brief queue orphaned DRAFT row", { caseId: row.id, runId });
@@ -115,10 +123,11 @@ export async function createBriefRun(env, input) {
   const run = await workflow.createRun({ runId: input.runId });
   const requestContext = makeRuntimeContext(ctx);
   requestContext.set(MIZAN_ENV_KEY, env);
-  requestContext.set(MIZAN_CTX_KEY, ctx);
-  return { mastra, langfuse, run, requestContext, ctx };
+  return { langfuse, run, requestContext };
 }
 ```
+
+`MIZAN_CTX_KEY` is already set by `makeRuntimeContext`; don't re-set it here. Return only the fields the call sites use (`langfuse`, `run`, `requestContext`); `mastra` + `ctx` are internal and stay private.
 
 Callers decide between `run.stream()` (Mode A) and `run.start()` (Mode B); everything before that diverge is single-sourced.
 
@@ -185,6 +194,55 @@ Annotating with `satisfies ExportedHandler<Env>` from `@cloudflare/workers-types
 - `msg.ack()` always — DLQ messages do not retry (`max_retries: 1` on the DLQ consumer).
 - After DLQ flip → next POST is allowed by `producerGuard` because `FAILED` is in `ALLOWED_QUEUED_SOURCES` (and `ALLOWED_RUNNING_SOURCES`).
 
+## 9. One `transitionCase` helper for every runId-pinned status mutation
+
+Five distinct call sites (consumer claim, consumer revert, producer revert, route-boundary set, DLQ flip) all share the same shape: `UPDATE cases SET status = <to>, updated_at = NOW() WHERE id = ? AND current_run_id = ? AND status IN (<from>)`. Centralising in `@mizan/db` means:
+
+- One place to read the canonical state-machine pattern
+- `updated_at` is bumped on EVERY transition (powers the staleness check in pattern #3)
+- `.returning()` row narrowing returns the post-transition row, so callers work against the fresh snapshot instead of a stale pre-claim row
+- Race-loser semantics (`undefined` return) are uniform; no caller invents its own zero-row encoding
+
+```ts
+export async function transitionCase(
+  db: Db,
+  input: CaseTransitionInput,
+): Promise<Case | undefined> {
+  const sources = Array.isArray(input.from) ? [...input.from] : [input.from];
+  const updated = await db
+    .update(cases)
+    .set({ status: input.to, updated_at: new Date() })
+    .where(
+      and(
+        eq(cases.id, input.caseId),
+        eq(cases.current_run_id, input.runId),
+        inArray(cases.status, sources),
+      ),
+    )
+    .returning();
+  return updated[0];
+}
+```
+
+Producer enqueue (`producerGuard`) is intentionally NOT routed through this helper — it MINTS a fresh runId rather than matching on an existing one, which is a structurally different operation.
+
+**Failure mode caught**: scattered raw drizzle UPDATE patterns → one site forgets the `updated_at` bump → staleness check (#3) returns wrong answer → crash recovery misfires.
+
+## 10. Drizzle / D1 engineering practices
+
+Worker / D1 specifics, gathered through Phase 5:
+
+- **One `makeDb(env.DB)` per request / per message batch.** D1 bindings are per-request handles; the Drizzle wrapper is cheap but creating a fresh one on every helper call inside the same request is wasteful. Hoist `const db = makeDb(env.DB)` at the entry (route handler, queue batch loop) and thread `db: Db` through helpers.
+- **Per-request binding rule.** Workers reclaim the isolate at the end of the request; binding handles are valid only for that request. Never cache `makeDb` output globally — same rule as `createMastra(env)`.
+- **D1 does NOT support multi-statement client transactions.** Every state machine guarantee must be expressed as a single atomic `UPDATE` with the right `WHERE` clauses (status + runId guards). Multi-row workflows that need true transactional semantics use `env.DB.batch([...])` instead of `db.transaction(...)` (the Drizzle helper isn't available on D1).
+- **`.returning()` is the cheapest race detector.** Every transition function returns the post-mutation row (or `undefined` if zero rows matched). Callers narrow on the return value instead of issuing a second SELECT — saves a round-trip and removes a TOCTOU window.
+- **drizzle-zod for JSON column branding.** Persisted JSON shapes (`briefs.payload_json`, `signals.payload_json`) are declared in `@mizan/shared` zod schemas and branded onto the column via `drizzle-zod`. The DB column type IS the shared zod schema — divergence becomes a compile error.
+- **Migrations only via `drizzle-kit generate`.** Hand-written migrations are forbidden by project rule; one-shot backfills require explicit approval and inline JSDoc explaining why `drizzle-kit` couldn't emit it.
+- **`Case` type re-exported from `@mizan/db`.** Domain types are inferred from drizzle's `$inferSelect` via drizzle-zod schemas — consumers import `type Case from "@mizan/db"` rather than reaching into private schema files.
+- **No raw SQL outside test seeders.** Application code goes through Drizzle's typed builder. Test helpers (`seedCaseStatus`, `insertDraftCase`) live in `tests/integration/mode-b-helpers.ts` and use prepared statements with parameter binding — never string-interpolated SQL.
+- **`updated_at` is the heartbeat.** Pattern #3's staleness check reads `cases.updated_at`. Every transition path bumps it (via `transitionCase`'s `.set({ ..., updated_at: new Date() })`). Phase 4's `upsertSignal` and Phase 4 brief persistence also bump it on writes — together these make `updated_at` a reliable application-level lease for queue claims.
+- **Strict-typed `from` parameter.** `CaseTransitionInput.from: CaseStatus | readonly CaseStatus[]` — the enum literal union means a typo in a transition source is a compile error. The `inArray(cases.status, sources)` predicate carries the enum constraint into the SQL guard.
+
 ## Status-machine invariants (cheat sheet)
 
 ```
@@ -198,9 +256,10 @@ POST + Accept SSE  ───────┤
 POST + Accept JSON ───────┤
                           └──── in-flight (QUEUED|RUNNING): 202 { run_id, replay: true }
 
-Consumer claim:           atomic UPDATE WHERE status IN ('QUEUED','FAILED','RUNNING')
+Consumer claim:           atomic UPDATE WHERE status IN ('QUEUED','RUNNING')
                                                   AND current_run_id = ?
-                                          (RUNNING included only when msg.attempts > 1)
+                                          (RUNNING included only when msg.attempts > 1
+                                           AND row.updated_at is past stale threshold)
 
 Consumer revert:          atomic UPDATE WHERE status = 'RUNNING'
                                                   AND current_run_id = ?
@@ -233,13 +292,15 @@ Every status transition is gated on both `id` AND `current_run_id` — the runId
 
 ## Reference files
 
-- `apps/worker/src/middleware/producer-guard.ts` — factory + per-target source allow-lists
+- `apps/worker/src/middleware/producer-guard.ts` — factory + per-target source allow-lists + `invalid_source_status` vs race distinction
 - `apps/worker/src/routes/cases.ts` — content-negotiated branch + `enqueueBrief` + `revertQueuedClaim` + `setCaseStatus`
 - `apps/worker/src/queue/brief-consumer.ts` — Layer 3 idempotent consumer
-- `apps/worker/src/queue/brief-consumer-helpers.ts` — `classifyRedelivery` exhaustive switch
-- `apps/worker/src/queue/dlq-consumer.ts` — terminal failure flip
-- `apps/worker/src/queue/dispatch.ts` — multi-queue dispatcher
+- `apps/worker/src/queue/brief-consumer-helpers.ts` — `classifyRedelivery` exhaustive switch + staleness gate
+- `apps/worker/src/queue/dlq-consumer.ts` — terminal failure flip via `transitionCase`
+- `apps/worker/src/queue/dispatch.ts` — multi-queue dispatcher + exported queue name constants
 - `packages/mastra/src/runtime/brief-run-factory.ts` — shared workflow bootstrap
+- `packages/mastra/src/mastra-factory.ts` — `createMastra(env)` per-request factory
+- `packages/db/src/case-transitions.ts` — canonical `transitionCase` helper
 - `packages/shared/src/schemas/queue-message.ts` — queue-message wire schema
 
 ## See also

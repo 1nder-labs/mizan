@@ -128,21 +128,28 @@ type CaseStatus =
   | "SUSPENDED_HITL";
 
 /**
- * Updates a case row's `status` (and optionally `current_run_id`) directly in
- * the test DB. Centralises raw-SQL status writes across Mode B integration tests.
+ * Updates a case row's `status` (and optionally `current_run_id`,
+ * `updated_at`) directly in the test DB. Centralises raw-SQL status
+ * writes across Mode B integration tests. `updatedAt` is exposed so
+ * staleness-gated crash-recovery tests can simulate a row whose owning
+ * consumer has been silent past the staleness threshold.
  */
 export async function seedCaseStatus(args: {
   caseId: string;
   status: CaseStatus;
   runId?: string;
+  updatedAt?: number;
 }): Promise<void> {
+  const updatedAt = args.updatedAt ?? Date.now();
   if (args.runId !== undefined) {
-    await env.DB.prepare("UPDATE cases SET status = ?, current_run_id = ? WHERE id = ?")
-      .bind(args.status, args.runId, args.caseId)
+    await env.DB.prepare(
+      "UPDATE cases SET status = ?, current_run_id = ?, updated_at = ? WHERE id = ?",
+    )
+      .bind(args.status, args.runId, updatedAt, args.caseId)
       .run();
   } else {
-    await env.DB.prepare("UPDATE cases SET status = ? WHERE id = ?")
-      .bind(args.status, args.caseId)
+    await env.DB.prepare("UPDATE cases SET status = ?, updated_at = ? WHERE id = ?")
+      .bind(args.status, updatedAt, args.caseId)
       .run();
   }
 }

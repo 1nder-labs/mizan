@@ -174,11 +174,27 @@ describe("Mode B consumer idempotency", () => {
     expect(row).toBeNull();
   });
 
-  it("reclaims a stuck RUNNING row on redelivery (attempts > 1) and finishes the workflow", async () => {
+  /**
+   * Crash-recovery coverage: seeds a RUNNING row with `updated_at`
+   * backdated past the staleness threshold (`RUNNING_STALE_THRESHOLD_MS`)
+   * and delivers with `attempts = 2` to force the classifier into the
+   * `claim` branch. The seeded Mastra state is empty — Miniflare
+   * cannot easily simulate a partially-persisted workflow checkpoint,
+   * so this test proves the **redelivery path takes the claim**, not
+   * the deeper "Mastra resumes from last persisted step" contract.
+   * The Mastra resume invariant is validated by manual smoke against
+   * `wrangler dev` + remote Vectorize.
+   */
+  it("reclaims a stale RUNNING row on redelivery (attempts > 1 + past stale threshold) and finishes the workflow", async () => {
     const caseId = crypto.randomUUID();
     const runId = crypto.randomUUID();
     await insertDraftCase(caseId, adminUserId);
-    await seedCaseStatus({ caseId, status: "RUNNING", runId });
+    await seedCaseStatus({
+      caseId,
+      status: "RUNNING",
+      runId,
+      updatedAt: Date.now() - 11 * 60 * 1000,
+    });
 
     env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
     const { message, ack, retry } = trackedMessage(
@@ -200,6 +216,12 @@ describe("Mode B consumer idempotency", () => {
       .bind(caseId)
       .first<{ status: string }>();
     expect(row?.status).toBe("READY_FOR_REVIEW");
+    const signalCount = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+    )
+      .bind(caseId, runId)
+      .first<{ count: number }>();
+    expect(signalCount?.count).toBe(3);
   }, 60_000);
 
   it("acks a concurrent first-delivery duplicate against a RUNNING row (attempts = 1) without re-running", async () => {
@@ -224,5 +246,75 @@ describe("Mode B consumer idempotency", () => {
       .bind(caseId)
       .first<{ status: string }>();
     expect(row?.status).toBe("RUNNING");
+    const signalCount = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+    )
+      .bind(caseId, runId)
+      .first<{ count: number }>();
+    expect(signalCount?.count).toBe(0);
+  });
+
+  it("acks a fresh-RUNNING redelivery (attempts > 1 but not past stale threshold) without reclaiming", async () => {
+    const caseId = crypto.randomUUID();
+    const runId = crypto.randomUUID();
+    await insertDraftCase(caseId, adminUserId);
+    await seedCaseStatus({ caseId, status: "RUNNING", runId });
+
+    const { message, ack, retry } = trackedMessage(
+      {
+        caseId,
+        runId,
+        enqueuedAt: Date.now(),
+        requestedBy: adminUserId,
+      },
+      { attempts: 3 },
+    );
+    const ctx = createExecutionContext();
+    await handleBriefQueue(makeTestBatch([message]), getTestBindings(), ctx);
+    await waitOnExecutionContext(ctx);
+
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(retry).not.toHaveBeenCalled();
+    const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(row?.status).toBe("RUNNING");
+    expect(row?.current_run_id).toBe(runId);
+    const signalCount = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+    )
+      .bind(caseId, runId)
+      .first<{ count: number }>();
+    expect(signalCount?.count).toBe(0);
+  });
+
+  it("acks a FAILED row redelivery (terminal for this runId) without reclaiming", async () => {
+    const caseId = crypto.randomUUID();
+    const runId = crypto.randomUUID();
+    await insertDraftCase(caseId, adminUserId);
+    await seedCaseStatus({ caseId, status: "FAILED", runId });
+
+    const { message, ack, retry } = trackedMessage({
+      caseId,
+      runId,
+      enqueuedAt: Date.now(),
+      requestedBy: adminUserId,
+    });
+    const ctx = createExecutionContext();
+    await handleBriefQueue(makeTestBatch([message]), getTestBindings(), ctx);
+    await waitOnExecutionContext(ctx);
+
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(retry).not.toHaveBeenCalled();
+    const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string }>();
+    expect(row?.status).toBe("FAILED");
+    const signalCount = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+    )
+      .bind(caseId, runId)
+      .first<{ count: number }>();
+    expect(signalCount?.count).toBe(0);
   });
 });
