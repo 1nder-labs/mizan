@@ -21,7 +21,7 @@ function getExcerptMap(): ReadonlyMap<string, string> {
   return excerptByClauseId;
 }
 
-async function queryVectorizeWithFallback(
+async function queryVectorize(
   vectorize: VectorizeIndex,
   embedding: number[],
   source: "zakat" | "safety",
@@ -37,11 +37,13 @@ async function queryVectorizeWithFallback(
     return matches.matches
       .map((match) => parseMatchToCitation(match, excerptMap))
       .filter((citation): citation is NonNullable<typeof citation> => citation !== null);
-  } catch (error) {
-    console.warn(
-      `[matchPolicy] vectorize.query failed for case=${caseId} source=${source} — returning empty policy_matches: ${error instanceof Error ? error.message : String(error)}`,
+  } catch (cause) {
+    throw new Error(
+      `matchPolicy: vectorize.query failed (case_id=${caseId} source=${source}): ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`,
+      { cause },
     );
-    return [];
   }
 }
 
@@ -55,12 +57,7 @@ export const matchPolicy = createStep({
     const query = buildPolicyQuery(caseRow, inputData);
     const source = resolvePolicySource(caseRow.claimed_zakat_category);
     const embedding = await resolveQueryEmbedding(env, query, { abortSignal });
-    const policy_matches = await queryVectorizeWithFallback(
-      env.VECTORIZE,
-      embedding,
-      source,
-      inputData.caseId,
-    );
+    const policy_matches = await queryVectorize(env.VECTORIZE, embedding, source, inputData.caseId);
     return { ...inputData, policy_matches };
   },
 });

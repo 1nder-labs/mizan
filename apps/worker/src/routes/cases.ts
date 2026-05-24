@@ -93,8 +93,19 @@ async function handleBriefPost(c: BriefContext): Promise<Response> {
     return await streamBriefResponse(c, caseId, runId, caseRow);
   } catch (error) {
     await restoreDraft(c.env, caseId);
-    const message = error instanceof Error ? error.message : "workflow failed";
-    return c.json({ error: message }, 500);
+    /*
+     * Don't leak workflow internals to the reviewer surface. The
+     * original `error.message` already lives in worker logs (Cloudflare
+     * observability captures the throw); the response only carries a
+     * stable code + caseId + runId so the reviewer can quote them on
+     * an on-call ticket without exposing stack-style detail.
+     */
+    console.error(
+      `[brief] workflow failed (case_id=${caseId} run_id=${runId}): ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    return c.json({ error: "workflow_failed", case_id: caseId, run_id: runId }, 500);
   }
 }
 

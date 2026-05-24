@@ -8,10 +8,59 @@ import type { GeographyTier } from "@mizan/shared";
  * - `OFAC_ADJACENT`: partial sanctions, regional risk overlap, or
  *   humanitarian corridors that require enhanced due diligence.
  * - `AT_RISK`: high humanitarian or verification risk per LaunchGood policy.
- * - `SAFE`: default for unknown or unmapped codes.
+ * - `SAFE`: explicitly whitelisted low-risk jurisdiction.
+ *
+ * Unknown / unmapped codes intentionally default to `OFAC_ADJACENT`
+ * (fail-safe), not `SAFE` — a typo'd geography code must not coerce a
+ * high-risk case onto the auto-allowed path. The empty-string case
+ * collapses to `OFAC_ADJACENT` for the same reason. Operators expand
+ * `COUNTRY_TIER` explicitly when a new geography is onboarded.
  *
  * Update reference: https://ofac.treasury.gov/sanctions-programs-and-country-information
  */
+const SAFE_COUNTRIES: ReadonlySet<string> = new Set([
+  "US",
+  "CA",
+  "GB",
+  "AU",
+  "NZ",
+  "DE",
+  "FR",
+  "NL",
+  "SE",
+  "NO",
+  "DK",
+  "FI",
+  "IE",
+  "ES",
+  "IT",
+  "PT",
+  "AT",
+  "BE",
+  "CH",
+  "JP",
+  "SG",
+  "MY",
+  "ID",
+  "AE",
+  "QA",
+  "KW",
+  "SA",
+  "TR",
+  "EG",
+  "JO",
+  "MA",
+  "TN",
+  "ZA",
+  "KE",
+  "GH",
+  "NG",
+  "PK",
+  "BD",
+  "IN",
+  "PH",
+]);
+
 const COUNTRY_TIER: Readonly<Record<string, GeographyTier>> = {
   BY: "OFAC",
   CU: "OFAC",
@@ -37,10 +86,15 @@ const COUNTRY_TIER: Readonly<Record<string, GeographyTier>> = {
 
 /**
  * Maps a case geography code to its risk tier.
- * Trims and uppercases input; unknown codes return `SAFE`.
+ *
+ * Lookup order: explicit SAFE allowlist → explicit risk map → fail-safe
+ * default of `OFAC_ADJACENT`. The fail-safe is deliberate: an
+ * unrecognised, typo'd, or empty geography code routes through the
+ * forced-escalate gate instead of slipping through on the auto-allowed
+ * SAFE branch.
  */
 export function tierFor(geography: string): GeographyTier {
   const code = geography.trim().toUpperCase();
-  if (code.length === 0) return "SAFE";
-  return COUNTRY_TIER[code] ?? "SAFE";
+  if (SAFE_COUNTRIES.has(code)) return "SAFE";
+  return COUNTRY_TIER[code] ?? "OFAC_ADJACENT";
 }

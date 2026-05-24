@@ -100,17 +100,26 @@ function looksLikeRealBank(bank: BankStatement): boolean {
 }
 
 function looksLikeRealCategory(category: CategoryDocs): boolean {
-  if (category.doc_kind === "medical") {
-    return isNonEmpty(category.patient_name) && isNonEmpty(category.provider_name);
+  switch (category.doc_kind) {
+    case "medical":
+      return isNonEmpty(category.patient_name) && isNonEmpty(category.provider_name);
+    case "school":
+      return isNonEmpty(category.student_name) && isNonEmpty(category.institution_name);
+    case "org_registration":
+      return (
+        isNonEmpty(category.org_name) &&
+        isNonEmpty(category.registration_number) &&
+        isNonEmpty(category.jurisdiction)
+      );
+    default:
+      return assertExhaustive(category);
   }
-  if (category.doc_kind === "school") {
-    return isNonEmpty(category.student_name) && isNonEmpty(category.institution_name);
-  }
-  return (
-    isNonEmpty(category.org_name) &&
-    isNonEmpty(category.registration_number) &&
-    isNonEmpty(category.jurisdiction)
-  );
+}
+
+/** Compile-time exhaustiveness guard for `looksLikeRealCategory`. */
+function assertExhaustive(value: never): false {
+  void value;
+  return false;
 }
 
 /**

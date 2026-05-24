@@ -40,24 +40,18 @@ interface CommunityCaseFixture {
 
 const COMMUNITY_CASES: readonly CommunityCaseFixture[] = [
   {
+    /** YE = OFAC_ADJACENT, community-vouching → forced ESCALATE (no draft). */
     id: "11111111-1111-4111-8111-111111111106",
     file: "case-006.json",
     geography: "YE",
     responses: case006Responses,
     expectedPath: VerificationPathSchema.parse("community_vouching"),
-    forcedEscalate: false,
-    expectsDraftedMessage: true,
-    expectedRecommendation: "REQUEST_DOCS",
+    forcedEscalate: true,
+    expectsDraftedMessage: false,
+    expectedRecommendation: "ESCALATE",
   },
   {
-    /*
-     * Sudan (SD) = OFAC. Institutional vouching alone is insufficient
-     * at full-sanctions geographies even with a real partner-org name —
-     * `assertPartnerOrgCorroborated` is structurally circular against
-     * an adversarial LLM, and OFAC SDN-list checks require human
-     * review. forcedEscalateGate overrides composeBrief's
-     * READY_FOR_REVIEW output to ESCALATE accordingly.
-     */
+    /** SD = OFAC, institutional-vouching → forced ESCALATE (no draft). */
     id: "11111111-1111-4111-8111-111111111107",
     file: "case-007.json",
     geography: "SD",
@@ -247,11 +241,11 @@ describe("phase 4 community-vouching workflow", () => {
     expect(brief.verification_path).toBe(entry.expectedPath);
     expect(brief.geography_tier).toBe(tierFor(entry.geography));
     /**
-     * Recommendation contract: every community-vouching fixture pins
-     * exactly one expected recommendation — REQUEST_DOCS for case-006
-     * (community + OFAC_ADJACENT, draft path), ESCALATE for case-007
-     * (institutional + OFAC, forced gate), ESCALATE for case-008
-     * (none + OFAC_ADJACENT, forced gate).
+     * Recommendation contract: under the canonical forced-escalate
+     * rule every non-SAFE tier escalates non-documentary paths, so all
+     * three community-vouching fixtures (YE / SD / PS) terminate at
+     * ESCALATE. Documentary fixtures (case-001..005) stay
+     * READY_FOR_REVIEW per `brief-workflow.test.ts`.
      */
     expect(brief.recommendation).toBe(entry.expectedRecommendation);
 
@@ -259,6 +253,7 @@ describe("phase 4 community-vouching workflow", () => {
       const reason = brief.forced_escalate_reason ?? "";
       expect(reason.length).toBeGreaterThan(0);
       expect(reason).toContain(`verification_path=${entry.expectedPath}`);
+      expect(reason).toContain(`geography_tier=${tierFor(entry.geography)}`);
       expect(reason).toContain(entry.geography);
       expect(brief.drafted_organizer_message).toBeUndefined();
     } else {

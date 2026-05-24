@@ -46,6 +46,12 @@ export function makeStubBindings(overrides: Partial<CloudflareBindings> = {}): C
     ...STUB_BINDINGS,
     DEFAULT_LLM_PROVIDER: "anthropic",
     LANGFUSE_HOST: "",
+    /**
+     * Tests opt into the mock-provider branch explicitly. Production
+     * deploys never set this flag, so a stray `MOCK_LLM_RESPONSES`
+     * value cannot accidentally activate mock replay in prod.
+     */
+    MOCK_PROVIDERS_ALLOWED: "1",
     ...overrides,
   };
 }

@@ -128,5 +128,5 @@ export {
 export { composePhotoSignalPayload } from "./steps/photoSignal/helpers.ts";
 export { aiGenStub } from "./tools/ai-gen-stub.ts";
 export { reverseImageStub } from "./tools/reverse-image-stub.ts";
-export { SeedCaseSchema, type SeedCase } from "./seeds/seed-case-schema.ts";
+export { SeedCaseSchema, type SeedCase } from "@mizan/shared";
 export type { PartialBriefState } from "./schemas/partial-brief-state.ts";

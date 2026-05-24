@@ -74,7 +74,7 @@ export interface ResolvedLanguageModel {
 }
 
 export function resolveLanguageModel(args: ResolveLanguageModelArgs): ResolvedLanguageModel {
-  if (args.env.MOCK_LLM_RESPONSES && registry.mockLanguageModel) {
+  if (mockProvidersAllowed(args.env) && args.env.MOCK_LLM_RESPONSES && registry.mockLanguageModel) {
     return {
       model: registry.mockLanguageModel(args.env.MOCK_LLM_RESPONSES),
       config: args.override ?? { provider: "anthropic", model: "mock-llm" },
@@ -83,6 +83,17 @@ export function resolveLanguageModel(args: ResolveLanguageModelArgs): ResolvedLa
   const config = args.override ?? getDefaultModel(args.env, args.kind);
   const raw = getModel(config, args.env);
   return { model: withMastra(raw, args.withMastraOpts ?? {}), config };
+}
+
+/**
+ * Production fail-closed guard. The mock branch only fires when the
+ * caller explicitly opted in via `MOCK_PROVIDERS_ALLOWED="1"`. Both the
+ * `MOCK_LLM_RESPONSES` body AND the `registry.mockLanguageModel`
+ * factory must also be present — defence in depth so a stray env-var
+ * smuggled into production cannot replay attacker-controlled JSON.
+ */
+function mockProvidersAllowed(env: { readonly MOCK_PROVIDERS_ALLOWED?: string }): boolean {
+  return env.MOCK_PROVIDERS_ALLOWED === "1";
 }
 
 export async function resolveQueryEmbedding(
@@ -113,6 +124,7 @@ export async function resolveBatchEmbeddings(
 }
 
 function shouldMockEmbeddings(env: EmbeddingEnv): boolean {
+  if (!mockProvidersAllowed(env)) return false;
   return Boolean(env.MOCK_EMBEDDINGS) || Boolean(env.MOCK_LLM_RESPONSES && !env.OPENAI_API_KEY);
 }
 

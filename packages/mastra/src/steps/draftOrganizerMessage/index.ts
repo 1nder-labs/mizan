@@ -28,6 +28,7 @@ export const draftOrganizerMessage = createStep({
     const env = getEnv(requestContext);
     const ctx = getCtx(requestContext);
     const { system, userPayload } = buildDraftPrompt({ brief });
+    abortSignal?.throwIfAborted();
     const drafted_organizer_message = await runStructuredLlm({
       env,
       ctx,
@@ -39,6 +40,7 @@ export const draftOrganizerMessage = createStep({
       userPayload: wrapUntrustedData(userPayload),
       abortSignal,
     });
+    abortSignal?.throwIfAborted();
     const updatedBrief: BriefPayload = { ...brief, drafted_organizer_message };
     await updatePersistedBrief({
       env,

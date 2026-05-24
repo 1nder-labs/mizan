@@ -28,8 +28,9 @@ describe("tierFor", () => {
     expect(tierFor("SY")).toBe("OFAC");
   });
 
-  it("falls back to SAFE for unknown codes", () => {
-    expect(tierFor("ZZ")).toBe("SAFE");
+  it("fails safe to OFAC_ADJACENT for unknown / unmapped codes", () => {
+    expect(tierFor("ZZ")).toBe("OFAC_ADJACENT");
+    expect(tierFor("XX")).toBe("OFAC_ADJACENT");
   });
 
   it("normalizes case and whitespace", () => {
@@ -39,7 +40,7 @@ describe("tierFor", () => {
     expect(tierFor("  ye  ")).toBe("OFAC_ADJACENT");
   });
 
-  it("falls back to SAFE for empty input", () => {
-    expect(tierFor("")).toBe("SAFE");
+  it("fails safe to OFAC_ADJACENT for empty input", () => {
+    expect(tierFor("")).toBe("OFAC_ADJACENT");
   });
 });

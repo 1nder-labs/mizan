@@ -24,12 +24,19 @@ const REQUIRED_BINDING_KEYS = [
   "ASSETS",
 ] as const;
 
+const REQUIRED_STRING_ENV_KEYS = ["DEFAULT_LLM_PROVIDER", "LANGFUSE_HOST"] as const;
+
 function isCloudflareBindings(value: unknown): value is CloudflareBindings {
   if (typeof value !== "object" || value === null) return false;
   for (const key of REQUIRED_BINDING_KEYS) {
     if (!(key in value)) return false;
     const binding = Object.getOwnPropertyDescriptor(value, key)?.value;
     if (typeof binding !== "object" || binding === null) return false;
+  }
+  for (const key of REQUIRED_STRING_ENV_KEYS) {
+    if (!(key in value)) return false;
+    const envValue = Object.getOwnPropertyDescriptor(value, key)?.value;
+    if (typeof envValue !== "string") return false;
   }
   return true;
 }

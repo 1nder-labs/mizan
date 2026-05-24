@@ -50,6 +50,16 @@ export interface CloudflareBindings {
   OPENAI_API_KEY?: string;
   /** OpenRouter API key — consumed by `@mizan/mastra/models/factory.ts`. */
   OPENROUTER_API_KEY?: string;
+  /**
+   * Production fail-closed guard for the mock LLM / embedding
+   * providers. The resolver only branches into a mock when this flag is
+   * explicitly set to `"1"` — `MOCK_LLM_RESPONSES` and `MOCK_EMBEDDINGS`
+   * alone are not enough. Tests set both; production deploys (and the
+   * Phase 10 wrangler.jsonc) never set this guard, so a stray
+   * `MOCK_LLM_RESPONSES` value smuggled into prod env vars cannot
+   * activate mock replay.
+   */
+  MOCK_PROVIDERS_ALLOWED?: string;
   /** JSON-encoded mock LLM response map for integration tests. */
   MOCK_LLM_RESPONSES?: string;
   MOCK_EMBEDDINGS?: string;

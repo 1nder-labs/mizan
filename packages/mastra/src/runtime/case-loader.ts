@@ -49,6 +49,25 @@ function getCacheBucket(env: CloudflareBindings): Map<string, Promise<CaseContex
 
 async function uncachedLoad(env: CloudflareBindings, caseId: string): Promise<CaseContext> {
   const row = await loadCaseRow(env, caseId);
-  const overlay = CaseOverlaySchema.parse(row.brief_partial_json);
+  const overlay = parseCaseOverlay(caseId, row.brief_partial_json);
   return { ...row, ...overlay };
+}
+
+/**
+ * Parses the seed overlay stored in `cases.brief_partial_json` and
+ * wraps the underlying Zod failure with the offending case_id so
+ * on-call operators see which row tripped. A raw `ZodError` would
+ * surface in worker logs without context.
+ */
+function parseCaseOverlay(caseId: string, raw: unknown): CaseOverlay {
+  try {
+    return CaseOverlaySchema.parse(raw);
+  } catch (cause) {
+    throw new Error(
+      `loadCaseContext: brief_partial_json failed CaseOverlaySchema for case ${caseId}: ${
+        cause instanceof Error ? cause.message : String(cause)
+      }`,
+      { cause },
+    );
+  }
 }

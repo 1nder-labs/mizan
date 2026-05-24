@@ -20,5 +20,6 @@ declare namespace Cloudflare {
     LANGFUSE_SECRET_KEY?: string;
     MOCK_LLM_RESPONSES?: string;
     MOCK_EMBEDDINGS?: string;
+    MOCK_PROVIDERS_ALLOWED?: string;
   }
 }
