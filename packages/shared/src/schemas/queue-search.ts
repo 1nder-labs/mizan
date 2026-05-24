@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RecommendationEnum, VerificationPathSchema } from "./brief.ts";
 
 export const CASE_STATUS_VALUES = [
   "DRAFT",
@@ -34,6 +35,19 @@ export const QueueSearchSchema = z
 
 export type QueueSearch = z.infer<typeof QueueSearchSchema>;
 
+/**
+ * Denormalized projection of the latest brief's recommendation +
+ * verification path so the queue surface can render those columns
+ * without a per-row N+1. Null when the case has no brief yet
+ * (DRAFT / QUEUED rows).
+ */
+export const LatestBriefProjectionSchema = z.object({
+  recommendation: RecommendationEnum,
+  verification_path: VerificationPathSchema,
+});
+
+export type LatestBriefProjection = z.infer<typeof LatestBriefProjectionSchema>;
+
 export const CaseRowSchema = z.object({
   id: z.string().uuid(),
   status: CaseStatusEnum,
@@ -42,6 +56,7 @@ export const CaseRowSchema = z.object({
   claimed_zakat_category: z.string().nullable(),
   created_at: z.number().int(),
   updated_at: z.number().int(),
+  latest_brief: LatestBriefProjectionSchema.nullable(),
 });
 export type CaseRow = z.infer<typeof CaseRowSchema>;
 

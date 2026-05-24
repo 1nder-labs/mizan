@@ -40,4 +40,5 @@ export * from "./schema.ts";
 export * from "./auth.schema.ts";
 export * from "./schemas.ts";
 export { transitionCase, type CaseTransitionInput } from "./case-transitions.ts";
+export { caseListProjection } from "./projections.ts";
 export { and, eq, inArray } from "drizzle-orm";
