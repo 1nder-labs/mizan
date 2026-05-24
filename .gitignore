@@ -41,6 +41,8 @@ build/
 # Claude Code local state (scheduled-task locks, agent worktrees)
 .claude/
 
+.agents/
+
 # Test / coverage
 coverage/
 .nyc_output/
