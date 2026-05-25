@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  ReviewerActionEnum,
+  ReviewerActionRequestSchema,
+  type ReviewerAction,
+  type ReviewerActionRequest,
+} from "./reviewer-action.ts";
 
 /**
  * HTTP route validation schemas for Hono endpoints.
@@ -8,43 +14,19 @@ import { z } from "zod";
  * them. Coupling them to the Drizzle `reviewer_actions` table would tie
  * the public API shape to internal storage, which the two are not
  * obligated to share.
- *
- * The `action` enum is sourced from a single tuple of literals shared
- * with the Drizzle column declaration so the runtime validator and the
- * column constraint cannot drift.
  */
 
 const uuid = z.string().uuid();
 
-/**
- * Reviewer-action enum values shared between the Drizzle column
- * (`reviewer_actions.action`) and the HTTP route validator below.
- * Mirrors `REVIEWER_ACTION_VALUES` in `@mizan/db/schema.ts`. Keeping
- * the literal tuple in two places is intentional: `@mizan/shared`
- * cannot import from `@mizan/db` without inverting the layering, so
- * this constant is the canonical copy and the test
- * `apps/worker/tests/unit/db-schemas.test.ts` pins parity at CI.
- */
-export const REVIEWER_ACTION_ENUM = [
-  "APPROVE",
-  "ESCALATE",
-  "REQUEST_DOCS",
-  "BLOCK",
-  "OVERRIDE",
-] as const;
+/** @deprecated alias — prefer `ReviewerActionEnum` from `./reviewer-action.ts`. */
+export const REVIEWER_ACTION_ENUM = ReviewerActionEnum.options;
 
-/**
- * Shape of the reviewer-action POST body for `/api/cases/:id/action`.
- * Decoupled from `selectReviewerActionsSchema` because the public
- * payload is a subset — only the three fields a reviewer submits.
- */
-export const ReviewerActionSchema = z.object({
-  action: z.enum(REVIEWER_ACTION_ENUM),
-  rationale: z.string().min(1).max(2000),
-  action_id: uuid,
-});
+/** Alias for Phase 7 `ReviewerActionRequestSchema`. */
+export const ReviewerActionSchema = ReviewerActionRequestSchema;
 
-export type ReviewerActionPayload = z.infer<typeof ReviewerActionSchema>;
+export type ReviewerActionPayload = ReviewerActionRequest;
+
+export type { ReviewerAction, ReviewerActionRequest };
 
 /** Request body for the admin echo endpoint (`/api/admin/echo`). */
 export const EchoSchema = z.object({

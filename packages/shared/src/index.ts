@@ -82,8 +82,34 @@ export {
   REVIEWER_ACTION_ENUM,
   ReviewerActionSchema,
   type EchoPayload,
+  type ReviewerAction,
   type ReviewerActionPayload,
+  type ReviewerActionRequest,
 } from "./schemas/route-payloads.ts";
+
+export {
+  ReviewerActionEnum,
+  ReviewerActionRequestSchema,
+  ReviewerActionResponseSchema,
+  type ReviewerActionResponse,
+} from "./schemas/reviewer-action.ts";
+
+export {
+  WorkflowEventPayloadMetaSchema,
+  WorkflowEventSchema,
+  toWorkflowEventWire,
+  type WorkflowEvent,
+  type WorkflowEventPayloadMeta,
+} from "./schemas/workflow-event.ts";
+
+export {
+  AuditEntrySchema,
+  AuditListResponseSchema,
+  AuditListSearchSchema,
+  type AuditEntry,
+  type AuditListResponse,
+  type AuditListSearch,
+} from "./schemas/audit.ts";
 
 export { SeedCaseSchema, type SeedCase } from "./schemas/seed-case.ts";
 
