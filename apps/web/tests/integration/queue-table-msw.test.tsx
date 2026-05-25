@@ -50,9 +50,7 @@ const FIXTURE: QueueResponse = {
   total: 2,
 };
 
-const server = startServer([
-  http.get("/api/cases", () => HttpResponse.json(FIXTURE)),
-]);
+const server = startServer([http.get("/api/cases", () => HttpResponse.json(FIXTURE))]);
 
 beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
 afterEach(() => server.resetHandlers());

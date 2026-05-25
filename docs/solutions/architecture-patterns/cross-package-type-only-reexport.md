@@ -55,8 +55,8 @@ When re-exporting a type from one workspace package through another, expose it O
   "exports": {
     ".": "./src/index.ts",
     "./app-type": "./src/app-type.ts",
-    "./testing": "./src/testing.ts"
-  }
+    "./testing": "./src/testing.ts",
+  },
 }
 ```
 
@@ -88,8 +88,8 @@ The re-export package still needs the lib + types coverage for its own `tsc --no
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ESNext", "WebWorker"],
-    "types": ["@cloudflare/workers-types"]
-  }
+    "types": ["@cloudflare/workers-types"],
+  },
 }
 ```
 
@@ -99,8 +99,8 @@ And the workspace dep is type-only:
 // packages/shared/package.json
 {
   "devDependencies": {
-    "@mizan/worker": "workspace:*"
-  }
+    "@mizan/worker": "workspace:*",
+  },
 }
 ```
 
@@ -148,11 +148,11 @@ import { CaseRowSchema } from "@mizan/shared";
 {
   "exports": {
     ".": "./src/index.ts",
-    "./app-type": "./src/app-type.ts"
+    "./app-type": "./src/app-type.ts",
   },
   "devDependencies": {
-    "@mizan/worker": "workspace:*"
-  }
+    "@mizan/worker": "workspace:*",
+  },
 }
 ```
 

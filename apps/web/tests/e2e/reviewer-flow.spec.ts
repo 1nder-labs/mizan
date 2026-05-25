@@ -37,7 +37,10 @@ test.describe("reviewer flow", () => {
     await expect(page).toHaveURL(/\/case\/[0-9a-f-]{36}/i);
     await expect(page.getByText("Case meta")).toBeVisible();
 
-    const status = await page.getByText(/Draft|Queued|Running|Ready|Actioned|Awaiting|Failed/).first().textContent();
+    const status = await page
+      .getByText(/Draft|Queued|Running|Ready|Actioned|Awaiting|Failed/)
+      .first()
+      .textContent();
     if (status?.toLowerCase().includes("running")) {
       await expect(page.getByText("Workflow")).toBeVisible({ timeout: 15_000 });
       await expect(page.getByText("Brief")).toBeVisible({ timeout: 30_000 });

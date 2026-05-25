@@ -19,7 +19,6 @@ export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
   FAILED: "Failed",
 };
 
-
 export const VERIFICATION_LABEL: Record<VerificationPath, string> = {
   documentary: "Documentary evidence",
   institutional_vouching: "Institutional vouching",

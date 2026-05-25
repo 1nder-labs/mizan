@@ -2,7 +2,12 @@
  * Reviewer queue table. Composes columns + header + body helpers.
  * Empty-state lives in `empty.tsx`; columns in `columns.tsx`.
  */
-import { flexRender, getCoreRowModel, useReactTable, type Table as RTable } from "@tanstack/react-table";
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type Table as RTable,
+} from "@tanstack/react-table";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import type { CaseRow, QueueSearch } from "@mizan/shared";

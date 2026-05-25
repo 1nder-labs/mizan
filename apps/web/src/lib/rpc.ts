@@ -38,9 +38,7 @@ export function createApi(options: RpcFactoryOptions = {}): ReturnType<typeof hc
  * call regardless of method — callers MUST route GETs through `api`
  * (the bare client) to avoid noisy headers on read paths.
  */
-export function createApiMutate(
-  options: RpcFactoryOptions = {},
-): ReturnType<typeof hc<AppType>> {
+export function createApiMutate(options: RpcFactoryOptions = {}): ReturnType<typeof hc<AppType>> {
   return hc<AppType>(options.baseUrl ?? BASE_URL, {
     headers: () => ({ "Idempotency-Key": crypto.randomUUID() }),
     ...(options.fetch ? { fetch: options.fetch } : {}),

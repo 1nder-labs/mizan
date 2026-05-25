@@ -4,11 +4,7 @@
  * leaves it renders — keeping the dependency graph one-way.
  */
 
-export type ToolState =
-  | "input-streaming"
-  | "input-available"
-  | "output-available"
-  | "output-error";
+export type ToolState = "input-streaming" | "input-available" | "output-available" | "output-error";
 
 export interface ToolPart {
   readonly id: string;

@@ -60,9 +60,7 @@ describe("<CaseDetail /> stream routing", () => {
   });
 
   test("DRAFT does NOT mount <BriefStream>", async () => {
-    await renderDetail(
-      <CaseDetail caseRow={{ ...baseCase, status: "DRAFT" }} brief={null} />,
-    );
+    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "DRAFT" }} brief={null} />);
     expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
     expect(await screen.findByText(/no brief yet/i)).toBeInTheDocument();
   });

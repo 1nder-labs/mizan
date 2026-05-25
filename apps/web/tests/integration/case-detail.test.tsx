@@ -81,10 +81,7 @@ describe("<CaseDetail /> integration", () => {
 
   test("READY_FOR_REVIEW with brief renders persisted summary", async () => {
     await renderDetail(
-      <CaseDetail
-        caseRow={{ ...baseCase, status: "READY_FOR_REVIEW" }}
-        brief={briefFixture}
-      />,
+      <CaseDetail caseRow={{ ...baseCase, status: "READY_FOR_REVIEW" }} brief={briefFixture} />,
     );
     expect(await screen.findByText("Recommendation")).toBeInTheDocument();
     expect(screen.getByText("88")).toBeInTheDocument();

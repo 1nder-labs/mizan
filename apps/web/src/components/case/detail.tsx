@@ -73,11 +73,7 @@ function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase {
   }
 }
 
-function deriveMode(
-  status: CaseStatus,
-  brief: BriefSummary,
-  phase: StreamPhase,
-): BriefPanelMode {
+function deriveMode(status: CaseStatus, brief: BriefSummary, phase: StreamPhase): BriefPanelMode {
   const wantStream = status === "RUNNING" || phase.userTriggered;
   if (wantStream && !phase.streamErrored) return "stream";
   if (brief && SHOW_PERSISTED_STATUSES.has(status)) return "summary";

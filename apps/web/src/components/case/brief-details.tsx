@@ -119,7 +119,11 @@ function OrganizerMessageTab({ payload }: { readonly payload: BriefPayload }): R
   );
 }
 
-export function BriefDetailTabs({ payload }: { readonly payload: BriefPayload }): React.JSX.Element {
+export function BriefDetailTabs({
+  payload,
+}: {
+  readonly payload: BriefPayload;
+}): React.JSX.Element {
   return (
     <Card className="border-border/80 shadow-elev-1">
       <CardContent className="p-4">

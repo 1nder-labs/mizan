@@ -28,18 +28,12 @@ function StreamError({ message }: { readonly message: string }): React.JSX.Eleme
   );
 }
 
-function pickErrorMessage(
-  fatalMessage: string | null,
-  errorText: string | null,
-): string | null {
+function pickErrorMessage(fatalMessage: string | null, errorText: string | null): string | null {
   if (fatalMessage && errorText && fatalMessage === errorText) return fatalMessage;
   return fatalMessage ?? errorText;
 }
 
-export function BriefStreamView({
-  view,
-  fatalMessage,
-}: BriefStreamViewProps): React.JSX.Element {
+export function BriefStreamView({ view, fatalMessage }: BriefStreamViewProps): React.JSX.Element {
   const errorMessage = pickErrorMessage(fatalMessage, view.errorText);
   return (
     <div className="space-y-4">

@@ -34,7 +34,7 @@ Phase 6's reviewer-UI integration suite went red in three predictable ways the f
 2. **better-auth bypasses MSW and hits the loopback.** `authClient.signIn.email(...)` resolved an absolute URL against `window.location.origin` (jsdom → `http://localhost:3000`) and went straight through the Node fetch interceptor as a real TCP connect — `ECONNREFUSED 127.0.0.1:3000`. The MSW handler registered as `http.post("/api/auth/sign-in/email", ...)` never saw the request.
 3. **MSW v2 `resetHandlers` rejected the array shape.** `afterEach(() => server.resetHandlers([handler]))` threw `Invariant Violation: [MSW] Failed to replace initial handlers during reset: invalid handlers. Did you forget to spread the handlers array?`. MSW v2 expects spread, not array.
 
-A fourth issue surfaced once cross-test cleanup got tight: occasional `getByLabelText("Email")` returning duplicates because RHF + zodResolver fired async validation that resolved *after* the test body returned, bleeding partially-cleaned DOM into the next render.
+A fourth issue surfaced once cross-test cleanup got tight: occasional `getByLabelText("Email")` returning duplicates because RHF + zodResolver fired async validation that resolved _after_ the test body returned, bleeding partially-cleaned DOM into the next render.
 
 ## Guidance
 
@@ -81,13 +81,13 @@ test("calls onAuthenticated when better-auth returns no error", async () => {
 
 Why mock at the boundary rather than via MSW: better-auth ships `better-fetch`, which constructs an absolute URL against `window.location.origin` (jsdom resolves to `http://localhost:3000`) before MSW's request interceptor sees the call. The request goes straight through as a real Node fetch to a loopback that has no server bound — ECONNREFUSED. Mocking the authClient export is the cleanest seam: the test stays pure, no live socket, no MSW timing race.
 
-MSW remains the right tool for downstream RPC calls that go through `fetch` directly (queue, cases, brief) — those *do* get intercepted because they hit relative paths through `hc<AppType>` which resolves against the jsdom origin and trips the MSW handler.
+MSW remains the right tool for downstream RPC calls that go through `fetch` directly (queue, cases, brief) — those _do_ get intercepted because they hit relative paths through `hc<AppType>` which resolves against the jsdom origin and trips the MSW handler.
 
 ### 3. Use `server.resetHandlers(handler)` (spread), not `server.resetHandlers([handler])`
 
 ```ts
 beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
-afterEach(() => server.resetHandlers(successHandler));   // ✅ spread
+afterEach(() => server.resetHandlers(successHandler)); // ✅ spread
 afterAll(() => server.close());
 ```
 
@@ -108,7 +108,7 @@ test("rejects short password client-side without network call", async () => {
 });
 ```
 
-When component-under-test runs async work (RHF + zodResolver validation, AI SDK streams, debounced effects) that resolves *after* the test body returns, partially-cleaned DOM from the prior test can leak into the next render's query scope. `cleanup()` in `afterEach` removes the DOM, but `screen` queries the live `document` — so a stray node added between `cleanup()` and the next `render` will be found. Scoping every query to the render's own container is hard isolation that doesn't depend on cleanup timing.
+When component-under-test runs async work (RHF + zodResolver validation, AI SDK streams, debounced effects) that resolves _after_ the test body returns, partially-cleaned DOM from the prior test can leak into the next render's query scope. `cleanup()` in `afterEach` removes the DOM, but `screen` queries the live `document` — so a stray node added between `cleanup()` and the next `render` will be found. Scoping every query to the render's own container is hard isolation that doesn't depend on cleanup timing.
 
 ## Why This Matters
 

@@ -201,7 +201,7 @@ async function handleAuthenticated(): Promise<void> {
 ```ts
 async function fetchCase(id: string): Promise<CaseDetailResponse> {
   const res = await api.cases[":id"].$get({ param: { id } });
-  assertAuthorized(res.status);             // throws UnauthorizedError on 401 or ForbiddenError on 403
+  assertAuthorized(res.status); // throws UnauthorizedError on 401 or ForbiddenError on 403
   if (!res.ok) throw new Error(`case fetch failed: ${res.status}`);
   return CaseDetailResponseSchema.parse(await res.json());
 }

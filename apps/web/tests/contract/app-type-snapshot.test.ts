@@ -15,9 +15,8 @@ import type { AppType } from "@mizan/shared/app-type";
 import type { CaseDetailResponse, QueueResponse } from "@mizan/shared";
 
 /** Structural identity check: true only when A and B are exactly the same type. */
-type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
-  ? true
-  : false;
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
 const client = hc<AppType>("/api");
 

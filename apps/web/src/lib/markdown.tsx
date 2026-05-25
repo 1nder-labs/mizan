@@ -41,10 +41,19 @@ const components: Components = {
     <p className={cn("text-sm leading-relaxed text-foreground", className)} {...props} />
   ),
   ul: ({ className, ...props }) => (
-    <ul className={cn("ml-4 list-disc space-y-1 text-sm text-foreground marker:text-muted-foreground", className)} {...props} />
+    <ul
+      className={cn(
+        "ml-4 list-disc space-y-1 text-sm text-foreground marker:text-muted-foreground",
+        className,
+      )}
+      {...props}
+    />
   ),
   ol: ({ className, ...props }) => (
-    <ol className={cn("ml-4 list-decimal space-y-1 text-sm text-foreground", className)} {...props} />
+    <ol
+      className={cn("ml-4 list-decimal space-y-1 text-sm text-foreground", className)}
+      {...props}
+    />
   ),
   li: ({ className, ...props }) => <li className={cn("leading-relaxed", className)} {...props} />,
   code: ({ className, ...props }) => (
@@ -82,7 +91,10 @@ const components: Components = {
   ),
   blockquote: ({ className, ...props }) => (
     <blockquote
-      className={cn("border-l-2 border-border pl-4 text-sm italic text-muted-foreground", className)}
+      className={cn(
+        "border-l-2 border-border pl-4 text-sm italic text-muted-foreground",
+        className,
+      )}
       {...props}
     />
   ),

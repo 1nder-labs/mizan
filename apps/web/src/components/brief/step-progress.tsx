@@ -50,7 +50,11 @@ function StepRow({ step }: { readonly step: StepEntry }): React.JSX.Element {
   );
 }
 
-export function StepProgress({ steps }: { readonly steps: readonly StepEntry[] }): React.JSX.Element {
+export function StepProgress({
+  steps,
+}: {
+  readonly steps: readonly StepEntry[];
+}): React.JSX.Element {
   return (
     <Card className="border-border/80 shadow-elev-1">
       <CardHeader>

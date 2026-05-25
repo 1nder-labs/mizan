@@ -77,9 +77,7 @@ function ToolPayloadSections({
           <PayloadBlock value={tool.output} />
         </div>
       ) : null}
-      {tool.errorText ? (
-        <div className={errorBlockClass}>{tool.errorText}</div>
-      ) : null}
+      {tool.errorText ? <div className={errorBlockClass}>{tool.errorText}</div> : null}
     </>
   );
 }
@@ -95,9 +93,7 @@ function ExpandButton({ tool }: { readonly tool: ToolPart }): React.JSX.Element 
       <SheetContent side="right" className="w-full sm:max-w-xl">
         <SheetHeader>
           <SheetTitle className="font-mono text-sm">{tool.name}</SheetTitle>
-          <SheetDescription>
-            Full input + output payload for this tool invocation.
-          </SheetDescription>
+          <SheetDescription>Full input + output payload for this tool invocation.</SheetDescription>
         </SheetHeader>
         <div className="space-y-4 overflow-auto px-4 pb-6">
           <ToolPayloadSections

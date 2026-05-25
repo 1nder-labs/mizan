@@ -3,7 +3,10 @@ import { LoginSchema } from "@mizan/shared";
 
 describe("LoginSchema", () => {
   test("accepts a valid email + 12-char password", () => {
-    const result = LoginSchema.safeParse({ email: "reviewer@launchgood.com", password: "CorrectHorse99" });
+    const result = LoginSchema.safeParse({
+      email: "reviewer@launchgood.com",
+      password: "CorrectHorse99",
+    });
     expect(result.success).toBe(true);
   });
 
@@ -16,7 +19,10 @@ describe("LoginSchema", () => {
   });
 
   test("rejects password shorter than 12 chars (8-char fails)", () => {
-    const result = LoginSchema.safeParse({ email: "reviewer@launchgood.com", password: "12345678" });
+    const result = LoginSchema.safeParse({
+      email: "reviewer@launchgood.com",
+      password: "12345678",
+    });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((issue) => issue.path[0] === "password")).toBe(true);
@@ -24,7 +30,10 @@ describe("LoginSchema", () => {
   });
 
   test("rejects password of exactly 11 chars", () => {
-    const result = LoginSchema.safeParse({ email: "reviewer@launchgood.com", password: "12345678901" });
+    const result = LoginSchema.safeParse({
+      email: "reviewer@launchgood.com",
+      password: "12345678901",
+    });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((issue) => issue.path[0] === "password")).toBe(true);
@@ -32,7 +41,10 @@ describe("LoginSchema", () => {
   });
 
   test("accepts password of exactly 12 chars", () => {
-    const result = LoginSchema.safeParse({ email: "reviewer@launchgood.com", password: "123456789012" });
+    const result = LoginSchema.safeParse({
+      email: "reviewer@launchgood.com",
+      password: "123456789012",
+    });
     expect(result.success).toBe(true);
   });
 

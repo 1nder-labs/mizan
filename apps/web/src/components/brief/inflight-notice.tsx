@@ -11,10 +11,7 @@ interface InFlightNoticeProps {
   readonly refreshing: boolean;
 }
 
-export function InFlightNotice({
-  onRefresh,
-  refreshing,
-}: InFlightNoticeProps): React.JSX.Element {
+export function InFlightNotice({ onRefresh, refreshing }: InFlightNoticeProps): React.JSX.Element {
   return (
     <Card className="border-border/80 shadow-elev-1">
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
@@ -33,8 +30,8 @@ export function InFlightNotice({
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">
-          Another session is already running the workflow for this case. The brief will appear
-          here automatically when it finishes.
+          Another session is already running the workflow for this case. The brief will appear here
+          automatically when it finishes.
         </p>
       </CardContent>
     </Card>

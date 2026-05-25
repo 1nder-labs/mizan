@@ -54,54 +54,66 @@ function UpdatedHeader({
   );
 }
 
+const idColumn: ColumnDef<CaseRow> = {
+  id: "id",
+  header: "Case",
+  cell: ({ row }) => (
+    <span className="font-mono text-xs text-foreground tabular">{shortId(row.original.id)}</span>
+  ),
+};
+
+const categoryColumn: ColumnDef<CaseRow> = {
+  id: "category",
+  header: "Category",
+  cell: ({ row }) => <span className="text-sm capitalize">{row.original.category}</span>,
+};
+
+const geographyColumn: ColumnDef<CaseRow> = {
+  id: "geography",
+  header: "Geography",
+  cell: ({ row }) => (
+    <span className="text-sm text-muted-foreground">{row.original.geography}</span>
+  ),
+};
+
+const statusColumn: ColumnDef<CaseRow> = {
+  id: "status",
+  header: "Status",
+  cell: ({ row }) => <CaseStatusBadge status={row.original.status} />,
+};
+
+const recommendationColumn: ColumnDef<CaseRow> = {
+  id: "recommendation",
+  header: "Recommendation",
+  cell: ({ row }) =>
+    row.original.latest_brief ? (
+      <RecommendationBadge recommendation={row.original.latest_brief.recommendation} />
+    ) : (
+      <span className="text-xs text-muted-foreground">—</span>
+    ),
+};
+
+const verificationColumn: ColumnDef<CaseRow> = {
+  id: "verification_path",
+  header: "Verification",
+  cell: ({ row }) =>
+    row.original.latest_brief ? (
+      <span className="text-xs capitalize text-muted-foreground">
+        {humanVerification(row.original.latest_brief.verification_path)}
+      </span>
+    ) : (
+      <span className="text-xs text-muted-foreground">—</span>
+    ),
+};
+
 function staticColumns(): ColumnDef<CaseRow>[] {
   return [
-    {
-      id: "id",
-      header: "Case",
-      cell: ({ row }) => (
-        <span className="font-mono text-xs text-foreground tabular">{shortId(row.original.id)}</span>
-      ),
-    },
-    {
-      id: "category",
-      header: "Category",
-      cell: ({ row }) => <span className="text-sm capitalize">{row.original.category}</span>,
-    },
-    {
-      id: "geography",
-      header: "Geography",
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.geography}</span>
-      ),
-    },
-    {
-      id: "status",
-      header: "Status",
-      cell: ({ row }) => <CaseStatusBadge status={row.original.status} />,
-    },
-    {
-      id: "recommendation",
-      header: "Recommendation",
-      cell: ({ row }) =>
-        row.original.latest_brief ? (
-          <RecommendationBadge recommendation={row.original.latest_brief.recommendation} />
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        ),
-    },
-    {
-      id: "verification_path",
-      header: "Verification",
-      cell: ({ row }) =>
-        row.original.latest_brief ? (
-          <span className="text-xs capitalize text-muted-foreground">
-            {humanVerification(row.original.latest_brief.verification_path)}
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        ),
-    },
+    idColumn,
+    categoryColumn,
+    geographyColumn,
+    statusColumn,
+    recommendationColumn,
+    verificationColumn,
   ];
 }
 

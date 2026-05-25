@@ -44,9 +44,7 @@ async function renderTable(): Promise<ReturnType<typeof createRouter>> {
   const queueRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
-    component: () => (
-      <QueueTable rows={ROWS} search={SEARCH} onSearchChange={() => {}} />
-    ),
+    component: () => <QueueTable rows={ROWS} search={SEARCH} onSearchChange={() => {}} />,
   });
   const caseRoute = createRoute({
     getParentRoute: () => rootRoute,
