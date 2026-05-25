@@ -57,7 +57,9 @@ async function seedTape(caseId: string, runId: string): Promise<void> {
   }
 }
 
-async function readSseFrames(res: Response): Promise<Array<{ id?: string; event?: string; data?: string }>> {
+async function readSseFrames(
+  res: Response,
+): Promise<Array<{ id?: string; event?: string; data?: string }>> {
   const text = await res.text();
   const frames: Array<{ id?: string; event?: string; data?: string }> = [];
   for (const chunk of text.split("\n\n")) {

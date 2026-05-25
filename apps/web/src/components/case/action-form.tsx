@@ -1,12 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { ReviewerActionRequestSchema, type ReviewerActionRequest } from "@mizan/shared";
-import { Form } from "@/components/ui/form.tsx";
 import {
-  ActionRadioField,
-  RationaleField,
-  SubmitActionButton,
-} from "./action-form-fields.tsx";
+  RATIONALE_REQUIRED_ACTIONS,
+  ReviewerActionRequestSchema,
+  type ReviewerActionRequest,
+} from "@mizan/shared";
+import { Form } from "@/components/ui/form.tsx";
+import { ActionRadioField, RationaleField, SubmitActionButton } from "./action-form-fields.tsx";
 
 interface ActionFormProps {
   readonly pending: boolean;
@@ -25,7 +25,7 @@ export function ActionForm({ pending, onSubmit }: ActionFormProps): React.JSX.El
   });
 
   const selectedAction = form.watch("action");
-  const requiresRationale = selectedAction === "OVERRIDE" || selectedAction === "BLOCK";
+  const requiresRationale = RATIONALE_REQUIRED_ACTIONS.has(selectedAction);
 
   return (
     <Form {...form}>

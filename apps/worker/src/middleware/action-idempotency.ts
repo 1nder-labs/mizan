@@ -1,33 +1,26 @@
 /**
  * Layer 4 idempotency — KV cache keyed by `(userId, caseId, action_id)`.
+ *
+ * Runs AFTER `zValidator("json", ReviewerActionRequestSchema)` so the
+ * payload reaching the cache check has already been validated. The
+ * cache READ side is itself revalidated with
+ * `ReviewerActionResponseSchema.safeParse` so a poisoned or
+ * forward-incompatible cache entry never reaches the client.
  */
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { createMiddleware } from "hono/factory";
-import type { ReviewerActionResponse } from "@mizan/shared";
+import {
+  ReviewerActionRequestSchema,
+  ReviewerActionResponseSchema,
+  type ReviewerActionResponse,
+} from "@mizan/shared";
 import type { CloudflareBindings } from "../env.ts";
 import type { RoleVariables } from "../middleware/require-role.ts";
 
 const ACTION_IDEM_TTL_SECONDS = 86_400;
 
-interface CachedActionResponse {
-  readonly status: 200;
-  readonly body: ReviewerActionResponse;
-}
-
 function actionCacheKey(userId: string, caseId: string, actionId: string): string {
   return `idem:action:${userId}:${caseId}:${actionId}`;
-}
-
-function isCachedActionResponse(value: unknown): value is CachedActionResponse {
-  if (typeof value !== "object" || value === null) return false;
-  if (!("status" in value) || !("body" in value)) return false;
-  return value.status === 200;
-}
-
-function readActionId(raw: unknown): string | undefined {
-  if (typeof raw !== "object" || raw === null || !("action_id" in raw)) return undefined;
-  const actionId = raw.action_id;
-  return typeof actionId === "string" ? actionId : undefined;
 }
 
 /** Persists a successful action response for Layer 4 replay protection. */
@@ -38,21 +31,21 @@ export async function cacheActionResponse(
   actionId: string,
   body: ReviewerActionResponse,
 ): Promise<void> {
-  const payload: CachedActionResponse = { status: 200, body };
-  await kv.put(actionCacheKey(userId, caseId, actionId), JSON.stringify(payload), {
+  await kv.put(actionCacheKey(userId, caseId, actionId), JSON.stringify(body), {
     expirationTtl: ACTION_IDEM_TTL_SECONDS,
   });
 }
 
-/** Reads a cached action response when the same reviewer replays an action_id. */
 async function readCachedActionResponse(
   kv: KVNamespace,
   userId: string,
   caseId: string,
   actionId: string,
-): Promise<CachedActionResponse | undefined> {
+): Promise<ReviewerActionResponse | undefined> {
   const raw: unknown = await kv.get(actionCacheKey(userId, caseId, actionId), "json");
-  return isCachedActionResponse(raw) ? raw : undefined;
+  if (raw === null || raw === undefined) return undefined;
+  const parsed = ReviewerActionResponseSchema.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
 }
 
 export const actionIdempotency = createMiddleware<{
@@ -61,14 +54,20 @@ export const actionIdempotency = createMiddleware<{
 }>(async (c, next) => {
   const caseId = c.req.param("id");
   if (!caseId) return next();
-  const raw: unknown = await c.req.raw.clone().json().catch(() => null);
-  const actionId = readActionId(raw);
-  if (actionId) {
-    const cached = await readCachedActionResponse(c.env.KV, c.var.user.id, caseId, actionId);
-    if (cached) {
-      return c.json(cached.body, 200);
-    }
-  }
+  const validated = ReviewerActionRequestSchema.safeParse(
+    await c.req.raw
+      .clone()
+      .json()
+      .catch(() => null),
+  );
+  if (!validated.success) return next();
+  const cached = await readCachedActionResponse(
+    c.env.KV,
+    c.var.user.id,
+    caseId,
+    validated.data.action_id,
+  );
+  if (cached) return c.json(cached, 200);
   await next();
   return;
 });

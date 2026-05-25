@@ -80,7 +80,9 @@ describe("<AuditList /> integration", () => {
   });
 
   test("shows empty copy when no actions exist", async () => {
-    server.use(http.get("/api/admin/audit", () => HttpResponse.json({ ...FIXTURE, entries: [], total: 0 })));
+    server.use(
+      http.get("/api/admin/audit", () => HttpResponse.json({ ...FIXTURE, entries: [], total: 0 })),
+    );
     await renderAuditList();
     expect(await screen.findByText(/no reviewer actions recorded yet/i)).toBeInTheDocument();
   });

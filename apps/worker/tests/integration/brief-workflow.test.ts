@@ -193,10 +193,18 @@ describe("brief workflow integration", () => {
       const types = signalRows.results.map((row) => row.signal_type).sort();
       expect(types).toEqual(["photo_dup", "story_coherence", "vouching_chain"]);
 
+      /**
+       * Phase 7 HITL gate inserts `awaitReviewerAction` between
+       * composeBrief and finalizeCaseStatus, so a Mode A SSE run
+       * terminates at SUSPENDED_HITL (not READY_FOR_REVIEW). The
+       * reviewer-action resume path that flips to ACTIONED is
+       * covered separately by the action-route + HITL integration
+       * tests.
+       */
       const caseRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
         .bind(caseId)
         .first<{ status: string }>();
-      expect(caseRow?.status).toBe("READY_FOR_REVIEW");
+      expect(caseRow?.status).toBe("SUSPENDED_HITL");
 
       await env.DB.prepare("UPDATE cases SET status = 'DRAFT', current_run_id = NULL WHERE id = ?")
         .bind(caseId)

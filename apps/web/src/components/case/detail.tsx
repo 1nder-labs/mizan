@@ -12,7 +12,13 @@
  *   empty   — every other state
  */
 import { useEffect, useReducer } from "react";
-import type { CaseDetailResponse, CaseRow, CaseStatus } from "@mizan/shared";
+import {
+  HITL_SUSPENDED_STATUS,
+  TERMINAL_CASE_STATUSES,
+  type CaseDetailResponse,
+  type CaseRow,
+  type CaseStatus,
+} from "@mizan/shared";
 import { BriefStream } from "@/components/brief/stream.tsx";
 import { useWorkflowEvents } from "@/components/brief/use-workflow-events.ts";
 import { ActionPanel } from "@/components/case/action-panel.tsx";
@@ -31,11 +37,9 @@ interface CaseDetailProps {
   readonly brief: BriefSummary;
 }
 
-const SHOW_PERSISTED_STATUSES: ReadonlySet<CaseStatus> = new Set(["READY_FOR_REVIEW", "ACTIONED"]);
-const TERMINAL_STATUSES: ReadonlySet<CaseStatus> = new Set([
+const SHOW_PERSISTED_STATUSES: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
   "READY_FOR_REVIEW",
   "ACTIONED",
-  "FAILED",
 ]);
 
 interface StreamPhase {
@@ -56,7 +60,7 @@ function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase {
     case "case-changed":
       return INITIAL_PHASE;
     case "status-changed":
-      return TERMINAL_STATUSES.has(event.status) ? INITIAL_PHASE : state;
+      return TERMINAL_CASE_STATUSES.has(event.status) ? INITIAL_PHASE : state;
     case "user-generated":
       return { userTriggered: true, streamErrored: false };
     case "stream-errored":
@@ -65,7 +69,7 @@ function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase {
 }
 
 function deriveMode(status: CaseStatus, brief: BriefSummary, phase: StreamPhase): BriefPanelMode {
-  if (status === "SUSPENDED_HITL") return "action";
+  if (status === HITL_SUSPENDED_STATUS) return "action";
   const wantStream = status === "RUNNING" || phase.userTriggered;
   if (wantStream && !phase.streamErrored) return "stream";
   if (brief && SHOW_PERSISTED_STATUSES.has(status)) return "summary";
@@ -106,8 +110,13 @@ function BriefPanel({
 
 export function CaseDetail({ caseRow, brief }: CaseDetailProps): React.JSX.Element {
   const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
-  const tapeEnabled = caseRow.status === "RUNNING" || caseRow.status === "SUSPENDED_HITL";
-  useWorkflowEvents(caseRow.id, tapeEnabled);
+  /**
+   * Only enable the workflow_events tape during SUSPENDED_HITL — Mode A
+   * (BriefStream) already covers the RUNNING phase, and double-opening
+   * both streams causes redundant invalidations + last-writer-wins
+   * races when each closes on its own terminal event.
+   */
+  useWorkflowEvents(caseRow.id, caseRow.status === HITL_SUSPENDED_STATUS);
 
   useEffect(() => {
     dispatchPhase({ type: "case-changed" });

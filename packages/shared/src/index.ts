@@ -80,13 +80,33 @@ export type { CloudflareBindings } from "./cloudflare-bindings.ts";
 export { EchoSchema, type EchoPayload } from "./schemas/route-payloads.ts";
 
 export {
+  RATIONALE_MAX,
+  RATIONALE_MIN_REQUIRED,
+  RATIONALE_REQUIRED_ACTIONS,
   ReviewerActionEnum,
   ReviewerActionRequestSchema,
   ReviewerActionResponseSchema,
+  ReviewerActionResultStatusEnum,
+  ReviewerActionResumeSchema,
   type ReviewerAction,
   type ReviewerActionRequest,
   type ReviewerActionResponse,
+  type ReviewerActionResultStatus,
+  type ReviewerActionResumeData,
 } from "./schemas/reviewer-action.ts";
+
+export {
+  ActionErrorBodySchema,
+  ActionErrorCodeEnum,
+  type ActionErrorBody,
+  type ActionErrorCode,
+} from "./schemas/action-errors.ts";
+
+export {
+  ACTIVE_CASE_STATUSES,
+  HITL_SUSPENDED_STATUS,
+  TERMINAL_CASE_STATUSES,
+} from "./schemas/case-status.ts";
 
 export {
   WorkflowEventPayloadMetaSchema,

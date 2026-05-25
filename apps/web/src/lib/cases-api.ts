@@ -18,9 +18,11 @@
  */
 import { queryOptions } from "@tanstack/react-query";
 import {
+  ActionErrorBodySchema,
   CaseDetailResponseSchema,
   QueueResponseSchema,
   ReviewerActionResponseSchema,
+  type ActionErrorCode,
   type CaseDetailResponse,
   type QueueResponse,
   type QueueSearch,
@@ -29,6 +31,22 @@ import {
 } from "@mizan/shared";
 import { api, apiMutate } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
+
+/**
+ * Typed `Error` subclass carrying the server's `ActionErrorCode`
+ * discriminator so callers can `instanceof` + switch on `.code`
+ * instead of string-matching `error.message`.
+ */
+export class ReviewerActionError extends Error {
+  readonly code: ActionErrorCode;
+  readonly status: number;
+  constructor(code: ActionErrorCode, status: number) {
+    super(code);
+    this.name = "ReviewerActionError";
+    this.code = code;
+    this.status = status;
+  }
+}
 
 export class UnauthorizedError extends Error {
   readonly status = 401 as const;
@@ -94,6 +112,11 @@ export function caseDetailQueryOptions(id: string) {
   });
 }
 
+async function readActionErrorCode(raw: unknown): Promise<ActionErrorCode | undefined> {
+  const parsed = ActionErrorBodySchema.safeParse(raw);
+  return parsed.success ? parsed.data.error : undefined;
+}
+
 export async function submitReviewerAction(
   caseId: string,
   body: ReviewerActionRequest,
@@ -103,11 +126,10 @@ export async function submitReviewerAction(
     json: body,
   });
   assertAuthorized(res.status);
-  if (res.status === 409) {
-    throw new Error("not_suspended_or_claimed");
-  }
   if (!res.ok) {
-    throw new Error(`reviewer action failed: ${res.status}`);
+    const raw: unknown = await res.json().catch(() => null);
+    const code = await readActionErrorCode(raw);
+    throw new ReviewerActionError(code ?? "workflow_failed", res.status);
   }
   const json = await res.json();
   return ReviewerActionResponseSchema.parse(json);

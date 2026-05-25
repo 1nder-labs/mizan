@@ -1,18 +1,8 @@
 import type { Control } from "react-hook-form";
 import { Loader2 } from "lucide-react";
-import {
-  ReviewerActionEnum,
-  type ReviewerAction,
-  type ReviewerActionRequest,
-} from "@mizan/shared";
+import { ReviewerActionEnum, type ReviewerAction, type ReviewerActionRequest } from "@mizan/shared";
 import { Button } from "@/components/ui/button.tsx";
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form.tsx";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
 import { Label } from "@/components/ui/label.tsx";
 
@@ -78,9 +68,7 @@ export function RationaleField({
       name="rationale"
       render={({ field }) => (
         <FormItem>
-          <FormLabel>
-            {requiresRationale ? "Rationale required" : "Rationale (optional)"}
-          </FormLabel>
+          <FormLabel>{requiresRationale ? "Rationale required" : "Rationale (optional)"}</FormLabel>
           <FormControl>
             <Textarea
               {...field}

@@ -2,7 +2,7 @@
  * Paginated audit feed query helper for `/api/admin/audit`.
  */
 import { count, desc, eq } from "drizzle-orm";
-import type { AuditListSearch } from "@mizan/shared";
+import type { AuditListSearch, CaseStatus, ReviewerAction } from "@mizan/shared";
 import type { Db } from "./index.ts";
 import { users } from "./auth.schema.ts";
 import { cases, reviewer_actions } from "./schema.ts";
@@ -12,10 +12,10 @@ const RATIONALE_MAX = 280;
 export interface AuditRow {
   readonly id: string;
   readonly case_id: string;
-  readonly case_status: string;
+  readonly case_status: CaseStatus;
   readonly case_category: string;
   readonly reviewer_email: string | null;
-  readonly action: string;
+  readonly action: ReviewerAction;
   readonly rationale: string;
   readonly acted_at: Date;
 }

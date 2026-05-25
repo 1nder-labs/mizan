@@ -52,11 +52,11 @@ describe("actionIdempotency middleware", () => {
 
   it("returns cached body when the same reviewer replays action_id on the same case", async () => {
     const cachedBody = {
-      status: "success",
+      status: "success" as const,
       brief: null,
-      action: { action: "APPROVE", rationale: "", action_id: ACTION_ID },
+      action: { action: "APPROVE" as const, rationale: "", action_id: ACTION_ID },
     };
-    kv.get.mockResolvedValueOnce({ status: 200, body: cachedBody });
+    kv.get.mockResolvedValueOnce(cachedBody);
     const handler = mock(() => new Response("should not run"));
     const { fetch } = makeApp(kv, handler);
 
@@ -66,10 +66,23 @@ describe("actionIdempotency middleware", () => {
     const body: unknown = await res.json();
     expect(body).toEqual(cachedBody);
     expect(handler).not.toHaveBeenCalled();
-    expect(kv.get).toHaveBeenCalledWith(
-      `idem:action:reviewer-1:${CASE_ID}:${ACTION_ID}`,
-      "json",
+    expect(kv.get).toHaveBeenCalledWith(`idem:action:reviewer-1:${CASE_ID}:${ACTION_ID}`, "json");
+  });
+
+  it("passes through when cached value fails schema validation (poisoned cache)", async () => {
+    kv.get.mockResolvedValueOnce({ status: 200, body: { not: "a real response" } });
+    const handler = mock(
+      () =>
+        new Response(JSON.stringify({ status: "fresh" }), {
+          headers: { "Content-Type": "application/json" },
+        }),
     );
+    const { fetch } = makeApp(kv, handler);
+
+    const res = await fetch(postAction(CASE_ID, ACTION_ID));
+
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("passes through on cache miss", async () => {

@@ -182,12 +182,7 @@ export const workflow_events = sqliteTable(
     run_id: text("run_id").notNull(),
     seq: integer("seq").notNull(),
     event_type: text("event_type", {
-      enum: [
-        "workflow.start",
-        "step.suspend",
-        "step.resume",
-        "workflow.finish",
-      ] as const,
+      enum: ["workflow.start", "step.suspend", "step.resume", "workflow.finish"] as const,
     }).notNull(),
     step_id: text("step_id"),
     payload_json: text("payload_json", {

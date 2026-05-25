@@ -2,7 +2,7 @@
  * SSE stream of `workflow_events` for case resumability.
  */
 import { and, eq, gt, makeDb, workflow_events, cases } from "@mizan/db";
-import { toWorkflowEventWire } from "@mizan/shared";
+import { TERMINAL_CASE_STATUSES, toWorkflowEventWire } from "@mizan/shared";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { CloudflareBindings } from "../env.ts";
@@ -12,7 +12,6 @@ import type { RoleVariables } from "../middleware/require-role.ts";
 const LIVE_TAIL_INTERVAL_MS = 500;
 const STREAM_WALL_CLOCK_MS = 90_000;
 const RECONNECT_BACKOFF_MS = 5_000;
-const TERMINAL_STATUSES = new Set(["READY_FOR_REVIEW", "ACTIONED", "FAILED"]);
 
 type StreamContext = Context<{
   Bindings: CloudflareBindings;
@@ -20,7 +19,12 @@ type StreamContext = Context<{
 }>;
 
 type StreamApi = {
-  writeSSE: (payload: { id?: string; event?: string; data: string; retry?: number }) => Promise<void>;
+  writeSSE: (payload: {
+    id?: string;
+    event?: string;
+    data: string;
+    retry?: number;
+  }) => Promise<void>;
   sleep: (ms: number) => Promise<unknown>;
 };
 
@@ -107,7 +111,7 @@ async function streamCaseEvents(c: StreamContext, stream: StreamApi): Promise<vo
   const catchUpResult = await emitRows(stream, catchUp, lastSeen);
   lastSeen = catchUpResult.lastSeen;
   if (catchUpResult.finished) return;
-  if (TERMINAL_STATUSES.has(caseRow.status)) return;
+  if (TERMINAL_CASE_STATUSES.has(caseRow.status)) return;
 
   while (!c.req.raw.signal.aborted && Date.now() - startedAt < STREAM_WALL_CLOCK_MS) {
     await stream.sleep(LIVE_TAIL_INTERVAL_MS);

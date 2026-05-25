@@ -34,7 +34,11 @@ async function seedUser(role: "reviewer" | "admin"): Promise<{ cookie: string; u
   return { cookie: signIn.headers.getSetCookie().join("; "), userId: row.id };
 }
 
-async function insertCaseAndAction(reviewerId: string, action: string, rationale: string): Promise<void> {
+async function insertCaseAndAction(
+  reviewerId: string,
+  action: string,
+  rationale: string,
+): Promise<void> {
   const caseId = crypto.randomUUID();
   const runId = crypto.randomUUID();
   const now = Date.now();
@@ -48,7 +52,16 @@ async function insertCaseAndAction(reviewerId: string, action: string, rationale
     `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, action_id, acted_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(crypto.randomUUID(), caseId, runId, reviewerId, action, rationale, crypto.randomUUID(), now)
+    .bind(
+      crypto.randomUUID(),
+      caseId,
+      runId,
+      reviewerId,
+      action,
+      rationale,
+      crypto.randomUUID(),
+      now,
+    )
     .run();
 }
 

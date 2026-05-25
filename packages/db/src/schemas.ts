@@ -21,7 +21,14 @@
 
 import { createInsertSchema, createSelectSchema, createUpdateSchema } from "drizzle-zod";
 import { z } from "zod";
-import { briefs, cases, eval_promotions, reviewer_actions, signals, workflow_events } from "./schema.ts";
+import {
+  briefs,
+  cases,
+  eval_promotions,
+  reviewer_actions,
+  signals,
+  workflow_events,
+} from "./schema.ts";
 
 const uuid = z.string().uuid();
 

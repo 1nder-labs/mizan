@@ -50,11 +50,7 @@ async function insertCase(opts: {
     .run();
 }
 
-function postAction(
-  caseId: string,
-  cookie: string,
-  body: Record<string, unknown>,
-): Request {
+function postAction(caseId: string, cookie: string, body: Record<string, unknown>): Request {
   return new Request(`${BASE}/api/cases/${caseId}/action`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: cookie },
@@ -93,7 +89,12 @@ describe("POST /api/cases/:id/action", () => {
   it("returns 400 when OVERRIDE arrives with an empty rationale (server-side superRefine)", async () => {
     const { cookie, userId } = await seedReviewer();
     const caseId = crypto.randomUUID();
-    await insertCase({ id: caseId, status: "SUSPENDED_HITL", createdBy: userId, currentRunId: crypto.randomUUID() });
+    await insertCase({
+      id: caseId,
+      status: "SUSPENDED_HITL",
+      createdBy: userId,
+      currentRunId: crypto.randomUUID(),
+    });
 
     const res = await exports.default.fetch(
       postAction(caseId, cookie, {
@@ -103,7 +104,9 @@ describe("POST /api/cases/:id/action", () => {
       }),
     );
     expect(res.status).toBe(400);
-    const body = (await res.json()) as { error?: { issues?: Array<{ path: ReadonlyArray<string> }> } };
+    const body = (await res.json()) as {
+      error?: { issues?: Array<{ path: ReadonlyArray<string> }> };
+    };
     const paths = body.error?.issues?.flatMap((i) => i.path) ?? [];
     expect(paths).toContain("rationale");
   });
@@ -145,7 +148,12 @@ describe("POST /api/cases/:id/action", () => {
   it("returns 409 with no_run when case has no current_run_id", async () => {
     const { cookie, userId } = await seedReviewer();
     const caseId = crypto.randomUUID();
-    await insertCase({ id: caseId, status: "SUSPENDED_HITL", createdBy: userId, currentRunId: null });
+    await insertCase({
+      id: caseId,
+      status: "SUSPENDED_HITL",
+      createdBy: userId,
+      currentRunId: null,
+    });
 
     const res = await exports.default.fetch(
       postAction(caseId, cookie, {

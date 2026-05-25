@@ -70,6 +70,5 @@ export async function prepareReviewerSuspend(
     caseId: inputData.caseId,
     runId: inputData.runId,
     briefId,
-    brief: inputData.brief,
   };
 }

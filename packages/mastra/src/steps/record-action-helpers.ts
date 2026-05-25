@@ -18,10 +18,7 @@ export function normalizeStoredRationale(rationale: string): string {
  * SUSPENDED_HITL → RUNNING atomically before calling `run.resume`, so
  * the step does not re-flip status here.
  */
-export async function emitResumeEvent(
-  db: Db,
-  inputData: ReviewerActionStepState,
-): Promise<void> {
+export async function emitResumeEvent(db: Db, inputData: ReviewerActionStepState): Promise<void> {
   await emitWorkflowEvent(db, {
     caseId: inputData.caseId,
     runId: inputData.runId,

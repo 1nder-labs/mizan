@@ -36,7 +36,9 @@ export function AuditEntriesTable({ entries }: AuditEntriesTableProps): React.JS
           <TableRow
             key={entry.id}
             className="cursor-pointer hover:bg-muted/40"
-            onClick={() => void navigate({ to: "/case/$caseId", params: { caseId: entry.case_id } })}
+            onClick={() =>
+              void navigate({ to: "/case/$caseId", params: { caseId: entry.case_id } })
+            }
           >
             <TableCell className="font-mono text-xs">{entry.case_id.slice(0, 8)}…</TableCell>
             <TableCell>{entry.reviewer_email ?? "—"}</TableCell>
