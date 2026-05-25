@@ -76,26 +76,30 @@ function latestBriefSubquery(caseIdCol: SQL) {
  * correlated subquery into the typed `latest_brief` shape.
  * Returns null when the case has no brief.
  */
+/**
+ * `safeParse` over `parse` so a single corrupt brief row (legacy
+ * verification_path string the enum no longer recognises) degrades
+ * its row's `latest_brief` to null instead of 500-ing the whole
+ * queue list. The status badge column still renders; the reviewer
+ * loses only the recommendation chip for that row.
+ */
 function resolveLatestBrief(
   recommendation: string | null,
   rawPath: string | null,
 ): { recommendation: string; verification_path: string } | null {
   if (recommendation === null || rawPath === null) return null;
-  const verification_path = VerificationPathSchema.parse(rawPath);
-  return { recommendation, verification_path };
+  const parsed = VerificationPathSchema.safeParse(rawPath);
+  if (!parsed.success) return null;
+  return { recommendation, verification_path: parsed.data };
 }
 
 /**
- * Fetches the case row + latest brief from D1 and assembles the validated
- * `CaseDetailResponse` payload. Extracted to keep the route handler ≤50 LOC.
- * Returns null when the case does not exist.
+ * Latest brief row for a case — narrow projection so the wire payload
+ * stays bounded. Extracted from `fetchDetailPayload` to keep that
+ * function under the 50 LOC ceiling.
  */
-async function fetchDetailPayload(db: Db, id: string): Promise<CaseDetailResponse | null> {
-  const projection = caseListProjection();
-  const row = await db.select(projection).from(casesTable).where(eq(casesTable.id, id)).get();
-  if (!row) return null;
-
-  const brief = await db
+async function fetchLatestBriefRow(db: Db, caseId: string) {
+  return db
     .select({
       recommendation: briefsTable.recommendation,
       confidence: briefsTable.confidence,
@@ -103,16 +107,28 @@ async function fetchDetailPayload(db: Db, id: string): Promise<CaseDetailRespons
       payload_json: briefsTable.payload_json,
     })
     .from(briefsTable)
-    .where(eq(briefsTable.case_id, id))
+    .where(eq(briefsTable.case_id, caseId))
     .orderBy(desc(briefsTable.composed_at))
     .limit(1)
     .get();
+}
 
-  const latestBrief = brief
-    ? resolveLatestBrief(brief.recommendation, brief.payload_json?.verification_path ?? null)
-    : null;
+type CaseRowProjection = Awaited<ReturnType<typeof fetchLatestBriefRow>>;
 
-  return CaseDetailResponseSchema.parse({
+function buildDetailDraft(
+  row: { readonly [k: string]: unknown } & {
+    id: string;
+    status: string;
+    category: string;
+    geography: string;
+    claimed_zakat_category: string | null;
+    created_at: Date;
+    updated_at: Date;
+  },
+  brief: CaseRowProjection,
+  latestBrief: { recommendation: string; verification_path: string } | null,
+) {
+  return {
     case: {
       id: row.id,
       status: row.status,
@@ -131,7 +147,35 @@ async function fetchDetailPayload(db: Db, id: string): Promise<CaseDetailRespons
           payload_json: brief.payload_json,
         }
       : null,
-  });
+  };
+}
+
+/**
+ * Fetches the case row + latest brief from D1 and assembles the validated
+ * `CaseDetailResponse` payload. Returns null when the case does not exist.
+ * On a malformed brief payload the response degrades to `brief: null`
+ * so the reviewer surface still loads instead of 500-ing.
+ */
+async function fetchDetailPayload(db: Db, id: string): Promise<CaseDetailResponse | null> {
+  const projection = caseListProjection();
+  const row = await db.select(projection).from(casesTable).where(eq(casesTable.id, id)).get();
+  if (!row) return null;
+
+  const brief = await fetchLatestBriefRow(db, id);
+  const latestBrief = brief
+    ? resolveLatestBrief(brief.recommendation, brief.payload_json?.verification_path ?? null)
+    : null;
+
+  const draft = buildDetailDraft(row, brief, latestBrief);
+  const parsed = CaseDetailResponseSchema.safeParse(draft);
+  if (parsed.success) return parsed.data;
+
+  console.error(`[cases-list] case-detail parse degraded (id=${id}):`, parsed.error.message);
+  const caseOnly = CaseDetailResponseSchema.safeParse({ case: draft.case, brief: null });
+  if (caseOnly.success) return caseOnly.data;
+
+  console.error(`[cases-list] case-detail full parse failed (id=${id}):`, caseOnly.error.message);
+  return null;
 }
 
 export const casesListRoutes = new Hono<{

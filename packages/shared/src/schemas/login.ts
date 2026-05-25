@@ -8,7 +8,10 @@ import { z } from "zod";
 export const LoginSchema = z
   .object({
     email: z.string().email("Enter a valid email"),
-    password: z.string().min(12, "Must be at least 12 characters"),
+    password: z
+      .string()
+      .min(12, "Must be at least 12 characters")
+      .max(128, "Must be at most 128 characters"),
   })
   .strict();
 

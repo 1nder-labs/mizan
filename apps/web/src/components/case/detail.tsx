@@ -11,6 +11,22 @@
  * mounts the same stream component, which fires its `sendMessage`
  * once on mount → the worker flips DRAFT → RUNNING and emits the
  * workflow events. No duplicate POSTs, no producer-guard races.
+ *
+ * INTENTIONAL DEVIATION from plan U9 ("Generate Brief stub — toast
+ * only, DOES NOT call the worker"): the button is now a real workflow
+ * trigger. Reviewers need a single click to start a stream during
+ * dev/demo without curl, and the trigger uses the same `<BriefStream>`
+ * code path already in scope. Plan U9 toast-stub was a placeholder
+ * for Phase 7's reviewer-action POST; this is a strict superset and
+ * does not change any other Phase 6 contract.
+ *
+ * Lifecycle of `userTriggered`:
+ *   - resets to false on caseId change so a click on case A does not
+ *     bleed into case B when the reviewer navigates between them.
+ *   - resets to false when status enters a terminal state
+ *     (READY_FOR_REVIEW / ACTIONED / FAILED) so FAILED retry shows
+ *     the empty-state retry button instead of getting stuck inside
+ *     the stream view.
  */
 import { useEffect, useState } from "react";
 import type { CaseDetailResponse, CaseRow } from "@mizan/shared";
@@ -54,7 +70,10 @@ function BriefPanel({ caseRow, brief, userTriggered, onGenerate }: BriefPanelPro
 export function CaseDetail({ caseRow, brief }: CaseDetailProps): React.JSX.Element {
   const [userTriggered, setUserTriggered] = useState(false);
   useEffect(() => {
-    if (SHOW_PERSISTED_STATUSES.has(caseRow.status)) {
+    setUserTriggered(false);
+  }, [caseRow.id]);
+  useEffect(() => {
+    if (SHOW_PERSISTED_STATUSES.has(caseRow.status) || caseRow.status === "FAILED") {
       setUserTriggered(false);
     }
   }, [caseRow.status]);

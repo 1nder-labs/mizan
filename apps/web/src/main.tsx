@@ -5,7 +5,22 @@ import { makeQueryClient } from "./lib/query-client.ts";
 import { routeTree } from "./routeTree.gen.ts";
 import "./globals.css";
 
-const queryClient = makeQueryClient();
+/**
+ * Bootstrap order: QueryClient is created first with a deferred
+ * `onAuthFailure` hook that closes over `navigateToLogin`. The router
+ * is built next; we then assign the actual navigate implementation
+ * into the closure. This avoids a circular import (the auth-failure
+ * hook needs the router, the router context needs the client) without
+ * casting either type away.
+ */
+let navigateToLogin: () => void = () => {};
+
+const queryClient = makeQueryClient({
+  onAuthFailure: () => {
+    queryClient.setQueryData(["session"], null);
+    navigateToLogin();
+  },
+});
 
 const router = createRouter({
   routeTree,
@@ -14,6 +29,10 @@ const router = createRouter({
   defaultPreloadStaleTime: 0,
   scrollRestoration: true,
 });
+
+navigateToLogin = () => {
+  void router.navigate({ to: "/login" });
+};
 
 declare module "@tanstack/react-router" {
   interface Register {

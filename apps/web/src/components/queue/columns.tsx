@@ -10,6 +10,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { CaseRow, QueueSearch, QueueSort } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
+import { humanVerification } from "@/lib/display-labels.ts";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -20,10 +21,6 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 
 function shortId(id: string): string {
   return id.slice(0, 8);
-}
-
-function humanVerificationPath(path: string): string {
-  return path.replace(/_/g, " ").toLowerCase();
 }
 
 function nextSort(current: QueueSort): QueueSort {
@@ -99,7 +96,7 @@ function staticColumns(): ColumnDef<CaseRow>[] {
       cell: ({ row }) =>
         row.original.latest_brief ? (
           <span className="text-xs capitalize text-muted-foreground">
-            {humanVerificationPath(row.original.latest_brief.verification_path)}
+            {humanVerification(row.original.latest_brief.verification_path)}
           </span>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>

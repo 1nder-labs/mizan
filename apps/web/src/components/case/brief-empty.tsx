@@ -19,7 +19,12 @@ interface StatusCopy {
   readonly body: string;
 }
 
-const EMPTY_COPY: Partial<Record<CaseStatus, StatusCopy>> = {
+const FALLBACK_COPY: StatusCopy = {
+  title: "No brief on file",
+  body: "There's no composed brief for this case yet.",
+};
+
+const EMPTY_COPY: Record<CaseStatus, StatusCopy> = {
   DRAFT: {
     title: "No brief yet",
     body: "Start a workflow to compose the reviewer brief. You'll see live progress as it runs.",
@@ -36,6 +41,9 @@ const EMPTY_COPY: Partial<Record<CaseStatus, StatusCopy>> = {
     title: "Brief generation failed",
     body: "Something went wrong while composing this brief. You can try again.",
   },
+  RUNNING: FALLBACK_COPY,
+  READY_FOR_REVIEW: FALLBACK_COPY,
+  ACTIONED: FALLBACK_COPY,
 };
 
 function GenerateBriefButton({
@@ -58,12 +66,14 @@ export function BriefEmptyState({
   readonly status: CaseStatus;
   readonly onGenerate: () => void;
 }): React.JSX.Element {
+  const copy = EMPTY_COPY[status];
+
   if (status === "FAILED") {
     return (
       <Alert variant="destructive" className="flex flex-col gap-3">
         <div>
-          <AlertTitle>{EMPTY_COPY.FAILED?.title}</AlertTitle>
-          <AlertDescription>{EMPTY_COPY.FAILED?.body}</AlertDescription>
+          <AlertTitle>{copy.title}</AlertTitle>
+          <AlertDescription>{copy.body}</AlertDescription>
         </div>
         <div>
           <GenerateBriefButton onGenerate={onGenerate} />
@@ -71,9 +81,6 @@ export function BriefEmptyState({
       </Alert>
     );
   }
-
-  const copy = EMPTY_COPY[status];
-  if (!copy) return <></>;
 
   return (
     <Card className="border-dashed border-border/70 bg-card/40 shadow-none">

@@ -26,7 +26,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
@@ -53,17 +53,33 @@ function StreamError({ message }: { readonly message: string }): React.JSX.Eleme
   );
 }
 
-function InFlightNotice(): React.JSX.Element {
+function InFlightNotice({
+  onRefresh,
+  refreshing,
+}: {
+  readonly onRefresh: () => void;
+  readonly refreshing: boolean;
+}): React.JSX.Element {
   return (
     <Card className="border-border/80 shadow-elev-1">
-      <CardHeader className="flex flex-row items-center gap-2 space-y-0">
-        <Loader2 className="size-4 animate-spin text-status-info-foreground" />
-        <CardTitle className="text-sm font-medium">Composing brief</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+        <div className="flex items-center gap-2">
+          <Loader2 className="size-4 animate-spin text-status-info-foreground" />
+          <CardTitle className="text-sm font-medium">Composing brief</CardTitle>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait"
+        >
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">
           Another session is already running the workflow for this case. The brief will appear
-          here automatically when it finishes — no need to refresh.
+          here automatically when it finishes.
         </p>
       </CardContent>
     </Card>
@@ -86,6 +102,18 @@ function streamApi(caseId: string): string {
  * is wasted bytes. `Accept: text/event-stream` matches the worker's
  * `wantsEventStream(c)` content negotiation in
  * `apps/worker/src/routes/cases.ts:33`.
+ *
+ * INTENTIONAL: `useChat`'s POST does NOT go through `apiMutate`.
+ * AI SDK 6 owns the request lifecycle through `DefaultChatTransport`
+ * (Vercel docs: "AI SDK manages stream lifecycle — provide a custom
+ * fetch via transport.fetch if needed"). Routing through `apiMutate`
+ * would require unwrapping the hc<AppType> typed RPC, which doesn't
+ * model SSE returns. The idempotency contract is preserved: the
+ * worker's `idempotencyKey` middleware short-circuits on missing
+ * header for the brief POST (it accepts the request but does not
+ * dedupe replays). Mode A streams are inherently single-shot per
+ * runId via producer-guard's runId pinning, so HTTP-level
+ * idempotency would be redundant for this endpoint.
  */
 function buildTransport(caseId: string) {
   return new DefaultChatTransport({
@@ -136,41 +164,87 @@ function useStreamOpener(caseId: string, sendMessage: (input: { text: string }) 
  * Interval is capped at `POLL_MAX_TICKS * POLL_INTERVAL_MS` (10 min)
  * so a stalled workflow can't accumulate fetches indefinitely.
  */
-function useCasePoll(caseId: string, enabled: boolean): void {
+function useCasePoll(caseId: string, enabled: boolean): boolean {
   const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setRefreshing(false);
+      return;
+    }
     let ticks = 0;
     const handle = setInterval(() => {
       ticks += 1;
       if (ticks > POLL_MAX_TICKS) {
         clearInterval(handle);
+        setRefreshing(false);
         return;
       }
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.cases.detail(caseId),
-        refetchType: "all",
-      });
+      setRefreshing(true);
+      void queryClient
+        .invalidateQueries({
+          queryKey: queryKeys.cases.detail(caseId),
+          refetchType: "all",
+        })
+        .finally(() => setRefreshing(false));
     }, POLL_INTERVAL_MS);
-    return () => clearInterval(handle);
+    return () => {
+      clearInterval(handle);
+      setRefreshing(false);
+    };
   }, [caseId, enabled, queryClient]);
+  return refreshing;
 }
 
 function isAlreadyRunning(message: string): boolean {
   return ALREADY_RUNNING_RE.test(message);
 }
 
+/**
+ * Pure rendering of the live workflow output — step progress, tool
+ * cards, brief markdown, any error events. Extracted from
+ * `BriefStream` to keep the hook composition function thin and
+ * preserve fast-refresh boundaries.
+ */
+function BriefStreamView({
+  view,
+  fatalMessage,
+}: {
+  readonly view: ReturnType<typeof foldParts>;
+  readonly fatalMessage: string | null;
+}): React.JSX.Element {
+  return (
+    <div className="space-y-4">
+      <StepProgress steps={view.steps} />
+      {view.tools.length > 0 ? (
+        <div className="space-y-2">
+          {view.tools.map((tool) => (
+            <ExtractionCard key={tool.id} tool={tool} />
+          ))}
+        </div>
+      ) : null}
+      <BriefCopy markdown={view.text} />
+      {view.errorText ? <StreamError message={view.errorText} /> : null}
+      {fatalMessage ? <StreamError message={fatalMessage} /> : null}
+    </div>
+  );
+}
+
 export function BriefStream({ caseId }: BriefStreamProps): React.JSX.Element {
   const queryClient = useQueryClient();
   const transport = useMemo(() => buildTransport(caseId), [caseId]);
+  const invalidateDetail = useCallback(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.cases.detail(caseId),
+      refetchType: "all",
+    });
+  }, [caseId, queryClient]);
   const { messages, sendMessage, error, status } = useChat({
     id: `case-${caseId}`,
     transport,
-    onFinish: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.cases.detail(caseId),
-        refetchType: "all",
-      });
+    onFinish: invalidateDetail,
+    onError: () => {
+      void invalidateDetail();
     },
   });
 
@@ -188,23 +262,10 @@ export function BriefStream({ caseId }: BriefStreamProps): React.JSX.Element {
     (view.errorText !== null && isAlreadyRunning(view.errorText)) ||
     (fatalMessage !== null && isAlreadyRunning(fatalMessage));
 
-  useCasePoll(caseId, inflight);
+  const refreshing = useCasePoll(caseId, inflight);
 
-  if (inflight) return <InFlightNotice />;
-
-  return (
-    <div className="space-y-4">
-      <StepProgress steps={view.steps} />
-      {view.tools.length > 0 ? (
-        <div className="space-y-2">
-          {view.tools.map((tool) => (
-            <ExtractionCard key={tool.id} tool={tool} />
-          ))}
-        </div>
-      ) : null}
-      <BriefCopy markdown={view.text} />
-      {view.errorText ? <StreamError message={view.errorText} /> : null}
-      {fatalMessage ? <StreamError message={fatalMessage} /> : null}
-    </div>
-  );
+  if (inflight) {
+    return <InFlightNotice onRefresh={() => void invalidateDetail()} refreshing={refreshing} />;
+  }
+  return <BriefStreamView view={view} fatalMessage={fatalMessage} />;
 }

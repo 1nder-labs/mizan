@@ -8,32 +8,11 @@
  * comprehensible at a glance.
  */
 import { AlertTriangle, ShieldAlert, ShieldCheck } from "lucide-react";
-import type { BriefPayload, GeographyTier, VerificationPath } from "@mizan/shared";
+import type { BriefPayload } from "@mizan/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
+import { humanGeography, humanVerification } from "@/lib/display-labels.ts";
 import { RecommendationBadge } from "./recommendation-badge.tsx";
-
-const GEOGRAPHY_TIER_LABEL: Record<GeographyTier, string> = {
-  SAFE: "Safe jurisdiction",
-  AT_RISK: "At-risk jurisdiction",
-  OFAC_ADJACENT: "OFAC-adjacent",
-  OFAC: "OFAC-sanctioned",
-};
-
-const VERIFICATION_LABEL: Record<VerificationPath, string> = {
-  documentary: "Documentary evidence",
-  institutional_vouching: "Institutional vouching",
-  community_vouching: "Community vouching",
-  none: "None on file",
-};
-
-function humanGeography(tier: GeographyTier): string {
-  return GEOGRAPHY_TIER_LABEL[tier] ?? tier;
-}
-
-function humanVerification(path: VerificationPath): string {
-  return VERIFICATION_LABEL[path] ?? path;
-}
 
 function Stat({
   label,
