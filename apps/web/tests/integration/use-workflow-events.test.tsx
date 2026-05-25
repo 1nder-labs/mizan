@@ -1,17 +1,17 @@
 /**
- * Integration: useWorkflowEvents EventSource hook.
+ * Integration: useWorkflowTapeInvalidation EventSource hook.
  */
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useWorkflowEvents } from "../../src/components/brief/use-workflow-events.ts";
+import { useWorkflowTapeInvalidation } from "../../src/components/brief/use-workflow-events.ts";
 import { queryKeys } from "../../src/lib/query-keys.ts";
 
 class MockEventSource {
   static instances: MockEventSource[] = [];
   readonly url: string;
-  onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
+  closed = false;
   private listeners = new Map<string, Array<(event: MessageEvent<string>) => void>>();
 
   constructor(url: string) {
@@ -26,7 +26,7 @@ class MockEventSource {
   }
 
   close(): void {
-    /* noop for tests */
+    this.closed = true;
   }
 
   emit(type: string, data: string): void {
@@ -34,10 +34,6 @@ class MockEventSource {
     for (const handler of handlers) {
       handler({ data } as MessageEvent<string>);
     }
-  }
-
-  open(): void {
-    this.onopen?.();
   }
 }
 
@@ -47,38 +43,35 @@ function wrapper(queryClient: QueryClient) {
   );
 }
 
-describe("useWorkflowEvents", () => {
+describe("useWorkflowTapeInvalidation", () => {
   afterEach(() => {
     MockEventSource.instances = [];
     vi.unstubAllGlobals();
   });
 
-  test("opens EventSource for RUNNING cases when enabled", async () => {
+  test("opens EventSource at /api/cases/:id/stream when enabled", () => {
     vi.stubGlobal("EventSource", MockEventSource);
     const queryClient = new QueryClient();
-    const { result } = renderHook(() => useWorkflowEvents("case-1", true), {
+    renderHook(() => useWorkflowTapeInvalidation("case-1", true), {
       wrapper: wrapper(queryClient),
     });
-    await waitFor(() => expect(result.current.connected).toBe(false));
     expect(MockEventSource.instances[0]?.url).toBe("/api/cases/case-1/stream");
-    MockEventSource.instances[0]?.open();
-    await waitFor(() => expect(result.current.connected).toBe(true));
   });
 
   test("does not construct EventSource when disabled", () => {
     vi.stubGlobal("EventSource", MockEventSource);
     const queryClient = new QueryClient();
-    renderHook(() => useWorkflowEvents("case-1", false), {
+    renderHook(() => useWorkflowTapeInvalidation("case-1", false), {
       wrapper: wrapper(queryClient),
     });
     expect(MockEventSource.instances).toHaveLength(0);
   });
 
-  test("invalidates case detail on workflow.finish", async () => {
+  test("invalidates case detail on workflow.finish + closes the source", async () => {
     vi.stubGlobal("EventSource", MockEventSource);
     const queryClient = new QueryClient();
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
-    renderHook(() => useWorkflowEvents("case-1", true), {
+    renderHook(() => useWorkflowTapeInvalidation("case-1", true), {
       wrapper: wrapper(queryClient),
     });
     const source = MockEventSource.instances[0];
@@ -100,5 +93,29 @@ describe("useWorkflowEvents", () => {
         refetchType: "all",
       });
     });
+    expect(source?.closed).toBe(true);
+  });
+
+  test("ignores malformed JSON frames without throwing", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    renderHook(() => useWorkflowTapeInvalidation("case-1", true), {
+      wrapper: wrapper(queryClient),
+    });
+    const source = MockEventSource.instances[0];
+    expect(() => source?.emit("workflow.finish", "{not-json")).not.toThrow();
+    expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
+  test("closes EventSource on error event (cancels native reconnect)", () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    const queryClient = new QueryClient();
+    renderHook(() => useWorkflowTapeInvalidation("case-1", true), {
+      wrapper: wrapper(queryClient),
+    });
+    const source = MockEventSource.instances[0];
+    source?.onerror?.();
+    expect(source?.closed).toBe(true);
   });
 });

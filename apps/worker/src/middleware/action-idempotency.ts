@@ -1,21 +1,15 @@
 /**
- * Layer 4 idempotency — KV cache keyed by `(userId, caseId, action_id)`.
+ * Layer 4 idempotency primitives — KV cache keyed by
+ * `(userId, caseId, action_id)`. Pure helpers; the route owns the
+ * read/write call sites so the cache lookup runs against the
+ * already-validated `c.req.valid("json")` body (no double parse).
  *
- * Runs AFTER `zValidator("json", ReviewerActionRequestSchema)` so the
- * payload reaching the cache check has already been validated. The
- * cache READ side is itself revalidated with
+ * The cache READ side is itself revalidated with
  * `ReviewerActionResponseSchema.safeParse` so a poisoned or
  * forward-incompatible cache entry never reaches the client.
  */
 import type { KVNamespace } from "@cloudflare/workers-types";
-import { createMiddleware } from "hono/factory";
-import {
-  ReviewerActionRequestSchema,
-  ReviewerActionResponseSchema,
-  type ReviewerActionResponse,
-} from "@mizan/shared";
-import type { CloudflareBindings } from "../env.ts";
-import type { RoleVariables } from "../middleware/require-role.ts";
+import { ReviewerActionResponseSchema, type ReviewerActionResponse } from "@mizan/shared";
 
 const ACTION_IDEM_TTL_SECONDS = 86_400;
 
@@ -36,7 +30,8 @@ export async function cacheActionResponse(
   });
 }
 
-async function readCachedActionResponse(
+/** Returns a cached response when the same reviewer replays the action_id on the same case. */
+export async function readCachedActionResponse(
   kv: KVNamespace,
   userId: string,
   caseId: string,
@@ -47,27 +42,3 @@ async function readCachedActionResponse(
   const parsed = ReviewerActionResponseSchema.safeParse(raw);
   return parsed.success ? parsed.data : undefined;
 }
-
-export const actionIdempotency = createMiddleware<{
-  Bindings: CloudflareBindings;
-  Variables: RoleVariables;
-}>(async (c, next) => {
-  const caseId = c.req.param("id");
-  if (!caseId) return next();
-  const validated = ReviewerActionRequestSchema.safeParse(
-    await c.req.raw
-      .clone()
-      .json()
-      .catch(() => null),
-  );
-  if (!validated.success) return next();
-  const cached = await readCachedActionResponse(
-    c.env.KV,
-    c.var.user.id,
-    caseId,
-    validated.data.action_id,
-  );
-  if (cached) return c.json(cached, 200);
-  await next();
-  return;
-});

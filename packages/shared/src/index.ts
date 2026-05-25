@@ -119,6 +119,7 @@ export {
 } from "./schemas/workflow-event.ts";
 
 export {
+  AUDIT_RATIONALE_DISPLAY_MAX,
   AuditEntrySchema,
   AuditListResponseSchema,
   AuditListSearchSchema,

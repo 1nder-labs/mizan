@@ -1,11 +1,16 @@
 /**
- * Integration: `promoteToEval` step idempotency on (run_id, action_id).
+ * Integration: `promoteEvalRow` helper — exercises the actual insert
+ * path the step delegates to (not raw SQL), so a regression in the
+ * step's `onConflictDoNothing` target or column wiring would surface
+ * here.
  *
  * Vitest + Miniflare. Run via `bun --filter @mizan/worker test:integration`.
  */
 import { applyD1Migrations } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { beforeAll, describe, expect, inject, it } from "vitest";
+import { makeDb } from "@mizan/db";
+import { promoteEvalRow } from "@mizan/mastra";
 
 const ACTION_ID = "550e8400-e29b-41d4-a716-446655440010";
 
@@ -31,29 +36,27 @@ async function seedRow(caseId: string, runId: string, userId: string): Promise<v
     .run();
 }
 
-async function insertPromotion(caseId: string, runId: string, actionId: string): Promise<void> {
-  await env.DB.prepare(
-    `INSERT INTO eval_promotions (id, case_id, run_id, action_id, recommendation, reviewer_action, promoted_at)
-     VALUES (?, ?, ?, ?, 'READY_FOR_REVIEW', 'APPROVE', ?)
-     ON CONFLICT(run_id, action_id) DO NOTHING`,
-  )
-    .bind(crypto.randomUUID(), caseId, runId, actionId, Date.now())
-    .run();
-}
-
-describe("eval_promotions (run_id, action_id) idempotency", () => {
+describe("promoteEvalRow", () => {
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
   }, 60_000);
 
-  it("INSERT ... ON CONFLICT DO NOTHING leaves exactly one row on replay", async () => {
+  it("inserts the eval_promotions row + is idempotent on replay", async () => {
     const caseId = crypto.randomUUID();
     const runId = crypto.randomUUID();
     const userId = crypto.randomUUID();
     await seedRow(caseId, runId, userId);
+    const db = makeDb(env.DB);
 
-    await insertPromotion(caseId, runId, ACTION_ID);
-    await insertPromotion(caseId, runId, ACTION_ID);
+    const input = {
+      caseId,
+      runId,
+      actionId: ACTION_ID,
+      recommendation: "READY_FOR_REVIEW" as const,
+      reviewerAction: "APPROVE" as const,
+    };
+    await promoteEvalRow(db, input);
+    await promoteEvalRow(db, input);
 
     const rows = await env.DB.prepare(
       "SELECT id, recommendation, reviewer_action FROM eval_promotions WHERE run_id = ? AND action_id = ?",
@@ -92,9 +95,22 @@ describe("eval_promotions (run_id, action_id) idempotency", () => {
         now,
       )
       .run();
+    const db = makeDb(env.DB);
 
-    await insertPromotion(caseId, runId, actionA);
-    await insertPromotion(caseId, runId, actionB);
+    await promoteEvalRow(db, {
+      caseId,
+      runId,
+      actionId: actionA,
+      recommendation: "READY_FOR_REVIEW",
+      reviewerAction: "APPROVE",
+    });
+    await promoteEvalRow(db, {
+      caseId,
+      runId,
+      actionId: actionB,
+      recommendation: "ESCALATE",
+      reviewerAction: "ESCALATE",
+    });
 
     const rows = await env.DB.prepare("SELECT action_id FROM eval_promotions WHERE run_id = ?")
       .bind(runId)

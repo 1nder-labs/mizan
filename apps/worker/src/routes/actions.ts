@@ -2,13 +2,12 @@
  * Reviewer action route — resumes a suspended workflow run.
  *
  * Middleware order: `zValidator("param")` → `zValidator("json")` →
- * `actionIdempotency` → handler. Validation runs FIRST so the
- * idempotency middleware short-circuits only on already-validated
- * payloads. The route owns the atomic SUSPENDED_HITL → RUNNING claim
- * (`transitionCase`) so concurrent reviewer submissions see a stable
- * 409 race-loser path. Resume failures are caught and revert the
- * status to SUSPENDED_HITL so the case never orphans in RUNNING with
- * no live workflow attached.
+ * handler. The handler reads `c.req.valid("json")` directly to check
+ * Layer 4 idempotency (no double parse). The route owns the atomic
+ * SUSPENDED_HITL → RUNNING claim so concurrent reviewer submissions
+ * see a stable 409 race-loser path. Resume failures revert the status
+ * to SUSPENDED_HITL; a no-op revert (compensation hit a row that
+ * already moved) is logged loud so on-call sees the divergence.
  */
 import { zValidator } from "@hono/zod-validator";
 import { createBriefRun } from "@mizan/mastra";
@@ -25,7 +24,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
-import { actionIdempotency, cacheActionResponse } from "../middleware/action-idempotency.ts";
+import { cacheActionResponse, readCachedActionResponse } from "../middleware/action-idempotency.ts";
 import type { RoleVariables } from "../middleware/require-role.ts";
 
 const ParamIdSchema = z.object({ id: z.string().uuid() });
@@ -53,13 +52,29 @@ function buildResponse(
   return ReviewerActionResponseSchema.parse({ status, brief, action: body });
 }
 
-async function revertClaim(db: Db, caseId: string, runId: string): Promise<void> {
-  await transitionCase(db, {
+/**
+ * Compensation when `run.resume` throws after the claim succeeded.
+ * `transitionCase` returns the updated row when the source-status
+ * predicate matched; a `false` result means the case has already
+ * advanced past RUNNING (concurrent revert, terminal flip, DLQ) — the
+ * row is no longer ours to flip back and we must surface that loud so
+ * on-call sees the divergence instead of swallowing it silently.
+ */
+async function revertClaim(db: Db, caseId: string, runId: string, cause: unknown): Promise<void> {
+  const reverted = await transitionCase(db, {
     caseId,
     runId,
     from: "RUNNING",
     to: "SUSPENDED_HITL",
   });
+  const reason = cause instanceof Error ? cause.message : String(cause);
+  if (!reverted) {
+    console.error(
+      `[action] revertClaim no-op — case ${caseId} run ${runId} already off RUNNING (cause=${reason})`,
+    );
+    return;
+  }
+  console.error(`[action] resume failed — reverted claim (case=${caseId} run=${runId}): ${reason}`);
 }
 
 export const actionRoutes = new Hono<{
@@ -69,11 +84,13 @@ export const actionRoutes = new Hono<{
   "/:id/action",
   zValidator("param", ParamIdSchema),
   zValidator("json", ReviewerActionRequestSchema),
-  actionIdempotency,
   async (c) => {
     const { id: caseId } = c.req.valid("param");
     const body = c.req.valid("json");
     const db = makeDb(c.env.DB);
+
+    const cached = await readCachedActionResponse(c.env.KV, c.var.user.id, caseId, body.action_id);
+    if (cached) return c.json(cached);
 
     const caseRow = await db.select().from(cases).where(eq(cases.id, caseId)).get();
     if (!caseRow) return c.json(errorBody("not_found"), 404);
@@ -104,9 +121,7 @@ export const actionRoutes = new Hono<{
         requestContext,
       });
     } catch (error) {
-      await revertClaim(db, caseId, runId);
-      const reason = error instanceof Error ? error.message : String(error);
-      console.error(`[action] resume failed (case=${caseId} run=${runId}): ${reason}`);
+      await revertClaim(db, caseId, runId, error);
       return c.json(errorBody("workflow_failed"), 500);
     }
 

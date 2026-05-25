@@ -1,12 +1,14 @@
 import { createStep } from "@mastra/core/workflows";
-import { eval_promotions, makeDb } from "@mizan/db";
+import { makeDb } from "@mizan/db";
 import { PartialBriefStateSchema } from "../schemas/partial-brief-state.ts";
 import { getEnv } from "../runtime/context-accessors.ts";
 import { RecordActionOutputSchema } from "./recordAction.ts";
+import { promoteEvalRow } from "./promote-to-eval-helpers.ts";
 
 /**
  * Appends an eval-promotion ledger row after the reviewer action
- * persists. Idempotent on `(run_id, action_id)`.
+ * persists. Idempotent on `(run_id, action_id)` — insert delegates to
+ * the unit-testable `promoteEvalRow` helper.
  */
 export const promoteToEval = createStep({
   id: "promoteToEval",
@@ -18,23 +20,13 @@ export const promoteToEval = createStep({
         `promoteToEval: brief missing for case ${inputData.caseId} run ${inputData.runId}`,
       );
     }
-
-    const env = getEnv(requestContext);
-    const db = makeDb(env.DB);
-
-    await db
-      .insert(eval_promotions)
-      .values({
-        case_id: inputData.caseId,
-        run_id: inputData.runId,
-        action_id: inputData.reviewerAction.action_id,
-        recommendation: inputData.brief.recommendation,
-        reviewer_action: inputData.reviewerAction.action,
-      })
-      .onConflictDoNothing({
-        target: [eval_promotions.run_id, eval_promotions.action_id],
-      });
-
+    await promoteEvalRow(makeDb(getEnv(requestContext).DB), {
+      caseId: inputData.caseId,
+      runId: inputData.runId,
+      actionId: inputData.reviewerAction.action_id,
+      recommendation: inputData.brief.recommendation,
+      reviewerAction: inputData.reviewerAction.action,
+    });
     return {
       caseId: inputData.caseId,
       runId: inputData.runId,

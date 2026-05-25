@@ -19,11 +19,9 @@ async function seedActionCache(
   actionId: string,
   body: unknown,
 ): Promise<void> {
-  await env.KV.put(
-    `idem:action:${userId}:${caseId}:${actionId}`,
-    JSON.stringify({ status: 200, body }),
-    { expirationTtl: KV_TTL_SECONDS },
-  );
+  await env.KV.put(`idem:action:${userId}:${caseId}:${actionId}`, JSON.stringify(body), {
+    expirationTtl: KV_TTL_SECONDS,
+  });
 }
 
 const BASE = "http://localhost";
@@ -91,6 +89,40 @@ describe("Layer 4 action idempotency", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as typeof cachedBody;
     expect(body).toEqual(cachedBody);
+  });
+
+  it("cache hit short-circuits — no reviewer_actions row + status unchanged", async () => {
+    const { cookie, userId } = await seedReviewer();
+    const caseId = crypto.randomUUID();
+    const actionId = crypto.randomUUID();
+    await insertSuspendedCase(caseId, userId);
+
+    await seedActionCache(userId, caseId, actionId, {
+      status: "success",
+      brief: null,
+      action: { action: "APPROVE", rationale: "", action_id: actionId },
+    });
+
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/cases/${caseId}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Cookie: cookie },
+        body: JSON.stringify({ action: "APPROVE", rationale: "", action_id: actionId }),
+      }),
+    );
+    expect(res.status).toBe(200);
+
+    const rowCount = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM reviewer_actions WHERE action_id = ?",
+    )
+      .bind(actionId)
+      .first<{ n: number }>();
+    expect(rowCount?.n).toBe(0);
+
+    const caseRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string }>();
+    expect(caseRow?.status).toBe("SUSPENDED_HITL");
   });
 
   it("does NOT serve cached response when the same action_id is sent on a different case", async () => {

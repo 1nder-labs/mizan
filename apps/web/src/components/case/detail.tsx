@@ -20,7 +20,7 @@ import {
   type CaseStatus,
 } from "@mizan/shared";
 import { BriefStream } from "@/components/brief/stream.tsx";
-import { useWorkflowEvents } from "@/components/brief/use-workflow-events.ts";
+import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-events.ts";
 import { ActionPanel } from "@/components/case/action-panel.tsx";
 import { BriefDetailTabs } from "./brief-details.tsx";
 import { BriefEmptyState } from "./brief-empty.tsx";
@@ -116,7 +116,7 @@ export function CaseDetail({ caseRow, brief }: CaseDetailProps): React.JSX.Eleme
    * both streams causes redundant invalidations + last-writer-wins
    * races when each closes on its own terminal event.
    */
-  useWorkflowEvents(caseRow.id, caseRow.status === HITL_SUSPENDED_STATUS);
+  useWorkflowTapeInvalidation(caseRow.id, caseRow.status === HITL_SUSPENDED_STATUS);
 
   useEffect(() => {
     dispatchPhase({ type: "case-changed" });

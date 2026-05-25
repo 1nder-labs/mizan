@@ -12,6 +12,14 @@ export const AuditListSearchSchema = z
 
 export type AuditListSearch = z.infer<typeof AuditListSearchSchema>;
 
+/**
+ * Display-side truncation cap for the audit list's `rationale` cell.
+ * Mirrors `RATIONALE_MAX` in `packages/db/src/audit.ts:10` — the DB
+ * query truncates anything longer; the schema must declare the same
+ * bound so the contract does not lie to clients.
+ */
+export const AUDIT_RATIONALE_DISPLAY_MAX = 280;
+
 /** Single audit row in the admin list projection. */
 export const AuditEntrySchema = z.object({
   id: z.string().uuid(),
@@ -20,7 +28,7 @@ export const AuditEntrySchema = z.object({
   case_category: z.string(),
   reviewer_email: z.string().nullable(),
   action: ReviewerActionEnum,
-  rationale: z.string(),
+  rationale: z.string().max(AUDIT_RATIONALE_DISPLAY_MAX),
   acted_at: z.number().int(),
 });
 
