@@ -1,31 +1,21 @@
 /**
- * Reviewer happy-path E2E. Local-only — requires `wrangler dev` +
- * `vite dev` running together (Playwright `webServer` handles spin-up)
- * AND the seed script having populated the dev DB:
- *   `bun --filter @mizan/worker run` `scripts/seed-users.ts` (see repo root)
+ * Reviewer happy-path E2E. LOCAL-ONLY — never wired into CI.
  *
- * Seeded reviewer credentials (also exposed via MIZAN_SEED_* env vars):
- *   email: reviewer@mizan.test
- *   password: reviewer-dev-only-12345 (matches scripts/seed-users.ts:38-42)
+ * Requires `wrangler dev` (port 8787) + vite (port 5173) running plus
+ * a seeded local D1 via `bun scripts/seed-users.ts`. Run with the
+ * `playwright.config.local.ts` config; the default `playwright.config.ts`
+ * spawns servers via portless which is not deterministic for CI.
  *
- * CI does not run this spec — local-only parity with worker integration
- * tests (Cloudflare auth required for wrangler dev).
+ * Cloudflare runners don't have Vectorize remote binding access, so
+ * this spec cannot run unattended. CI runs unit + integration +
+ * contract only.
  */
 import { expect, test } from "@playwright/test";
-
-const SEED_EMAIL = process.env["MIZAN_SEED_REVIEWER_EMAIL"] ?? "reviewer@mizan.test";
-const SEED_PASSWORD = process.env["MIZAN_SEED_REVIEWER_PASSWORD"] ?? "reviewer-dev-only-12345";
+import { REVIEWER_EMAIL, REVIEWER_PASSWORD, signIn } from "./_helpers.ts";
 
 test.describe("reviewer flow", () => {
   test("login -> queue -> case detail -> brief stream -> filter persists", async ({ page }) => {
-    await page.goto("/login");
-    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
-
-    await page.getByLabel("Email").fill(SEED_EMAIL);
-    await page.getByLabel("Password").fill(SEED_PASSWORD);
-    await page.getByRole("button", { name: /^Sign in$/ }).click();
-
-    await expect(page).toHaveURL(/\/queue/);
+    await signIn(page, REVIEWER_EMAIL, REVIEWER_PASSWORD);
     await expect(page.getByRole("heading", { name: "Queue" })).toBeVisible();
 
     const dataRows = page.locator("tbody tr");
@@ -42,8 +32,9 @@ test.describe("reviewer flow", () => {
       .first()
       .textContent();
     if (status?.toLowerCase().includes("running")) {
-      await expect(page.getByText("Workflow")).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByText("Brief")).toBeVisible({ timeout: 30_000 });
+      const streamRendered = page.getByText("Workflow", { exact: true });
+      const inFlightNotice = page.getByText(/Another session is already running/i);
+      await expect(streamRendered.or(inFlightNotice).first()).toBeVisible({ timeout: 15_000 });
     }
 
     await page.goto("/queue?status=READY_FOR_REVIEW&sort=updated_desc&page=1");

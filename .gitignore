@@ -58,3 +58,8 @@ logs/
 # Playwright MCP scratch
 .playwright-mcp/
 *.png
+
+# Playwright local-only — never committed
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/.playwright/
