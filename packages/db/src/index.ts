@@ -41,4 +41,5 @@ export * from "./auth.schema.ts";
 export * from "./schemas.ts";
 export { transitionCase, type CaseTransitionInput } from "./case-transitions.ts";
 export { caseListProjection } from "./projections.ts";
-export { and, eq, inArray } from "drizzle-orm";
+export { fetchAuditPage, type AuditRow } from "./audit.ts";
+export { and, desc, eq, gt, inArray, sql } from "drizzle-orm";

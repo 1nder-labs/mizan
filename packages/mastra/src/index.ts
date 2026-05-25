@@ -67,6 +67,7 @@ export {
 export { tierFor } from "./runtime/geography-tier.ts";
 export { detectImageMediaType, toImagePart } from "./util/image-format.ts";
 export { createMastra, type MizanMastraBundle } from "./mastra-factory.ts";
+export { emitWorkflowEvent, type WorkflowEventType } from "./observability/workflow-event-logger.ts";
 export {
   createBriefRun,
   buildBriefRunContext,

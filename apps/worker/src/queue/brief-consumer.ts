@@ -1,5 +1,5 @@
 import type { ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
-import { createBriefRun, flushLangfuse } from "@mizan/mastra";
+import { createBriefRun, emitWorkflowEvent, flushLangfuse } from "@mizan/mastra";
 import { cases, eq, makeDb, transitionCase, type Db } from "@mizan/db";
 import type { Case } from "@mizan/db";
 import { BriefQueueMessageSchema, type BriefQueueMessage } from "@mizan/shared";
@@ -34,12 +34,24 @@ async function loadCase(db: Db, caseId: string): Promise<Case | undefined> {
  * snapshot, not the pre-claim one. Race-loser sees `undefined` and acks.
  */
 async function claimRun(db: Db, message: BriefQueueMessage): Promise<Case | undefined> {
-  return transitionCase(db, {
+  const claimed = await transitionCase(db, {
     caseId: message.caseId,
     runId: message.runId,
     from: ["QUEUED", "RUNNING"],
     to: "RUNNING",
   });
+  if (claimed) {
+    await emitWorkflowEvent(db, {
+      caseId: message.caseId,
+      runId: message.runId,
+      eventType: "workflow.start",
+      payloadMeta: {
+        caseId: message.caseId,
+        runId: message.runId,
+      },
+    });
+  }
+  return claimed;
 }
 
 async function revertClaim(db: Db, caseId: string, runId: string): Promise<void> {

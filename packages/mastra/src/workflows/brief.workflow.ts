@@ -2,6 +2,8 @@ import { createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { BriefPayloadSchema } from "@mizan/shared";
 import { awaitReviewerAction } from "../steps/awaitReviewerAction.ts";
+import { recordAction } from "../steps/recordAction.ts";
+import { promoteToEval } from "../steps/promoteToEval.ts";
 import { classifyCampaign } from "../steps/classifyCampaign.ts";
 import { classifyVouchingChain } from "../steps/classifyVouchingChain/index.ts";
 import { composeBrief } from "../steps/composeBrief/index.ts";
@@ -55,6 +57,8 @@ export const briefWorkflow = createWorkflow({
   .then(composeBrief)
   .then(forcedEscalateGate)
   .then(draftOrganizerMessage)
-  .then(finalizeCaseStatus)
   .then(awaitReviewerAction)
+  .then(recordAction)
+  .then(promoteToEval)
+  .then(finalizeCaseStatus)
   .commit();

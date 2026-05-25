@@ -14,8 +14,9 @@
  */
 
 import { zValidator } from "@hono/zod-validator";
+import { fetchAuditPage, makeDb } from "@mizan/db";
+import { AuditListResponseSchema, AuditListSearchSchema, EchoSchema } from "@mizan/shared";
 import { Hono } from "hono";
-import { EchoSchema } from "@mizan/shared";
 import type { CloudflareBindings } from "../env.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { requireRole, type RoleVariables } from "../middleware/require-role.ts";
@@ -26,6 +27,27 @@ export const adminRoutes = new Hono<{
 }>()
   .use("*", requireRole("admin"))
   .get("/ping", (c) => c.json({ ok: true }))
+  .get("/audit", zValidator("query", AuditListSearchSchema), async (c) => {
+    const search = c.req.valid("query");
+    const db = makeDb(c.env.DB);
+    const { entries, total } = await fetchAuditPage(db, search);
+    const payload = AuditListResponseSchema.parse({
+      entries: entries.map((entry) => ({
+        id: entry.id,
+        case_id: entry.case_id,
+        case_status: entry.case_status,
+        case_category: entry.case_category,
+        reviewer_email: entry.reviewer_email,
+        action: entry.action,
+        rationale: entry.rationale,
+        acted_at: entry.acted_at.getTime(),
+      })),
+      page: search.page,
+      page_size: search.page_size,
+      total,
+    });
+    return c.json(payload);
+  })
   .post("/echo", idempotencyKey, zValidator("json", EchoSchema), (c) => {
     const { message, action_id } = c.req.valid("json");
     return c.json({ message, action_id, echoedAt: Date.now() });

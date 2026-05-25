@@ -18,6 +18,8 @@ import type { CloudflareBindings } from "../env.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { producerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
 import { requireRole } from "../middleware/require-role.ts";
+import { actionRoutes } from "./actions.ts";
+import { createCaseStreamHandler } from "./case-stream.ts";
 import { casesListRoutes } from "./cases-list.ts";
 
 type BriefContext = Context<{
@@ -167,6 +169,8 @@ export const caseRoutes = new Hono<{
 }>()
   .use("*", requireRole(["reviewer", "admin"]))
   .route("/", casesListRoutes)
+  .route("/", actionRoutes)
+  .get("/:id/stream", createCaseStreamHandler())
   .post(
     "/:id/brief",
     idempotencyKey,

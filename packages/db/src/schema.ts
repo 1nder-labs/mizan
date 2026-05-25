@@ -183,6 +183,7 @@ export const workflow_events = sqliteTable(
     seq: integer("seq").notNull(),
     event_type: text("event_type", {
       enum: [
+        "workflow.start",
         "step.start",
         "step.finish",
         "step.suspend",
@@ -199,4 +200,31 @@ export const workflow_events = sqliteTable(
       .$defaultFn(() => new Date()),
   },
   (table) => [uniqueIndex("workflow_events_run_seq_idx").on(table.run_id, table.seq)],
+);
+
+export const eval_promotions = sqliteTable(
+  "eval_promotions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    case_id: text("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "restrict" }),
+    run_id: text("run_id").notNull(),
+    action_id: text("action_id")
+      .notNull()
+      .references(() => reviewer_actions.action_id, { onDelete: "restrict" }),
+    recommendation: text("recommendation", {
+      enum: ["READY_FOR_REVIEW", "REQUEST_DOCS", "ESCALATE", "BLOCK"] as const,
+    }).notNull(),
+    reviewer_action: text("reviewer_action", { enum: REVIEWER_ACTION_VALUES }).notNull(),
+    promoted_at: integer("promoted_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("eval_promotions_run_action_uniq").on(table.run_id, table.action_id),
+    index("eval_promotions_case_id_idx").on(table.case_id),
+  ],
 );

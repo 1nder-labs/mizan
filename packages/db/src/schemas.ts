@@ -21,7 +21,7 @@
 
 import { createInsertSchema, createSelectSchema, createUpdateSchema } from "drizzle-zod";
 import { z } from "zod";
-import { briefs, cases, reviewer_actions, signals, workflow_events } from "./schema.ts";
+import { briefs, cases, eval_promotions, reviewer_actions, signals, workflow_events } from "./schema.ts";
 
 const uuid = z.string().uuid();
 
@@ -93,3 +93,15 @@ export const updateWorkflowEventsSchema = createUpdateSchema(workflow_events);
 export type WorkflowEvent = z.infer<typeof selectWorkflowEventsSchema>;
 export type NewWorkflowEvent = z.infer<typeof insertWorkflowEventsSchema>;
 export type UpdateWorkflowEvent = z.infer<typeof updateWorkflowEventsSchema>;
+
+/** --- eval_promotions --- */
+
+export const selectEvalPromotionsSchema = createSelectSchema(eval_promotions);
+
+export const insertEvalPromotionsSchema = createInsertSchema(eval_promotions);
+
+export const updateEvalPromotionsSchema = createUpdateSchema(eval_promotions);
+
+export type EvalPromotion = z.infer<typeof selectEvalPromotionsSchema>;
+export type NewEvalPromotion = z.infer<typeof insertEvalPromotionsSchema>;
+export type UpdateEvalPromotion = z.infer<typeof updateEvalPromotionsSchema>;

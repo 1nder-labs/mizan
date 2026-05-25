@@ -1,6 +1,9 @@
 import { createStep } from "@mastra/core/workflows";
 import { makeDb, transitionCase } from "@mizan/db";
+import { BriefPayloadSchema } from "@mizan/shared";
 import { getEnv } from "../runtime/context-accessors.ts";
+import { emitWorkflowEvent } from "../observability/workflow-event-logger.ts";
+import type { BriefPayload } from "@mizan/shared";
 import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/partial-brief-state.ts";
 
 /**
@@ -8,7 +11,9 @@ import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/part
  * `finalizeCaseStatus` runs. Lifted to a pure helper so unit tests can
  * pin the throw without spinning up a Mastra runtime.
  */
-export function assertFinalizeCaseStatusInputs(state: PartialBriefState): void {
+export function assertFinalizeCaseStatusInputs(
+  state: PartialBriefState,
+): asserts state is PartialBriefState & { brief: BriefPayload } {
   if (!state.brief) {
     throw new Error(
       `finalizeCaseStatus: brief missing for case ${state.caseId} run ${state.runId}`,
@@ -62,7 +67,7 @@ export function buildCaseNotFoundError(caseId: string, runId: string): Error {
 export const finalizeCaseStatus = createStep({
   id: "finalizeCaseStatus",
   inputSchema: PartialBriefStateSchema,
-  outputSchema: PartialBriefStateSchema,
+  outputSchema: BriefPayloadSchema,
   execute: async ({ inputData, requestContext }) => {
     assertFinalizeCaseStatusInputs(inputData);
     const env = getEnv(requestContext);
@@ -75,6 +80,15 @@ export const finalizeCaseStatus = createStep({
     if (!updated) {
       throw buildCaseNotFoundError(inputData.caseId, inputData.runId);
     }
-    return inputData;
+    await emitWorkflowEvent(makeDb(env.DB), {
+      caseId: inputData.caseId,
+      runId: inputData.runId,
+      eventType: "workflow.finish",
+      payloadMeta: {
+        caseId: inputData.caseId,
+        runId: inputData.runId,
+      },
+    });
+    return inputData.brief;
   },
 });
