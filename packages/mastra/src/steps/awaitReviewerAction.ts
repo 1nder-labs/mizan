@@ -1,4 +1,5 @@
 import { createStep } from "@mastra/core/workflows";
+import { makeDb } from "@mizan/db";
 import { PartialBriefStateSchema } from "../schemas/partial-brief-state.ts";
 import {
   ReviewerActionResumeSchema,
@@ -6,13 +7,12 @@ import {
   ReviewerActionSuspendSchema,
 } from "../schemas/reviewer-action-suspend.ts";
 import { getEnv } from "../runtime/context-accessors.ts";
-import {
-  mergeResumeAction,
-  openWorkflowDb,
-  prepareReviewerSuspend,
-} from "./await-reviewer-action-helpers.ts";
+import { mergeResumeAction, prepareReviewerSuspend } from "./await-reviewer-action-helpers.ts";
 
-export { ReviewerActionStepStateSchema, type ReviewerActionStepState } from "../schemas/reviewer-action-suspend.ts";
+export {
+  ReviewerActionStepStateSchema,
+  type ReviewerActionStepState,
+} from "../schemas/reviewer-action-suspend.ts";
 
 /**
  * HITL gate — suspends after composeBrief so the reviewer can act.
@@ -33,7 +33,7 @@ export const awaitReviewerAction = createStep({
       return mergeResumeAction(inputData, resumeData);
     }
 
-    const db = openWorkflowDb(getEnv(requestContext));
+    const db = makeDb(getEnv(requestContext).DB);
     const payload = await prepareReviewerSuspend(db, { ...inputData, brief: inputData.brief });
     return suspend(payload);
   },

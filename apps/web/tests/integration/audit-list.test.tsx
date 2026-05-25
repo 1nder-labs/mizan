@@ -85,11 +85,23 @@ describe("<AuditList /> integration", () => {
     expect(await screen.findByText(/no reviewer actions recorded yet/i)).toBeInTheDocument();
   });
 
-  test("pagination next updates page search param", async () => {
+  test("pagination next updates page search param and refetches", async () => {
+    const requestedPages: string[] = [];
+    server.use(
+      http.get("/api/admin/audit", ({ request }) => {
+        const url = new URL(request.url);
+        const page = url.searchParams.get("page") ?? "1";
+        requestedPages.push(page);
+        return HttpResponse.json({ ...FIXTURE, page: Number(page), total: 60 });
+      }),
+    );
+
     await renderAuditList();
     const user = userEvent.setup();
     await screen.findByText("APPROVE");
     await user.click(screen.getByRole("button", { name: /next/i }));
-    expect(window.location.pathname).toBe("/admin/audit");
+
+    await screen.findByText(/page 2/i);
+    expect(requestedPages).toContain("2");
   });
 });

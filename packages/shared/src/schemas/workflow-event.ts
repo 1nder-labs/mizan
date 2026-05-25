@@ -1,11 +1,13 @@
 import { z } from "zod";
 
-const WorkflowEventTypeEnum = z.enum([
+export const WorkflowEventTypeEnum = z.enum([
   "workflow.start",
   "step.suspend",
   "step.resume",
   "workflow.finish",
 ]);
+
+export type WorkflowEventType = z.infer<typeof WorkflowEventTypeEnum>;
 
 /**
  * Narrow metadata carried on the SSE wire for workflow_events rows.

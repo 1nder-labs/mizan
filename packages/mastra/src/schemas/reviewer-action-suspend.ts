@@ -23,15 +23,8 @@ export const ReviewerActionResumeSchema = z.object({
 
 export type ReviewerActionResumeData = z.infer<typeof ReviewerActionResumeSchema>;
 
-const ReviewerActionFieldsSchema = z.object({
-  action: ReviewerActionEnum,
-  rationale: z.string(),
-  action_id: z.string().uuid(),
-  reviewer_id: z.string().min(1),
-});
-
 export const ReviewerActionStepStateSchema = PartialBriefStateSchema.extend({
-  reviewerAction: ReviewerActionFieldsSchema,
+  reviewerAction: ReviewerActionResumeSchema,
 });
 
 export type ReviewerActionStepState = z.infer<typeof ReviewerActionStepStateSchema>;

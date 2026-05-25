@@ -1,4 +1,4 @@
-import { and, briefs, eq, makeDb, transitionCase, type Db } from "@mizan/db";
+import { and, briefs, eq, transitionCase, type Db } from "@mizan/db";
 import type { BriefPayload } from "@mizan/shared";
 import { emitWorkflowEvent } from "../observability/workflow-event-logger.ts";
 import type { PartialBriefState } from "../schemas/partial-brief-state.ts";
@@ -72,9 +72,4 @@ export async function prepareReviewerSuspend(
     briefId,
     brief: inputData.brief,
   };
-}
-
-/** Opens a DB handle from the workflow request context env slot. */
-export function openWorkflowDb(env: { DB: Parameters<typeof makeDb>[0] }): Db {
-  return makeDb(env.DB);
 }

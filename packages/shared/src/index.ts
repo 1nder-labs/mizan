@@ -77,29 +77,25 @@ export type { SignalPayload } from "./schemas/signal-payload.ts";
 
 export type { CloudflareBindings } from "./cloudflare-bindings.ts";
 
-export {
-  EchoSchema,
-  REVIEWER_ACTION_ENUM,
-  ReviewerActionSchema,
-  type EchoPayload,
-  type ReviewerAction,
-  type ReviewerActionPayload,
-  type ReviewerActionRequest,
-} from "./schemas/route-payloads.ts";
+export { EchoSchema, type EchoPayload } from "./schemas/route-payloads.ts";
 
 export {
   ReviewerActionEnum,
   ReviewerActionRequestSchema,
   ReviewerActionResponseSchema,
+  type ReviewerAction,
+  type ReviewerActionRequest,
   type ReviewerActionResponse,
 } from "./schemas/reviewer-action.ts";
 
 export {
   WorkflowEventPayloadMetaSchema,
   WorkflowEventSchema,
+  WorkflowEventTypeEnum,
   toWorkflowEventWire,
   type WorkflowEvent,
   type WorkflowEventPayloadMeta,
+  type WorkflowEventType,
 } from "./schemas/workflow-event.ts";
 
 export {

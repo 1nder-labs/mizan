@@ -1,5 +1,5 @@
 /**
- * Layer 4 idempotency — KV cache keyed by `(userId, action_id)`.
+ * Layer 4 idempotency — KV cache keyed by `(userId, caseId, action_id)`.
  */
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { createMiddleware } from "hono/factory";
@@ -14,8 +14,8 @@ interface CachedActionResponse {
   readonly body: ReviewerActionResponse;
 }
 
-function actionCacheKey(userId: string, actionId: string): string {
-  return `idem:action:${userId}:${actionId}`;
+function actionCacheKey(userId: string, caseId: string, actionId: string): string {
+  return `idem:action:${userId}:${caseId}:${actionId}`;
 }
 
 function isCachedActionResponse(value: unknown): value is CachedActionResponse {
@@ -34,22 +34,24 @@ function readActionId(raw: unknown): string | undefined {
 export async function cacheActionResponse(
   kv: KVNamespace,
   userId: string,
+  caseId: string,
   actionId: string,
   body: ReviewerActionResponse,
 ): Promise<void> {
   const payload: CachedActionResponse = { status: 200, body };
-  await kv.put(actionCacheKey(userId, actionId), JSON.stringify(payload), {
+  await kv.put(actionCacheKey(userId, caseId, actionId), JSON.stringify(payload), {
     expirationTtl: ACTION_IDEM_TTL_SECONDS,
   });
 }
 
 /** Reads a cached action response when the same reviewer replays an action_id. */
-export async function readCachedActionResponse(
+async function readCachedActionResponse(
   kv: KVNamespace,
   userId: string,
+  caseId: string,
   actionId: string,
 ): Promise<CachedActionResponse | undefined> {
-  const raw: unknown = await kv.get(actionCacheKey(userId, actionId), "json");
+  const raw: unknown = await kv.get(actionCacheKey(userId, caseId, actionId), "json");
   return isCachedActionResponse(raw) ? raw : undefined;
 }
 
@@ -57,10 +59,12 @@ export const actionIdempotency = createMiddleware<{
   Bindings: CloudflareBindings;
   Variables: RoleVariables;
 }>(async (c, next) => {
+  const caseId = c.req.param("id");
+  if (!caseId) return next();
   const raw: unknown = await c.req.raw.clone().json().catch(() => null);
   const actionId = readActionId(raw);
   if (actionId) {
-    const cached = await readCachedActionResponse(c.env.KV, c.var.user.id, actionId);
+    const cached = await readCachedActionResponse(c.env.KV, c.var.user.id, caseId, actionId);
     if (cached) {
       return c.json(cached.body, 200);
     }

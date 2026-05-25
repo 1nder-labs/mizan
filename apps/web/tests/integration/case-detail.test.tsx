@@ -102,8 +102,8 @@ describe("<CaseDetail /> integration", () => {
     await renderDetail(
       <CaseDetail caseRow={{ ...baseCase, status: "SUSPENDED_HITL" }} brief={briefFixture} />,
     );
-    expect(await screen.findByLabelText(/action/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^submit$/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^submit$/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
     expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
   });
 });

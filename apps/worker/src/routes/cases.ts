@@ -18,9 +18,13 @@ import type { CloudflareBindings } from "../env.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { producerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
 import { requireRole } from "../middleware/require-role.ts";
+import { z } from "zod";
+import { zValidator } from "@hono/zod-validator";
 import { actionRoutes } from "./actions.ts";
-import { createCaseStreamHandler } from "./case-stream.ts";
+import { caseStreamHandler } from "./case-stream.ts";
 import { casesListRoutes } from "./cases-list.ts";
+
+const StreamParamsSchema = z.object({ id: z.string().uuid() });
 
 type BriefContext = Context<{
   Bindings: CloudflareBindings;
@@ -170,7 +174,7 @@ export const caseRoutes = new Hono<{
   .use("*", requireRole(["reviewer", "admin"]))
   .route("/", casesListRoutes)
   .route("/", actionRoutes)
-  .get("/:id/stream", createCaseStreamHandler())
+  .get("/:id/stream", zValidator("param", StreamParamsSchema), caseStreamHandler)
   .post(
     "/:id/brief",
     idempotencyKey,

@@ -11,7 +11,7 @@
 import { describe, expect, it } from "bun:test";
 import { insertBriefsSchema, insertCasesSchema, insertReviewerActionsSchema } from "@mizan/db";
 import { REVIEWER_ACTION_VALUES } from "@mizan/db";
-import { EchoSchema, REVIEWER_ACTION_ENUM, ReviewerActionSchema } from "@mizan/shared";
+import { EchoSchema, ReviewerActionEnum, ReviewerActionRequestSchema } from "@mizan/shared";
 
 describe("insertCasesSchema refinements", () => {
   it("throws when category is empty string (min:1)", () => {
@@ -75,10 +75,10 @@ describe("insertReviewerActionsSchema refinements", () => {
   });
 });
 
-describe("ReviewerActionSchema", () => {
+describe("ReviewerActionRequestSchema", () => {
   it("throws when action_id is not a UUID", () => {
     expect(() =>
-      ReviewerActionSchema.parse({
+      ReviewerActionRequestSchema.parse({
         action: "APPROVE",
         rationale: "looks good",
         action_id: "not-a-uuid",
@@ -87,7 +87,7 @@ describe("ReviewerActionSchema", () => {
   });
 
   it("succeeds with a valid action payload", () => {
-    const result = ReviewerActionSchema.parse({
+    const result = ReviewerActionRequestSchema.parse({
       action: "ESCALATE",
       rationale: "Needs higher review",
       action_id: "550e8400-e29b-41d4-a716-446655440000",
@@ -96,7 +96,7 @@ describe("ReviewerActionSchema", () => {
   });
 
   it("allows APPROVE with empty rationale", () => {
-    const result = ReviewerActionSchema.parse({
+    const result = ReviewerActionRequestSchema.parse({
       action: "APPROVE",
       rationale: "",
       action_id: "550e8400-e29b-41d4-a716-446655440000",
@@ -125,7 +125,7 @@ describe("EchoSchema", () => {
 });
 
 /**
- * `REVIEWER_ACTION_ENUM` (consumed by `ReviewerActionSchema` in
+ * `ReviewerActionEnum` (consumed by `ReviewerActionRequestSchema` in
  * `@mizan/shared`) and `REVIEWER_ACTION_VALUES` (consumed by the
  * Drizzle `reviewer_actions.action` column in `@mizan/db/schema.ts`)
  * must stay synchronised. `@mizan/shared` cannot import from
@@ -134,6 +134,6 @@ describe("EchoSchema", () => {
  */
 describe("reviewer action enum parity", () => {
   it("@mizan/shared route enum matches @mizan/db column enum", () => {
-    expect([...REVIEWER_ACTION_ENUM]).toEqual([...REVIEWER_ACTION_VALUES]);
+    expect([...ReviewerActionEnum.options]).toEqual([...REVIEWER_ACTION_VALUES]);
   });
 });

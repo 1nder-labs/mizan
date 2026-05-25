@@ -70,8 +70,8 @@ export const finalizeCaseStatus = createStep({
   outputSchema: BriefPayloadSchema,
   execute: async ({ inputData, requestContext }) => {
     assertFinalizeCaseStatusInputs(inputData);
-    const env = getEnv(requestContext);
-    const updated = await transitionCase(makeDb(env.DB), {
+    const db = makeDb(getEnv(requestContext).DB);
+    const updated = await transitionCase(db, {
       caseId: inputData.caseId,
       runId: inputData.runId,
       from: "RUNNING",
@@ -80,14 +80,10 @@ export const finalizeCaseStatus = createStep({
     if (!updated) {
       throw buildCaseNotFoundError(inputData.caseId, inputData.runId);
     }
-    await emitWorkflowEvent(makeDb(env.DB), {
+    await emitWorkflowEvent(db, {
       caseId: inputData.caseId,
       runId: inputData.runId,
       eventType: "workflow.finish",
-      payloadMeta: {
-        caseId: inputData.caseId,
-        runId: inputData.runId,
-      },
     });
     return inputData.brief;
   },

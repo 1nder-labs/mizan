@@ -18,6 +18,8 @@ function makeMockKV(): MockKV {
 }
 
 const ACTION_ID = "550e8400-e29b-41d4-a716-446655440000";
+const CASE_ID = "660e8400-e29b-41d4-a716-446655440000";
+const OTHER_CASE_ID = "770e8400-e29b-41d4-a716-446655440000";
 
 function makeApp(kv: MockKV, handler: () => Response) {
   const fakeEnv = { KV: kv };
@@ -26,12 +28,19 @@ function makeApp(kv: MockKV, handler: () => Response) {
       c.set("user", { id: "reviewer-1" });
       await next();
     })
-    .use("*", actionIdempotency)
-    .post("/action", handler);
+    .post("/cases/:id/action", actionIdempotency, handler);
 
   return {
     fetch: (req: Request) => app.fetch(req, fakeEnv),
   };
+}
+
+function postAction(caseId: string, actionId: string): Request {
+  return new Request(`http://localhost/cases/${caseId}/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "APPROVE", rationale: "", action_id: actionId }),
+  });
 }
 
 describe("actionIdempotency middleware", () => {
@@ -41,7 +50,7 @@ describe("actionIdempotency middleware", () => {
     kv = makeMockKV();
   });
 
-  it("returns cached body when the same reviewer replays action_id", async () => {
+  it("returns cached body when the same reviewer replays action_id on the same case", async () => {
     const cachedBody = {
       status: "success",
       brief: null,
@@ -51,23 +60,16 @@ describe("actionIdempotency middleware", () => {
     const handler = mock(() => new Response("should not run"));
     const { fetch } = makeApp(kv, handler);
 
-    const res = await fetch(
-      new Request("http://localhost/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "APPROVE",
-          rationale: "",
-          action_id: ACTION_ID,
-        }),
-      }),
-    );
+    const res = await fetch(postAction(CASE_ID, ACTION_ID));
 
     expect(res.status).toBe(200);
     const body: unknown = await res.json();
     expect(body).toEqual(cachedBody);
     expect(handler).not.toHaveBeenCalled();
-    expect(kv.get).toHaveBeenCalledWith(`idem:action:reviewer-1:${ACTION_ID}`, "json");
+    expect(kv.get).toHaveBeenCalledWith(
+      `idem:action:reviewer-1:${CASE_ID}:${ACTION_ID}`,
+      "json",
+    );
   });
 
   it("passes through on cache miss", async () => {
@@ -80,19 +82,29 @@ describe("actionIdempotency middleware", () => {
     );
     const { fetch } = makeApp(kv, handler);
 
-    const res = await fetch(
-      new Request("http://localhost/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "APPROVE",
-          rationale: "",
-          action_id: ACTION_ID,
-        }),
-      }),
-    );
+    const res = await fetch(postAction(CASE_ID, ACTION_ID));
 
     expect(res.status).toBe(200);
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not return cached body when the same action_id is replayed on a different case", async () => {
+    kv.get.mockResolvedValueOnce(null);
+    const handler = mock(
+      () =>
+        new Response(JSON.stringify({ status: "fresh" }), {
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    const { fetch } = makeApp(kv, handler);
+
+    const res = await fetch(postAction(OTHER_CASE_ID, ACTION_ID));
+
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(kv.get).toHaveBeenCalledWith(
+      `idem:action:reviewer-1:${OTHER_CASE_ID}:${ACTION_ID}`,
+      "json",
+    );
   });
 });

@@ -73,4 +73,15 @@ describe("ReviewerActionRequestSchema", () => {
       }),
     ).toThrow();
   });
+
+  it("rejects rationale over 2000 chars (server-side cap)", () => {
+    const result = ReviewerActionRequestSchema.safeParse({
+      action: "APPROVE",
+      rationale: "x".repeat(2_001),
+      action_id: ACTION_ID,
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues.some((issue) => issue.path[0] === "rationale")).toBe(true);
+  });
 });

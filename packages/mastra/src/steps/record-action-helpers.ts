@@ -1,10 +1,6 @@
-import { eq, makeDb, reviewer_actions, transitionCase, type Db } from "@mizan/db";
+import { eq, reviewer_actions, type Db } from "@mizan/db";
 import { emitWorkflowEvent } from "../observability/workflow-event-logger.ts";
 import type { ReviewerActionStepState } from "../schemas/reviewer-action-suspend.ts";
-
-export interface RecordActionOutput extends ReviewerActionStepState {
-  readonly persistedActionId: string;
-}
 
 const EMPTY_RATIONALE = "(none)";
 
@@ -17,32 +13,20 @@ export function normalizeStoredRationale(rationale: string): string {
   return trimmed.length > 0 ? trimmed : EMPTY_RATIONALE;
 }
 
-/** Claims the case back to RUNNING and emits the resume workflow event. */
-export async function claimResumeAndEmit(
+/**
+ * Emits the resume workflow event. The route layer already claimed
+ * SUSPENDED_HITL → RUNNING atomically before calling `run.resume`, so
+ * the step does not re-flip status here.
+ */
+export async function emitResumeEvent(
   db: Db,
   inputData: ReviewerActionStepState,
 ): Promise<void> {
-  const claimed = await transitionCase(db, {
-    caseId: inputData.caseId,
-    runId: inputData.runId,
-    from: ["SUSPENDED_HITL", "RUNNING"],
-    to: "RUNNING",
-  });
-  if (!claimed) {
-    throw new Error(
-      `recordAction: case ${inputData.caseId} not SUSPENDED_HITL for run ${inputData.runId}`,
-    );
-  }
-
   await emitWorkflowEvent(db, {
     caseId: inputData.caseId,
     runId: inputData.runId,
     eventType: "step.resume",
     stepId: "recordAction",
-    payloadMeta: {
-      caseId: inputData.caseId,
-      runId: inputData.runId,
-    },
   });
 }
 
@@ -76,19 +60,4 @@ export async function persistReviewerActionRow(
     );
   }
   return row.id;
-}
-
-/** Opens a DB client from the workflow env binding. */
-export function openRecordActionDb(env: { DB: Parameters<typeof makeDb>[0] }): Db {
-  return makeDb(env.DB);
-}
-
-export function withPersistedActionId(
-  state: ReviewerActionStepState,
-  persistedActionId: string,
-): RecordActionOutput {
-  return {
-    ...state,
-    persistedActionId,
-  };
 }

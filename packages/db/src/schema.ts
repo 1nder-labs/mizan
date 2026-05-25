@@ -184,8 +184,6 @@ export const workflow_events = sqliteTable(
     event_type: text("event_type", {
       enum: [
         "workflow.start",
-        "step.start",
-        "step.finish",
         "step.suspend",
         "step.resume",
         "workflow.finish",

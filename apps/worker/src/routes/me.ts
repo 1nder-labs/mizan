@@ -20,7 +20,7 @@ export const meRoutes = new Hono<{
   Variables: AuthVariables;
 }>().get("/", async (c) => {
   const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) return c.json({ error: "Unauthorized" }, 401);
+  if (!session) return c.json({ error: "unauthorized" }, 401);
   return c.json({
     user: {
       id: session.user.id,

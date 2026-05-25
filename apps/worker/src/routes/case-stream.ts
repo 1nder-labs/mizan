@@ -11,11 +11,18 @@ import type { RoleVariables } from "../middleware/require-role.ts";
 
 const LIVE_TAIL_INTERVAL_MS = 500;
 const STREAM_WALL_CLOCK_MS = 90_000;
+const RECONNECT_BACKOFF_MS = 5_000;
+const TERMINAL_STATUSES = new Set(["READY_FOR_REVIEW", "ACTIONED", "FAILED"]);
 
 type StreamContext = Context<{
   Bindings: CloudflareBindings;
   Variables: ProducerVariables & RoleVariables;
 }>;
+
+type StreamApi = {
+  writeSSE: (payload: { id?: string; event?: string; data: string; retry?: number }) => Promise<void>;
+  sleep: (ms: number) => Promise<unknown>;
+};
 
 type WorkflowEventRow = Awaited<ReturnType<typeof fetchEventsAfterSeq>>[number];
 
@@ -33,10 +40,7 @@ async function fetchEventsAfterSeq(db: ReturnType<typeof makeDb>, runId: string,
     .orderBy(workflow_events.seq);
 }
 
-async function writeEventRow(
-  stream: { writeSSE: (payload: { id: string; event: string; data: string }) => Promise<void> },
-  row: WorkflowEventRow,
-): Promise<void> {
+async function writeEventRow(stream: StreamApi, row: WorkflowEventRow): Promise<void> {
   const wire = toWorkflowEventWire({
     seq: row.seq,
     event_type: row.event_type,
@@ -52,10 +56,11 @@ async function writeEventRow(
 }
 
 async function emitRows(
-  stream: { writeSSE: (payload: { id: string; event: string; data: string }) => Promise<void> },
+  stream: StreamApi,
   rows: WorkflowEventRow[],
+  cursor: number,
 ): Promise<{ finished: boolean; lastSeen: number }> {
-  let lastSeen = 0;
+  let lastSeen = cursor;
   for (const row of rows) {
     await writeEventRow(stream, row);
     lastSeen = row.seq;
@@ -66,44 +71,55 @@ async function emitRows(
   return { finished: false, lastSeen };
 }
 
-async function streamCaseEvents(
-  c: StreamContext,
-  stream: {
-    writeSSE: (payload: { id: string; event: string; data: string }) => Promise<void>;
-    sleep: (ms: number) => Promise<unknown>;
-  },
-): Promise<void> {
+async function safeFetch(
+  db: ReturnType<typeof makeDb>,
+  runId: string,
+  afterSeq: number,
+  stream: StreamApi,
+): Promise<WorkflowEventRow[] | undefined> {
+  try {
+    return await fetchEventsAfterSeq(db, runId, afterSeq);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[sse-stream] D1 read failed (run_id=${runId} after_seq=${afterSeq}): ${reason}`);
+    await stream.writeSSE({ retry: RECONNECT_BACKOFF_MS, data: "" });
+    return undefined;
+  }
+}
+
+async function streamCaseEvents(c: StreamContext, stream: StreamApi): Promise<void> {
   const caseId = c.req.param("id");
   if (!caseId) return;
 
   const db = makeDb(c.env.DB);
   const caseRow = await db.select().from(cases).where(eq(cases.id, caseId)).get();
-  if (!caseRow?.current_run_id) return;
+  if (!caseRow?.current_run_id) {
+    await stream.writeSSE({ retry: RECONNECT_BACKOFF_MS, data: "" });
+    return;
+  }
 
   const runId = caseRow.current_run_id;
   let lastSeen = parseLastEventId(c.req.header("Last-Event-ID"));
   const startedAt = Date.now();
 
-  const catchUp = await fetchEventsAfterSeq(db, runId, lastSeen);
-  const catchUpResult = await emitRows(stream, catchUp);
+  const catchUp = await safeFetch(db, runId, lastSeen, stream);
+  if (catchUp === undefined) return;
+  const catchUpResult = await emitRows(stream, catchUp, lastSeen);
   lastSeen = catchUpResult.lastSeen;
   if (catchUpResult.finished) return;
+  if (TERMINAL_STATUSES.has(caseRow.status)) return;
 
   while (!c.req.raw.signal.aborted && Date.now() - startedAt < STREAM_WALL_CLOCK_MS) {
     await stream.sleep(LIVE_TAIL_INTERVAL_MS);
     if (c.req.raw.signal.aborted) return;
-    const fresh = await fetchEventsAfterSeq(db, runId, lastSeen);
-    const tailResult = await emitRows(stream, fresh);
+    const fresh = await safeFetch(db, runId, lastSeen, stream);
+    if (fresh === undefined) return;
+    const tailResult = await emitRows(stream, fresh, lastSeen);
     lastSeen = tailResult.lastSeen;
     if (tailResult.finished) return;
   }
 }
 
-/** Factory for the case SSE handler mounted on `caseRoutes`. */
-export function createCaseStreamHandler(): (c: StreamContext) => Response | Promise<Response> {
-  return (c) => {
-    const caseId = c.req.param("id");
-    if (!caseId) return c.json({ error: "case id missing" }, 400);
-    return streamSSE(c, (stream) => streamCaseEvents(c, stream));
-  };
+export function caseStreamHandler(c: StreamContext): Response {
+  return streamSSE(c, (stream) => streamCaseEvents(c, stream));
 }

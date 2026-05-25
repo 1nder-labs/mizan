@@ -1,17 +1,12 @@
 import { sql, workflow_events, type Db } from "@mizan/db";
-
-export type WorkflowEventType =
-  | "workflow.start"
-  | "step.suspend"
-  | "step.resume"
-  | "workflow.finish";
+import type { WorkflowEventPayloadMeta, WorkflowEventType } from "@mizan/shared";
 
 export interface EmitWorkflowEventInput {
   readonly caseId: string;
   readonly runId: string;
   readonly eventType: WorkflowEventType;
   readonly stepId?: string;
-  readonly payloadMeta?: Record<string, unknown>;
+  readonly payloadMeta?: WorkflowEventPayloadMeta;
 }
 
 /**

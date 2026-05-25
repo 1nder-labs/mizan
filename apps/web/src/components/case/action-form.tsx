@@ -32,10 +32,7 @@ export function ActionForm({ pending, onSubmit }: ActionFormProps): React.JSX.El
       <form
         className="space-y-4"
         onSubmit={form.handleSubmit(async (values) => {
-          await onSubmit({
-            ...values,
-            action_id: crypto.randomUUID(),
-          });
+          await onSubmit(values);
         })}
       >
         <ActionRadioField control={form.control} pending={pending} />
