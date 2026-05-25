@@ -20,11 +20,14 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   CaseDetailResponseSchema,
   QueueResponseSchema,
+  ReviewerActionResponseSchema,
   type CaseDetailResponse,
   type QueueResponse,
   type QueueSearch,
+  type ReviewerActionRequest,
+  type ReviewerActionResponse,
 } from "@mizan/shared";
-import { api } from "./rpc.ts";
+import { api, apiMutate } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
 
 export class UnauthorizedError extends Error {
@@ -43,7 +46,7 @@ export class ForbiddenError extends Error {
   }
 }
 
-function assertAuthorized(status: number): void {
+export function assertAuthorized(status: number): void {
   if (status === 401) throw new UnauthorizedError();
   if (status === 403) throw new ForbiddenError();
 }
@@ -89,4 +92,23 @@ export function caseDetailQueryOptions(id: string) {
     queryFn: () => fetchCase(id),
     staleTime: 5_000,
   });
+}
+
+export async function submitReviewerAction(
+  caseId: string,
+  body: ReviewerActionRequest,
+): Promise<ReviewerActionResponse> {
+  const res = await apiMutate.cases[":id"].action.$post({
+    param: { id: caseId },
+    json: body,
+  });
+  assertAuthorized(res.status);
+  if (res.status === 409) {
+    throw new Error("not_suspended_or_claimed");
+  }
+  if (!res.ok) {
+    throw new Error(`reviewer action failed: ${res.status}`);
+  }
+  const json = await res.json();
+  return ReviewerActionResponseSchema.parse(json);
 }

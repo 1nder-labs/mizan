@@ -31,6 +31,10 @@ vi.mock("@/components/brief/stream.tsx", () => ({
   },
 }));
 
+vi.mock("@/components/brief/use-workflow-events.ts", () => ({
+  useWorkflowEvents: () => ({ events: [], connected: false }),
+}));
+
 import { CaseDetail } from "../../src/components/case/detail.tsx";
 
 const baseCase: CaseRow = {

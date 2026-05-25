@@ -1,11 +1,9 @@
 /**
- * Admin audit page. Renders the admin-only audit log surface. Shell +
- * header + sign-out wiring live in `<AuthenticatedShell>`.
+ * Admin audit page. Renders the admin-only audit log surface.
  */
 import { History, Lock } from "lucide-react";
-import { AuditTablePreview } from "@/components/admin/audit-preview.tsx";
+import { AuditList } from "@/components/admin/audit-list.tsx";
 import { AuthenticatedShell } from "@/components/shell/authenticated-shell.tsx";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 
 export function AdminAuditPage(): React.JSX.Element {
   return (
@@ -21,16 +19,10 @@ export function AdminAuditPage(): React.JSX.Element {
             Audit log
           </h1>
           <p className="text-sm text-muted-foreground">
-            Every reviewer action and workflow transition will surface here.
+            Reviewer actions across all cases, newest first.
           </p>
         </div>
-        <Alert>
-          <AlertTitle>No audit entries yet.</AlertTitle>
-          <AlertDescription>
-            Once reviewer actions and workflow transitions land, they appear in this table.
-          </AlertDescription>
-        </Alert>
-        <AuditTablePreview />
+        <AuditList />
       </section>
     </AuthenticatedShell>
   );

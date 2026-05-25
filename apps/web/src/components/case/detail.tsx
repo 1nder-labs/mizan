@@ -7,24 +7,15 @@
  * Panel modes:
  *   stream  — RUNNING from the server OR user just clicked Generate
  *             and the local stream has not yet errored
+ *   action  — SUSPENDED_HITL awaiting reviewer input
  *   summary — terminal status with a non-null brief payload
- *   empty   — every other state (DRAFT / QUEUED / SUSPENDED_HITL /
- *             FAILED / terminal-with-null-brief / RUNNING-with-failed-stream)
- *
- * Single-POST architecture: `<BriefStream>` is the only component that
- * POSTs to the worker SSE endpoint. Mounting it fires `sendMessage`
- * once on mount → worker flips DRAFT → RUNNING and emits workflow
- * events. No duplicate POSTs, no producer-guard races.
- *
- * RUNNING + SSE failure recovery: when the local stream errors while
- * the server status is still RUNNING (transport died, 5xx mid-flight),
- * the derived mode flips to `empty` so the reviewer gets a retry CTA
- * instead of a frozen stream view they can't escape. Clicking
- * `Generate` clears the error flag and re-mounts the stream.
+ *   empty   — every other state
  */
 import { useEffect, useReducer } from "react";
 import type { CaseDetailResponse, CaseRow, CaseStatus } from "@mizan/shared";
 import { BriefStream } from "@/components/brief/stream.tsx";
+import { useWorkflowEvents } from "@/components/brief/use-workflow-events.ts";
+import { ActionPanel } from "@/components/case/action-panel.tsx";
 import { BriefDetailTabs } from "./brief-details.tsx";
 import { BriefEmptyState } from "./brief-empty.tsx";
 import { BriefSummaryCard } from "./brief-summary.tsx";
@@ -33,7 +24,7 @@ import { CaseHeader } from "./header.tsx";
 import { CaseMetaCard } from "./meta-card.tsx";
 
 type BriefSummary = CaseDetailResponse["brief"];
-type BriefPanelMode = "stream" | "summary" | "empty";
+type BriefPanelMode = "stream" | "action" | "summary" | "empty";
 
 interface CaseDetailProps {
   readonly caseRow: CaseRow;
@@ -74,6 +65,7 @@ function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase {
 }
 
 function deriveMode(status: CaseStatus, brief: BriefSummary, phase: StreamPhase): BriefPanelMode {
+  if (status === "SUSPENDED_HITL") return "action";
   const wantStream = status === "RUNNING" || phase.userTriggered;
   if (wantStream && !phase.streamErrored) return "stream";
   if (brief && SHOW_PERSISTED_STATUSES.has(status)) return "summary";
@@ -98,6 +90,9 @@ function BriefPanel({
   if (mode === "stream") {
     return <BriefStream caseId={caseRow.id} onStreamError={onStreamError} />;
   }
+  if (mode === "action") {
+    return <ActionPanel detail={{ case: caseRow, brief }} />;
+  }
   if (mode === "summary" && brief) {
     return (
       <div className="space-y-4">
@@ -111,6 +106,9 @@ function BriefPanel({
 
 export function CaseDetail({ caseRow, brief }: CaseDetailProps): React.JSX.Element {
   const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
+  const tapeEnabled = caseRow.status === "RUNNING" || caseRow.status === "SUSPENDED_HITL";
+  useWorkflowEvents(caseRow.id, tapeEnabled);
+
   useEffect(() => {
     dispatchPhase({ type: "case-changed" });
   }, [caseRow.id]);
