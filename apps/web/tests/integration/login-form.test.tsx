@@ -56,6 +56,22 @@ describe("<LoginForm /> integration", () => {
     expect(onAuthenticated).not.toHaveBeenCalled();
   });
 
+  test("rejects invalid email client-side without network call", async () => {
+    const user = userEvent.setup();
+    const onAuthenticated = vi.fn();
+    const ui = mountLogin(onAuthenticated);
+
+    await user.type(ui.getByLabelText("Email"), "not-an-email");
+    await user.type(ui.getByLabelText("Password"), "CorrectHorseBattery99");
+    await user.click(ui.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(ui.getByText(/enter a valid email/i)).toBeInTheDocument();
+    });
+    expect(signInMock).not.toHaveBeenCalled();
+    expect(onAuthenticated).not.toHaveBeenCalled();
+  });
+
   test("calls onAuthenticated when better-auth returns no error", async () => {
     signInMock.mockResolvedValueOnce({ data: { token: "fake" }, error: null });
     const user = userEvent.setup();

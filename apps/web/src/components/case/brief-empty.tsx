@@ -5,15 +5,19 @@
  * Statuses with a re-generate affordance:
  *   - DRAFT: never generated, primary CTA
  *   - FAILED: errored mid-flight, destructive variant with retry CTA
+ *   - RUNNING: only reachable here when the parent's stream-phase
+ *     machine flipped to `streamErrored` (SSE died mid-flight). The
+ *     producer-guard at `apps/worker/src/routes/cases.ts` will return
+ *     409 if a real run is still owned by another session; in that
+ *     case BriefStream's InFlightNotice + poll loop takes over.
  *   - READY_FOR_REVIEW / ACTIONED with null brief (degraded parse path
- *     in `apps/worker/src/routes/cases-list.ts` — see safeParse fallback
- *     comment) so the reviewer can re-trigger composition instead of
- *     hitting a dead-end "no brief on file" card with no recovery
+ *     in `apps/worker/src/routes/cases-list.ts`) so the reviewer can
+ *     re-trigger composition instead of hitting a dead-end card.
  *
  * Statuses without an affordance (waiting on someone else):
- *   - QUEUED / SUSPENDED_HITL / RUNNING — owned by the queue consumer
- *     or another in-flight stream; surfacing a Generate button here
- *     would race the producer-guard at `apps/worker/src/routes/cases.ts`.
+ *   - QUEUED / SUSPENDED_HITL — owned by the queue consumer or HITL
+ *     resume flow; surfacing a Generate button here would race the
+ *     producer-guard.
  */
 import { Sparkles } from "lucide-react";
 import type { CaseStatus } from "@mizan/shared";
@@ -31,8 +35,14 @@ const FALLBACK_COPY: StatusCopy = {
   body: "The case is marked reviewed but we couldn't load a composed brief. You can re-run composition to recover it.",
 };
 
+const RUNNING_ERROR_COPY: StatusCopy = {
+  title: "Stream interrupted",
+  body: "The live brief stream closed before completing. You can try again — if another session is still composing, you'll see an in-progress notice.",
+};
+
 const STATUSES_WITH_GENERATE: ReadonlySet<CaseStatus> = new Set([
   "DRAFT",
+  "RUNNING",
   "READY_FOR_REVIEW",
   "ACTIONED",
 ]);
@@ -54,7 +64,7 @@ const EMPTY_COPY: Record<CaseStatus, StatusCopy> = {
     title: "Brief generation failed",
     body: "Something went wrong while composing this brief. You can try again.",
   },
-  RUNNING: FALLBACK_COPY,
+  RUNNING: RUNNING_ERROR_COPY,
   READY_FOR_REVIEW: FALLBACK_COPY,
   ACTIONED: FALLBACK_COPY,
 };

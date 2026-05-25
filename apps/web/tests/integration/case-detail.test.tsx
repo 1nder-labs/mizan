@@ -1,17 +1,14 @@
 /**
- * Integration: case-detail container routes by status. RUNNING mounts
- * <BriefStream>; READY_FOR_REVIEW with brief renders persisted summary;
- * DRAFT renders the not-yet-generated empty card.
+ * Integration: case-detail container routes by status across non-stream
+ * modes — DRAFT empty card, FAILED destructive alert, READY_FOR_REVIEW
+ * persisted summary, and the degraded-brief retry affordance. RUNNING
+ * mount + stream lifecycle integration lives in
+ * `case-detail-stream.test.tsx` (BriefStream is mocked there to keep
+ * this file focused on the non-streaming branches).
  *
- * Harness: a minimal RouterProvider with a memory history + a synchronous
- * `await router.load()` BEFORE mounting. Without `router.load()` the
- * RouterProvider mounts asynchronously and the first paint is empty —
- * which is exactly what bit the prior version of these tests (failed
- * assertions against an empty <body>). The TanStack Router docs (v1)
- * call this out: "When using RouterProvider in tests, await
- * router.load() to prime the route match tree before render." Helper
- * stays here (instead of `tests/setup/`) because the matcher shape is
- * test-file local; sharing it would couple unrelated tests.
+ * Harness: minimal RouterProvider + memory history primed via
+ * `await router.load()` before mount so the first paint isn't the
+ * router's empty loading shim.
  */
 import { describe, expect, test } from "vitest";
 import { render, screen } from "@testing-library/react";

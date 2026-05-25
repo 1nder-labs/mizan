@@ -48,4 +48,17 @@ describe("requireAdmin loader gate", () => {
     expect(thrown).toBeDefined();
     expect(isRedirect(thrown)).toBe(true);
   });
+
+  test("logged-out (null session) throws redirect to /login", async () => {
+    getSessionMock.mockResolvedValueOnce({ data: null, error: null });
+    const qc = makeClient();
+    let thrown: unknown;
+    try {
+      await requireAdmin(qc);
+    } catch (caught) {
+      thrown = caught;
+    }
+    expect(thrown).toBeDefined();
+    expect(isRedirect(thrown)).toBe(true);
+  });
 });
