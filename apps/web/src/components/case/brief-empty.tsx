@@ -1,12 +1,19 @@
 /**
  * Brief-state empty / error / not-yet-generated card. Routed by the
- * case-detail container based on case status; never renders for
- * RUNNING (streamed) or READY_FOR_REVIEW / ACTIONED (briefSummary).
+ * case-detail container based on case status.
  *
- * DRAFT / FAILED carry an action that asks the parent to mount the
- * `<BriefStream>` consumer. The parent (CaseDetail) owns whether the
- * stream is rendered; this card only signals intent. Single-POST
- * architecture: the stream component owns the only network call.
+ * Statuses with a re-generate affordance:
+ *   - DRAFT: never generated, primary CTA
+ *   - FAILED: errored mid-flight, destructive variant with retry CTA
+ *   - READY_FOR_REVIEW / ACTIONED with null brief (degraded parse path
+ *     in `apps/worker/src/routes/cases-list.ts` — see safeParse fallback
+ *     comment) so the reviewer can re-trigger composition instead of
+ *     hitting a dead-end "no brief on file" card with no recovery
+ *
+ * Statuses without an affordance (waiting on someone else):
+ *   - QUEUED / SUSPENDED_HITL / RUNNING — owned by the queue consumer
+ *     or another in-flight stream; surfacing a Generate button here
+ *     would race the producer-guard at `apps/worker/src/routes/cases.ts`.
  */
 import { Sparkles } from "lucide-react";
 import type { CaseStatus } from "@mizan/shared";
@@ -21,8 +28,14 @@ interface StatusCopy {
 
 const FALLBACK_COPY: StatusCopy = {
   title: "No brief on file",
-  body: "There's no composed brief for this case yet.",
+  body: "The case is marked reviewed but we couldn't load a composed brief. You can re-run composition to recover it.",
 };
+
+const STATUSES_WITH_GENERATE: ReadonlySet<CaseStatus> = new Set([
+  "DRAFT",
+  "READY_FOR_REVIEW",
+  "ACTIONED",
+]);
 
 const EMPTY_COPY: Record<CaseStatus, StatusCopy> = {
   DRAFT: {
@@ -89,7 +102,9 @@ export function BriefEmptyState({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">{copy.body}</p>
-        {status === "DRAFT" ? <GenerateBriefButton onGenerate={onGenerate} /> : null}
+        {STATUSES_WITH_GENERATE.has(status) ? (
+          <GenerateBriefButton onGenerate={onGenerate} />
+        ) : null}
       </CardContent>
     </Card>
   );

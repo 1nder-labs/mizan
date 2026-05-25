@@ -8,6 +8,9 @@
  * Admin links read the cached session role (already populated by the
  * route's beforeLoad → requireSession chain) and only render for the
  * admin role.
+ *
+ * Belongs to the authenticated app shell, not the queue feature —
+ * lives in `shell/` so the module path matches its ownership.
  */
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -93,7 +96,7 @@ function SignOutDialog({
   );
 }
 
-export function QueueHeader({
+export function AppHeader({
   context,
   onSignOut,
   signingOut,

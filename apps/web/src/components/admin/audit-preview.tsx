@@ -1,7 +1,7 @@
 /**
- * Audit-log preview card — empty skeleton table that holds the visual
- * shape until the Phase 7 data wire lights it up. Stable row keys
- * (slot-1..slot-6) so React doesn't trip on index-as-key.
+ * Audit-log preview card — empty skeleton table holding the visual
+ * shape for the audit surface. Stable row keys so React doesn't trip
+ * on index-as-key.
  */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";

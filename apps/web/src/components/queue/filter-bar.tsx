@@ -52,18 +52,32 @@ function StatusTabs({ search, onSearchChange }: FilterBarProps): React.JSX.Eleme
   );
 }
 
-function CategoryFilter({ search, onSearchChange }: FilterBarProps): React.JSX.Element {
-  const [draft, setDraft] = useState(search.category ?? "");
-  const externalCategory = search.category ?? "";
+interface TextFilterProps {
+  readonly value: string | undefined;
+  readonly placeholder: string;
+  readonly ariaLabel: string;
+  readonly inputWidthClass: string;
+  readonly onCommit: (next: string | undefined) => void;
+}
+
+function TextFilter({
+  value,
+  placeholder,
+  ariaLabel,
+  inputWidthClass,
+  onCommit,
+}: TextFilterProps): React.JSX.Element {
+  const [draft, setDraft] = useState(value ?? "");
+  const external = value ?? "";
   useEffect(() => {
-    setDraft(externalCategory);
-  }, [externalCategory]);
+    setDraft(external);
+  }, [external]);
   return (
     <form
       className="flex items-center gap-2"
       onSubmit={(event) => {
         event.preventDefault();
-        onSearchChange({ category: draft || undefined });
+        onCommit(draft || undefined);
       }}
     >
       <div className="relative">
@@ -71,19 +85,19 @@ function CategoryFilter({ search, onSearchChange }: FilterBarProps): React.JSX.E
         <Input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Filter by category"
-          className="h-9 w-56 pl-8"
-          aria-label="Filter by category"
+          placeholder={placeholder}
+          className={`h-9 ${inputWidthClass} pl-8`}
+          aria-label={ariaLabel}
         />
       </div>
-      {search.category ? (
+      {value ? (
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={() => {
             setDraft("");
-            onSearchChange({ category: undefined });
+            onCommit(undefined);
           }}
         >
           Clear
@@ -93,11 +107,26 @@ function CategoryFilter({ search, onSearchChange }: FilterBarProps): React.JSX.E
   );
 }
 
-export function QueueFilterBar(props: FilterBarProps): React.JSX.Element {
+export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): React.JSX.Element {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <StatusTabs {...props} />
-      <CategoryFilter {...props} />
+      <StatusTabs search={search} onSearchChange={onSearchChange} />
+      <div className="flex flex-wrap items-center gap-2">
+        <TextFilter
+          value={search.category}
+          placeholder="Filter by category"
+          ariaLabel="Filter by category"
+          inputWidthClass="w-56"
+          onCommit={(next) => onSearchChange({ category: next })}
+        />
+        <TextFilter
+          value={search.geography}
+          placeholder="Country (e.g. PS, ID)"
+          ariaLabel="Filter by geography"
+          inputWidthClass="w-44"
+          onCommit={(next) => onSearchChange({ geography: next })}
+        />
+      </div>
     </div>
   );
 }

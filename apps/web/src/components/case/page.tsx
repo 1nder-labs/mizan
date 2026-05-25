@@ -1,18 +1,15 @@
 /**
- * Case detail page component. Subscribes to the prefetched
- * `CaseDetailResponse` cache entry. `onFinish` invalidation from
- * `<BriefStream>` re-fetches and the status badge flips without a
- * manual refresh. Renders the shared app header so the case detail
- * surface carries the same Queue / Audit / Sign-out nav as every
- * other authenticated page.
+ * Case detail page. Subscribes to the prefetched `CaseDetailResponse`
+ * cache entry. `onFinish` invalidation from `<BriefStream>` re-fetches
+ * and the status badge flips without a manual refresh. Shell + header
+ * + sign-out wiring live in `<AuthenticatedShell>`.
  */
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { useSignOut } from "@/hooks/use-sign-out.ts";
 import { caseDetailQueryOptions } from "@/lib/cases-api.ts";
 import { CaseDetail } from "@/components/case/detail.tsx";
 import { CaseDetailSkeleton } from "@/components/case/detail-skeleton.tsx";
-import { QueueHeader } from "@/components/queue/header.tsx";
+import { AuthenticatedShell } from "@/components/shell/authenticated-shell.tsx";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 
 const caseApi = getRouteApi("/case/$caseId");
@@ -20,20 +17,17 @@ const caseApi = getRouteApi("/case/$caseId");
 export function CaseDetailPage(): React.JSX.Element {
   const { caseId } = caseApi.useParams();
   const { data, error, isPending } = useQuery(caseDetailQueryOptions(caseId));
-  const { signOut, signingOut } = useSignOut();
 
   if (isPending) {
     return (
-      <main className="min-h-screen bg-background">
-        <QueueHeader context="Case detail" onSignOut={signOut} signingOut={signingOut} />
+      <AuthenticatedShell context="Case detail">
         <CaseDetailSkeleton />
-      </main>
+      </AuthenticatedShell>
     );
   }
   if (error || !data) {
     return (
-      <main className="min-h-screen bg-background">
-        <QueueHeader context="Case detail" onSignOut={signOut} signingOut={signingOut} />
+      <AuthenticatedShell context="Case detail">
         <div className="mx-auto max-w-3xl px-6 py-16">
           <Alert variant="destructive">
             <AlertTitle>Case not available</AlertTitle>
@@ -42,13 +36,12 @@ export function CaseDetailPage(): React.JSX.Element {
             </AlertDescription>
           </Alert>
         </div>
-      </main>
+      </AuthenticatedShell>
     );
   }
   return (
-    <main className="min-h-screen bg-background">
-      <QueueHeader context="Case detail" onSignOut={signOut} signingOut={signingOut} />
+    <AuthenticatedShell context="Case detail">
       <CaseDetail caseRow={data.case} brief={data.brief} />
-    </main>
+    </AuthenticatedShell>
   );
 }

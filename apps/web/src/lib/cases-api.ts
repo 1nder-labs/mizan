@@ -9,10 +9,12 @@
  * `Equal<>` over `InferResponseType<...>` vs the shared response
  * schemas). No redundant local `extends` seam — single source of truth.
  *
- * 401 handling: every read wrapper throws `UnauthorizedError` on 401
- * so loaders / `requireSession` can map it to a `/login` redirect via
- * TanStack Router instead of degrading to a generic "Failed to load"
- * notice that leaves the reviewer stranded on a protected route.
+ * Auth-failure split: 401 → `UnauthorizedError` (session expired,
+ * bounce to `/login`); 403 → `ForbiddenError` (authenticated but
+ * lacks the required role, e.g. reviewer hitting admin/audit). The
+ * 401 → /login pipeline in `query-client.ts` only redirects on
+ * `UnauthorizedError` so a 403 surfaces as an in-place error UI on
+ * the protected route instead of yanking the user back through login.
  */
 import { queryOptions } from "@tanstack/react-query";
 import {
@@ -33,8 +35,17 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export class ForbiddenError extends Error {
+  readonly status = 403 as const;
+  constructor(message = "You don't have permission to view this resource") {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
 function assertAuthorized(status: number): void {
-  if (status === 401 || status === 403) throw new UnauthorizedError();
+  if (status === 401) throw new UnauthorizedError();
+  if (status === 403) throw new ForbiddenError();
 }
 
 function toQuery(search: QueueSearch): Record<string, string> {

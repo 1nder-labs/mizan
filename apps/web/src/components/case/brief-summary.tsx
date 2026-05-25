@@ -12,6 +12,7 @@ import type { BriefPayload } from "@mizan/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { humanGeography, humanVerification } from "@/lib/display-labels.ts";
+import { formatMediumDateTime } from "@/lib/format.ts";
 import { RecommendationBadge } from "./recommendation-badge.tsx";
 
 function Stat({
@@ -74,7 +75,7 @@ export function BriefSummaryCard({
         <div className="space-y-1">
           <CardTitle className="text-sm font-medium">Recommendation</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Composed {new Date(composedAt).toLocaleString()}
+            Composed {formatMediumDateTime(composedAt)}
           </p>
         </div>
         <RecommendationBadge recommendation={payload.recommendation} />

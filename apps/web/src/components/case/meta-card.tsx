@@ -3,21 +3,15 @@
  * created + updated timestamps. Read-only side panel that sits next
  * to the brief on wide viewports. `current_run_id` is intentionally
  * omitted from the wire response (internal column, narrow projection
- * in `apps/worker/src/routes/cases-list.ts`); when a future plan
- * requires surfacing it for resumability UX, add it to
- * `CaseRowSchema` + `caseListProjection()` first.
+ * in `apps/worker/src/routes/cases-list.ts`).
  */
 import type { CaseRow } from "@mizan/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
+import { formatMediumDateTime } from "@/lib/format.ts";
 
 interface CaseMetaCardProps {
   readonly caseRow: CaseRow;
 }
-
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 function MetaRow({
   label,
@@ -44,8 +38,8 @@ export function CaseMetaCard({ caseRow }: CaseMetaCardProps): React.JSX.Element 
         <MetaRow label="Category" value={<span className="capitalize">{caseRow.category}</span>} />
         <MetaRow label="Geography" value={caseRow.geography} />
         <MetaRow label="Zakat" value={caseRow.claimed_zakat_category ?? "—"} />
-        <MetaRow label="Created" value={dateFormatter.format(new Date(caseRow.created_at))} />
-        <MetaRow label="Updated" value={dateFormatter.format(new Date(caseRow.updated_at))} />
+        <MetaRow label="Created" value={formatMediumDateTime(caseRow.created_at)} />
+        <MetaRow label="Updated" value={formatMediumDateTime(caseRow.updated_at)} />
       </CardContent>
     </Card>
   );

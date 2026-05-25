@@ -1,7 +1,17 @@
 /**
  * Integration: case-detail container routes by status. RUNNING mounts
  * <BriefStream>; READY_FOR_REVIEW with brief renders persisted summary;
- * DRAFT renders empty state.
+ * DRAFT renders the not-yet-generated empty card.
+ *
+ * Harness: a minimal RouterProvider with a memory history + a synchronous
+ * `await router.load()` BEFORE mounting. Without `router.load()` the
+ * RouterProvider mounts asynchronously and the first paint is empty —
+ * which is exactly what bit the prior version of these tests (failed
+ * assertions against an empty <body>). The TanStack Router docs (v1)
+ * call this out: "When using RouterProvider in tests, await
+ * router.load() to prime the route match tree before render." Helper
+ * stays here (instead of `tests/setup/`) because the matcher shape is
+ * test-file local; sharing it would couple unrelated tests.
  */
 import { describe, expect, test } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -43,13 +53,14 @@ const briefFixture: NonNullable<CaseDetailResponse["brief"]> = {
   },
 };
 
-function renderDetail(element: React.ReactNode): void {
+async function renderDetail(element: React.ReactNode): Promise<void> {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const rootRoute = createRootRoute({ component: () => <>{element}</> });
   const router = createRouter({
     routeTree: rootRoute,
     history: createMemoryHistory({ initialEntries: ["/"] }),
   });
+  await router.load();
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
@@ -58,25 +69,33 @@ function renderDetail(element: React.ReactNode): void {
 }
 
 describe("<CaseDetail /> integration", () => {
-  test("DRAFT renders the not-yet-generated empty state", () => {
-    renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "DRAFT" }} brief={null} />);
-    expect(screen.getByText(/not yet generated/i)).toBeInTheDocument();
+  test("DRAFT renders the not-yet-generated empty state", async () => {
+    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "DRAFT" }} brief={null} />);
+    expect(await screen.findByText(/no brief yet/i)).toBeInTheDocument();
   });
 
-  test("FAILED renders the destructive alert", () => {
-    renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "FAILED" }} brief={null} />);
-    expect(screen.getByText(/generation failed/i)).toBeInTheDocument();
+  test("FAILED renders the destructive alert", async () => {
+    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "FAILED" }} brief={null} />);
+    expect(await screen.findByText(/generation failed/i)).toBeInTheDocument();
   });
 
-  test("READY_FOR_REVIEW with brief renders persisted summary", () => {
-    renderDetail(
+  test("READY_FOR_REVIEW with brief renders persisted summary", async () => {
+    await renderDetail(
       <CaseDetail
         caseRow={{ ...baseCase, status: "READY_FOR_REVIEW" }}
         brief={briefFixture}
       />,
     );
-    expect(screen.getByText("Recommendation")).toBeInTheDocument();
+    expect(await screen.findByText("Recommendation")).toBeInTheDocument();
     expect(screen.getByText("88")).toBeInTheDocument();
     expect(screen.getByText(/Verified humanitarian/i)).toBeInTheDocument();
+  });
+
+  test("READY_FOR_REVIEW + degraded null brief surfaces a re-generate affordance", async () => {
+    await renderDetail(
+      <CaseDetail caseRow={{ ...baseCase, status: "READY_FOR_REVIEW" }} brief={null} />,
+    );
+    expect(await screen.findByText(/no brief on file/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /generate brief/i })).toBeInTheDocument();
   });
 });

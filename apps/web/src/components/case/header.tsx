@@ -7,13 +7,7 @@ import { ArrowLeft, Clock } from "lucide-react";
 import type { CaseRow } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
-
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+import { formatShortDateTime } from "@/lib/format.ts";
 
 export function CaseHeader({ caseRow }: { readonly caseRow: CaseRow }): React.JSX.Element {
   return (
@@ -39,7 +33,7 @@ export function CaseHeader({ caseRow }: { readonly caseRow: CaseRow }): React.JS
       </div>
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Clock className="size-3.5" />
-        <span className="tabular">Updated {dateFormatter.format(new Date(caseRow.updated_at))}</span>
+        <span className="tabular">Updated {formatShortDateTime(caseRow.updated_at)}</span>
       </div>
     </header>
   );

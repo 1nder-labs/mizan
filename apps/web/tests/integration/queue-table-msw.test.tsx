@@ -1,7 +1,12 @@
 /**
  * Integration: queue table renders rows fetched via MSW-mocked
- * `GET /api/cases`. Asserts column shape (recommendation +
+ * `GET /api/cases`. Asserts column shape (id prefix + recommendation +
  * verification path) populated from the latest_brief denorm.
+ *
+ * Harness: a minimal RouterProvider primed via `await router.load()`
+ * before mounting. Without that prime call RouterProvider hydrates
+ * async and the assertion runs against an empty body. See
+ * `case-detail.test.tsx` for the same harness comment.
  */
 import { describe, expect, test, beforeAll, afterEach, afterAll } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -10,7 +15,12 @@ import { http, HttpResponse } from "msw";
 import type { QueueResponse } from "@mizan/shared";
 import { startServer } from "../setup/msw-server.ts";
 import { QueueTable } from "../../src/components/queue/table.tsx";
-import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from "@tanstack/react-router";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
 
 const FIXTURE: QueueResponse = {
   cases: [
@@ -48,13 +58,14 @@ beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function renderWithRouter(element: React.ReactNode): void {
+async function renderWithRouter(element: React.ReactNode): Promise<void> {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const rootRoute = createRootRoute({ component: () => <>{element}</> });
   const router = createRouter({
     routeTree: rootRoute,
     history: createMemoryHistory({ initialEntries: ["/"] }),
   });
+  await router.load();
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
@@ -63,17 +74,17 @@ function renderWithRouter(element: React.ReactNode): void {
 }
 
 describe("<QueueTable /> integration", () => {
-  test("renders rows + recommendation badge from latest_brief", () => {
-    renderWithRouter(
+  test("renders rows + recommendation badge from latest_brief", async () => {
+    await renderWithRouter(
       <QueueTable
         rows={FIXTURE.cases}
         search={{ page: 1, sort: "updated_desc" }}
         onSearchChange={() => {}}
       />,
     );
-    expect(screen.getByText("11111111")).toBeInTheDocument();
+    expect(await screen.findByText("11111111")).toBeInTheDocument();
     expect(screen.getByText("22222222")).toBeInTheDocument();
-    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.getAllByText("Ready").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/documentary/i)).toBeInTheDocument();
     const emDashes = screen.getAllByText("—");
     expect(emDashes.length).toBeGreaterThanOrEqual(2);

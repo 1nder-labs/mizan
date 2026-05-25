@@ -15,7 +15,7 @@
  * importing the router.
  */
 import { QueryCache, QueryClient } from "@tanstack/react-query";
-import { UnauthorizedError } from "./cases-api.ts";
+import { ForbiddenError, UnauthorizedError } from "./cases-api.ts";
 
 let cached: QueryClient | undefined;
 
@@ -39,6 +39,7 @@ export function makeQueryClient(hooks: QueryClientHooks = {}): QueryClient {
           gcTime: 5 * 60_000,
           retry: (failureCount, error) => {
             if (error instanceof UnauthorizedError) return false;
+            if (error instanceof ForbiddenError) return false;
             return failureCount < 1;
           },
           refetchOnWindowFocus: false,

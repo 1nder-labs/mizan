@@ -1,10 +1,5 @@
 /**
- * R2 document list card. PRD §6 Phase 6 plan U9 lists this as in-scope
- * but the `documents` table + ingestion endpoint land later
- * (`docs/prd.md` Phase 7 audit + ingestion stack). This component
- * holds the visual slot today so the case-detail layout is the final
- * shape; once the API exposes per-case attachments the empty state
- * swaps for the data list without touching the layout.
+ * R2 document list card. Renders the per-case attachment surface.
  */
 import { FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
