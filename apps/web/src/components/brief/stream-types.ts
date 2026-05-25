@@ -14,9 +14,9 @@ export interface ToolPart {
   readonly id: string;
   readonly name: string;
   readonly state: ToolState;
-  readonly input?: unknown;
-  readonly output?: unknown;
-  readonly errorText?: string;
+  readonly input?: unknown | undefined;
+  readonly output?: unknown | undefined;
+  readonly errorText?: string | undefined;
 }
 
 export type StepState = "pending" | "running" | "done" | "failed";
@@ -25,6 +25,6 @@ export interface StepEntry {
   readonly id: string;
   readonly label: string;
   readonly state: StepState;
-  readonly durationMs?: number;
-  readonly note?: string;
+  readonly durationMs?: number | undefined;
+  readonly note?: string | undefined;
 }

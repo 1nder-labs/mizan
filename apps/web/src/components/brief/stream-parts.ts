@@ -11,7 +11,7 @@
  */
 import type { StepEntry, StepState, ToolPart, ToolState } from "./stream-types.ts";
 
-export interface BriefStreamView {
+export interface FoldedStream {
   readonly text: string;
   readonly tools: readonly ToolPart[];
   readonly steps: readonly StepEntry[];
@@ -47,13 +47,13 @@ function isToolState(value: unknown): value is ToolState {
 
 interface PartLike {
   readonly type: string;
-  readonly text?: string;
-  readonly state?: string;
-  readonly input?: unknown;
-  readonly output?: unknown;
-  readonly toolCallId?: string;
-  readonly errorText?: string;
-  readonly data?: unknown;
+  readonly text?: string | undefined;
+  readonly state?: string | undefined;
+  readonly input?: unknown | undefined;
+  readonly output?: unknown | undefined;
+  readonly toolCallId?: string | undefined;
+  readonly errorText?: string | undefined;
+  readonly data?: unknown | undefined;
 }
 
 function partLike(value: unknown): PartLike | null {
@@ -110,7 +110,7 @@ function applyDataPart(map: Map<string, StepEntry>, part: PartLike): void {
   });
 }
 
-export function foldParts(parts: readonly unknown[]): BriefStreamView {
+export function foldParts(parts: readonly unknown[]): FoldedStream {
   let text = "";
   const tools = new Map<string, ToolPart>();
   const steps = new Map<string, StepEntry>();

@@ -7,7 +7,18 @@
  *
  * Add new label maps here when a new enum surfaces — never inline.
  */
-import type { GeographyTier, VerificationPath } from "@mizan/shared";
+import type { CaseStatus, GeographyTier, VerificationPath } from "@mizan/shared";
+
+export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
+  DRAFT: "Draft",
+  QUEUED: "Queued",
+  RUNNING: "Running",
+  SUSPENDED_HITL: "Awaiting reviewer",
+  READY_FOR_REVIEW: "Ready",
+  ACTIONED: "Actioned",
+  FAILED: "Failed",
+};
+
 
 export const VERIFICATION_LABEL: Record<VerificationPath, string> = {
   documentary: "Documentary evidence",

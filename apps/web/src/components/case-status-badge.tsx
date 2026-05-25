@@ -8,17 +8,8 @@
  */
 import type { CaseStatus } from "@mizan/shared";
 import { Badge } from "@/components/ui/badge.tsx";
+import { CASE_STATUS_LABEL } from "@/lib/display-labels.ts";
 import { cn } from "@/lib/utils.ts";
-
-const STATUS_LABEL: Record<CaseStatus, string> = {
-  DRAFT: "Draft",
-  QUEUED: "Queued",
-  RUNNING: "Running",
-  SUSPENDED_HITL: "Awaiting reviewer",
-  READY_FOR_REVIEW: "Ready",
-  ACTIONED: "Actioned",
-  FAILED: "Failed",
-};
 
 const STATUS_VARIANT: Record<
   CaseStatus,
@@ -86,7 +77,7 @@ export function CaseStatusBadge({
         )}
         aria-hidden
       />
-      {STATUS_LABEL[status]}
+      {CASE_STATUS_LABEL[status]}
     </Badge>
   );
 }

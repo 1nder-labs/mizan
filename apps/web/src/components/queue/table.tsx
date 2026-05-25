@@ -4,6 +4,7 @@
  */
 import { flexRender, getCoreRowModel, useReactTable, type Table as RTable } from "@tanstack/react-table";
 import { useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 import type { CaseRow, QueueSearch } from "@mizan/shared";
 import {
   Table,
@@ -71,9 +72,11 @@ function QueueTableBody({
 
 export function QueueTable({ rows, search, onSearchChange }: QueueTableProps): React.JSX.Element {
   const navigate = useNavigate();
+  const columns = useMemo(() => buildColumns(search, onSearchChange), [search, onSearchChange]);
+  const data = useMemo(() => rows.slice(), [rows]);
   const table = useReactTable({
-    data: rows.slice(),
-    columns: buildColumns(search, onSearchChange),
+    data,
+    columns,
     getCoreRowModel: getCoreRowModel(),
   });
 

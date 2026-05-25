@@ -10,15 +10,20 @@ import { isCaseStatus, type CaseStatus, type QueueSearch } from "@mizan/shared";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
+import { CASE_STATUS_LABEL } from "@/lib/display-labels.ts";
+
+const FILTER_STATUSES: readonly CaseStatus[] = [
+  "QUEUED",
+  "RUNNING",
+  "READY_FOR_REVIEW",
+  "SUSPENDED_HITL",
+  "ACTIONED",
+  "FAILED",
+];
 
 const STATUS_TABS: readonly { readonly value: "all" | CaseStatus; readonly label: string }[] = [
   { value: "all", label: "All" },
-  { value: "QUEUED", label: "Queued" },
-  { value: "RUNNING", label: "Running" },
-  { value: "READY_FOR_REVIEW", label: "Ready" },
-  { value: "SUSPENDED_HITL", label: "Awaiting" },
-  { value: "ACTIONED", label: "Actioned" },
-  { value: "FAILED", label: "Failed" },
+  ...FILTER_STATUSES.map((status) => ({ value: status, label: CASE_STATUS_LABEL[status] })),
 ];
 
 interface FilterBarProps {
