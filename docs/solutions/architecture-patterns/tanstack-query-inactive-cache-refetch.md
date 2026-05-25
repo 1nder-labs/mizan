@@ -1,6 +1,7 @@
 ---
 module: apps/web
 date: 2026-05-25
+last_refreshed: 2026-05-25
 problem_type: architecture_pattern
 component: tooling
 severity: high
@@ -75,7 +76,9 @@ const mutation = useMutation({
 });
 ```
 
-### Global 401 / 403 → `/login` via `QueryCache.onError`
+### Global 401 → `/login` via `QueryCache.onError` (403 stays in place)
+
+401 (session expired) and 403 (authenticated but lacks role) are different failure modes — collapsing them into one error class and one redirect rule yanks legitimate admins through `/login` when they hit a forbidden route. Split them at the boundary, redirect only on 401:
 
 ```ts
 export class UnauthorizedError extends Error {
@@ -86,8 +89,17 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export class ForbiddenError extends Error {
+  readonly status = 403 as const;
+  constructor(message = "You don't have permission to view this resource") {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
 function assertAuthorized(status: number): void {
-  if (status === 401 || status === 403) throw new UnauthorizedError();
+  if (status === 401) throw new UnauthorizedError();
+  if (status === 403) throw new ForbiddenError();
 }
 
 async function fetchCases(search: QueueSearch): Promise<QueueResponse> {
@@ -98,7 +110,7 @@ async function fetchCases(search: QueueSearch): Promise<QueueResponse> {
 }
 ```
 
-The QueryClient wires a single error handler that knows how to recover:
+The QueryClient wires a single error handler that recovers only on 401. Both error classes turn retry off so React Query doesn't drown an already-decided auth state in retries:
 
 ```ts
 export function makeQueryClient(hooks: { onAuthFailure?: () => void } = {}): QueryClient {
@@ -112,6 +124,7 @@ export function makeQueryClient(hooks: { onAuthFailure?: () => void } = {}): Que
       queries: {
         retry: (failureCount, error) => {
           if (error instanceof UnauthorizedError) return false;
+          if (error instanceof ForbiddenError) return false;
           return failureCount < 1;
         },
       },
@@ -153,7 +166,7 @@ The `QueryCache.onError` + `UnauthorizedError` pipeline solves a different but r
 
 - A mutation invalidates a cache key that no currently-mounted component observes (login / logout / role-escalation / background-job results polled only by loaders).
 - A post-mutation `await navigate(...)` lands on a route whose loader reads the same key through `ensureQueryData` / `Route.useLoaderData`.
-- Any authenticated read can return 401/403 and you want a single redirect rule instead of per-call error UIs.
+- Any authenticated read can return 401/403 and you want a single redirect rule for 401s (session expired) without yanking 403s (lacks permission) through `/login`.
 - You wrap a non-React-Query state primitive (better-auth `useSession`, a websocket connection, a global event bus) inside a Query entry to share cache + loader semantics.
 
 ## Examples
@@ -188,7 +201,7 @@ async function handleAuthenticated(): Promise<void> {
 ```ts
 async function fetchCase(id: string): Promise<CaseDetailResponse> {
   const res = await api.cases[":id"].$get({ param: { id } });
-  assertAuthorized(res.status);             // throws UnauthorizedError on 401/403
+  assertAuthorized(res.status);             // throws UnauthorizedError on 401 or ForbiddenError on 403
   if (!res.ok) throw new Error(`case fetch failed: ${res.status}`);
   return CaseDetailResponseSchema.parse(await res.json());
 }
