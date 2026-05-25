@@ -80,11 +80,10 @@ export type ReviewerActionResumeData = z.infer<typeof ReviewerActionResumeSchema
 /**
  * Status reported by Mastra `WorkflowRun.resume`. Mirrors Mastra's
  * `WorkflowResult.status` discriminator exactly (`success` | `failed`
- * | `suspended` | `paused` | `tripwire`) so the response schema cannot
- * drift if a future Mastra release adds a new status. Reviewer UI
- * switches on the discriminator instead of parsing free-form text.
+ * | `suspended` | `paused` | `tripwire`) so the action route can
+ * branch on the full discriminator before deciding to respond.
  */
-export const ReviewerActionResultStatusEnum = z.enum([
+export const MastraResumeStatusEnum = z.enum([
   "success",
   "failed",
   "suspended",
@@ -92,11 +91,17 @@ export const ReviewerActionResultStatusEnum = z.enum([
   "tripwire",
 ]);
 
-export type ReviewerActionResultStatus = z.infer<typeof ReviewerActionResultStatusEnum>;
+export type MastraResumeStatus = z.infer<typeof MastraResumeStatusEnum>;
 
-/** POST `/api/cases/:id/action` success envelope. */
+/**
+ * POST `/api/cases/:id/action` success envelope. The route only writes
+ * this body on `result.status === "success"` — non-success outcomes
+ * revert the claim and return `workflow_failed`. Locking the wire
+ * status to `"success"` means clients never have to branch on the
+ * discriminator: if the response parsed, the workflow finished cleanly.
+ */
 export const ReviewerActionResponseSchema = z.object({
-  status: ReviewerActionResultStatusEnum,
+  status: z.literal("success"),
   brief: BriefPayloadSchema.nullable(),
   action: ReviewerActionRequestSchema,
 });

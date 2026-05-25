@@ -193,10 +193,12 @@ describe("HITL cycle — Mode A suspend → POST /action → ACTIONED", () => {
     )
       .bind(runId)
       .all<{ event_type: string; seq: number }>();
-    const types = events.results.map((r) => r.event_type);
-    expect(types).toContain("step.suspend");
-    expect(types).toContain("step.resume");
-    expect(types).toContain("workflow.finish");
+    const suspendSeq = events.results.find((r) => r.event_type === "step.suspend")?.seq;
+    const resumeSeq = events.results.find((r) => r.event_type === "step.resume")?.seq;
+    const finishSeq = events.results.find((r) => r.event_type === "workflow.finish")?.seq;
+    expect(suspendSeq).toBeGreaterThan(0);
+    expect(resumeSeq).toBeGreaterThan(suspendSeq ?? 0);
+    expect(finishSeq).toBeGreaterThan(resumeSeq ?? 0);
 
     const replay = await postAction(HITL_CASE_ID, adminCookie, {
       action: "APPROVE",

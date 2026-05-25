@@ -83,15 +83,15 @@ export {
   RATIONALE_MAX,
   RATIONALE_MIN_REQUIRED,
   RATIONALE_REQUIRED_ACTIONS,
+  MastraResumeStatusEnum,
   ReviewerActionEnum,
   ReviewerActionRequestSchema,
   ReviewerActionResponseSchema,
-  ReviewerActionResultStatusEnum,
   ReviewerActionResumeSchema,
+  type MastraResumeStatus,
   type ReviewerAction,
   type ReviewerActionRequest,
   type ReviewerActionResponse,
-  type ReviewerActionResultStatus,
   type ReviewerActionResumeData,
 } from "./schemas/reviewer-action.ts";
 

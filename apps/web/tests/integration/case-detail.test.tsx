@@ -21,7 +21,7 @@ import {
 } from "@tanstack/react-router";
 import type { CaseDetailResponse, CaseRow } from "@mizan/shared";
 
-vi.mock("@/components/brief/use-workflow-events.ts", () => ({
+vi.mock("@/components/brief/use-workflow-tape-invalidation.ts", () => ({
   useWorkflowTapeInvalidation: () => undefined,
 }));
 

@@ -4,7 +4,7 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useWorkflowTapeInvalidation } from "../../src/components/brief/use-workflow-events.ts";
+import { useWorkflowTapeInvalidation } from "../../src/components/brief/use-workflow-tape-invalidation.ts";
 import { queryKeys } from "../../src/lib/query-keys.ts";
 
 class MockEventSource {

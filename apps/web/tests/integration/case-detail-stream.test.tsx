@@ -31,7 +31,7 @@ vi.mock("@/components/brief/stream.tsx", () => ({
   },
 }));
 
-vi.mock("@/components/brief/use-workflow-events.ts", () => ({
+vi.mock("@/components/brief/use-workflow-tape-invalidation.ts", () => ({
   useWorkflowTapeInvalidation: () => undefined,
 }));
 

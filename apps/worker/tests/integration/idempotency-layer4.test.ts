@@ -1,9 +1,11 @@
 /**
  * Integration: Layer 4 action_id idempotency — KV write-through cache + case-scoping.
  *
- * Verifies the middleware short-circuits on replay and that the cache
- * key is scoped to `(userId, caseId, action_id)` so the same action_id
- * on a different case is NOT a cache hit.
+ * The route handler reads the cache directly via `readCachedActionResponse`
+ * (no middleware indirection). Verifies the handler short-circuits on
+ * replay, that the cache key is scoped to `(userId, caseId, action_id)`
+ * so a same-action_id different-case replay is NOT a cache hit, and
+ * that a cache hit leaves the DB untouched (write-through ordering).
  *
  * Vitest + Miniflare. Run via `bun --filter @mizan/worker test:integration`.
  */

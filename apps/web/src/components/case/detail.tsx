@@ -20,7 +20,7 @@ import {
   type CaseStatus,
 } from "@mizan/shared";
 import { BriefStream } from "@/components/brief/stream.tsx";
-import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-events.ts";
+import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-tape-invalidation.ts";
 import { ActionPanel } from "@/components/case/action-panel.tsx";
 import { BriefDetailTabs } from "./brief-details.tsx";
 import { BriefEmptyState } from "./brief-empty.tsx";
