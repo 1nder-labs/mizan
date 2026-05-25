@@ -1,9 +1,10 @@
 /**
- * Recommendation badge — maps `briefs.payload_json.recommendation` to
- * the centralised `--rec-*` palette in `globals.css`. Same shape as
- * the status badge so the surface reads as one design system.
+ * Recommendation badge — wraps shadcn `<Badge>` with the centralised
+ * `--rec-*` palette tokens from `globals.css`. Same primitive contract
+ * as every other chip in the app (`CaseStatusBadge`, tool-state chip).
  */
 import type { Recommendation } from "@mizan/shared";
+import { Badge } from "@/components/ui/badge.tsx";
 import { cn } from "@/lib/utils.ts";
 
 const LABEL: Record<Recommendation, string> = {
@@ -28,14 +29,15 @@ export function RecommendationBadge({
   readonly className?: string;
 }): React.JSX.Element {
   return (
-    <span
+    <Badge
+      variant="outline"
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider",
+        "rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider",
         VARIANT[recommendation],
         className,
       )}
     >
       {LABEL[recommendation]}
-    </span>
+    </Badge>
   );
 }

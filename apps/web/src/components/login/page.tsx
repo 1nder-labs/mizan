@@ -1,7 +1,15 @@
 /**
  * Login page component. Renders the reviewer sign-in form with visual
- * chrome. On successful authentication, invalidates the session cache
- * entry and navigates to `/queue`.
+ * chrome. On successful authentication, invalidates the session query
+ * with `refetchType: 'all'` (TanStack Query canonical for inactive
+ * caches per https://tanstack.com/query/v5/docs/reference/QueryClient
+ * #queryclientinvalidatequeries) so the awaited fetch completes
+ * regardless of observer presence, then navigates to `/queue`.
+ *
+ * Default `refetchType: 'active'` marks the cache stale but does NOT
+ * refetch when no component has subscribed. `requireSession` would
+ * then see the still-cached `null` and throw a redirect back to
+ * `/login` — exactly the bug this protects against.
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -22,7 +30,10 @@ export function LoginPage(): React.JSX.Element {
   const navigate = useNavigate();
 
   async function handleAuthenticated(): Promise<void> {
-    await queryClient.invalidateQueries({ queryKey: [...SESSION_QUERY_KEY] });
+    await queryClient.invalidateQueries({
+      queryKey: [...SESSION_QUERY_KEY],
+      refetchType: "all",
+    });
     await navigate({ to: "/queue", search: DEFAULT_QUEUE_SEARCH });
   }
 

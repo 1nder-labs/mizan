@@ -3,15 +3,55 @@
  * citations, drafted organizer message. Each tab renders a list or
  * a single composed message; missing tabs collapse to a one-line
  * empty state.
+ *
+ * Keys derive from `(index, content-slice)`. The brief payload is
+ * frozen at `composeBrief` write time and never mutated, reordered,
+ * or inserted-into on the client — exactly the static-immutable case
+ * that React's "Rules of keys" doc sanctions:
+ *   "As a last resort, you can pass an array's index as a key.
+ *    This can work well if the items are never reordered."
+ * The content-slice suffix is belt-and-braces against duplicate
+ * payload entries (two missing-docs with the same docType + reason),
+ * still indexed-anchored so deterministic across renders.
+ *
+ * Each tab panel is wrapped in `TabBoundary` so a render error in
+ * one tab surfaces as a destructive Alert in that tab only, not a
+ * white-screen for the whole case-detail surface (React docs:
+ * "Catching rendering errors with an error boundary").
  */
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import type { BriefPayload } from "@mizan/shared";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs.tsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
+
+interface TabBoundaryState {
+  readonly error: Error | null;
+}
+
+class TabBoundary extends Component<{ readonly children: ReactNode }, TabBoundaryState> {
+  override state: TabBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): TabBoundaryState {
+    return { error };
+  }
+
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("[brief-tabs] render error", error, info.componentStack);
+  }
+
+  override render(): ReactNode {
+    if (this.state.error) {
+      return (
+        <Alert variant="destructive">
+          <AlertTitle>Couldn't render this section</AlertTitle>
+          <AlertDescription>{this.state.error.message}</AlertDescription>
+        </Alert>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function BulletList({ items }: { readonly items: readonly string[] }): React.JSX.Element {
   if (items.length === 0) {
@@ -19,9 +59,9 @@ function BulletList({ items }: { readonly items: readonly string[] }): React.JSX
   }
   return (
     <ul className="space-y-2 text-sm text-foreground">
-      {items.map((item) => (
-        <li key={item} className="flex gap-2">
-          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground" />
+      {items.map((item, index) => (
+        <li key={`${index}-${item.slice(0, 24)}`} className="flex gap-2">
+          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground" aria-hidden />
           {item}
         </li>
       ))}
@@ -30,9 +70,8 @@ function BulletList({ items }: { readonly items: readonly string[] }): React.JSX
 }
 
 function MissingDocsTab({ payload }: { readonly payload: BriefPayload }): React.JSX.Element {
-  return (
-    <BulletList items={payload.missing_docs.map((doc) => `${doc.docType} — ${doc.reason}`)} />
-  );
+  const items = payload.missing_docs.map((doc) => `${doc.docType} — ${doc.reason}`);
+  return <BulletList items={items} />;
 }
 
 function ReviewerQuestionsTab({ payload }: { readonly payload: BriefPayload }): React.JSX.Element {
@@ -45,8 +84,11 @@ function PolicyCitationsTab({ payload }: { readonly payload: BriefPayload }): Re
   }
   return (
     <ul className="space-y-3 text-sm">
-      {payload.policy_citations.map((citation) => (
-        <li key={citation.clauseId} className="rounded-md border border-border/70 bg-muted/40 p-3">
+      {payload.policy_citations.map((citation, index) => (
+        <li
+          key={`${index}-${citation.clauseId}`}
+          className="rounded-md border border-border/70 bg-muted/40 p-3"
+        >
           <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
             {citation.clauseId}
           </p>
@@ -91,16 +133,24 @@ export function BriefDetailTabs({ payload }: { readonly payload: BriefPayload })
             <TabsTrigger value="message">Drafted message</TabsTrigger>
           </TabsList>
           <TabsContent value="missing" className="pt-4">
-            <MissingDocsTab payload={payload} />
+            <TabBoundary>
+              <MissingDocsTab payload={payload} />
+            </TabBoundary>
           </TabsContent>
           <TabsContent value="questions" className="pt-4">
-            <ReviewerQuestionsTab payload={payload} />
+            <TabBoundary>
+              <ReviewerQuestionsTab payload={payload} />
+            </TabBoundary>
           </TabsContent>
           <TabsContent value="policy" className="pt-4">
-            <PolicyCitationsTab payload={payload} />
+            <TabBoundary>
+              <PolicyCitationsTab payload={payload} />
+            </TabBoundary>
           </TabsContent>
           <TabsContent value="message" className="pt-4">
-            <OrganizerMessageTab payload={payload} />
+            <TabBoundary>
+              <OrganizerMessageTab payload={payload} />
+            </TabBoundary>
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -1,11 +1,13 @@
 /**
- * Single-source status badge for the case row. Maps every value of
- * `cases.status` to the design-system status palette declared in
- * `globals.css`. RUNNING carries the pulse-dot affordance so the
- * queue table reads the live state at a glance without animation
- * noise across the rest of the row.
+ * Single-source status badge for the case row. Wraps shadcn `<Badge>`
+ * so the chip primitive contract stays consistent across the app;
+ * status palette colours come from our design-system tokens in
+ * `globals.css` (mapped 1:1 to `cases.status` enum). The inner
+ * dot stays as a `<span>` because it's a non-text affordance —
+ * shadcn `<Badge>` only owns the outer pill shell.
  */
 import type { CaseStatus } from "@mizan/shared";
+import { Badge } from "@/components/ui/badge.tsx";
 import { cn } from "@/lib/utils.ts";
 
 const STATUS_LABEL: Record<CaseStatus, string> = {
@@ -68,9 +70,10 @@ export function CaseStatusBadge({
 }): React.JSX.Element {
   const variant = STATUS_VARIANT[status];
   return (
-    <span
+    <Badge
+      variant="outline"
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none tracking-wide whitespace-nowrap",
+        "gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium leading-none tracking-wide",
         variant.container,
         className,
       )}
@@ -84,6 +87,6 @@ export function CaseStatusBadge({
         aria-hidden
       />
       {STATUS_LABEL[status]}
-    </span>
+    </Badge>
   );
 }

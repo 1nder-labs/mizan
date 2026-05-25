@@ -2,39 +2,72 @@
  * Brief-state empty / error / not-yet-generated card. Routed by the
  * case-detail container based on case status; never renders for
  * RUNNING (streamed) or READY_FOR_REVIEW / ACTIONED (briefSummary).
+ *
+ * DRAFT / FAILED carry an action that asks the parent to mount the
+ * `<BriefStream>` consumer. The parent (CaseDetail) owns whether the
+ * stream is rendered; this card only signals intent. Single-POST
+ * architecture: the stream component owns the only network call.
  */
-import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import type { CaseStatus } from "@mizan/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 
-const EMPTY_COPY: Partial<Record<CaseStatus, { title: string; body: string }>> = {
+interface StatusCopy {
+  readonly title: string;
+  readonly body: string;
+}
+
+const EMPTY_COPY: Partial<Record<CaseStatus, StatusCopy>> = {
   DRAFT: {
-    title: "Brief not yet generated",
-    body: "Generate to compose the reviewer brief for this case.",
+    title: "No brief yet",
+    body: "Start a workflow to compose the reviewer brief. You'll see live progress as it runs.",
   },
   QUEUED: {
-    title: "Brief queued",
-    body: "A worker will pick this up in the background; refresh in a moment.",
+    title: "Waiting to start",
+    body: "This case is queued. A background worker will pick it up in a moment.",
   },
   SUSPENDED_HITL: {
-    title: "Paused for reviewer input",
-    body: "Workflow is awaiting a reviewer signal before continuing.",
+    title: "Awaiting your input",
+    body: "The workflow paused for a reviewer signal before it can continue.",
   },
   FAILED: {
     title: "Brief generation failed",
-    body: "The workflow returned an error. Retry from the queue.",
+    body: "Something went wrong while composing this brief. You can try again.",
   },
 };
 
-export function BriefEmptyState({ status }: { readonly status: CaseStatus }): React.JSX.Element {
+function GenerateBriefButton({
+  onGenerate,
+}: {
+  readonly onGenerate: () => void;
+}): React.JSX.Element {
+  return (
+    <Button size="sm" onClick={onGenerate}>
+      <Sparkles className="mr-2 size-3.5" />
+      Generate brief
+    </Button>
+  );
+}
+
+export function BriefEmptyState({
+  status,
+  onGenerate,
+}: {
+  readonly status: CaseStatus;
+  readonly onGenerate: () => void;
+}): React.JSX.Element {
   if (status === "FAILED") {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>{EMPTY_COPY.FAILED?.title}</AlertTitle>
-        <AlertDescription>{EMPTY_COPY.FAILED?.body}</AlertDescription>
+      <Alert variant="destructive" className="flex flex-col gap-3">
+        <div>
+          <AlertTitle>{EMPTY_COPY.FAILED?.title}</AlertTitle>
+          <AlertDescription>{EMPTY_COPY.FAILED?.body}</AlertDescription>
+        </div>
+        <div>
+          <GenerateBriefButton onGenerate={onGenerate} />
+        </div>
       </Alert>
     );
   }
@@ -49,18 +82,7 @@ export function BriefEmptyState({ status }: { readonly status: CaseStatus }): Re
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">{copy.body}</p>
-        {status === "DRAFT" ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              toast.info("Reviewer-initiated regenerate ships in Phase 7.")
-            }
-          >
-            <Sparkles className="mr-2 size-3.5" />
-            Generate brief
-          </Button>
-        ) : null}
+        {status === "DRAFT" ? <GenerateBriefButton onGenerate={onGenerate} /> : null}
       </CardContent>
     </Card>
   );

@@ -54,3 +54,7 @@ docker/langfuse-db-data/
 # Logs
 *.log
 logs/
+
+# Playwright MCP scratch
+.playwright-mcp/
+*.png
