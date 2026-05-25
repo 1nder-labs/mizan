@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/react-doctor/schema.json",
+  "ignore": ["src/components/ui/**", "src/routeTree.gen.ts"],
+  "exclude": ["src/components/ui/**", "src/routeTree.gen.ts"],
+  "paths": {
+    "exclude": ["src/components/ui/**", "src/routeTree.gen.ts"]
+  },
+  "rules": {
+    "react19-deprecated-apis": "off",
+    "design-no-redundant-size-axes": "off",
+    "heading-has-content": "off",
+    "jsx-no-constructed-context-values": "off",
+    "only-export-components": "off",
+    "consistent-type-assertions": "off"
+  }
+}

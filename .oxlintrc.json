@@ -48,6 +48,18 @@
       "env": { "browser": true, "node": false, "worker": false }
     },
     {
+      "files": ["apps/web/src/components/ui/**/*", "apps/web/src/routes/routeTree.gen.ts"],
+      "rules": {
+        "typescript/consistent-type-assertions": "off",
+        "typescript/no-explicit-any": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-return": "off",
+        "max-lines": "off",
+        "max-lines-per-function": "off"
+      }
+    },
+    {
       "files": ["apps/worker/**/*", "packages/mastra/**/*"],
       "env": { "browser": false, "node": false, "worker": true }
     }

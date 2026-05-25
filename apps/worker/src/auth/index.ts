@@ -92,7 +92,15 @@ export function createAuth(
     ? {}
     : { database: drizzleAdapter({}, { provider: "sqlite", usePlural: true }) };
 
-  // @ts-expect-error better-auth-cloudflare@0.3.0 declares optional plugin endpoints incompatible with better-auth@1.6.x index signature
+  /**
+   * `@ts-ignore` (not `@ts-expect-error`) because the type incompatibility
+   * between better-auth-cloudflare@0.3.0 plugin endpoints and
+   * better-auth@1.6.x index signatures only surfaces under the worker's
+   * WebWorker lib; from `apps/web`'s DOM lib the types align and the
+   * directive would be flagged unused. Both lib environments need this
+   * call to compile, so the unconditional ignore is correct.
+   */
+  // @ts-ignore better-auth-cloudflare@0.3.0 vs better-auth@1.6.x plugin endpoint signature drift
   return betterAuth({
     baseURL,
     user: {

@@ -1,5 +1,26 @@
 export { clampInt, clampUnit, ensureUuid } from "./clamp.ts";
 
+export { LoginSchema, type LoginInput } from "./schemas/login.ts";
+
+export {
+  CASE_STATUS_VALUES,
+  CaseRowSchema,
+  CaseStatusEnum,
+  DEFAULT_QUEUE_SEARCH,
+  isCaseStatus,
+  LatestBriefProjectionSchema,
+  QUEUE_PAGE_SIZE,
+  QueueResponseSchema,
+  QueueSearchSchema,
+  QueueSortEnum,
+  type CaseRow,
+  type CaseStatus,
+  type LatestBriefProjection,
+  type QueueResponse,
+  type QueueSearch,
+  type QueueSort,
+} from "./schemas/queue-search.ts";
+
 export {
   AiGenProbabilitySchema,
   AiGenResultSchema,
@@ -67,3 +88,10 @@ export {
 export { SeedCaseSchema, type SeedCase } from "./schemas/seed-case.ts";
 
 export { BriefQueueMessageSchema, type BriefQueueMessage } from "./schemas/queue-message.ts";
+
+export {
+  BriefSummarySchema,
+  CaseDetailResponseSchema,
+  type BriefSummary,
+  type CaseDetailResponse,
+} from "./schemas/case-detail.ts";

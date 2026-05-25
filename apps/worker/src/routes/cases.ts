@@ -18,6 +18,7 @@ import type { CloudflareBindings } from "../env.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { producerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
 import { requireRole } from "../middleware/require-role.ts";
+import { casesListRoutes } from "./cases-list.ts";
 
 type BriefContext = Context<{
   Bindings: CloudflareBindings;
@@ -165,6 +166,7 @@ export const caseRoutes = new Hono<{
   Variables: ProducerVariables;
 }>()
   .use("*", requireRole(["reviewer", "admin"]))
+  .route("/", casesListRoutes)
   .post(
     "/:id/brief",
     idempotencyKey,

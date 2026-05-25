@@ -131,9 +131,9 @@ switch (row.status) {
 }
 ```
 
-`SUSPENDED_HITL` is handled explicitly — Phase 7 introduces it; the queue path doesn't own resume, but **must** not poison the workflow if a redelivery races a HITL suspend.
+`SUSPENDED_HITL` is handled explicitly — the queue path doesn't own resume, but **must** not poison the workflow if a redelivery races a HITL suspend.
 
-**Failure mode caught**: a default-fallthrough that silently acks unknown statuses → a new enum value added in Phase 7/8 silently breaks queue idempotency without any compile-time signal.
+**Failure mode caught**: a default-fallthrough that silently acks unknown statuses → any new enum value added later silently breaks queue idempotency without any compile-time signal.
 
 ## 5. Shared workflow bootstrap helper (`createBriefRun`)
 

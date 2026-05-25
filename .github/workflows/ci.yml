@@ -63,6 +63,21 @@ jobs:
       - name: Detect dead code (knip)
         run: bun run knip
 
+      - name: Enforce UI state-map policy (PRD §7.7.5)
+        run: |
+          set -euo pipefail
+          if grep -rE "from ['\"]zustand['\"]|import \{ create \} from ['\"]zustand['\"]" apps/web/src 2>/dev/null; then
+            echo "ci: zustand import detected in apps/web/src — PRD §7.7.5 forbids global stores"
+            exit 1
+          fi
+          if grep -rE "(^|[^a-zA-Z_.])fetch\(" apps/web/src --exclude-dir=tests 2>/dev/null | grep -v "src/lib/rpc.ts"; then
+            echo "ci: direct fetch() call detected outside apps/web/src/lib/rpc.ts"
+            exit 1
+          fi
+
+      - name: Run web integration tests (vitest + MSW + RTL)
+        run: bun --filter @mizan/web test:integration
+
       - name: Run unit tests (bun test)
         run: bun --filter '*' test -- --reporter=junit --reporter-outfile=test-results.junit.xml
 

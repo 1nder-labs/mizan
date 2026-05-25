@@ -41,6 +41,8 @@ build/
 # Claude Code local state (scheduled-task locks, agent worktrees)
 .claude/
 
+.agents/
+
 # Test / coverage
 coverage/
 .nyc_output/
@@ -52,3 +54,12 @@ docker/langfuse-db-data/
 # Logs
 *.log
 logs/
+
+# Playwright MCP scratch
+.playwright-mcp/
+*.png
+
+# Playwright local-only — never committed
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/.playwright/

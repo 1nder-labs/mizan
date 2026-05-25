@@ -1,7 +1,7 @@
 /**
  * Dev-only seed for Mizan reviewer + admin users.
  *
- * Runs against a live local worker (default `http://localhost:8788`). The
+ * Runs against a live local worker (default `http://localhost:8787`). The
  * worker must be booted via `bun --filter @mizan/worker dev` before this
  * script runs. Idempotent: better-auth returns 422 on duplicate sign-up
  * (treated as success) and the admin role-escalation UPDATE is a no-op
@@ -14,7 +14,7 @@
  * credentials; this script is for `.dev.vars`-style local context only.
  */
 
-const BASE = process.env["MIZAN_BASE_URL"] ?? "http://localhost:8788";
+const BASE = process.env["MIZAN_BASE_URL"] ?? "http://localhost:8787";
 
 type Role = "reviewer" | "admin";
 

@@ -13,7 +13,12 @@
       "ignoreDependencies": ["cloudflare"]
     },
     "apps/web": {
-      "entry": ["src/components/ui/*.tsx"]
+      "entry": [
+        "src/routes/**/*.{ts,tsx}",
+        "src/components/ui/**/*.tsx",
+        "src/**/*.test.ts",
+        "tests/**/*.test.{ts,tsx}"
+      ]
     },
     "packages/db": {
       "ignoreDependencies": ["better-auth"]

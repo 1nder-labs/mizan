@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./index": "./src/index.ts"
+  },
   "scripts": {
     "dev": "portless worker wrangler dev",
     "deploy": "wrangler deploy",
