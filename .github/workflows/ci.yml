@@ -82,7 +82,7 @@ jobs:
         run: bun --filter '*' test -- --reporter=junit --reporter-outfile=test-results.junit.xml
 
       - name: Run worker integration tests (vitest-pool-workers + Miniflare)
-        run: bun --filter @mizan/worker test:integration
+        run: bun --filter @mizan/worker test:integration:ci
 
       - name: Upload JUnit test results
         if: always()

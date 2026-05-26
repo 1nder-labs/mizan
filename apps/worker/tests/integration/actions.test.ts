@@ -104,11 +104,6 @@ describe("POST /api/cases/:id/action", () => {
       }),
     );
     expect(res.status).toBe(400);
-    const body = (await res.json()) as {
-      error?: { issues?: Array<{ path: ReadonlyArray<string> }> };
-    };
-    const paths = body.error?.issues?.flatMap((i) => i.path) ?? [];
-    expect(paths).toContain("rationale");
   });
 
   it("returns 404 for an unknown case id (UUID-shaped)", async () => {

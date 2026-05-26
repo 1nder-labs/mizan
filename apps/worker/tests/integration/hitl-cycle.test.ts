@@ -16,7 +16,6 @@
  *
  * Vitest + Miniflare. Run via `bun --filter @mizan/worker test:integration`.
  */
-import { readFileSync } from "node:fs";
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, inject, it } from "vitest";
@@ -25,6 +24,7 @@ import {
   SEED_CASE_IDS,
   serializeMockResponses,
 } from "@mizan/mastra/testing";
+import seedCase001 from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 
 const BASE = "http://localhost";
@@ -66,16 +66,8 @@ async function seedAdmin(): Promise<string> {
   return signIn.headers.getSetCookie().join("; ");
 }
 
-function loadSeed(filename: string): SeedJson {
-  const path = new URL(
-    `../../../../packages/mastra/src/seeds/documentary/${filename}`,
-    import.meta.url,
-  ).pathname;
-  return JSON.parse(readFileSync(path, "utf8")) as SeedJson;
-}
-
 async function seedCase(adminUserId: string): Promise<void> {
-  const seed = loadSeed("case-001.json");
+  const seed = seedCase001 as SeedJson;
   await env.DB.prepare(
     `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
      VALUES (?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?)

@@ -19,7 +19,7 @@ async function seedCase(caseId: string, runId: string): Promise<void> {
   const now = Date.now();
   const userId = crypto.randomUUID();
   await env.DB.prepare(
-    `INSERT INTO users (id, email, name, "emailVerified", "createdAt", "updatedAt")
+    `INSERT INTO users (id, email, name, email_verified, created_at, updated_at)
      VALUES (?, ?, 'seed-user', 1, ?, ?)`,
   )
     .bind(userId, `seed-${userId}@test.local`, now, now)

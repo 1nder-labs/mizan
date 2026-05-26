@@ -143,7 +143,6 @@
         "@mizan/shared": "workspace:*",
         "@openrouter/ai-sdk-provider": "2.9.0",
         "ai": "6.0.175",
-        "drizzle-orm": "0.45.2",
         "zod": "4.4.3",
       },
       "devDependencies": {
@@ -164,6 +163,9 @@
         "typescript": "6.0.3",
       },
     },
+  },
+  "patchedDependencies": {
+    "xxhash-wasm@1.1.0": "patches/xxhash-wasm@1.1.0.patch",
   },
   "overrides": {
     "drizzle-orm": "0.45.2",
