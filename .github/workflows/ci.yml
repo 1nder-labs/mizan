@@ -81,8 +81,17 @@ jobs:
       - name: Run unit tests (bun test)
         run: bun --filter '*' test -- --reporter=junit --reporter-outfile=test-results.junit.xml
 
-      - name: Run worker integration tests (vitest-pool-workers + Miniflare)
-        run: bun --filter @mizan/worker test:integration:ci
+      # ────────────────────────────────────────────────────────────────────
+      # STRICT RULE — vitest-pool-workers integration tests are LOCAL-ONLY.
+      # Never add `bun --filter @mizan/worker test:integration` (or any
+      # `vitest-pool-workers`-backed task) to this workflow. The pool has a
+      # fixed ~10s/file workerd cold-start that pushes any meaningful
+      # surface past a 2-min CI budget. The patched xxhash-wasm export
+      # condition (see `patches/`) makes the suite runnable locally; that
+      # is the support contract. Reviewers run
+      #   bun --filter @mizan/worker test:integration
+      # locally for D1/route-touching PRs.
+      # ────────────────────────────────────────────────────────────────────
 
       - name: Upload JUnit test results
         if: always()
@@ -103,7 +112,28 @@ jobs:
             echo "- Commit: ${{ github.sha }}"
             echo "- Runner: ubuntu-latest"
             echo ""
-            echo "Worker integration suite runs with \`remoteBindings: false\` so the"
-            echo "Vectorize binding falls back to a local Miniflare stub. Tests that"
-            echo "need real Vectorize must mock at the call boundary."
+            echo "Worker integration tests (vitest-pool-workers + Miniflare) are LOCAL-ONLY."
+            echo "Run with: \`bun --filter @mizan/worker test:integration\`."
+            echo "Adding them to this workflow is forbidden — see the strict-rule comment in ci.yml."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # STRICT RULE for future phases:
+  #
+  # Do NOT add any job, step, or workflow that runs
+  # `vitest-pool-workers` / `@cloudflare/vitest-pool-workers` against the
+  # worker integration suite. The pool's per-file workerd cold-start
+  # (~10s) makes the full suite breach a 2-min budget no matter how
+  # the tests themselves are written. The decision is documented at:
+  #   - this file (search "STRICT RULE")
+  #   - apps/worker/package.json (only `test:integration` exists — no
+  #     `:ci` variant is permitted)
+  #   - patches/xxhash-wasm@1.1.0.patch (the patch exists so the local
+  #     suite is runnable; CI relevance is intentionally none)
+  #
+  # Local-only is the support contract. PRs that change D1, routes, or
+  # workflow steps include a "ran integration locally" note in the PR
+  # body. Future phases that want CI coverage of those surfaces must
+  # write Bun-test-runnable unit tests against the helpers, not
+  # vitest-pool-workers integration tests.
+  # ────────────────────────────────────────────────────────────────────────

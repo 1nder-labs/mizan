@@ -13,7 +13,6 @@
     "db:migrate:prod": "wrangler d1 migrations apply DB --remote",
     "test": "bun test ./tests/unit",
     "test:integration": "NODE_OPTIONS='--max-old-space-size=8192' vitest run --project integration",
-    "test:integration:ci": "NODE_OPTIONS='--max-old-space-size=8192' vitest run --project integration tests/integration/health.test.ts tests/integration/actions.test.ts tests/integration/admin-audit.test.ts tests/integration/sse-catchup.test.ts tests/integration/idempotency-layer4.test.ts tests/integration/workflow-event-seq.test.ts tests/integration/promote-to-eval.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json"
   },
   "dependencies": {
