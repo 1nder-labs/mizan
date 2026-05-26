@@ -23,6 +23,8 @@ import { zValidator } from "@hono/zod-validator";
 import { actionRoutes } from "./actions.ts";
 import { caseStreamHandler } from "./case-stream.ts";
 import { casesListRoutes } from "./cases-list.ts";
+import { documentsRoutes } from "./documents.ts";
+import { signalsRoutes } from "./signals.ts";
 
 const StreamParamsSchema = z.object({ id: z.string().uuid() });
 
@@ -174,6 +176,8 @@ export const caseRoutes = new Hono<{
   .use("*", requireRole(["reviewer", "admin"]))
   .route("/", casesListRoutes)
   .route("/", actionRoutes)
+  .route("/", documentsRoutes)
+  .route("/", signalsRoutes)
   .get("/:id/stream", zValidator("param", StreamParamsSchema), caseStreamHandler)
   .post(
     "/:id/brief",

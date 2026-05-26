@@ -17,11 +17,18 @@ export type CaseStatus = z.infer<typeof CaseStatusEnum>;
 export const QueueSortEnum = z.enum(["updated_desc", "updated_asc", "created_desc"]);
 export type QueueSort = z.infer<typeof QueueSortEnum>;
 
+export const QueueViewEnum = z.enum(["board", "table"]);
+export type QueueView = z.infer<typeof QueueViewEnum>;
+
 /**
  * URL-search-param contract for `/queue`. `.coerce.number` parses
  * the string-typed query values; `.catch(default)` keeps a malformed
  * URL from crashing the loader — the page falls back to defaults
  * and renders cleanly.
+ *
+ * `view` selects the rendering surface — `board` (Kanban, default) or
+ * `table` (the original high-density list). Persisted in the URL so a
+ * deep link / refresh / bookmark preserves the reviewer's choice.
  */
 export const QueueSearchSchema = z
   .object({
@@ -30,6 +37,7 @@ export const QueueSearchSchema = z
     geography: z.string().min(1).max(64).optional().catch(undefined),
     page: z.coerce.number().int().positive().max(1000).default(1).catch(1),
     sort: QueueSortEnum.default("updated_desc").catch("updated_desc"),
+    view: QueueViewEnum.default("board").catch("board"),
   })
   .strict();
 
@@ -73,6 +81,7 @@ export const QUEUE_PAGE_SIZE = 25;
 export const DEFAULT_QUEUE_SEARCH: QueueSearch = {
   page: 1,
   sort: "updated_desc",
+  view: "board",
 };
 
 export function isCaseStatus(value: string): value is CaseStatus {

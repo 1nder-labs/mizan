@@ -35,6 +35,7 @@ export { forceEscalate } from "./steps/forcedEscalateGate/predicate.ts";
 export { CorpusSchema, ClauseSchema, type Corpus, type Clause } from "./schemas/corpus.ts";
 export { allCorpusClauseIds, loadPolicyCorpora } from "./corpus/load.ts";
 export { chunkCorpusRecords, type ChunkRecord } from "./corpus/chunk.ts";
+export { getClauseById, type ClauseWithMeta, type CorpusSource } from "./corpus/lookup.ts";
 export { CreatorIdSchema } from "./schemas/extractions/creator-id.ts";
 export { flushLangfuse } from "./observability/flush.ts";
 export {

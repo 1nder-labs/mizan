@@ -2,6 +2,10 @@
  * Queue page. Renders the reviewer case list driven by URL search
  * params. Consumes query data prefetched by the `/queue` route loader.
  * Shell + header + sign-out wiring live in `<AuthenticatedShell>`.
+ *
+ * `?view=board|table` selects the surface: Kanban (default) or the
+ * original high-density table. Both surfaces consume the same paged
+ * `cases` list.
  */
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
@@ -13,6 +17,8 @@ import { QueueTable } from "@/components/queue/table.tsx";
 import { QueueSummary } from "@/components/queue/queue-summary.tsx";
 import { QueueError } from "@/components/queue/queue-error.tsx";
 import { QueueFooter } from "@/components/queue/queue-footer.tsx";
+import { KanbanBoard } from "@/components/queue/kanban-board.tsx";
+import { ViewToggle } from "@/components/queue/view-toggle.tsx";
 import { AuthenticatedShell } from "@/components/shell/authenticated-shell.tsx";
 
 const queueApi = getRouteApi("/queue");
@@ -26,15 +32,20 @@ export function QueuePage(): React.JSX.Element {
     void navigate({ search: (prev) => ({ ...prev, ...next, page: next.page ?? 1 }) });
   }
 
+  const rows = query.data?.cases ?? [];
+
   return (
     <AuthenticatedShell context="Reviewer queue">
       <section className="mx-auto max-w-7xl space-y-6 px-6 py-8">
-        <QueueSummary
-          isPending={query.isPending}
-          showing={query.data?.cases.length ?? 0}
-          total={query.data?.total ?? 0}
-          sort={search.sort}
-        />
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <QueueSummary
+            isPending={query.isPending}
+            showing={rows.length}
+            total={query.data?.total ?? 0}
+            sort={search.sort}
+          />
+          <ViewToggle current={search.view} />
+        </div>
         <QueueFilterBar search={search} onSearchChange={setSearch} />
         {query.error ? (
           <QueueError
@@ -46,8 +57,10 @@ export function QueuePage(): React.JSX.Element {
         ) : null}
         {query.isPending ? (
           <QueueSkeleton />
+        ) : search.view === "board" ? (
+          <KanbanBoard rows={rows} search={search} />
         ) : (
-          <QueueTable rows={query.data?.cases ?? []} search={search} onSearchChange={setSearch} />
+          <QueueTable rows={rows} search={search} onSearchChange={setSearch} />
         )}
         <QueueFooter refetching={query.isFetching} />
       </section>

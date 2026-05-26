@@ -13,12 +13,14 @@ export {
   QueueResponseSchema,
   QueueSearchSchema,
   QueueSortEnum,
+  QueueViewEnum,
   type CaseRow,
   type CaseStatus,
   type LatestBriefProjection,
   type QueueResponse,
   type QueueSearch,
   type QueueSort,
+  type QueueView,
 } from "./schemas/queue-search.ts";
 
 export {
@@ -55,6 +57,44 @@ export {
 } from "./schemas/brief.ts";
 
 export { CaseOverlaySchema, type CaseOverlay } from "./schemas/case-overlay.ts";
+
+export {
+  REVIEWER_TRANSITIONS,
+  canReviewerTransition,
+} from "./schemas/reviewer-transitions.ts";
+
+export {
+  DocumentKeyEnum,
+  DocumentUrlErrorBodySchema,
+  DocumentUrlErrorCodeEnum,
+  DocumentUrlResponseSchema,
+  type DocumentKey,
+  type DocumentUrlErrorBody,
+  type DocumentUrlErrorCode,
+  type DocumentUrlResponse,
+} from "./schemas/document-url.ts";
+
+export {
+  PolicyClauseErrorBodySchema,
+  PolicyClauseErrorCodeEnum,
+  PolicyClauseQuerySchema,
+  PolicyClauseResponseSchema,
+  PolicyClauseSourceEnum,
+  type PolicyClauseErrorBody,
+  type PolicyClauseErrorCode,
+  type PolicyClauseQuery,
+  type PolicyClauseResponse,
+  type PolicyClauseSource,
+} from "./schemas/policy-clause.ts";
+
+export {
+  CaseSignalEntrySchema,
+  CaseSignalsResponseSchema,
+  SignalTypeEnum,
+  type CaseSignalEntry,
+  type CaseSignalsResponse,
+  type SignalType,
+} from "./schemas/case-signals.ts";
 
 export {
   PhotoAssetSignalSchema,

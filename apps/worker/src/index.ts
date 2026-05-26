@@ -23,13 +23,15 @@ import { adminRoutes } from "./routes/admin.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { caseRoutes } from "./routes/cases.ts";
 import { meRoutes } from "./routes/me.ts";
+import { policyClauseRoutes } from "./routes/policy-clauses.ts";
 
 const apiApp = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables }>()
   .use("*", authInit)
   .route("/auth", authRoutes)
   .route("/me", meRoutes)
   .route("/admin", adminRoutes)
-  .route("/cases", caseRoutes);
+  .route("/cases", caseRoutes)
+  .route("/policy", policyClauseRoutes);
 
 const app = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables }>()
   .get("/health", (c) => c.json({ status: "ok" }))

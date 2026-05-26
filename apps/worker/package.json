@@ -22,6 +22,7 @@
     "@mizan/db": "workspace:*",
     "@mizan/mastra": "workspace:*",
     "ai": "6.0.175",
+    "aws4fetch": "1.0.20",
     "better-auth": "1.6.9",
     "better-auth-cloudflare": "0.3.0",
     "drizzle-orm": "0.45.2",

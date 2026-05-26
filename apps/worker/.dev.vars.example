@@ -3,6 +3,12 @@ OPENAI_API_KEY=
 OPENROUTER_API_KEY=
 BETTER_AUTH_SECRET=
 
+# R2 API token — create at Cloudflare dashboard → R2 → Manage R2 API Tokens.
+# Scope MUST be "Object Read Only" on the `mizan-uploads` bucket.
+# Account ID + bucket name live in `wrangler.jsonc` `vars` (non-secret).
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+
 # Provider auto-resolves to the first key present (anthropic → openai → openrouter).
 # Set only one key and the workflow routes to that provider automatically.
 # Override with DEFAULT_LLM_PROVIDER=openai|anthropic|openrouter to force a specific one.

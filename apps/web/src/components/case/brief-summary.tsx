@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.t
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { humanGeography, humanVerification } from "@/lib/display-labels.ts";
 import { formatMediumDateTime } from "@/lib/format.ts";
+import { wrapCitations } from "./citation-wrap.tsx";
 import { RecommendationBadge } from "./recommendation-badge.tsx";
 
 function Stat({
@@ -94,7 +95,9 @@ export function BriefSummaryCard({
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
             Why this recommendation
           </p>
-          <p className="text-sm leading-relaxed text-foreground">{payload.extracted_claims}</p>
+          <p className="text-sm leading-relaxed text-foreground">
+            {wrapCitations(payload.extracted_claims, payload.policy_citations)}
+          </p>
         </div>
       </CardContent>
     </Card>

@@ -810,6 +810,77 @@ _Brief streaming UI:_
 
 ---
 
+### Phase 7.5 — Stakeholder UX (document viewer + Kanban + citation drawer + signal expansion)
+
+**Goal:** Close the evidence-visibility gap that Phase 7 leaves open. Surface the documents, story, citations, and trust signals the reviewer needs to act on real evidence (per §1) — and reshape the queue into a Kanban board for stakeholder-friendly drag-driven decisioning.
+
+**Force-read (internal — MUST read before implementing):**
+
+- [ ] §1 Problem — "AI never decides; reviewer always acts on evidence." Phase 7.5 makes that observable in the UI.
+- [ ] §7.7.5 Client state architecture — server state in TanStack Query, URL in TanStack Router, form in RHF.
+- [ ] §6 Phase 6 — existing reviewer UI surface this builds on.
+- [ ] §6 Phase 7 — HITL plumbing this surface decorates.
+
+**Force-read (external via context7 — MUST query before implementing):**
+
+- [ ] context7 `/wojtekmaj/react-pdf/v10_1_0` — query: "Vite + React 19 worker bootstrap with `import.meta.url`; module-level `Document` options to avoid re-render trap; `cMapUrl` + `standardFontDataUrl` via jsdelivr CDN"
+- [ ] context7 `/websites/dndkit` — query: "multi-column kanban with `@dnd-kit/core` 6.3 + `@dnd-kit/sortable` 10; sensors (PointerSensor, TouchSensor delay 200, KeyboardSensor with `sortableKeyboardCoordinates`); `useDroppable` with `disabled` for read-only columns; `DragOverlay` via `createPortal`"
+- [ ] context7 `/mhart/aws4fetch` — query: "R2 presigned GET via `AwsClient.sign` with `signQuery: true` and `X-Amz-Expires` query param"
+- [ ] context7 `/tanstack/router` — query: "validateSearch with zod, search-param enum default and persistence across navigations"
+
+**In scope:**
+
+- New worker routes (all auth-gated `reviewer | admin`, shared-queue read model):
+  - `GET /api/cases/:id/documents/:docKey/url` → short-TTL (300 s) R2 presigned GET URL signed via `aws4fetch`. `docKey` enum: `creator_id | bank_statement | category_doc`.
+  - `GET /api/policy/clauses/:id?source=zakat|safety` → full clause body from bundled corpus JSON (no Vectorize round-trip).
+  - `GET /api/cases/:id/signals` → latest per-`signal_type` row via correlated subquery on `recorded_at` desc.
+- New shared schemas + types: `DocumentUrlResponseSchema`, `PolicyClauseResponseSchema`, `CaseSignalsResponseSchema`, `REVIEWER_TRANSITIONS` map + `canReviewerTransition` predicate.
+- R2 access creds wired into env: `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` (secrets), `R2_ACCOUNT_ID` + `R2_BUCKET_NAME` (vars). Committed CORS policy at `apps/worker/r2-cors.json` with concrete `AllowedOrigins` covering local dev + production placeholder.
+- New web surfaces (all visible strings from `apps/web/src/lib/copy-constants.ts`):
+  - `<StoryPanel>` — surfaces `cases.brief_partial_json.story` + `vouching_narrative`.
+  - `<DocumentsPanel>` + `<DocumentViewerDialog>` — three tiles per case; opens PDF viewer (`react-pdf@^10`, `React.lazy`) or image viewer with click-toggle scale + native pinch-zoom delegation on touch.
+  - `<CitationChip>` + `<CitationDrawer>` — exact-match wrap over `policy_citations[]` (longest-first sort, NO regex); chip border colored by source (`zakat` indigo / `safety` amber).
+  - `<SignalExpansionPanel>` + per-signal body components (`photo_dup`, `story_coherence`, `vouching_chain`, plus placeholders for other enum values) + `<ClaimSourceRow>` (two-column claim ↔ evidence, vertical stack on narrow viewports).
+  - `<KanbanBoard>` + columns + cards (`@dnd-kit/core` 6.3 + `@dnd-kit/sortable` 10), `<ViewToggle>` at `/queue?view=board|table` (default `board`), `<KanbanActionModal>` opened on `SUSPENDED_HITL → ACTIONED` drop (RHF + `ReviewerActionRequestSchema`, `action_id` UUID generated at `onDragEnd`).
+  - Read-only columns: `QUEUED`, `RUNNING` (workflow-driven; `useDroppable.disabled=true`).
+- AppType contract snapshot test (`expectTypeOf`) — 4th test layer (in addition to bun unit, Miniflare integration, Playwright local-only E2E).
+
+**Out of scope:** Workflow step changes, schema migrations, observability tracing (Phase 8), eval gold set (Phase 9), production deploy + full CSP + R2 CORS apply (Phase 10). LRU memoization of clause lookup (Phase 9 implementation note). Annotated PDF overlays (Phase 10 polish bullet). Per-owner ownership isolation on queue/case-detail (Phase 9 if real T&S deployment requires it).
+
+**Deliverable:** Reviewer opens a case → reads the raw story → opens each attachment in a PDF/image viewer → sees per-signal score + reasoning → clicks a policy citation chip → reads the full clause body in a drawer → navigates to `/queue?view=board` → drags a SUSPENDED_HITL case to ACTIONED → submits the modal → ACTIONED card moves + audit row appears.
+
+**Acceptance criteria:**
+
+- Three document tiles render in the case detail page; clicking each opens a viewer dialog backed by a 300 s presigned R2 URL fetched directly by the browser (no Worker bytes path).
+- Story panel renders `cases.brief_partial_json.story` + optional `vouching_narrative` above the brief.
+- Citation chips render on every `policy_citations[].clauseId` occurrence in the brief prose; click opens a drawer with the full clause body, title, source, corpus version.
+- Trust-signal panel renders one row per persisted signal type (latest by `recorded_at`); expand shows score + reasoning + linked evidence.
+- `/queue?view=board` renders the Kanban; `/queue?view=table` renders the existing table; `/queue` defaults to board.
+- Drag DRAFT card to QUEUED column → fires `POST /api/cases/:id/brief`; drag SUSPENDED_HITL card to ACTIONED column → opens action modal; submit modal → fires `POST /api/cases/:id/action` with the drag-resolved `action_id`; on success the card moves and the audit list shows the new row.
+- Read-only columns (`QUEUED`, `RUNNING`) reject drops; tooltip explains workflow ownership.
+- Keyboard a11y: Space initiates drag, arrows navigate, Space drops, Escape cancels with focus return.
+- Mobile (`<768 px`): columns stack vertically; touch-hold drag works after 200 ms.
+
+**Implementation notes:**
+
+- R2 presigning uses `aws4fetch` (Workers-runtime compatible, no `@aws-sdk` bloat). TTL 300 s. R2 token must be **Object Read Only** scope per operator runbook.
+- PDF viewer is `React.lazy`-loaded inside `<DocumentViewerDialog>` so the ~600 KB chunk only loads on first dialog open.
+- `Document` options MUST be a module-level constant; instantiating per render causes infinite re-fetch.
+- Citation wrap iterates `policy_citations[]` sorted by `clauseId.length` descending (avoids `zakat.5` matching inside `zakat.5.1`). Citations not appearing in the text are simply ignored — no regex.
+- `REVIEWER_TRANSITIONS` map only allows `DRAFT → QUEUED` and `SUSPENDED_HITL → ACTIONED`. `READY_FOR_REVIEW → ACTIONED` is intentionally excluded — the action route does not handle it.
+- Signal route uses `recorded_at` (the actual column), not `created_at`. Score lives inside `payload_json` per signal type — not a top-level column.
+- All user-visible strings sourced from `apps/web/src/lib/copy-constants.ts` — no inline string literals in JSX.
+- Plan reference: `docs/plans/2026-05-25-009-feat-phase-7-5-stakeholder-ux-plan.md`.
+
+**Tests (per §7.11):**
+
+- Unit (bun test): `r2-presign` boundary clamp + signing determinism; `reviewer-transitions` predicate; `citation-wrap` longest-first algorithm.
+- Integration (Vitest + Miniflare): documents route happy path + 400/404/409 errors; policy-clauses route; signals route latest-per-type; documents-panel + citation-chip + viewer-dialog component flows via MSW.
+- AppType contract snapshot (bun test via `expectTypeOf`): every new route's `hc<AppType>()` invocation compiles against its zod-derived response type.
+- E2E (Playwright LOCAL-ONLY): drag SUSPENDED_HITL → ACTIONED → modal submit → audit row; rationale enforcement on Override / Block.
+
+---
+
 ### Phase 8 — Observability (@mastra/observability + local Langfuse)
 
 **Goal:** Every Mastra step + every LLM call shows in a local Langfuse trace tree with token + cost auto-extracted. No production dependency.

@@ -37,9 +37,12 @@ import { BriefDetailTabs } from "./brief-details.tsx";
 import { BriefEmptyState } from "./brief-empty.tsx";
 import { BriefInflight } from "./brief-inflight.tsx";
 import { BriefSummaryCard } from "./brief-summary.tsx";
-import { CaseDocList } from "./doc-list.tsx";
+import { DocumentsPanel } from "./documents-panel.tsx";
 import { CaseHeader } from "./header.tsx";
 import { CaseMetaCard } from "./meta-card.tsx";
+import { SignalExpansionPanel } from "./signal-expansion-panel.tsx";
+import { StoryPanel } from "./story-panel.tsx";
+import { type CaseOverlay } from "@mizan/shared";
 
 type BriefSummary = CaseDetailResponse["brief"];
 type BriefPanelMode = "stream" | "inflight" | "action" | "summary" | "empty";
@@ -47,6 +50,7 @@ type BriefPanelMode = "stream" | "inflight" | "action" | "summary" | "empty";
 interface CaseDetailProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
+  readonly overlay: CaseOverlay | null;
 }
 
 const SHOW_PERSISTED_STATUSES: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
@@ -91,6 +95,7 @@ function deriveMode(status: CaseStatus, brief: BriefSummary, phase: StreamPhase)
 interface BriefPanelProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
+  readonly overlay: CaseOverlay | null;
   readonly mode: BriefPanelMode;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
@@ -99,13 +104,14 @@ interface BriefPanelProps {
 function BriefPanel({
   caseRow,
   brief,
+  overlay,
   mode,
   onGenerate,
   onStreamError,
 }: BriefPanelProps): React.JSX.Element {
   if (mode === "stream") return <BriefStream caseId={caseRow.id} onStreamError={onStreamError} />;
   if (mode === "inflight") return <BriefInflight status={caseRow.status} />;
-  if (mode === "action") return <ActionPanel detail={{ case: caseRow, brief }} />;
+  if (mode === "action") return <ActionPanel detail={{ case: caseRow, brief, overlay }} />;
   if (mode === "summary" && brief) {
     return (
       <div className="space-y-4">
@@ -117,7 +123,7 @@ function BriefPanel({
   return <BriefEmptyState status={caseRow.status} onGenerate={onGenerate} />;
 }
 
-export function CaseDetail({ caseRow, brief }: CaseDetailProps): React.JSX.Element {
+export function CaseDetail({ caseRow, brief, overlay }: CaseDetailProps): React.JSX.Element {
   const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
   /**
    * Tape enabled on any active state (RUNNING, QUEUED, SUSPENDED_HITL) so a
@@ -138,21 +144,30 @@ export function CaseDetail({ caseRow, brief }: CaseDetailProps): React.JSX.Eleme
 
   const mode = deriveMode(caseRow.status, brief, phase);
 
+  /**
+   * Detail layout (top to bottom on >= 768px, stacked on narrow):
+   *   StoryPanel · DocumentsPanel + MetaCard (aside) · BriefPanel · SignalExpansionPanel
+   */
   return (
     <article className="mx-auto max-w-7xl space-y-8 px-6 py-8">
       <CaseHeader caseRow={caseRow} />
+      <StoryPanel overlay={overlay} />
       <section className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
         <aside className="space-y-4">
           <CaseMetaCard caseRow={caseRow} />
-          <CaseDocList caseId={caseRow.id} />
+          <DocumentsPanel caseId={caseRow.id} hasOverlay={overlay !== null} />
         </aside>
-        <BriefPanel
-          caseRow={caseRow}
-          brief={brief}
-          mode={mode}
-          onGenerate={() => dispatchPhase({ type: "user-generated" })}
-          onStreamError={() => dispatchPhase({ type: "stream-errored" })}
-        />
+        <div className="space-y-6">
+          <BriefPanel
+            caseRow={caseRow}
+            brief={brief}
+            overlay={overlay}
+            mode={mode}
+            onGenerate={() => dispatchPhase({ type: "user-generated" })}
+            onStreamError={() => dispatchPhase({ type: "stream-errored" })}
+          />
+          <SignalExpansionPanel caseId={caseRow.id} />
+        </div>
       </section>
     </article>
   );

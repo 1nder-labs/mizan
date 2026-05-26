@@ -14,7 +14,7 @@ export function CaseHeader({ caseRow }: { readonly caseRow: CaseRow }): React.JS
     <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
       <div className="space-y-3">
         <Button asChild variant="ghost" size="sm" className="-ml-3">
-          <Link to="/queue" search={{ page: 1, sort: "updated_desc" }}>
+          <Link to="/queue" search={{ page: 1, sort: "updated_desc", view: "board" }}>
             <ArrowLeft className="mr-1 size-3.5" />
             Back to queue
           </Link>

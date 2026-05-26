@@ -17,12 +17,14 @@ import {
   type Db,
 } from "@mizan/db";
 import {
+  CaseOverlaySchema,
   QUEUE_PAGE_SIZE,
   QueueResponseSchema,
   QueueSearchSchema,
   CaseDetailResponseSchema,
   VerificationPathSchema,
   type CaseDetailResponse,
+  type CaseOverlay,
   type QueueSearch,
 } from "@mizan/shared";
 import { Hono } from "hono";
@@ -115,6 +117,12 @@ async function fetchLatestBriefRow(db: Db, caseId: string) {
 
 type CaseRowProjection = Awaited<ReturnType<typeof fetchLatestBriefRow>>;
 
+function resolveOverlay(raw: unknown): CaseOverlay | null {
+  if (raw === null || raw === undefined) return null;
+  const parsed = CaseOverlaySchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
 function buildDetailDraft(
   row: { readonly [k: string]: unknown } & {
     id: string;
@@ -124,6 +132,7 @@ function buildDetailDraft(
     claimed_zakat_category: string | null;
     created_at: Date;
     updated_at: Date;
+    brief_partial_json: unknown;
   },
   brief: CaseRowProjection,
   latestBrief: { recommendation: string; verification_path: string } | null,
@@ -147,6 +156,7 @@ function buildDetailDraft(
           payload_json: brief.payload_json,
         }
       : null,
+    overlay: resolveOverlay(row.brief_partial_json),
   };
 }
 
@@ -157,7 +167,7 @@ function buildDetailDraft(
  * so the reviewer surface still loads instead of 500-ing.
  */
 async function fetchDetailPayload(db: Db, id: string): Promise<CaseDetailResponse | null> {
-  const projection = caseListProjection();
+  const projection = { ...caseListProjection(), brief_partial_json: casesTable.brief_partial_json };
   const row = await db.select(projection).from(casesTable).where(eq(casesTable.id, id)).get();
   if (!row) return null;
 
@@ -171,7 +181,7 @@ async function fetchDetailPayload(db: Db, id: string): Promise<CaseDetailRespons
   if (parsed.success) return parsed.data;
 
   console.error(`[cases-list] case-detail parse degraded (id=${id}):`, parsed.error.message);
-  const caseOnly = CaseDetailResponseSchema.safeParse({ case: draft.case, brief: null });
+  const caseOnly = CaseDetailResponseSchema.safeParse({ case: draft.case, brief: null, overlay: draft.overlay });
   if (caseOnly.success) return caseOnly.data;
 
   console.error(`[cases-list] case-detail full parse failed (id=${id}):`, caseOnly.error.message);

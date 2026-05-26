@@ -24,6 +24,9 @@ import type { BriefPayload } from "@mizan/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
+import { COPY } from "@/lib/copy-constants.ts";
+import { CitationChip } from "./citation-chip.tsx";
+import { wrapCitations } from "./citation-wrap.tsx";
 
 interface TabBoundaryState {
   readonly error: Error | null;
@@ -80,7 +83,7 @@ function ReviewerQuestionsTab({ payload }: { readonly payload: BriefPayload }): 
 
 function PolicyCitationsTab({ payload }: { readonly payload: BriefPayload }): React.JSX.Element {
   if (payload.policy_citations.length === 0) {
-    return <p className="text-xs text-muted-foreground">None.</p>;
+    return <p className="text-xs text-muted-foreground">{COPY.citations.listEmpty}</p>;
   }
   return (
     <ul className="space-y-3 text-sm">
@@ -89,10 +92,15 @@ function PolicyCitationsTab({ payload }: { readonly payload: BriefPayload }): Re
           key={`${index}-${citation.clauseId}`}
           className="rounded-md border border-border/70 bg-muted/40 p-3"
         >
-          <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-            {citation.clauseId}
+          <div className="flex items-center gap-2">
+            <CitationChip clauseId={citation.clauseId} source={citation.source} />
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              relevance {(citation.relevance * 100).toFixed(0)}%
+            </span>
+          </div>
+          <p className="mt-2 text-foreground">
+            {wrapCitations(citation.excerpt, payload.policy_citations)}
           </p>
-          <p className="mt-1 text-foreground">{citation.excerpt}</p>
         </li>
       ))}
     </ul>
