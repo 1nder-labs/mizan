@@ -4,10 +4,11 @@ import { PartialBriefStateSchema } from "./partial-brief-state.ts";
 
 /**
  * Suspend payload persisted by Mastra when the workflow halts for
- * reviewer action. Intentionally narrow: the brief body lives in the
- * `briefs` table and downstream steps reload by `briefId`. Keeping the
- * payload reference-only minimises D1Store row size and prevents the
- * brief from being duplicated in workflow snapshot storage.
+ * reviewer action. Intentionally narrow — the brief body lives in the
+ * `briefs` table; consumers reload by `briefId`. The route owns the
+ * post-action chain (record / promote / finalize) and does NOT call
+ * `run.resume()`; the resume schema below is declared for Mastra's
+ * step type contract but the resume path is never executed at runtime.
  */
 export const ReviewerActionSuspendSchema = z.object({
   awaiting: z.literal("reviewer_action"),
@@ -19,9 +20,10 @@ export const ReviewerActionSuspendSchema = z.object({
 export type ReviewerActionSuspendPayload = z.infer<typeof ReviewerActionSuspendSchema>;
 
 /**
- * Resume payload — the shared schema is canonical (mirrors the HTTP
- * request body so rationale constraints cannot drift between
- * boundaries). Re-exported here so step code reads from a sibling.
+ * Mastra step-contract resume schema. Shadow type only — `run.resume()`
+ * is not called for this workflow on Workers (cross-request I/O
+ * isolation blocks it); the action route handles the post-suspend
+ * chain inline.
  */
 export const ReviewerActionResumeSchema = SharedResumeSchema;
 export type ReviewerActionResumeData = z.infer<typeof ReviewerActionResumeSchema>;

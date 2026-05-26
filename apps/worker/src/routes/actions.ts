@@ -1,23 +1,55 @@
 /**
- * Reviewer action route — resumes a suspended workflow run.
+ * Reviewer action route — completes a SUSPENDED_HITL case inline.
  *
  * Middleware order: `zValidator("param")` → `zValidator("json")` →
- * handler. The handler reads `c.req.valid("json")` directly to check
- * Layer 4 idempotency (no double parse). The route owns the atomic
- * SUSPENDED_HITL → RUNNING claim so concurrent reviewer submissions
- * see a stable 409 race-loser path. Resume failures revert the status
- * to SUSPENDED_HITL; a no-op revert (compensation hit a row that
- * already moved) is logged loud so on-call sees the divergence.
+ * handler. Layer 4 idempotency reads `c.req.valid("json")` directly
+ * (no double parse). The route owns the atomic SUSPENDED_HITL →
+ * RUNNING claim so concurrent reviewer submissions see a stable 409
+ * race-loser path.
+ *
+ * After the claim succeeds, the route performs the post-action chain
+ * inline (NOT via Mastra `run.resume`):
+ *   1. `persistReviewerActionRow` — insert into `reviewer_actions`,
+ *      idempotent on `action_id`
+ *   2. `emitWorkflowEvent("step.resume")` — append to the tape
+ *   3. `promoteEvalRow` — insert into `eval_promotions`, idempotent
+ *      on `(run_id, action_id)`
+ *   4. `transitionCase(RUNNING → ACTIONED)` — terminal status flip
+ *   5. `emitWorkflowEvent("workflow.finish")` — terminal tape row
+ *
+ * Why inline: `Workflow.resume()` from a different request than the
+ * original `Workflow.stream()` throws `Cannot perform I/O on behalf
+ * of a different request` on Cloudflare Workers. The post-action
+ * chain is three deterministic D1 writes — doesn't need Mastra's
+ * parallelism / branching / step machinery, so direct DB calls keep
+ * the route a single transaction surface that the runtime can
+ * actually complete cross-request.
+ *
+ * Failure handling: any post-action throw triggers `revertClaim`,
+ * flipping the case back to SUSPENDED_HITL so the reviewer can retry.
+ * KV cache is only written on full success — a partial failure leaves
+ * no replay-protected response.
  */
 import { zValidator } from "@hono/zod-validator";
-import { createBriefRun } from "@mizan/mastra";
-import { briefs, cases, desc, eq, makeDb, transitionCase, type Db } from "@mizan/db";
+import { emitWorkflowEvent, promoteEvalRow } from "@mizan/mastra";
+import {
+  briefs,
+  cases,
+  desc,
+  eq,
+  makeDb,
+  reviewer_actions,
+  transitionCase,
+  type Db,
+} from "@mizan/db";
 import {
   ActionErrorBodySchema,
   ReviewerActionRequestSchema,
   ReviewerActionResponseSchema,
   type ActionErrorCode,
   type BriefPayload,
+  type Recommendation,
+  type ReviewerAction,
   type ReviewerActionRequest,
   type ReviewerActionResponse,
 } from "@mizan/shared";
@@ -31,20 +63,33 @@ import type { RoleVariables } from "../middleware/require-role.ts";
 type ActionContext = Context<{ Bindings: CloudflareBindings; Variables: RoleVariables }>;
 
 const ParamIdSchema = z.object({ id: z.string().uuid() });
+const EMPTY_RATIONALE = "(none)";
 
 function errorBody(code: ActionErrorCode): { error: ActionErrorCode } {
   return ActionErrorBodySchema.parse({ error: code });
 }
 
-async function loadLatestBrief(db: Db, caseId: string): Promise<BriefPayload | null> {
+function normalizeStoredRationale(rationale: string): string {
+  const trimmed = rationale.trim();
+  return trimmed.length > 0 ? trimmed : EMPTY_RATIONALE;
+}
+
+async function loadLatestBrief(
+  db: Db,
+  caseId: string,
+): Promise<{ recommendation: Recommendation; payload: BriefPayload } | null> {
   const row = await db
-    .select({ payload_json: briefs.payload_json })
+    .select({
+      recommendation: briefs.recommendation,
+      payload_json: briefs.payload_json,
+    })
     .from(briefs)
     .where(eq(briefs.case_id, caseId))
     .orderBy(desc(briefs.composed_at))
     .limit(1)
     .get();
-  return row?.payload_json ?? null;
+  if (!row) return null;
+  return { recommendation: row.recommendation, payload: row.payload_json };
 }
 
 function buildResponse(
@@ -54,14 +99,6 @@ function buildResponse(
   return ReviewerActionResponseSchema.parse({ status: "success", brief, action: body });
 }
 
-/**
- * Compensation when `run.resume` throws after the claim succeeded.
- * `transitionCase` returns the updated row when the source-status
- * predicate matched; a `false` result means the case has already
- * advanced past RUNNING (concurrent revert, terminal flip, DLQ) — the
- * row is no longer ours to flip back and we must surface that loud so
- * on-call sees the divergence instead of swallowing it silently.
- */
 async function revertClaim(db: Db, caseId: string, runId: string, cause: unknown): Promise<void> {
   const reverted = await transitionCase(db, {
     caseId,
@@ -76,30 +113,86 @@ async function revertClaim(db: Db, caseId: string, runId: string, cause: unknown
     );
     return;
   }
-  console.error(`[action] resume failed — reverted claim (case=${caseId} run=${runId}): ${reason}`);
+  console.error(
+    `[action] post-action chain failed — reverted claim (case=${caseId} run=${runId}): ${reason}`,
+  );
 }
 
-/**
- * Drives `run.resume` end-to-end. Either returns the parsed success
- * body OR revertClaims + returns a typed failure code. Mastra
- * `WorkflowResult.status` can be `failed | suspended | paused |
- * tripwire` without throwing — Phase 7 has a single HITL gate, so
- * anything other than `success` is a workflow defect: revert the
- * claim so the reviewer can retry, skip the KV cache so the failed
- * response is not pinned for 24h.
- */
-async function safePostCommit(
+interface PostActionInput {
+  readonly caseId: string;
+  readonly runId: string;
+  readonly reviewerId: string;
+  readonly action: ReviewerAction;
+  readonly rationale: string;
+  readonly actionId: string;
+}
+
+async function runPostActionChain(db: Db, input: PostActionInput): Promise<BriefPayload> {
+  const brief = await loadLatestBrief(db, input.caseId);
+  if (!brief) {
+    throw new Error(`action: brief row missing for case ${input.caseId} run ${input.runId}`);
+  }
+  await db
+    .insert(reviewer_actions)
+    .values({
+      case_id: input.caseId,
+      run_id: input.runId,
+      reviewer_id: input.reviewerId,
+      action: input.action,
+      rationale: normalizeStoredRationale(input.rationale),
+      action_id: input.actionId,
+    })
+    .onConflictDoNothing({ target: reviewer_actions.action_id });
+  await emitWorkflowEvent(db, {
+    caseId: input.caseId,
+    runId: input.runId,
+    eventType: "step.resume",
+    stepId: "recordAction",
+  });
+  await promoteEvalRow(db, {
+    caseId: input.caseId,
+    runId: input.runId,
+    actionId: input.actionId,
+    recommendation: brief.recommendation,
+    reviewerAction: input.action,
+  });
+  const flipped = await transitionCase(db, {
+    caseId: input.caseId,
+    runId: input.runId,
+    from: "RUNNING",
+    to: "ACTIONED",
+  });
+  if (!flipped) {
+    throw new Error(`action: case ${input.caseId} not RUNNING at finalize (run ${input.runId})`);
+  }
+  await emitWorkflowEvent(db, {
+    caseId: input.caseId,
+    runId: input.runId,
+    eventType: "workflow.finish",
+  });
+  return brief.payload;
+}
+
+async function commitAction(
   c: ActionContext,
   db: Db,
   caseId: string,
+  runId: string,
   body: ReviewerActionRequest,
-): Promise<ReviewerActionResponse> {
-  let brief: BriefPayload | null = null;
+): Promise<{ ok: true; response: ReviewerActionResponse } | { ok: false; code: ActionErrorCode }> {
+  let brief: BriefPayload;
   try {
-    brief = await loadLatestBrief(db, caseId);
+    brief = await runPostActionChain(db, {
+      caseId,
+      runId,
+      reviewerId: c.var.user.id,
+      action: body.action,
+      rationale: body.rationale,
+      actionId: body.action_id,
+    });
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    console.error(`[action] loadLatestBrief failed post-commit (case=${caseId}): ${reason}`);
+    await revertClaim(db, caseId, runId, error);
+    return { ok: false, code: "workflow_failed" };
   }
   const response = buildResponse(brief, body);
   try {
@@ -108,64 +201,7 @@ async function safePostCommit(
     const reason = error instanceof Error ? error.message : String(error);
     console.error(`[action] cacheActionResponse failed post-commit (case=${caseId}): ${reason}`);
   }
-  return response;
-}
-
-/**
- * Drives `run.resume` end-to-end. Either returns the parsed success
- * body OR revertClaims + returns a typed failure code. The try/catch
- * wraps the FULL pre-success window (`createBriefRun` + `run.resume`)
- * so any throw — including Mastra bootstrap failures — triggers
- * `revertClaim`. Without that, a bootstrap throw after the atomic
- * claim leaves the case stuck in RUNNING and the reviewer's retry
- * hits a 409 race-loser.
- *
- * Mastra `WorkflowResult.status` can also return `failed | suspended
- * | paused | tripwire` without throwing — Phase 7 has a single HITL
- * gate, so anything other than `success` is a workflow defect:
- * revert the claim, skip KV, and surface 500 + workflow_failed.
- *
- * Post-success work (`loadLatestBrief`, `cacheActionResponse`) is
- * best-effort and isolated in `safePostCommit` — the workflow has
- * already committed to ACTIONED, so an infra blip on brief load or
- * cache write must NOT tear down the response. Logged, degraded
- * (brief → null on load failure), still 200.
- */
-async function resumeAndCommit(
-  c: ActionContext,
-  db: Db,
-  caseRow: { category: string; geography: string },
-  caseId: string,
-  runId: string,
-  body: ReviewerActionRequest,
-): Promise<{ ok: true; response: ReviewerActionResponse } | { ok: false; code: ActionErrorCode }> {
-  try {
-    const { run, requestContext } = await createBriefRun(c.env, {
-      caseId,
-      runId,
-      reviewerId: c.var.user.id,
-      category: caseRow.category,
-      geography: caseRow.geography,
-    });
-    const result = await run.resume({
-      step: "awaitReviewerAction",
-      resumeData: { ...body, reviewer_id: c.var.user.id },
-      requestContext,
-    });
-    if (result.status !== "success") {
-      await revertClaim(
-        db,
-        caseId,
-        runId,
-        new Error(`run.resume returned non-success status: ${result.status}`),
-      );
-      return { ok: false, code: "workflow_failed" };
-    }
-  } catch (error) {
-    await revertClaim(db, caseId, runId, error);
-    return { ok: false, code: "workflow_failed" };
-  }
-  return { ok: true, response: await safePostCommit(c, db, caseId, body) };
+  return { ok: true, response };
 }
 
 export const actionRoutes = new Hono<{
@@ -196,7 +232,7 @@ export const actionRoutes = new Hono<{
     });
     if (!claimed) return c.json(errorBody("not_suspended_or_claimed"), 409);
 
-    const outcome = await resumeAndCommit(c, db, caseRow, caseId, runId, body);
+    const outcome = await commitAction(c, db, caseId, runId, body);
     if (!outcome.ok) return c.json(errorBody(outcome.code), 500);
     return c.json(outcome.response);
   },

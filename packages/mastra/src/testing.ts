@@ -86,10 +86,6 @@ export { assertGateInputs, escalateBriefProjection } from "./steps/forcedEscalat
 export { forcedEscalateReason } from "./steps/forcedEscalateGate/predicate.ts";
 export { mergeParallelSignals, mergeSignals } from "./steps/mergeSignals.ts";
 export { assertComputeVerificationPathInputs } from "./steps/computeVerificationPath.ts";
-export {
-  assertFinalizeCaseStatusInputs,
-  buildCaseNotFoundError,
-} from "./steps/finalizeCaseStatus.ts";
 export { normalizeStorySignal } from "./steps/storyCoherence/index.ts";
 export {
   buildDraftPrompt,
