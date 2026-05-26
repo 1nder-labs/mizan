@@ -1,7 +1,13 @@
 /**
  * Integration: case-detail container × BriefStream — routing decision
- * AND the RUNNING → stream-errored → empty → re-generate lifecycle
- * across component boundaries.
+ * AND the lifecycle across component boundaries.
+ *
+ * Key invariant: RUNNING/QUEUED status alone does NOT auto-mount
+ * <BriefStream> (which POSTs `/brief` on every render). Only an
+ * explicit user click (Generate) triggers BriefStream. A server-
+ * observed in-flight workflow renders the passive `BriefInflight`
+ * panel instead. This is the regression guard for the page-load
+ * POST-storm bug.
  *
  * BriefStream is replaced with a controllable test double whose
  * `onStreamError` is wired through a captured ref. That lets a test
@@ -64,11 +70,18 @@ async function renderDetail(element: React.ReactNode): Promise<void> {
 }
 
 describe("<CaseDetail /> stream routing", () => {
-  test("RUNNING status mounts <BriefStream>", async () => {
+  test("RUNNING status does NOT auto-mount <BriefStream> (no page-load POST)", async () => {
     briefStreamSpy.onStreamError = undefined;
     await renderDetail(<CaseDetail caseRow={baseCase} brief={null} />);
-    const mounted = await screen.findByTestId("brief-stream-mounted");
-    expect(mounted).toHaveTextContent(`stream:${baseCase.id}`);
+    expect(await screen.findByText(/workflow running/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
+  });
+
+  test("QUEUED status renders inflight panel, no BriefStream", async () => {
+    briefStreamSpy.onStreamError = undefined;
+    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "QUEUED" }} brief={null} />);
+    expect(await screen.findByText(/queued for background processing/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
   });
 
   test("DRAFT does NOT mount <BriefStream>", async () => {
@@ -78,18 +91,20 @@ describe("<CaseDetail /> stream routing", () => {
     expect(await screen.findByText(/no brief yet/i)).toBeInTheDocument();
   });
 
-  test("RUNNING + stream error → empty state with Generate CTA reachable + re-mounts stream", async () => {
+  test("user clicks Generate → BriefStream mounts; stream error → inflight; click Generate again → stream", async () => {
     briefStreamSpy.onStreamError = undefined;
-    await renderDetail(<CaseDetail caseRow={baseCase} brief={null} />);
-    expect(await screen.findByTestId("brief-stream-mounted")).toBeInTheDocument();
+    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "DRAFT" }} brief={null} />);
+    const generateInitial = await screen.findByRole("button", { name: /generate brief/i });
+    await userEvent.setup().click(generateInitial);
 
+    expect(await screen.findByTestId("brief-stream-mounted")).toBeInTheDocument();
     expect(briefStreamSpy.onStreamError).toBeDefined();
     briefStreamSpy.onStreamError?.();
 
-    const generate = await screen.findByRole("button", { name: /generate brief/i });
+    const generateRetry = await screen.findByRole("button", { name: /generate brief/i });
     expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
 
-    await userEvent.setup().click(generate);
+    await userEvent.setup().click(generateRetry);
     expect(await screen.findByTestId("brief-stream-mounted")).toBeInTheDocument();
   });
 });

@@ -5,14 +5,25 @@
  * machine; no boolean state masquerades as a state machine.
  *
  * Panel modes:
- *   stream  — RUNNING from the server OR user just clicked Generate
- *             and the local stream has not yet errored
- *   action  — SUSPENDED_HITL awaiting reviewer input
- *   summary — terminal status with a non-null brief payload
- *   empty   — every other state
+ *   stream   — user just clicked Generate and the local stream has not
+ *              yet errored; mounts <BriefStream> which POSTs /brief
+ *   inflight — server says the case is already RUNNING/QUEUED from a
+ *              prior tab or session; the workflow_events tape drives a
+ *              passive refetch when the run finishes. Never POSTs.
+ *   action   — SUSPENDED_HITL awaiting reviewer input
+ *   summary  — terminal status with a non-null brief payload
+ *   empty    — every other state
+ *
+ * The split between `stream` and `inflight` is the bug fix for the
+ * "page-load fires POST /brief" issue: visiting a RUNNING case from a
+ * URL paste or a refresh used to auto-mount `<BriefStream>` (which
+ * POSTs on every render), re-firing the producer guard and hammering
+ * the worker with 409s. The user must explicitly press Generate to
+ * own a new run; an already-running run is observed passively.
  */
 import { useEffect, useReducer } from "react";
 import {
+  ACTIVE_CASE_STATUSES,
   HITL_SUSPENDED_STATUS,
   TERMINAL_CASE_STATUSES,
   type CaseDetailResponse,
@@ -24,13 +35,14 @@ import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-tap
 import { ActionPanel } from "@/components/case/action-panel.tsx";
 import { BriefDetailTabs } from "./brief-details.tsx";
 import { BriefEmptyState } from "./brief-empty.tsx";
+import { BriefInflight } from "./brief-inflight.tsx";
 import { BriefSummaryCard } from "./brief-summary.tsx";
 import { CaseDocList } from "./doc-list.tsx";
 import { CaseHeader } from "./header.tsx";
 import { CaseMetaCard } from "./meta-card.tsx";
 
 type BriefSummary = CaseDetailResponse["brief"];
-type BriefPanelMode = "stream" | "action" | "summary" | "empty";
+type BriefPanelMode = "stream" | "inflight" | "action" | "summary" | "empty";
 
 interface CaseDetailProps {
   readonly caseRow: CaseRow;
@@ -70,8 +82,8 @@ function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase {
 
 function deriveMode(status: CaseStatus, brief: BriefSummary, phase: StreamPhase): BriefPanelMode {
   if (status === HITL_SUSPENDED_STATUS) return "action";
-  const wantStream = status === "RUNNING" || phase.userTriggered;
-  if (wantStream && !phase.streamErrored) return "stream";
+  if (phase.userTriggered && !phase.streamErrored) return "stream";
+  if (ACTIVE_CASE_STATUSES.has(status)) return "inflight";
   if (brief && SHOW_PERSISTED_STATUSES.has(status)) return "summary";
   return "empty";
 }
@@ -91,12 +103,9 @@ function BriefPanel({
   onGenerate,
   onStreamError,
 }: BriefPanelProps): React.JSX.Element {
-  if (mode === "stream") {
-    return <BriefStream caseId={caseRow.id} onStreamError={onStreamError} />;
-  }
-  if (mode === "action") {
-    return <ActionPanel detail={{ case: caseRow, brief }} />;
-  }
+  if (mode === "stream") return <BriefStream caseId={caseRow.id} onStreamError={onStreamError} />;
+  if (mode === "inflight") return <BriefInflight status={caseRow.status} />;
+  if (mode === "action") return <ActionPanel detail={{ case: caseRow, brief }} />;
   if (mode === "summary" && brief) {
     return (
       <div className="space-y-4">
@@ -111,12 +120,14 @@ function BriefPanel({
 export function CaseDetail({ caseRow, brief }: CaseDetailProps): React.JSX.Element {
   const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
   /**
-   * Only enable the workflow_events tape during SUSPENDED_HITL — Mode A
-   * (BriefStream) already covers the RUNNING phase, and double-opening
-   * both streams causes redundant invalidations + last-writer-wins
-   * races when each closes on its own terminal event.
+   * Tape enabled on any active state (RUNNING, QUEUED, SUSPENDED_HITL) so a
+   * passive `inflight` panel will see `workflow.finish` and trigger a
+   * case-detail refetch. The tape never POSTs — it's a GET SSE that's
+   * safe to mount on every render of an active case.
    */
-  useWorkflowTapeInvalidation(caseRow.id, caseRow.status === HITL_SUSPENDED_STATUS);
+  const tapeEnabled =
+    ACTIVE_CASE_STATUSES.has(caseRow.status) || caseRow.status === HITL_SUSPENDED_STATUS;
+  useWorkflowTapeInvalidation(caseRow.id, tapeEnabled);
 
   useEffect(() => {
     dispatchPhase({ type: "case-changed" });

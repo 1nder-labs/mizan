@@ -50,7 +50,7 @@ function inFlightResponse(
       202,
     );
   }
-  return c.json({ error: "case already running" }, 409);
+  return c.json({ error: "case_already_running", current_status: existing.status }, 409);
 }
 
 function allowedSources(target: ProducerTarget): readonly Case["status"][] {
