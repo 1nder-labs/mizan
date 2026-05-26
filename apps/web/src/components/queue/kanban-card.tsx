@@ -50,7 +50,9 @@ export function KanbanCardBody({ row }: { readonly row: CaseRow }): React.JSX.El
           <RecommendationBadge recommendation={row.latest_brief.recommendation} />
         </div>
       ) : null}
-      <p className="text-[11px] text-muted-foreground/80 tabular">{formatMediumDateTime(row.updated_at)}</p>
+      <p className="text-[11px] text-muted-foreground/80 tabular">
+        {formatMediumDateTime(row.updated_at)}
+      </p>
     </div>
   );
 }

@@ -78,7 +78,9 @@ export function KanbanActionModal({
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             Reviewer decision · audit-logged
           </div>
-          <DialogTitle className="text-xl font-semibold tracking-tight">{COPY.modal.title}</DialogTitle>
+          <DialogTitle className="text-xl font-semibold tracking-tight">
+            {COPY.modal.title}
+          </DialogTitle>
           <DialogDescription>{COPY.modal.description}</DialogDescription>
         </DialogHeader>
         {caseId && actionId ? (

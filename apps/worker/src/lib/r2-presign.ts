@@ -28,12 +28,9 @@ const SignR2GetUrlInputSchema = z
     objectKey: z
       .string()
       .min(1)
-      .refine(
-        (key) => ALLOWED_OBJECT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)),
-        {
-          message: `objectKey must start with one of ${ALLOWED_OBJECT_KEY_PREFIXES.join(", ")}`,
-        },
-      ),
+      .refine((key) => ALLOWED_OBJECT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)), {
+        message: `objectKey must start with one of ${ALLOWED_OBJECT_KEY_PREFIXES.join(", ")}`,
+      }),
     accessKeyId: z.string().min(1),
     secretAccessKey: z.string().min(1),
     ttlSeconds: z.number().int().min(60).max(3600),
@@ -74,7 +71,12 @@ export async function signR2GetUrl(rawInput: SignR2GetUrlInput): Promise<SignR2G
     service: "s3",
     region: "auto",
   });
-  const endpoint = buildEndpointUrl(input.accountId, input.bucket, input.objectKey, input.ttlSeconds);
+  const endpoint = buildEndpointUrl(
+    input.accountId,
+    input.bucket,
+    input.objectKey,
+    input.ttlSeconds,
+  );
   const signed = await client.sign(new Request(endpoint.toString(), { method: "GET" }), {
     aws: { signQuery: true },
   });

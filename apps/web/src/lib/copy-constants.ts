@@ -68,8 +68,7 @@ export const COPY = {
       `Can't move from ${from.replace(/_/g, " ").toLowerCase()} to ${to
         .replace(/_/g, " ")
         .toLowerCase()}`,
-    moveSuccess: (status: string) =>
-      `Case moved to ${status.replace(/_/g, " ").toLowerCase()}`,
+    moveSuccess: (status: string) => `Case moved to ${status.replace(/_/g, " ").toLowerCase()}`,
     moveError: "Couldn't update the case. Please try again.",
     columnEmpty: "No cases",
     closedGroupLabel: "Closed",

@@ -75,7 +75,9 @@ function SignalRowHeader({
   return (
     <>
       <span className="flex items-center gap-2">
-        <ShieldQuestion className={cn("size-4", hasEntry ? "text-foreground" : "text-muted-foreground/40")} />
+        <ShieldQuestion
+          className={cn("size-4", hasEntry ? "text-foreground" : "text-muted-foreground/40")}
+        />
         <span className="text-sm font-medium text-foreground">{label}</span>
       </span>
       <span className="flex items-center gap-3">
@@ -89,7 +91,10 @@ function SignalRowHeader({
         </span>
         {hasEntry ? (
           <ChevronRight
-            className={cn("size-4 text-muted-foreground transition-transform", open ? "rotate-90" : "rotate-0")}
+            className={cn(
+              "size-4 text-muted-foreground transition-transform",
+              open ? "rotate-90" : "rotate-0",
+            )}
           />
         ) : null}
       </span>

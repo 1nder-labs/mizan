@@ -8,7 +8,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Copy, MailPlus } from "lucide-react";
 import { toast } from "sonner";
-import { CreateInvitationRequestSchema, type CreateInvitationRequest, type TeamMember } from "@mizan/shared";
+import {
+  CreateInvitationRequestSchema,
+  type CreateInvitationRequest,
+  type TeamMember,
+} from "@mizan/shared";
 import { AuthenticatedShell } from "@/components/shell/authenticated-shell.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
@@ -53,7 +57,12 @@ function InvitationFields({
     <>
       <div className="space-y-1.5">
         <Label htmlFor="invite-email">Email</Label>
-        <Input id="invite-email" type="email" placeholder="reviewer@launchgood.com" {...form.register("email")} />
+        <Input
+          id="invite-email"
+          type="email"
+          placeholder="reviewer@launchgood.com"
+          {...form.register("email")}
+        />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
@@ -69,14 +78,24 @@ function InvitationFields({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="invite-ttl">Expires in (hours)</Label>
-          <Input id="invite-ttl" type="number" min={1} max={168} {...form.register("ttlHours", { valueAsNumber: true })} />
+          <Input
+            id="invite-ttl"
+            type="number"
+            min={1}
+            max={168}
+            {...form.register("ttlHours", { valueAsNumber: true })}
+          />
         </div>
       </div>
     </>
   );
 }
 
-function InvitationDialog({ onCreated }: { readonly onCreated: (url: string) => void }): React.JSX.Element {
+function InvitationDialog({
+  onCreated,
+}: {
+  readonly onCreated: (url: string) => void;
+}): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const mutation = useCreateInvitation();
   const form = useForm<CreateInvitationRequest>({
@@ -94,7 +113,9 @@ function InvitationDialog({ onCreated }: { readonly onCreated: (url: string) => 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invite a team member</DialogTitle>
-          <DialogDescription>Generates a one-time invitation URL. Copy and send manually.</DialogDescription>
+          <DialogDescription>
+            Generates a one-time invitation URL. Copy and send manually.
+          </DialogDescription>
         </DialogHeader>
         <form
           className="space-y-3"
@@ -125,7 +146,14 @@ async function copyInviteUrl(url: string): Promise<void> {
 function InvitationRow({
   inv,
 }: {
-  readonly inv: { id: string; token: string; email: string; role: string; expiresAt: number; acceptedAt: number | null };
+  readonly inv: {
+    id: string;
+    token: string;
+    email: string;
+    role: string;
+    expiresAt: number;
+    acceptedAt: number | null;
+  };
 }): React.JSX.Element {
   const url = `${window.location.origin}/invite/${inv.token}`;
   const accepted = inv.acceptedAt !== null;

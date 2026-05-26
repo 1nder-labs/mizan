@@ -70,7 +70,10 @@ function groupRowsByStatus(rows: readonly CaseRow[]): Readonly<Record<CaseStatus
   return groups;
 }
 
-function readStatusFromRecord(data: Record<string, unknown> | undefined, field: string): CaseStatus | undefined {
+function readStatusFromRecord(
+  data: Record<string, unknown> | undefined,
+  field: string,
+): CaseStatus | undefined {
   if (!data) return undefined;
   const candidate = data[field];
   return typeof candidate === "string" && isCaseStatus(candidate) ? candidate : undefined;
@@ -160,7 +163,9 @@ function handleDragResult(
   const targetStatus = deriveTargetStatus(event, rows);
   if (!sourceStatus || !targetStatus || sourceStatus === targetStatus) return;
   if (!canReviewerTransition(sourceStatus, targetStatus)) {
-    toast.error(COPY.queue.transitionDenied(statusDisplay(sourceStatus), statusDisplay(targetStatus)));
+    toast.error(
+      COPY.queue.transitionDenied(statusDisplay(sourceStatus), statusDisplay(targetStatus)),
+    );
     return;
   }
   const caseId = String(event.active.id);
@@ -177,7 +182,7 @@ export function KanbanBoard({ rows, search }: KanbanBoardProps): React.JSX.Eleme
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const sensors = useBoardSensors();
-  const activeRow = activeId ? rows.find((row) => row.id === activeId) ?? null : null;
+  const activeRow = activeId ? (rows.find((row) => row.id === activeId) ?? null) : null;
   const onDragStart = (event: DragStartEvent): void => setActiveId(String(event.active.id));
   const onDragEnd = (event: DragEndEvent): void => {
     setActiveId(null);

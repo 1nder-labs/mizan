@@ -8,170 +8,170 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as QueueRouteImport } from './routes/queue'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as InviteTokenRouteImport } from './routes/invite.$token'
-import { Route as CaseCaseIdRouteImport } from './routes/case/$caseId'
-import { Route as AdminTeamRouteImport } from './routes/admin/team'
-import { Route as AdminAuditRouteImport } from './routes/admin/audit'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as QueueRouteImport } from "./routes/queue";
+import { Route as LoginRouteImport } from "./routes/login";
+import { Route as IndexRouteImport } from "./routes/index";
+import { Route as InviteTokenRouteImport } from "./routes/invite.$token";
+import { Route as CaseCaseIdRouteImport } from "./routes/case/$caseId";
+import { Route as AdminTeamRouteImport } from "./routes/admin/team";
+import { Route as AdminAuditRouteImport } from "./routes/admin/audit";
 
 const QueueRoute = QueueRouteImport.update({
-  id: '/queue',
-  path: '/queue',
+  id: "/queue",
+  path: "/queue",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+  id: "/login",
+  path: "/login",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const InviteTokenRoute = InviteTokenRouteImport.update({
-  id: '/invite/$token',
-  path: '/invite/$token',
+  id: "/invite/$token",
+  path: "/invite/$token",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const CaseCaseIdRoute = CaseCaseIdRouteImport.update({
-  id: '/case/$caseId',
-  path: '/case/$caseId',
+  id: "/case/$caseId",
+  path: "/case/$caseId",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AdminTeamRoute = AdminTeamRouteImport.update({
-  id: '/admin/team',
-  path: '/admin/team',
+  id: "/admin/team",
+  path: "/admin/team",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AdminAuditRoute = AdminAuditRouteImport.update({
-  id: '/admin/audit',
-  path: '/admin/audit',
+  id: "/admin/audit",
+  path: "/admin/audit",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/queue': typeof QueueRoute
-  '/admin/audit': typeof AdminAuditRoute
-  '/admin/team': typeof AdminTeamRoute
-  '/case/$caseId': typeof CaseCaseIdRoute
-  '/invite/$token': typeof InviteTokenRoute
+  "/": typeof IndexRoute;
+  "/login": typeof LoginRoute;
+  "/queue": typeof QueueRoute;
+  "/admin/audit": typeof AdminAuditRoute;
+  "/admin/team": typeof AdminTeamRoute;
+  "/case/$caseId": typeof CaseCaseIdRoute;
+  "/invite/$token": typeof InviteTokenRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/queue': typeof QueueRoute
-  '/admin/audit': typeof AdminAuditRoute
-  '/admin/team': typeof AdminTeamRoute
-  '/case/$caseId': typeof CaseCaseIdRoute
-  '/invite/$token': typeof InviteTokenRoute
+  "/": typeof IndexRoute;
+  "/login": typeof LoginRoute;
+  "/queue": typeof QueueRoute;
+  "/admin/audit": typeof AdminAuditRoute;
+  "/admin/team": typeof AdminTeamRoute;
+  "/case/$caseId": typeof CaseCaseIdRoute;
+  "/invite/$token": typeof InviteTokenRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/login': typeof LoginRoute
-  '/queue': typeof QueueRoute
-  '/admin/audit': typeof AdminAuditRoute
-  '/admin/team': typeof AdminTeamRoute
-  '/case/$caseId': typeof CaseCaseIdRoute
-  '/invite/$token': typeof InviteTokenRoute
+  __root__: typeof rootRouteImport;
+  "/": typeof IndexRoute;
+  "/login": typeof LoginRoute;
+  "/queue": typeof QueueRoute;
+  "/admin/audit": typeof AdminAuditRoute;
+  "/admin/team": typeof AdminTeamRoute;
+  "/case/$caseId": typeof CaseCaseIdRoute;
+  "/invite/$token": typeof InviteTokenRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
+  fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
-    | '/'
-    | '/login'
-    | '/queue'
-    | '/admin/audit'
-    | '/admin/team'
-    | '/case/$caseId'
-    | '/invite/$token'
-  fileRoutesByTo: FileRoutesByTo
+    | "/"
+    | "/login"
+    | "/queue"
+    | "/admin/audit"
+    | "/admin/team"
+    | "/case/$caseId"
+    | "/invite/$token";
+  fileRoutesByTo: FileRoutesByTo;
   to:
-    | '/'
-    | '/login'
-    | '/queue'
-    | '/admin/audit'
-    | '/admin/team'
-    | '/case/$caseId'
-    | '/invite/$token'
+    | "/"
+    | "/login"
+    | "/queue"
+    | "/admin/audit"
+    | "/admin/team"
+    | "/case/$caseId"
+    | "/invite/$token";
   id:
-    | '__root__'
-    | '/'
-    | '/login'
-    | '/queue'
-    | '/admin/audit'
-    | '/admin/team'
-    | '/case/$caseId'
-    | '/invite/$token'
-  fileRoutesById: FileRoutesById
+    | "__root__"
+    | "/"
+    | "/login"
+    | "/queue"
+    | "/admin/audit"
+    | "/admin/team"
+    | "/case/$caseId"
+    | "/invite/$token";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  LoginRoute: typeof LoginRoute
-  QueueRoute: typeof QueueRoute
-  AdminAuditRoute: typeof AdminAuditRoute
-  AdminTeamRoute: typeof AdminTeamRoute
-  CaseCaseIdRoute: typeof CaseCaseIdRoute
-  InviteTokenRoute: typeof InviteTokenRoute
+  IndexRoute: typeof IndexRoute;
+  LoginRoute: typeof LoginRoute;
+  QueueRoute: typeof QueueRoute;
+  AdminAuditRoute: typeof AdminAuditRoute;
+  AdminTeamRoute: typeof AdminTeamRoute;
+  CaseCaseIdRoute: typeof CaseCaseIdRoute;
+  InviteTokenRoute: typeof InviteTokenRoute;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/queue': {
-      id: '/queue'
-      path: '/queue'
-      fullPath: '/queue'
-      preLoaderRoute: typeof QueueRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/invite/$token': {
-      id: '/invite/$token'
-      path: '/invite/$token'
-      fullPath: '/invite/$token'
-      preLoaderRoute: typeof InviteTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/case/$caseId': {
-      id: '/case/$caseId'
-      path: '/case/$caseId'
-      fullPath: '/case/$caseId'
-      preLoaderRoute: typeof CaseCaseIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/team': {
-      id: '/admin/team'
-      path: '/admin/team'
-      fullPath: '/admin/team'
-      preLoaderRoute: typeof AdminTeamRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/audit': {
-      id: '/admin/audit'
-      path: '/admin/audit'
-      fullPath: '/admin/audit'
-      preLoaderRoute: typeof AdminAuditRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+    "/queue": {
+      id: "/queue";
+      path: "/queue";
+      fullPath: "/queue";
+      preLoaderRoute: typeof QueueRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/login": {
+      id: "/login";
+      path: "/login";
+      fullPath: "/login";
+      preLoaderRoute: typeof LoginRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/invite/$token": {
+      id: "/invite/$token";
+      path: "/invite/$token";
+      fullPath: "/invite/$token";
+      preLoaderRoute: typeof InviteTokenRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/case/$caseId": {
+      id: "/case/$caseId";
+      path: "/case/$caseId";
+      fullPath: "/case/$caseId";
+      preLoaderRoute: typeof CaseCaseIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/admin/team": {
+      id: "/admin/team";
+      path: "/admin/team";
+      fullPath: "/admin/team";
+      preLoaderRoute: typeof AdminTeamRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/admin/audit": {
+      id: "/admin/audit";
+      path: "/admin/audit";
+      fullPath: "/admin/audit";
+      preLoaderRoute: typeof AdminAuditRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
@@ -183,7 +183,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminTeamRoute: AdminTeamRoute,
   CaseCaseIdRoute: CaseCaseIdRoute,
   InviteTokenRoute: InviteTokenRoute,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();

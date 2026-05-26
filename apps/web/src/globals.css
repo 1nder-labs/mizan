@@ -330,14 +330,12 @@
    * forensic-precision instead of dead negative space.
    */
   .board-canvas {
-    background-image:
-      radial-gradient(circle at 1px 1px, oklch(0 0 0 / 0.05) 1px, transparent 0);
+    background-image: radial-gradient(circle at 1px 1px, oklch(0 0 0 / 0.05) 1px, transparent 0);
     background-size: 16px 16px;
   }
 
   .dark .board-canvas {
-    background-image:
-      radial-gradient(circle at 1px 1px, oklch(1 0 0 / 0.05) 1px, transparent 0);
+    background-image: radial-gradient(circle at 1px 1px, oklch(1 0 0 / 0.05) 1px, transparent 0);
   }
 
   /** Animation primitives for kanban + drawer reveals. */

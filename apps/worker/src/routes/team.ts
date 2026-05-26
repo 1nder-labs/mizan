@@ -160,7 +160,11 @@ const publicInvitations = new Hono<{ Bindings: CloudflareBindings; Variables: Au
     const db = makeDb(c.env.DB);
     const inv = await findInvitationByToken(db, token);
     if (!inv) return c.json(teamError("invitation_not_found"), 404);
-    const inviter = await db.select({ name: users.name }).from(users).where(eq(users.id, inv.invited_by)).get();
+    const inviter = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, inv.invited_by))
+      .get();
     const payload = InvitationLookupResponseSchema.parse({
       email: inv.email,
       role: inv.role,

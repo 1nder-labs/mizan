@@ -86,7 +86,9 @@ export function StoryPanel({ overlay }: StoryPanelProps): React.JSX.Element {
             {overlay.story}
           </p>
         </div>
-        {overlay.vouching_narrative ? <VouchingBlock narrative={overlay.vouching_narrative} /> : null}
+        {overlay.vouching_narrative ? (
+          <VouchingBlock narrative={overlay.vouching_narrative} />
+        ) : null}
       </CardContent>
     </Card>
   );

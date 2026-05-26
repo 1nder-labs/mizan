@@ -52,7 +52,11 @@ export function StoryCoherenceBody({ payload }: StoryCoherenceBodyProps): React.
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <ScoreBar label="Named-entity density" value={payload.named_entity_density} />
-        <ScoreBar label="Template match (lower better)" value={payload.template_match_score} invert />
+        <ScoreBar
+          label="Template match (lower better)"
+          value={payload.template_match_score}
+          invert
+        />
       </div>
       <p className="whitespace-pre-wrap rounded-lg border border-border/40 bg-background/60 p-4 text-[13px] leading-relaxed text-foreground/90">
         {payload.coherence_summary}

@@ -61,10 +61,7 @@ export {
 
 export { CaseOverlaySchema, type CaseOverlay } from "./schemas/case-overlay.ts";
 
-export {
-  REVIEWER_TRANSITIONS,
-  canReviewerTransition,
-} from "./schemas/reviewer-transitions.ts";
+export { REVIEWER_TRANSITIONS, canReviewerTransition } from "./schemas/reviewer-transitions.ts";
 
 export {
   DocumentKeyEnum,

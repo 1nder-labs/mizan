@@ -90,9 +90,7 @@ export const TeamErrorCodeEnum = z.enum([
   "user_not_found",
 ]);
 
-export const TeamErrorBodySchema = z
-  .object({ error: TeamErrorCodeEnum })
-  .strict();
+export const TeamErrorBodySchema = z.object({ error: TeamErrorCodeEnum }).strict();
 
 export type TeamMember = z.infer<typeof TeamMemberSchema>;
 export type TeamMembersResponse = z.infer<typeof TeamMembersResponseSchema>;

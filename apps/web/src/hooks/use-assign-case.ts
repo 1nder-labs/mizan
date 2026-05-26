@@ -33,7 +33,10 @@ export interface AssignInput {
   readonly userId: string | null;
 }
 
-async function readAssignError(res: { readonly status: number; json(): Promise<unknown> }): Promise<CaseAssignError> {
+async function readAssignError(res: {
+  readonly status: number;
+  json(): Promise<unknown>;
+}): Promise<CaseAssignError> {
   const body: unknown = await res.json().catch(() => null);
   const parsed = CaseAssignErrorBodySchema.safeParse(body);
   return new CaseAssignError(parsed.success ? parsed.data.error : "forbidden", res.status);

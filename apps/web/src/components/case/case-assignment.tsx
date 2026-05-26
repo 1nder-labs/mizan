@@ -31,7 +31,10 @@ function deriveOptionDisabled(
   return optionUserId === viewerId && currentAssignee === null;
 }
 
-export function CaseAssignment({ currentAssignee, caseId }: CaseAssignmentProps): React.JSX.Element {
+export function CaseAssignment({
+  currentAssignee,
+  caseId,
+}: CaseAssignmentProps): React.JSX.Element {
   const labelId = useId();
   const session = useQuery(sessionQueryOptions());
   const viewer = session.data?.user;

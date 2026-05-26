@@ -5,13 +5,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import {
-  History,
-  ListChecks,
-  LogOut,
-  ShieldCheck,
-  Users2,
-} from "lucide-react";
+import { History, ListChecks, LogOut, ShieldCheck, Users2 } from "lucide-react";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
 import { sessionQueryOptions } from "@/lib/auth-client.ts";
 import { useSignOut } from "@/hooks/use-sign-out.ts";

@@ -83,7 +83,12 @@ function ColumnHeader({
   );
 }
 
-export function KanbanColumn({ spec, rows, activeStatus, activeId }: KanbanColumnProps): React.JSX.Element {
+export function KanbanColumn({
+  spec,
+  rows,
+  activeStatus,
+  activeId,
+}: KanbanColumnProps): React.JSX.Element {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${spec.status}`,
     data: { columnStatus: spec.status },

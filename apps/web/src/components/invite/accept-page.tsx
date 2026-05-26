@@ -67,7 +67,8 @@ function InviteSignInPrompt({
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p className="text-muted-foreground">
-            {inv.inviterName} invited <strong>{inv.email}</strong> to join as <strong>{inv.role}</strong>.
+            {inv.inviterName} invited <strong>{inv.email}</strong> to join as{" "}
+            <strong>{inv.role}</strong>.
           </p>
           <p className="text-xs text-muted-foreground">
             Sign in with that email to finish joining the team.
@@ -132,7 +133,9 @@ export function InviteAcceptPage(): React.JSX.Element {
     return (
       <InviteShell>
         <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">Loading invitation…</CardContent>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Loading invitation…
+          </CardContent>
         </Card>
       </InviteShell>
     );
@@ -141,7 +144,8 @@ export function InviteAcceptPage(): React.JSX.Element {
     return <InviteError message="This invitation is not valid. Ask your admin for a fresh link." />;
   }
   if (inv.accepted) return <InviteError message="This invitation has already been accepted." />;
-  if (Date.now() > inv.expiresAt) return <InviteError message="This invitation has expired. Ask your admin for a fresh link." />;
+  if (Date.now() > inv.expiresAt)
+    return <InviteError message="This invitation has expired. Ask your admin for a fresh link." />;
   if (!session.data) return <InviteSignInPrompt inv={inv} />;
   if (!emailMatches) {
     return (

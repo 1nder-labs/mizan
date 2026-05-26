@@ -201,7 +201,11 @@ async function fetchDetailPayload(db: Db, id: string): Promise<CaseDetailRespons
   if (parsed.success) return parsed.data;
 
   console.error(`[cases-list] case-detail parse degraded (id=${id}):`, parsed.error.message);
-  const caseOnly = CaseDetailResponseSchema.safeParse({ case: draft.case, brief: null, overlay: draft.overlay });
+  const caseOnly = CaseDetailResponseSchema.safeParse({
+    case: draft.case,
+    brief: null,
+    overlay: draft.overlay,
+  });
   if (caseOnly.success) return caseOnly.data;
 
   console.error(`[cases-list] case-detail full parse failed (id=${id}):`, caseOnly.error.message);

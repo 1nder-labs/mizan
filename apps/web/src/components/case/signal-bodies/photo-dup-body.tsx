@@ -60,8 +60,18 @@ function PhotoAssetCard({
 export function PhotoDupBody({ caseId, payload }: PhotoDupBodyProps): React.JSX.Element {
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      <PhotoAssetCard caseId={caseId} docKey="creator_id" label="Creator ID photo" asset={payload.creator_id} />
-      <PhotoAssetCard caseId={caseId} docKey="category_doc" label="Category document" asset={payload.category_doc} />
+      <PhotoAssetCard
+        caseId={caseId}
+        docKey="creator_id"
+        label="Creator ID photo"
+        asset={payload.creator_id}
+      />
+      <PhotoAssetCard
+        caseId={caseId}
+        docKey="category_doc"
+        label="Category document"
+        asset={payload.category_doc}
+      />
     </div>
   );
 }

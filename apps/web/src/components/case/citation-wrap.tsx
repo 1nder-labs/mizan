@@ -86,7 +86,11 @@ export function wrapCitations(
   return segments.map((segment, index) => {
     const slice = text.slice(segment.start, segment.end);
     if (segment.chip) {
-      return chipFactory(segment.chip.clauseId, segment.chip.source, `chip-${index}-${segment.start}`);
+      return chipFactory(
+        segment.chip.clauseId,
+        segment.chip.source,
+        `chip-${index}-${segment.start}`,
+      );
     }
     return <span key={`text-${index}-${segment.start}`}>{slice}</span>;
   });

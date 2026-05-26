@@ -205,7 +205,9 @@ export const invitations = sqliteTable(
       .$defaultFn(() => crypto.randomUUID()),
     token: text("token").notNull().unique(),
     email: text("email").notNull(),
-    role: text("role", { enum: ["reviewer", "admin"] as const }).notNull().default("reviewer"),
+    role: text("role", { enum: ["reviewer", "admin"] as const })
+      .notNull()
+      .default("reviewer"),
     invited_by: text("invited_by")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),

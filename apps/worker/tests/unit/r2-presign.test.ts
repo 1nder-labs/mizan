@@ -47,7 +47,9 @@ describe("signR2GetUrl", () => {
   });
 
   test("object key outside allowed prefixes is rejected", async () => {
-    await expect(signR2GetUrl({ ...validInput, objectKey: "../secrets/api-key" })).rejects.toThrow();
+    await expect(
+      signR2GetUrl({ ...validInput, objectKey: "../secrets/api-key" }),
+    ).rejects.toThrow();
   });
 
   test("each of the three allowed prefixes signs successfully", async () => {

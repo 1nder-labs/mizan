@@ -22,9 +22,7 @@ export const CaseAssignErrorCodeEnum = z.enum([
   "self_assign_only",
 ]);
 
-export const CaseAssignErrorBodySchema = z
-  .object({ error: CaseAssignErrorCodeEnum })
-  .strict();
+export const CaseAssignErrorBodySchema = z.object({ error: CaseAssignErrorCodeEnum }).strict();
 
 export type CaseAssignRequest = z.infer<typeof CaseAssignRequestSchema>;
 export type CaseAssignResponse = z.infer<typeof CaseAssignResponseSchema>;

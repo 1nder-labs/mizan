@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { canReviewerTransition, REVIEWER_TRANSITIONS } from "../src/schemas/reviewer-transitions.ts";
+import {
+  canReviewerTransition,
+  REVIEWER_TRANSITIONS,
+} from "../src/schemas/reviewer-transitions.ts";
 
 describe("canReviewerTransition", () => {
   test("DRAFT → QUEUED is allowed (POST /brief enqueue)", () => {
@@ -27,7 +30,14 @@ describe("canReviewerTransition", () => {
   });
 
   test("ACTIONED → anything is rejected", () => {
-    for (const target of ["DRAFT", "QUEUED", "RUNNING", "SUSPENDED_HITL", "READY_FOR_REVIEW", "FAILED"] as const) {
+    for (const target of [
+      "DRAFT",
+      "QUEUED",
+      "RUNNING",
+      "SUSPENDED_HITL",
+      "READY_FOR_REVIEW",
+      "FAILED",
+    ] as const) {
       expect(canReviewerTransition("ACTIONED", target)).toBe(false);
     }
   });

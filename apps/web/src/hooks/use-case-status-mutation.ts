@@ -68,7 +68,10 @@ export function useCaseStatusMutation() {
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<QueueResponse>(key);
       if (previous) {
-        queryClient.setQueryData<QueueResponse>(key, setStatusInPage(previous, input.caseId, input.targetStatus));
+        queryClient.setQueryData<QueueResponse>(
+          key,
+          setStatusInPage(previous, input.caseId, input.targetStatus),
+        );
       }
       return { key, previous };
     },

@@ -49,13 +49,25 @@ function PageNav({
 }): React.JSX.Element {
   return (
     <div className="flex items-center gap-1">
-      <Button variant="ghost" size="sm" onClick={onPrev} disabled={pageNumber <= 1} aria-label={COPY.documents.pdfPrevPage}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onPrev}
+        disabled={pageNumber <= 1}
+        aria-label={COPY.documents.pdfPrevPage}
+      >
         <ChevronLeft className="size-4" />
       </Button>
       <span className="text-xs tabular text-muted-foreground">
         {COPY.documents.pdfPageOf(pageNumber, numPages || 1)}
       </span>
-      <Button variant="ghost" size="sm" onClick={onNext} disabled={pageNumber >= numPages} aria-label={COPY.documents.pdfNextPage}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onNext}
+        disabled={pageNumber >= numPages}
+        aria-label={COPY.documents.pdfNextPage}
+      >
         <ChevronRight className="size-4" />
       </Button>
     </div>
@@ -75,11 +87,23 @@ function ZoomControls({
 }): React.JSX.Element {
   return (
     <div className="flex items-center gap-1">
-      <Button variant="ghost" size="sm" onClick={onZoomOut} disabled={scale <= MIN_SCALE} aria-label={COPY.documents.pdfZoomOut}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onZoomOut}
+        disabled={scale <= MIN_SCALE}
+        aria-label={COPY.documents.pdfZoomOut}
+      >
         <ZoomOut className="size-4" />
       </Button>
       <span className="text-xs tabular text-muted-foreground">{Math.round(scale * 100)}%</span>
-      <Button variant="ghost" size="sm" onClick={onZoomIn} disabled={scale >= MAX_SCALE} aria-label={COPY.documents.pdfZoomIn}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onZoomIn}
+        disabled={scale >= MAX_SCALE}
+        aria-label={COPY.documents.pdfZoomIn}
+      >
         <ZoomIn className="size-4" />
       </Button>
       <Button variant="ghost" size="sm" onClick={onOpenInTab} aria-label={COPY.documents.openInTab}>
@@ -140,11 +164,18 @@ function PdfBody({
         options={DOCUMENT_OPTIONS}
         onLoadSuccess={onLoadSuccess}
         onLoadError={onLoadError}
-        loading={<p className="text-center text-sm text-muted-foreground">{COPY.documents.loadingLabel}</p>}
+        loading={
+          <p className="text-center text-sm text-muted-foreground">{COPY.documents.loadingLabel}</p>
+        }
         error={<p className="text-center text-sm text-destructive">{COPY.documents.loadError}</p>}
         aria-label={fileName}
       >
-        <Page pageNumber={pageNumber} scale={scale} renderAnnotationLayer={false} renderTextLayer={false} />
+        <Page
+          pageNumber={pageNumber}
+          scale={scale}
+          renderAnnotationLayer={false}
+          renderTextLayer={false}
+        />
       </Document>
     </div>
   );
@@ -154,7 +185,10 @@ export default function PdfViewer({ url, fileName }: PdfViewerProps): React.JSX.
   const [numPages, setNumPages] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1);
-  const onLoadSuccess = useCallback(({ numPages: total }: { numPages: number }) => setNumPages(total), []);
+  const onLoadSuccess = useCallback(
+    ({ numPages: total }: { numPages: number }) => setNumPages(total),
+    [],
+  );
   const onLoadError = useCallback((error: Error) => {
     toast.error(COPY.documents.loadError, { description: error.message });
   }, []);

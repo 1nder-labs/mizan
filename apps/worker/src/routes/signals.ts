@@ -37,9 +37,9 @@ async function fetchLatestSignalsForCase(db: Db, caseId: string) {
     .all();
 }
 
-function pickLatestPerType<
-  T extends { readonly signal_type: string; readonly recorded_at: Date },
->(rows: T[]): T[] {
+function pickLatestPerType<T extends { readonly signal_type: string; readonly recorded_at: Date }>(
+  rows: T[],
+): T[] {
   const seen = new Map<string, T>();
   for (const row of rows) {
     if (!seen.has(row.signal_type)) seen.set(row.signal_type, row);

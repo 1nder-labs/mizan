@@ -32,7 +32,10 @@ export class TeamApiError extends Error {
   }
 }
 
-async function readTeamError(res: { readonly status: number; json(): Promise<unknown> }): Promise<TeamApiError> {
+async function readTeamError(res: {
+  readonly status: number;
+  json(): Promise<unknown>;
+}): Promise<TeamApiError> {
   const body: unknown = await res.json().catch(() => null);
   const parsed = TeamErrorBodySchema.safeParse(body);
   return new TeamApiError(parsed.success ? parsed.data.error : "forbidden", res.status);
@@ -90,7 +93,9 @@ export async function fetchInvitationLookup(token: string): Promise<InvitationLo
   return InvitationLookupResponseSchema.parse(await res.json());
 }
 
-export function useInvitationLookup(token: string): UseQueryResult<InvitationLookupResponse, Error> {
+export function useInvitationLookup(
+  token: string,
+): UseQueryResult<InvitationLookupResponse, Error> {
   return useQuery<InvitationLookupResponse, Error>({
     queryKey: ["team", "invitation-lookup", token],
     queryFn: () => fetchInvitationLookup(token),
