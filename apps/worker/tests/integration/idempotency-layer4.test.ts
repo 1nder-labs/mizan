@@ -93,39 +93,43 @@ describe("Layer 4 action idempotency", () => {
     expect(body).toEqual(cachedBody);
   });
 
-  it("cache hit short-circuits — no reviewer_actions row + status unchanged", { timeout: 30_000 }, async () => {
-    const { cookie, userId } = await seedReviewer();
-    const caseId = crypto.randomUUID();
-    const actionId = crypto.randomUUID();
-    await insertSuspendedCase(caseId, userId);
+  it(
+    "cache hit short-circuits — no reviewer_actions row + status unchanged",
+    { timeout: 30_000 },
+    async () => {
+      const { cookie, userId } = await seedReviewer();
+      const caseId = crypto.randomUUID();
+      const actionId = crypto.randomUUID();
+      await insertSuspendedCase(caseId, userId);
 
-    await seedActionCache(userId, caseId, actionId, {
-      status: "success",
-      brief: null,
-      action: { action: "APPROVE", rationale: "", action_id: actionId },
-    });
+      await seedActionCache(userId, caseId, actionId, {
+        status: "success",
+        brief: null,
+        action: { action: "APPROVE", rationale: "", action_id: actionId },
+      });
 
-    const res = await exports.default.fetch(
-      new Request(`${BASE}/api/cases/${caseId}/action`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Cookie: cookie },
-        body: JSON.stringify({ action: "APPROVE", rationale: "", action_id: actionId }),
-      }),
-    );
-    expect(res.status).toBe(200);
+      const res = await exports.default.fetch(
+        new Request(`${BASE}/api/cases/${caseId}/action`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: cookie },
+          body: JSON.stringify({ action: "APPROVE", rationale: "", action_id: actionId }),
+        }),
+      );
+      expect(res.status).toBe(200);
 
-    const rowCount = await env.DB.prepare(
-      "SELECT COUNT(*) AS n FROM reviewer_actions WHERE action_id = ?",
-    )
-      .bind(actionId)
-      .first<{ n: number }>();
-    expect(rowCount?.n).toBe(0);
+      const rowCount = await env.DB.prepare(
+        "SELECT COUNT(*) AS n FROM reviewer_actions WHERE action_id = ?",
+      )
+        .bind(actionId)
+        .first<{ n: number }>();
+      expect(rowCount?.n).toBe(0);
 
-    const caseRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
-      .bind(caseId)
-      .first<{ status: string }>();
-    expect(caseRow?.status).toBe("SUSPENDED_HITL");
-  });
+      const caseRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+        .bind(caseId)
+        .first<{ status: string }>();
+      expect(caseRow?.status).toBe("SUSPENDED_HITL");
+    },
+  );
 
   it("does NOT serve cached response when the same action_id is sent on a different case", async () => {
     const { cookie, userId } = await seedReviewer();
