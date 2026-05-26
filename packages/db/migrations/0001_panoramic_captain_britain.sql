@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `briefs_case_run_uniq` ON `briefs` (`case_id`,`run_id`);

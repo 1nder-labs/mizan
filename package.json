@@ -1,0 +1,58 @@
+{
+  "name": "mizan",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "@cloudflare/workers-types": "4.20260506.1"
+    }
+  },
+  "scripts": {
+    "dev": "bun --filter '*' dev",
+    "build": "bun --filter '*' build",
+    "test": "bun --filter '*' test",
+    "lint": "oxlint",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "typecheck": "bun --filter '*' typecheck",
+    "audit": "bun audit --audit-level=high",
+    "knip": "knip",
+    "eval": "bun --filter @mizan/eval eval",
+    "deploy": "bun --filter @mizan/worker deploy",
+    "db:generate": "bun --filter @mizan/db generate",
+    "db:migrate:local": "bun --filter @mizan/worker db:migrate:local",
+    "db:migrate:prod": "bun --filter @mizan/worker db:migrate:prod",
+    "db:seed": "bun scripts/seed-users.ts",
+    "db:seed:cases": "bun scripts/seed-cases.ts",
+    "db:seed:r2": "bun scripts/seed-r2-fixtures.ts",
+    "embed-corpus": "bun scripts/embed-corpus.ts",
+    "auth:generate": "bun --filter @mizan/db auth:generate"
+  },
+  "devDependencies": {
+    "@mizan/shared": "workspace:*",
+    "@socketsecurity/bun-security-scanner": "1.1.2",
+    "@types/bun": "1.3.13",
+    "knip": "6.12.0",
+    "lefthook": "2.1.6",
+    "oxfmt": "0.48.0",
+    "oxlint": "1.63.0",
+    "typescript": "6.0.3",
+    "zod": "4.4.3"
+  },
+  "overrides": {
+    "drizzle-orm": "0.45.2",
+    "lodash": "4.18.1"
+  },
+  "engines": {
+    "bun": ">=1.3.11"
+  },
+  "packageManager": "bun@1.3.11",
+  "patchedDependencies": {
+    "xxhash-wasm@1.1.0": "patches/xxhash-wasm@1.1.0.patch"
+  },
+  "trustedDependencies": []
+}

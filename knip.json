@@ -1,0 +1,32 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["portless"],
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.ts", "scripts/lib/*.ts"],
+      "ignoreDependencies": ["@socketsecurity/bun-security-scanner"]
+    },
+    "apps/worker": {
+      "entry": ["tests/**/*.test.ts"],
+      "ignore": ["src/auth/index.ts", "tests/setup/d1-types.d.ts"],
+      "ignoreDependencies": ["cloudflare"]
+    },
+    "apps/web": {
+      "entry": [
+        "src/routes/**/*.{ts,tsx}",
+        "src/components/ui/**/*.tsx",
+        "src/**/*.test.ts",
+        "tests/**/*.test.{ts,tsx}"
+      ]
+    },
+    "packages/db": {
+      "ignoreDependencies": ["better-auth"]
+    },
+    "packages/mastra": {},
+    "packages/shared": {},
+    "packages/eval": {
+      "entry": ["src/**/*.eval.ts"]
+    }
+  }
+}

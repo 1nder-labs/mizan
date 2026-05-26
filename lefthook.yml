@@ -1,0 +1,49 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      run: bun run lint
+    typecheck:
+      run: bun run typecheck
+    knip:
+      run: bun run knip
+    audit:
+      run: bun audit --audit-level=high
+    forbidden-patterns:
+      run: |
+        files=$(git diff --cached --name-only --diff-filter=ACMR -z |
+                tr '\0' '\n' |
+                grep -E '\.(ts|tsx|js|jsx|mjs|cjs)$' |
+                grep -vE '(^|/)tests/|(^|/)scripts/|\.test\.(ts|tsx)$|\.eval\.(ts|tsx)$|/src/testing\.ts$|\.d\.ts$|/routeTree\.gen\.ts$|/components/ui/' || true)
+        if [ -z "$files" ]; then exit 0; fi
+        if printf '%s\n' "$files" | xargs grep -nE '\bas any\b|\bas unknown\b|: any\b|//\s*(TODO|FIXME|HACK|XXX)\b|//\s*@ts-nocheck\b' 2>/dev/null; then
+          echo "lefthook: forbidden pattern detected in staged non-test source"
+          exit 1
+        fi
+        exit 0
+
+pre-push:
+  commands:
+    test:
+      run: bun --filter '*' test
+    vitest-import-gate:
+      run: |
+        matches=$(grep -rlnE "from \"vitest\"|from 'vitest'|@vitest/" \
+                  apps/worker/tests/unit apps/web/src 2>/dev/null || true)
+        if [ -n "$matches" ]; then
+          echo "lefthook: vitest import detected in files that should be on bun test:"
+          echo "$matches"
+          exit 1
+        fi
+        exit 0
+    ui-state-map-gate:
+      run: |
+        if grep -rE "from ['\"]zustand['\"]|import \{ create \} from ['\"]zustand['\"]" apps/web/src 2>/dev/null; then
+          echo "lefthook: zustand import detected in apps/web/src — PRD §7.7.5 forbids global stores"
+          exit 1
+        fi
+        if grep -rE "(^|[^a-zA-Z_.])fetch\(" apps/web/src --exclude-dir=tests 2>/dev/null | grep -v "src/lib/rpc.ts"; then
+          echo "lefthook: direct fetch() call detected outside apps/web/src/lib/rpc.ts"
+          exit 1
+        fi
+        exit 0

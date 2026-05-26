@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "WebWorker"],
+    "types": ["@cloudflare/vitest-pool-workers/types", "bun"]
+  },
+  "include": [
+    "./unit/**/*.ts",
+    "./integration/**/*.ts",
+    "./setup/**/*.ts",
+    "./fixtures/**/*.ts",
+    "../worker-configuration.d.ts",
+    "../src/env-augment.d.ts"
+  ]
+}

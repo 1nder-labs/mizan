@@ -1,0 +1,25 @@
+{
+  "name": "@mizan/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "bun test ./tests",
+    "auth:generate": "bunx @better-auth/cli generate --config ../../apps/worker/src/auth/index.ts --output src/auth.schema.ts -y",
+    "generate": "drizzle-kit generate",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@mizan/shared": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "drizzle-zod": "0.8.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@better-auth/cli": "1.4.22",
+    "better-auth": "1.6.9",
+    "drizzle-kit": "0.31.10",
+    "typescript": "6.0.3"
+  }
+}

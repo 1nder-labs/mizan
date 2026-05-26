@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "WebWorker"],
+    "types": ["@cloudflare/workers-types"],
+    "paths": {
+      "@mizan/worker/index": ["../../apps/worker/src/index.ts"]
+    }
+  },
+  "include": ["./src/**/*.ts"]
+}

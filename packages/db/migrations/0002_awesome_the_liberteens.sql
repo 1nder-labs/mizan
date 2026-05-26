@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `signals_case_run_type_uniq` ON `signals` (`case_id`,`run_id`,`signal_type`);
