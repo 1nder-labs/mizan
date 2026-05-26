@@ -11,7 +11,13 @@ export const Route = createFileRoute("/admin/audit")({
   validateSearch: AuditListSearchSchema,
   beforeLoad: ({ context }) => requireAdmin(context.queryClient),
   loaderDeps: ({ search }) => ({ search }),
+  /**
+   * `prefetchQuery` (not `ensureQueryData`) — warms the cache but never
+   * throws, so a transient 500 surfaces inside the audit panel via
+   * `AuditList`'s `isError` branch + toast, not as a full-route
+   * "Something went wrong!" boundary that nukes the whole page.
+   */
   loader: ({ context, deps }) =>
-    context.queryClient.ensureQueryData(auditListQueryOptions(deps.search)),
+    context.queryClient.prefetchQuery(auditListQueryOptions(deps.search)),
   component: AdminAuditPage,
 });
