@@ -36,6 +36,20 @@
       "when": 1779688027224,
       "tag": "0004_funny_robbie_robertson",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1779788546133,
+      "tag": "0005_wise_lily_hollister",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1779788724685,
+      "tag": "0006_chemical_captain_stacy",
+      "breakpoints": true
     }
   ]
 }

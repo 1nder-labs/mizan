@@ -74,10 +74,12 @@ export const cases = sqliteTable(
     created_by: text("created_by")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
+    assigned_to: text("assigned_to").references(() => users.id, { onDelete: "set null" }),
   },
   (table) => [
     index("cases_status_updated_idx").on(table.status, table.updated_at),
     index("cases_created_by_idx").on(table.created_by),
+    index("cases_assigned_to_idx").on(table.assigned_to),
   ],
 );
 
@@ -193,6 +195,31 @@ export const workflow_events = sqliteTable(
       .$defaultFn(() => new Date()),
   },
   (table) => [uniqueIndex("workflow_events_run_seq_idx").on(table.run_id, table.seq)],
+);
+
+export const invitations = sqliteTable(
+  "invitations",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    token: text("token").notNull().unique(),
+    email: text("email").notNull(),
+    role: text("role", { enum: ["reviewer", "admin"] as const }).notNull().default("reviewer"),
+    invited_by: text("invited_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    accepted_at: integer("accepted_at", { mode: "timestamp_ms" }),
+    accepted_by: text("accepted_by").references(() => users.id, { onDelete: "set null" }),
+    expires_at: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    created_at: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("invitations_token_uniq").on(table.token),
+    index("invitations_email_idx").on(table.email),
+  ],
 );
 
 export const eval_promotions = sqliteTable(

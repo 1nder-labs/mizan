@@ -19,6 +19,7 @@ function makeCase(overrides: Partial<Case>): Case {
     created_at: new Date(FIXED_NOW - 60_000),
     updated_at: new Date(FIXED_NOW - 60_000),
     created_by: "33333333-3333-4333-8333-333333333301",
+    assigned_to: null,
     ...overrides,
   };
 }

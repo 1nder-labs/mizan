@@ -3,6 +3,7 @@ export { clampInt, clampUnit, ensureUuid } from "./clamp.ts";
 export { LoginSchema, type LoginInput } from "./schemas/login.ts";
 
 export {
+  ASSIGNEE_QUERY_PARAM,
   CASE_STATUS_VALUES,
   CaseRowSchema,
   CaseStatusEnum,
@@ -10,6 +11,7 @@ export {
   isCaseStatus,
   LatestBriefProjectionSchema,
   QUEUE_PAGE_SIZE,
+  QueueAssigneeFilterEnum,
   QueueResponseSchema,
   QueueSearchSchema,
   QueueSortEnum,
@@ -17,6 +19,7 @@ export {
   type CaseRow,
   type CaseStatus,
   type LatestBriefProjection,
+  type QueueAssigneeFilter,
   type QueueResponse,
   type QueueSearch,
   type QueueSort,
@@ -95,6 +98,44 @@ export {
   type CaseSignalsResponse,
   type SignalType,
 } from "./schemas/case-signals.ts";
+
+export {
+  CaseAssignErrorBodySchema,
+  CaseAssignErrorCodeEnum,
+  CaseAssignRequestSchema,
+  CaseAssignResponseSchema,
+  type CaseAssignErrorBody,
+  type CaseAssignErrorCode,
+  type CaseAssignRequest,
+  type CaseAssignResponse,
+} from "./schemas/case-assign.ts";
+
+export {
+  CreateInvitationRequestSchema,
+  CreateInvitationResponseSchema,
+  InvitationAcceptRequestSchema,
+  InvitationAcceptResponseSchema,
+  InvitationLookupResponseSchema,
+  TeamErrorBodySchema,
+  TeamErrorCodeEnum,
+  TeamInvitationSchema,
+  TeamInvitationsResponseSchema,
+  TeamMemberSchema,
+  TeamMembersResponseSchema,
+  TeamRoleEnum,
+  type CreateInvitationRequest,
+  type CreateInvitationResponse,
+  type InvitationAcceptRequest,
+  type InvitationAcceptResponse,
+  type InvitationLookupResponse,
+  type TeamErrorBody,
+  type TeamErrorCode,
+  type TeamInvitation,
+  type TeamInvitationsResponse,
+  type TeamMember,
+  type TeamMembersResponse,
+  type TeamRole,
+} from "./schemas/team.ts";
 
 export {
   PhotoAssetSignalSchema,

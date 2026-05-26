@@ -24,6 +24,7 @@ import { authRoutes } from "./routes/auth.ts";
 import { caseRoutes } from "./routes/cases.ts";
 import { meRoutes } from "./routes/me.ts";
 import { policyClauseRoutes } from "./routes/policy-clauses.ts";
+import { teamRoutes } from "./routes/team.ts";
 
 const apiApp = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables }>()
   .use("*", authInit)
@@ -31,7 +32,8 @@ const apiApp = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables
   .route("/me", meRoutes)
   .route("/admin", adminRoutes)
   .route("/cases", caseRoutes)
-  .route("/policy", policyClauseRoutes);
+  .route("/policy", policyClauseRoutes)
+  .route("/team", teamRoutes);
 
 const app = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables }>()
   .get("/health", (c) => c.json({ status: "ok" }))

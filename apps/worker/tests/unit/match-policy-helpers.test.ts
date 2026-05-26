@@ -19,6 +19,7 @@ describe("matchPolicy helpers", () => {
         brief_partial_json: {},
         current_run_id: null,
         created_by: "user",
+        assigned_to: null,
         created_at: new Date(),
         updated_at: new Date(),
         story: "Urgent surgery",

@@ -21,6 +21,7 @@ import { requireRole } from "../middleware/require-role.ts";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { actionRoutes } from "./actions.ts";
+import { assignmentsRoutes } from "./assignments.ts";
 import { caseStreamHandler } from "./case-stream.ts";
 import { casesListRoutes } from "./cases-list.ts";
 import { documentsRoutes } from "./documents.ts";
@@ -178,6 +179,7 @@ export const caseRoutes = new Hono<{
   .route("/", actionRoutes)
   .route("/", documentsRoutes)
   .route("/", signalsRoutes)
+  .route("/", assignmentsRoutes)
   .get("/:id/stream", zValidator("param", StreamParamsSchema), caseStreamHandler)
   .post(
     "/:id/brief",

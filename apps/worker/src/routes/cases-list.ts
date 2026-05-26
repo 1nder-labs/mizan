@@ -8,7 +8,7 @@
  */
 
 import { zValidator } from "@hono/zod-validator";
-import { count, desc, eq, asc, and, sql, type SQL } from "drizzle-orm";
+import { count, desc, eq, asc, and, isNull, or, sql, type SQL } from "drizzle-orm";
 import {
   caseListProjection,
   makeDb,
@@ -34,11 +34,29 @@ import type { ProducerVariables } from "../middleware/producer-guard.ts";
 
 const ParamIdSchema = z.object({ id: z.string().uuid() });
 
-function buildFilters(search: QueueSearch): SQL | undefined {
+interface ViewerContext {
+  readonly userId: string;
+  readonly role: "reviewer" | "admin";
+}
+
+function resolveAssigneeFilter(search: QueueSearch, viewer: ViewerContext): SQL | undefined {
+  const explicit = search.assignee;
+  const effective = explicit ?? (viewer.role === "admin" ? "all" : "me");
+  if (effective === "all") return undefined;
+  if (effective === "unassigned") return isNull(casesTable.assigned_to);
+  if (effective === "me") {
+    return or(eq(casesTable.assigned_to, viewer.userId), isNull(casesTable.assigned_to));
+  }
+  return eq(casesTable.assigned_to, effective);
+}
+
+function buildFilters(search: QueueSearch, viewer: ViewerContext): SQL | undefined {
   const filters: SQL[] = [];
   if (search.status) filters.push(eq(casesTable.status, search.status));
   if (search.category) filters.push(eq(casesTable.category, search.category));
   if (search.geography) filters.push(eq(casesTable.geography, search.geography));
+  const assignee = resolveAssigneeFilter(search, viewer);
+  if (assignee) filters.push(assignee);
   if (filters.length === 0) return undefined;
   return filters.length === 1 ? filters[0] : and(...filters);
 }
@@ -133,6 +151,7 @@ function buildDetailDraft(
     created_at: Date;
     updated_at: Date;
     brief_partial_json: unknown;
+    assigned_to: string | null;
   },
   brief: CaseRowProjection,
   latestBrief: { recommendation: string; verification_path: string } | null,
@@ -147,6 +166,7 @@ function buildDetailDraft(
       created_at: row.created_at.getTime(),
       updated_at: row.updated_at.getTime(),
       latest_brief: latestBrief,
+      assigned_to: row.assigned_to,
     },
     brief: brief
       ? {
@@ -195,7 +215,8 @@ export const casesListRoutes = new Hono<{
   .get("/", zValidator("query", QueueSearchSchema), async (c) => {
     const search = c.req.valid("query");
     const db = makeDb(c.env.DB);
-    const where = buildFilters(search);
+    const viewer: ViewerContext = { userId: c.var.user.id, role: c.var.user.role };
+    const where = buildFilters(search, viewer);
     const orderBy = buildOrder(search.sort);
     const offset = (search.page - 1) * QUEUE_PAGE_SIZE;
 
@@ -226,6 +247,7 @@ export const casesListRoutes = new Hono<{
         created_at: row.created_at.getTime(),
         updated_at: row.updated_at.getTime(),
         latest_brief: resolveLatestBrief(row.latestRecommendation, row.latestVerificationPath),
+        assigned_to: row.assigned_to,
       })),
       page: search.page,
       pageSize: QUEUE_PAGE_SIZE,

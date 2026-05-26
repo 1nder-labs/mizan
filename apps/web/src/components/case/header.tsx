@@ -8,6 +8,7 @@ import type { CaseRow } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { formatShortDateTime } from "@/lib/format.ts";
+import { CaseAssignment } from "./case-assignment.tsx";
 
 export function CaseHeader({ caseRow }: { readonly caseRow: CaseRow }): React.JSX.Element {
   return (
@@ -31,9 +32,12 @@ export function CaseHeader({ caseRow }: { readonly caseRow: CaseRow }): React.JS
           <p className="text-sm text-muted-foreground">{caseRow.geography}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Clock className="size-3.5" />
-        <span className="tabular">Updated {formatShortDateTime(caseRow.updated_at)}</span>
+      <div className="flex flex-col items-end gap-3">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Clock className="size-3.5" />
+          <span className="tabular">Updated {formatShortDateTime(caseRow.updated_at)}</span>
+        </div>
+        <CaseAssignment caseId={caseRow.id} currentAssignee={caseRow.assigned_to} />
       </div>
     </header>
   );

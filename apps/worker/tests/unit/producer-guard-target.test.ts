@@ -23,6 +23,7 @@ const draftRow: Case = {
   created_at: new Date(),
   updated_at: new Date(),
   created_by: "33333333-3333-4333-8333-333333333301",
+  assigned_to: null,
 };
 
 const queuedRow: Case = {

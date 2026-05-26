@@ -25,5 +25,6 @@ export function caseListProjection() {
     claimed_zakat_category: cases.claimed_zakat_category,
     created_at: cases.created_at,
     updated_at: cases.updated_at,
+    assigned_to: cases.assigned_to,
   } as const;
 }
