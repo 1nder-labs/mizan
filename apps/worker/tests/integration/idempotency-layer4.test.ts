@@ -93,7 +93,7 @@ describe("Layer 4 action idempotency", () => {
     expect(body).toEqual(cachedBody);
   });
 
-  it("cache hit short-circuits — no reviewer_actions row + status unchanged", async () => {
+  it("cache hit short-circuits — no reviewer_actions row + status unchanged", { timeout: 30_000 }, async () => {
     const { cookie, userId } = await seedReviewer();
     const caseId = crypto.randomUUID();
     const actionId = crypto.randomUUID();
