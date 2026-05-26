@@ -149,7 +149,7 @@ export function CaseDetail({ caseRow, brief, overlay }: CaseDetailProps): React.
    *   StoryPanel · DocumentsPanel + MetaCard (aside) · BriefPanel · SignalExpansionPanel
    */
   return (
-    <article className="mx-auto max-w-7xl space-y-8 px-6 py-8">
+    <article className="w-full space-y-8 px-6 py-8">
       <CaseHeader caseRow={caseRow} />
       <StoryPanel overlay={overlay} />
       <section className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">

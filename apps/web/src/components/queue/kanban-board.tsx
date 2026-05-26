@@ -43,10 +43,10 @@ interface KanbanBoardProps {
 
 const COLUMN_SPECS: readonly KanbanColumnSpec[] = [
   { status: "DRAFT", readOnly: false },
-  { status: "QUEUED", readOnly: true },
+  { status: "QUEUED", readOnly: false },
   { status: "RUNNING", readOnly: true },
   { status: "SUSPENDED_HITL", readOnly: false },
-  { status: "READY_FOR_REVIEW", readOnly: true },
+  { status: "READY_FOR_REVIEW", readOnly: false },
   { status: "ACTIONED", readOnly: false },
   { status: "FAILED", readOnly: true },
 ];

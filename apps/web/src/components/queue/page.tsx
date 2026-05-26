@@ -36,7 +36,7 @@ export function QueuePage(): React.JSX.Element {
 
   return (
     <AuthenticatedShell context="Reviewer queue">
-      <section className="mx-auto max-w-7xl space-y-6 px-6 py-8">
+      <section className="w-full space-y-6 px-6 py-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <QueueSummary
             isPending={query.isPending}

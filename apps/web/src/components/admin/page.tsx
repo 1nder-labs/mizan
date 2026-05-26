@@ -8,7 +8,7 @@ import { AuthenticatedShell } from "@/components/shell/authenticated-shell.tsx";
 export function AdminAuditPage(): React.JSX.Element {
   return (
     <AuthenticatedShell context="Admin / audit">
-      <section className="mx-auto max-w-5xl space-y-8 px-6 py-8">
+      <section className="w-full space-y-8 px-6 py-8">
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
             <Lock className="size-3" />
