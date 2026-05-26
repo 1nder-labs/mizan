@@ -27,7 +27,7 @@ export const REVIEWER_TRANSITIONS: Readonly<Record<CaseStatus, ReadonlyArray<Cas
   QUEUED: [],
   RUNNING: [],
   SUSPENDED_HITL: ["ACTIONED"],
-  READY_FOR_REVIEW: [],
+  READY_FOR_REVIEW: ["ACTIONED"],
   ACTIONED: [],
   FAILED: [],
 } as const;

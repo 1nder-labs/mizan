@@ -164,7 +164,7 @@ function handleDragResult(
     return;
   }
   const caseId = String(event.active.id);
-  if (sourceStatus === "SUSPENDED_HITL" && targetStatus === "ACTIONED") {
+  if (targetStatus === "ACTIONED") {
     callbacks.setPendingAction({ caseId, actionId: crypto.randomUUID() });
     return;
   }

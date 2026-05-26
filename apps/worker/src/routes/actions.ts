@@ -227,7 +227,7 @@ export const actionRoutes = new Hono<{
     const claimed = await transitionCase(db, {
       caseId,
       runId,
-      from: "SUSPENDED_HITL",
+      from: ["SUSPENDED_HITL", "READY_FOR_REVIEW"],
       to: "RUNNING",
     });
     if (!claimed) return c.json(errorBody("not_suspended_or_claimed"), 409);

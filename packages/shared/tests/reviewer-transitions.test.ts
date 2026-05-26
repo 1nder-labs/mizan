@@ -18,8 +18,8 @@ describe("canReviewerTransition", () => {
     expect(canReviewerTransition("QUEUED", "RUNNING")).toBe(false);
   });
 
-  test("READY_FOR_REVIEW → ACTIONED is rejected (action route does not handle it)", () => {
-    expect(canReviewerTransition("READY_FOR_REVIEW", "ACTIONED")).toBe(false);
+  test("READY_FOR_REVIEW → ACTIONED is allowed (actions.ts accepts both source statuses)", () => {
+    expect(canReviewerTransition("READY_FOR_REVIEW", "ACTIONED")).toBe(true);
   });
 
   test("FAILED → DRAFT is rejected (terminal for reviewer)", () => {
