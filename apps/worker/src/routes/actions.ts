@@ -88,6 +88,49 @@ async function revertClaim(db: Db, caseId: string, runId: string, cause: unknown
  * claim so the reviewer can retry, skip the KV cache so the failed
  * response is not pinned for 24h.
  */
+async function safePostCommit(
+  c: ActionContext,
+  db: Db,
+  caseId: string,
+  body: ReviewerActionRequest,
+): Promise<ReviewerActionResponse> {
+  let brief: BriefPayload | null = null;
+  try {
+    brief = await loadLatestBrief(db, caseId);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[action] loadLatestBrief failed post-commit (case=${caseId}): ${reason}`);
+  }
+  const response = buildResponse(brief, body);
+  try {
+    await cacheActionResponse(c.env.KV, c.var.user.id, caseId, body.action_id, response);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[action] cacheActionResponse failed post-commit (case=${caseId}): ${reason}`);
+  }
+  return response;
+}
+
+/**
+ * Drives `run.resume` end-to-end. Either returns the parsed success
+ * body OR revertClaims + returns a typed failure code. The try/catch
+ * wraps the FULL pre-success window (`createBriefRun` + `run.resume`)
+ * so any throw — including Mastra bootstrap failures — triggers
+ * `revertClaim`. Without that, a bootstrap throw after the atomic
+ * claim leaves the case stuck in RUNNING and the reviewer's retry
+ * hits a 409 race-loser.
+ *
+ * Mastra `WorkflowResult.status` can also return `failed | suspended
+ * | paused | tripwire` without throwing — Phase 7 has a single HITL
+ * gate, so anything other than `success` is a workflow defect:
+ * revert the claim, skip KV, and surface 500 + workflow_failed.
+ *
+ * Post-success work (`loadLatestBrief`, `cacheActionResponse`) is
+ * best-effort and isolated in `safePostCommit` — the workflow has
+ * already committed to ACTIONED, so an infra blip on brief load or
+ * cache write must NOT tear down the response. Logged, degraded
+ * (brief → null on load failure), still 200.
+ */
 async function resumeAndCommit(
   c: ActionContext,
   db: Db,
@@ -96,14 +139,14 @@ async function resumeAndCommit(
   runId: string,
   body: ReviewerActionRequest,
 ): Promise<{ ok: true; response: ReviewerActionResponse } | { ok: false; code: ActionErrorCode }> {
-  const { run, requestContext } = await createBriefRun(c.env, {
-    caseId,
-    runId,
-    reviewerId: c.var.user.id,
-    category: caseRow.category,
-    geography: caseRow.geography,
-  });
   try {
+    const { run, requestContext } = await createBriefRun(c.env, {
+      caseId,
+      runId,
+      reviewerId: c.var.user.id,
+      category: caseRow.category,
+      geography: caseRow.geography,
+    });
     const result = await run.resume({
       step: "awaitReviewerAction",
       resumeData: { ...body, reviewer_id: c.var.user.id },
@@ -122,9 +165,7 @@ async function resumeAndCommit(
     await revertClaim(db, caseId, runId, error);
     return { ok: false, code: "workflow_failed" };
   }
-  const response = buildResponse(await loadLatestBrief(db, caseId), body);
-  await cacheActionResponse(c.env.KV, c.var.user.id, caseId, body.action_id, response);
-  return { ok: true, response };
+  return { ok: true, response: await safePostCommit(c, db, caseId, body) };
 }
 
 export const actionRoutes = new Hono<{
