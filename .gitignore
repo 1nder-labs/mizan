@@ -8,9 +8,7 @@ AGENTS.md
 !/docs/solutions/
 !/docs/solutions/**
 
-# Bun — bun.lock (text JSONC, Bun 1.2+ default) IS committed.
-# bun.lockb (legacy binary lockfile) is defensively ignored.
-bun.lockb
+# Bun (bun.lockb IS committed per Bun convention)
 node_modules/
 .bun/
 bun-debug.log*
@@ -23,7 +21,6 @@ build/
 .turbo/
 .dev.vars
 .dev.vars.*
-!.dev.vars.example
 *.tsbuildinfo
 
 # Env / secrets
@@ -38,11 +35,6 @@ build/
 *.swp
 *.swo
 
-# Claude Code local state (scheduled-task locks, agent worktrees)
-.claude/
-
-.agents/
-
 # Test / coverage
 coverage/
 .nyc_output/
@@ -54,12 +46,3 @@ docker/langfuse-db-data/
 # Logs
 *.log
 logs/
-
-# Playwright MCP scratch
-.playwright-mcp/
-*.png
-
-# Playwright local-only — never committed
-apps/web/test-results/
-apps/web/playwright-report/
-apps/web/.playwright/
