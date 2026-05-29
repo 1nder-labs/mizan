@@ -67,7 +67,13 @@ export async function claimCaseQueued(
     db
       .update(cases)
       .set({ status: "QUEUED", current_run_id: runId, updated_at: new Date() })
-      .where(and(eq(cases.id, caseId), inArray(cases.status, [...sources]))),
+      .where(
+        and(
+          eq(cases.id, caseId),
+          eq(cases.organization_id, organizationId),
+          inArray(cases.status, [...sources]),
+        ),
+      ),
     ...emits.map((emit) => emitLiveEvent(db, emit)),
   ]);
   const row = await db.select().from(cases).where(eq(cases.id, caseId)).get();
@@ -101,7 +107,13 @@ export async function claimCaseRunning(
     db
       .update(cases)
       .set({ status: target, current_run_id: runId, updated_at: new Date() })
-      .where(and(eq(cases.id, caseId), inArray(cases.status, [...sources]))),
+      .where(
+        and(
+          eq(cases.id, caseId),
+          eq(cases.organization_id, emitContext.organizationId),
+          inArray(cases.status, [...sources]),
+        ),
+      ),
     ...emits.map((emit) => emitLiveEvent(db, emit)),
   ]);
   const row = await db.select().from(cases).where(eq(cases.id, caseId)).get();

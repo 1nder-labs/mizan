@@ -54,7 +54,7 @@ export function requireRole(
 
       const role = parseMemberRole(membership.role);
       if (!role || roles.indexOf(role) === -1) {
-        return c.json({ error: "Forbidden" }, 403);
+        return c.json({ error: "forbidden" }, 403);
       }
 
       const viewer = ViewerContextSchema.parse({

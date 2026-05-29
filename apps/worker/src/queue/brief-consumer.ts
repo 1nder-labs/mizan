@@ -41,15 +41,20 @@ async function claimRun(db: Db, message: BriefQueueMessage): Promise<Case | unde
     to: "RUNNING",
   });
   if (claimed) {
-    await emitWorkflowEvent(db, {
-      caseId: message.caseId,
-      runId: message.runId,
-      eventType: "workflow.start",
-      payloadMeta: {
+    try {
+      await emitWorkflowEvent(db, {
         caseId: message.caseId,
         runId: message.runId,
-      },
-    });
+        eventType: "workflow.start",
+        payloadMeta: {
+          caseId: message.caseId,
+          runId: message.runId,
+        },
+      });
+    } catch (error) {
+      await revertClaim(db, message.caseId, message.runId);
+      throw error;
+    }
   }
   return claimed;
 }

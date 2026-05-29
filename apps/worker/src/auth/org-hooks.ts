@@ -52,6 +52,7 @@ async function provisionOrgOnSignup(
         gt(invitations.expiresAt, new Date(Date.now())),
       ),
     )
+    .orderBy(asc(invitations.createdAt))
     .get();
   if (pending) {
     await api.addMember({

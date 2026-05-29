@@ -20,6 +20,7 @@ export const CaseAssignErrorCodeEnum = z.enum([
   "forbidden",
   "invalid_user",
   "self_assign_only",
+  "assignment_conflict",
 ]);
 
 export const CaseAssignErrorBodySchema = z.object({ error: CaseAssignErrorCodeEnum }).strict();

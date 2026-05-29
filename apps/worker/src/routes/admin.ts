@@ -50,7 +50,7 @@ export const adminRoutes = new Hono<{
       });
       return c.json(payload);
     } catch (error) {
-      if (error instanceof ForbiddenError) return c.json({ error: "Forbidden" }, 403);
+      if (error instanceof ForbiddenError) return c.json({ error: "forbidden" }, 403);
       throw error;
     }
   })

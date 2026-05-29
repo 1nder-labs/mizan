@@ -13,6 +13,7 @@ import { requireRole, type ViewerVariables } from "../middleware/require-role.ts
 
 const LIVE_TAIL_INTERVAL_MS = 500;
 const STREAM_WALL_CLOCK_MS = 90_000;
+const RECONNECT_BACKOFF_MS = 5_000;
 
 const TopicQuerySchema = z.object({ topic: z.string().min(1) });
 const TopicPattern = /^(org|user|case):(.+)$/;
@@ -71,6 +72,30 @@ async function fetchEventsAfterSeq(db: ReturnType<typeof makeDb>, topic: string,
     .all();
 }
 
+/**
+ * Wraps the tape read so a transient D1 failure backs the client off with a
+ * `retry:` directive instead of killing the stream. Mirrors the per-case
+ * stream's `safeFetch` (`case-stream.ts`) so both SSE surfaces degrade the
+ * same way.
+ */
+async function safeFetch(
+  db: ReturnType<typeof makeDb>,
+  topic: string,
+  afterSeq: number,
+  stream: StreamApi,
+): Promise<Awaited<ReturnType<typeof fetchEventsAfterSeq>> | undefined> {
+  try {
+    return await fetchEventsAfterSeq(db, topic, afterSeq);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[events-stream] D1 read failed (topic=${topic} after_seq=${afterSeq}): ${reason}`,
+    );
+    await stream.writeSSE({ retry: RECONNECT_BACKOFF_MS, data: "" });
+    return undefined;
+  }
+}
+
 async function writeLiveRow(
   stream: StreamApi,
   row: Awaited<ReturnType<typeof fetchEventsAfterSeq>>[number],
@@ -105,7 +130,8 @@ async function streamTopicEvents(
   let lastSeen = parseLastEventId(c.req.header("Last-Event-ID"));
   const startedAt = Date.now();
 
-  const catchUp = await fetchEventsAfterSeq(db, topic, lastSeen);
+  const catchUp = await safeFetch(db, topic, lastSeen, stream);
+  if (catchUp === undefined) return;
   for (const row of catchUp) {
     await writeLiveRow(stream, row);
     lastSeen = row.seq;
@@ -114,7 +140,8 @@ async function streamTopicEvents(
   while (!c.req.raw.signal.aborted && Date.now() - startedAt < STREAM_WALL_CLOCK_MS) {
     await stream.sleep(LIVE_TAIL_INTERVAL_MS);
     if (c.req.raw.signal.aborted) return;
-    const fresh = await fetchEventsAfterSeq(db, topic, lastSeen);
+    const fresh = await safeFetch(db, topic, lastSeen, stream);
+    if (fresh === undefined) return;
     for (const row of fresh) {
       await writeLiveRow(stream, row);
       lastSeen = row.seq;

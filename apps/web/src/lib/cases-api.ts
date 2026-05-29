@@ -31,43 +31,14 @@ import {
 } from "@mizan/shared";
 import { api, apiMutate } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
+import { assertAuthorized, ReviewerActionError } from "./api-errors.ts";
 
-/**
- * Typed `Error` subclass carrying the server's `ActionErrorCode`
- * discriminator so callers can `instanceof` + switch on `.code`
- * instead of string-matching `error.message`.
- */
-export class ReviewerActionError extends Error {
-  readonly code: ActionErrorCode;
-  readonly status: number;
-  constructor(code: ActionErrorCode, status: number) {
-    super(code);
-    this.name = "ReviewerActionError";
-    this.code = code;
-    this.status = status;
-  }
-}
-
-export class UnauthorizedError extends Error {
-  readonly status = 401 as const;
-  constructor(message = "Session expired") {
-    super(message);
-    this.name = "UnauthorizedError";
-  }
-}
-
-export class ForbiddenError extends Error {
-  readonly status = 403 as const;
-  constructor(message = "You don't have permission to view this resource") {
-    super(message);
-    this.name = "ForbiddenError";
-  }
-}
-
-export function assertAuthorized(status: number): void {
-  if (status === 401) throw new UnauthorizedError();
-  if (status === 403) throw new ForbiddenError();
-}
+export {
+  ReviewerActionError,
+  UnauthorizedError,
+  ForbiddenError,
+  assertAuthorized,
+} from "./api-errors.ts";
 
 function toQuery(search: QueueSearch): Record<string, string> {
   const query: Record<string, string> = {

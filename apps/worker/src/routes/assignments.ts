@@ -11,7 +11,7 @@
  * Returns 200 with the canonical `{case_id, assigned_to}` on success.
  */
 import { zValidator } from "@hono/zod-validator";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import {
   buildAssignmentEmits,
   cases,
@@ -112,12 +112,25 @@ export const assignmentsRoutes = new Hono<{
       actorUserId: viewer.userId,
       actorEmail,
     });
-    const updateStmt = db
+    /**
+     * Optimistic-concurrency guard: the UPDATE only lands if `assigned_to`
+     * still holds the value observed at load time. Two reviewers racing to
+     * self-claim the same unassigned case both pass `canReviewerMutate`, but
+     * only the first UPDATE matches `assigned_to IS NULL` — the loser gets 0
+     * rows back and a 409 instead of a silent last-write-wins overwrite.
+     */
+    const expectedAssignment =
+      row.assigned_to === null ? isNull(cases.assigned_to) : eq(cases.assigned_to, row.assigned_to);
+    const updated = await db
       .update(cases)
       .set({ assigned_to: nextAssignment, updated_at: new Date() })
-      .where(and(eq(cases.id, id), eq(cases.organization_id, viewer.organizationId)));
-    const emitStmts = emits.map((emit) => emitLiveEvent(db, emit));
-    await db.batch([updateStmt, ...emitStmts]);
+      .where(
+        and(eq(cases.id, id), eq(cases.organization_id, viewer.organizationId), expectedAssignment),
+      )
+      .returning({ id: cases.id });
+    if (updated.length === 0) return c.json(assignError("assignment_conflict"), 409);
+    const [firstEmit, ...restEmits] = emits.map((emit) => emitLiveEvent(db, emit));
+    if (firstEmit) await db.batch([firstEmit, ...restEmits]);
     const body = CaseAssignResponseSchema.parse({ case_id: id, assigned_to: nextAssignment });
     return c.json(body);
   },
