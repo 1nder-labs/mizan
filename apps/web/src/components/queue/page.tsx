@@ -20,6 +20,9 @@ import { QueueFooter } from "@/components/queue/queue-footer.tsx";
 import { KanbanBoard } from "@/components/queue/kanban-board.tsx";
 import { ViewToggle } from "@/components/queue/view-toggle.tsx";
 import { AuthenticatedShell } from "@/components/shell/authenticated-shell.tsx";
+import { useLiveEvents } from "@/hooks/use-live-events.ts";
+import { toastLiveEvent } from "@/hooks/use-live-events-toasts.ts";
+import { useViewerTopics } from "@/hooks/use-viewer-topics.ts";
 
 const queueApi = getRouteApi("/queue");
 
@@ -27,6 +30,12 @@ export function QueuePage(): React.JSX.Element {
   const search = queueApi.useSearch();
   const navigate = useNavigate({ from: "/queue" });
   const query = useQuery(casesListQueryOptions(search));
+  const { orgId, userId } = useViewerTopics();
+  useLiveEvents(orgId ? `org:${orgId}` : "", { enabled: Boolean(orgId) });
+  useLiveEvents(userId ? `user:${userId}` : "", {
+    enabled: Boolean(userId),
+    onEvent: toastLiveEvent,
+  });
 
   function setSearch(next: Partial<QueueSearch>): void {
     void navigate({ search: (prev) => ({ ...prev, ...next, page: next.page ?? 1 }) });

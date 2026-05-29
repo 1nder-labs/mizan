@@ -76,3 +76,11 @@ export {
   type BriefRunBundle,
   type BriefRunContextInput,
 } from "./runtime/brief-run-factory.ts";
+export { createReviewerCopilotAgent } from "./agents/reviewer-copilot/index.ts";
+export {
+  buildReviewerCopilotTools,
+  type CopilotHandlerDeps,
+  type CopilotRuntimeBag,
+} from "./agents/reviewer-copilot/tools/index.ts";
+export { createTool, type Tool } from "@mastra/core/tools";
+export { RequestContext } from "@mastra/core/request-context";

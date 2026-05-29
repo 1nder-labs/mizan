@@ -912,6 +912,80 @@ _Brief streaming UI:_
 
 ---
 
+### Phase 7.7 — Multi-tenant org foundation + real-time SSE + chatbot + invite hardening
+
+**Goal:** Every authenticated user belongs to at least one organization with a per-org role; every domain row is org-scoped; every client surface updates in real time as events occur; a read-only Mastra chatbot answers queue/case/policy/signal/audit/brief questions with rich inline tool-call rendering; invite + signup completes in one form submission.
+
+**Force-read (internal — MUST read before implementing):**
+
+- [ ] Phase 7.5 — Stakeholder UX (the surfaces being made live)
+- [ ] §7.7.5 State map — server state in TanStack Query, URL in TanStack Router, form in RHF (chat panel + org switcher comply)
+- [ ] §7.9 Per-run SSE pattern — the existing `case-stream.ts` is the proven template the new `/api/events/stream` mirrors
+- [ ] §7.11 Test posture
+
+**Force-read (external via context7 — MUST query before implementing):**
+
+- [ ] context7 `/better-auth/better-auth` — query: "organization plugin schema, databaseHooks.user.create.after auto-create-org pattern, creatorRole, acceptInvitation API, session.activeOrganizationId, requireEmailVerification configuration"
+- [ ] context7 `/mastra-ai/mastra` — query: "createTool with zod input/output, agent.stream with runtimeContext for per-call viewer, toAISdkStream from @mastra/ai-sdk version 6"
+- [ ] context7 `/vercel/ai` — query: "AI SDK 6 useChat with DefaultChatTransport, validateUIMessages, tool-call frame rendering, createUIMessageStreamResponse"
+- [ ] context7 `/honojs/hono` — query: "streamSSE helper with Last-Event-ID header parsing and abort handling"
+
+**In scope:**
+
+- better-auth `organization()` plugin wired with `creatorRole: "admin"`, `databaseHooks.user.create.after` for auto-create-org-or-accept-invite, `databaseHooks.session.create.before` for initial activeOrg
+- All domain tables gain `organization_id`; legacy `users.role` retired; hand-rolled `invitations` table replaced
+- `requireRole` middleware reads role from `member` for `session.activeOrganizationId`; `ViewerContext = {userId, role, organizationId}` is the canonical handler input
+- `live_events` table + `emitLiveEvent` helper batchable into `db.batch([primary, emit])`; workflow-step emits use inline try/catch
+- `GET /api/events/stream?topic=...` with three topic namespaces; 90 s wall-clock cap; Last-Event-ID resume
+- `useLiveEvents(topic)` web hook with `BroadcastChannel` + `navigator.locks` connection dedupe across tabs
+- Mastra `reviewerCopilot` agent with seven read-only tools + verbatim system prompt enforcing PRD §1 advisory framing
+- `chat_threads` + `chat_messages` D1 tables (per-user, per-org)
+- `POST /api/chat` streaming + `GET/POST /api/chat/threads` + `GET /api/chat/threads/:id` (no rename, no delete)
+- ChatPanel UI as plain controlled `<aside>` + active-org switcher in left sidebar footer
+- `emailAndPassword.autoSignIn = true`; no email verification
+- Copy-link button with `execCommand` + pre-disclosure modal fallback
+
+**Out of scope:**
+
+- Mutator chatbot tools — deferred to Phase 7.8 if demand surfaces
+- DO pub/sub — Phase 10 polish
+- Chat-agent Langfuse spans — Phase 8 (sub-bullet added there)
+- Chat tool-call eval — Phase 9 (sub-bullet added there)
+- Production deploy — Phase 10
+
+**Deliverable:**
+
+Fresh signup → admin of own org → empty queue. Invited signup → reviewer in inviter org → populated queue. Drag DRAFT card in tab A → tab B (same org) sees the move in <1 s. Open chat sidebar → ask "list my open cases" → agent calls `list_cases` → inline mini-table renders.
+
+**Acceptance criteria:**
+
+- Fresh `POST /api/auth/sign-up` returns 200 with session cookie; new user has one `member` row with `role = 'admin'`; their org is auto-named after them
+- Pre-existing pending invitation: same signup endpoint instead joins inviter's org with `role = 'reviewer'`; no new org created
+- `GET /api/cases` returns rows only for `session.activeOrganizationId`
+- Drag DRAFT → QUEUED in tab A → tab B's queue board reflects the change in <1 s without manual refresh
+- Action a case in tab A → admin's audit list shows the new row in <1 s
+- Chat panel: "show my SUSPENDED_HITL cases" → tool call renders as pending → loading shimmer → done; clicking a case row navigates to detail
+- Decision-question test: "should I approve case 102?" returns the verbatim refusal string from the system prompt
+- `Cmd+Shift+K` toggles chat panel; state persists across reload
+- Multi-org user: org switcher visible in left sidebar; switching invalidates all queries + chat reloads threads
+- Copy-link button works in Chromium + Firefox + WebKit
+- All four CI gates green: `bun run lint && bun run knip && bun run typecheck && bun run test`
+
+**Implementation notes:**
+
+- D1 batch cannot span the Mastra runtime; workflow-step emits use inline `try { await executeEmit } catch { logger.error }`. Mutating Hono route emits use `db.batch([primary, emit])` for atomicity.
+- The chat panel is a plain `<aside>` controlled by `localStorage`, not a shadcn `<Sidebar side="right">` — the shadcn primitive hardcodes its cookie name + global `Cmd+B` listener.
+- Read-side validation on `chat_messages.parts_json` insulates against AI SDK 6 minor-version schema drift.
+
+**Tests (per §7.11):**
+
+- Unit (bun test): `emitLiveEvent` atomicity, `LiveEventRowSchema` parsing, Mastra tool execute paths, viewer schema strict mode
+- Integration (Vitest + Miniflare): four authorization paths on `/api/events/stream`, mutating routes emit atomically, `/api/chat` happy + cross-user 403 + cross-org 403 + abort + schema-drift, both signup hooks (fresh + invited + already-member + expired-invite), `requireRole` per-org member lookup
+- AppType contract snapshot
+- E2E (Playwright LOCAL-ONLY): signup-and-invite flow (cross-browser) + chat tool-call happy path + decision-refusal exact-string assertion
+
+---
+
 ### Phase 8 — Observability (@mastra/observability + local Langfuse)
 
 **Goal:** Every Mastra step + every LLM call shows in a local Langfuse trace tree with token + cost auto-extracted. No production dependency.
@@ -936,6 +1010,7 @@ _Brief streaming UI:_
 - Root span pattern at every endpoint that triggers LLM-bearing work: `startObservation("brief.generate", { input, asType: "span" })` wraps the Mastra run; nested AI SDK calls inherit via OTel parent context (no manual trace-id plumbing)
 - Tool-level observation: every Mastra tool with an LLM body opens its own `startObservation(toolName, { ..., asType: "tool" })` and ends with `usageDetails`; the trace tree renders `brief.generate → step → tool → llm-generation` automatically
 - `experimental_telemetry` on EVERY AI SDK call per the Phase 2 contract — verified by a CI grep gate (`grep -rL "experimental_telemetry" packages/mastra/src/steps/` should return zero matches; every step file must contain the literal)
+- `reviewerCopilot` agent traces: every `agent.stream` invocation opens a `chat.session` root span; each tool call opens a child `tool.{toolName}` span with input + output captured; trace tree filters by `metadata.viewer.organizationId` so per-org dashboards are possible without query rewrites
 - `models.json` for Langfuse self-hosted to cover the Phase 0-resolved model list (`claude-haiku-4-5`, `claude-opus-4-7`, `gpt-4o`, `gpt-4o-mini`, `anthropic/claude-3.7-sonnet` via OpenRouter); checked into `docker/langfuse-models.json` and seeded into the Langfuse project on first run
 - Local Langfuse instance accessible at `http://localhost:3010`; project + API keys pre-seeded for the demo via a one-shot init script (`scripts/seed-langfuse.ts`); credentials surface in `.dev.vars`
 
@@ -999,6 +1074,7 @@ _Brief streaming UI:_
   - `llm-judge.eval.test.ts` — LLM-as-judge spec for drafted-message specificity (judge with a DIFFERENT provider from the one under test)
   - `provider-swap.eval.test.ts` — runs gold set with each of 3 providers; asserts recommendation stability ≥95%
   - `cost-regression.test.ts` — tracks per-test-run average cost in JSON ledger; alerts on >20% delta
+- `chat-tool-call.eval.test.ts`: 12 gold queries paired with expected tool-call sequences (e.g., "show me SUSPENDED_HITL cases" → expects exactly one `list_cases({status: "SUSPENDED_HITL"})` call). LLM-as-judge for the assistant's final-text quality on the same gold set, judged with a different provider. Refusal-pattern test: "should I approve case 102?" must produce the exact refusal string from the system prompt — no LLM judge, exact substring assertion
 - `npm run eval` script (manual run, not in CI default)
 - CI runs unit + integration + contract + e2e + a 3-case smoke-eval on push (per §7.11 CI policy)
 

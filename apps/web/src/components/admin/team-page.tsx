@@ -7,7 +7,6 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Copy, MailPlus } from "lucide-react";
-import { toast } from "sonner";
 import {
   CreateInvitationRequestSchema,
   type CreateInvitationRequest,
@@ -20,6 +19,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -27,6 +27,8 @@ import {
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
 import { useCreateInvitation, useTeamInvitations, useTeamMembers } from "@/hooks/use-team.ts";
+import { COPY } from "@/lib/copy-constants.ts";
+import { copyInviteUrl } from "@/lib/copy-invite-url.ts";
 import { formatMediumDateTime } from "@/lib/format.ts";
 
 function MemberRow({ member }: { readonly member: TeamMember }): React.JSX.Element {
@@ -91,17 +93,83 @@ function InvitationFields({
   );
 }
 
+async function copyInviteUrlWithFallback(
+  url: string,
+  onReveal: (url: string) => void,
+): Promise<void> {
+  try {
+    await copyInviteUrl(url);
+  } catch {
+    onReveal(url);
+  }
+}
+
+function ClipboardFallbackDialog({
+  url,
+  open,
+  onOpenChange,
+}: {
+  readonly url: string;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+}): React.JSX.Element {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{COPY.invite.clipboardBlockedTitle}</DialogTitle>
+          <DialogDescription>{COPY.invite.clipboardBlockedBody}</DialogDescription>
+        </DialogHeader>
+        <code className="block truncate rounded bg-muted px-2 py-1 text-xs">{url}</code>
+        <p className="text-xs text-muted-foreground">{COPY.invite.copyManuallyHint}</p>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InvitationForm({
+  form,
+  pending,
+  onSubmit,
+}: {
+  readonly form: ReturnType<typeof useForm<CreateInvitationRequest>>;
+  readonly pending: boolean;
+  readonly onSubmit: (values: CreateInvitationRequest) => Promise<void>;
+}): React.JSX.Element {
+  return (
+    <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
+      <InvitationFields form={form} />
+      <Button type="submit" className="w-full" disabled={pending}>
+        {pending ? "Generating…" : "Create invite link"}
+      </Button>
+    </form>
+  );
+}
+
 function InvitationDialog({
   onCreated,
 }: {
   readonly onCreated: (url: string) => void;
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
   const mutation = useCreateInvitation();
   const form = useForm<CreateInvitationRequest>({
     resolver: zodResolver(CreateInvitationRequestSchema),
     defaultValues: { email: "", role: "reviewer", ttlHours: 72 },
   });
+  async function submitInvite(values: CreateInvitationRequest): Promise<void> {
+    const result = await mutation.mutateAsync(values);
+    await copyInviteUrlWithFallback(result.inviteUrl, setFallbackUrl);
+    onCreated(result.inviteUrl);
+    setOpen(false);
+    form.reset();
+  }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -117,34 +185,24 @@ function InvitationDialog({
             Generates a one-time invitation URL. Copy and send manually.
           </DialogDescription>
         </DialogHeader>
-        <form
-          className="space-y-3"
-          onSubmit={form.handleSubmit(async (values) => {
-            const result = await mutation.mutateAsync(values);
-            await navigator.clipboard.writeText(result.inviteUrl);
-            toast.success("Invite link copied to clipboard");
-            onCreated(result.inviteUrl);
-            setOpen(false);
-            form.reset();
-          })}
-        >
-          <InvitationFields form={form} />
-          <Button type="submit" className="w-full" disabled={mutation.isPending}>
-            {mutation.isPending ? "Generating…" : "Create invite link"}
-          </Button>
-        </form>
+        <InvitationForm form={form} pending={mutation.isPending} onSubmit={submitInvite} />
       </DialogContent>
+      {fallbackUrl ? (
+        <ClipboardFallbackDialog
+          url={fallbackUrl}
+          open={Boolean(fallbackUrl)}
+          onOpenChange={(next) => {
+            if (!next) setFallbackUrl(null);
+          }}
+        />
+      ) : null}
     </Dialog>
   );
 }
 
-async function copyInviteUrl(url: string): Promise<void> {
-  await navigator.clipboard.writeText(url);
-  toast.success("Invite link copied");
-}
-
 function InvitationRow({
   inv,
+  onReveal,
 }: {
   readonly inv: {
     id: string;
@@ -154,6 +212,7 @@ function InvitationRow({
     expiresAt: number;
     acceptedAt: number | null;
   };
+  readonly onReveal: (url: string) => void;
 }): React.JSX.Element {
   const url = `${window.location.origin}/invite/${inv.token}`;
   const accepted = inv.acceptedAt !== null;
@@ -168,7 +227,11 @@ function InvitationRow({
         {accepted ? (
           <span className="text-[10px] uppercase tracking-[0.22em] text-emerald-600">Accepted</span>
         ) : (
-          <Button variant="ghost" size="sm" onClick={() => void copyInviteUrl(url)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void copyInviteUrlWithFallback(url, onReveal)}
+          >
             <Copy className="mr-1.5 size-3.5" />
             Copy
           </Button>
@@ -178,7 +241,11 @@ function InvitationRow({
   );
 }
 
-function InvitationsTable(): React.JSX.Element {
+function InvitationsTable({
+  onReveal,
+}: {
+  readonly onReveal: (url: string) => void;
+}): React.JSX.Element {
   const { data } = useTeamInvitations();
   const items = useMemo(() => data?.invitations ?? [], [data]);
   if (items.length === 0) {
@@ -200,7 +267,7 @@ function InvitationsTable(): React.JSX.Element {
       </thead>
       <tbody>
         {items.map((inv) => (
-          <InvitationRow key={inv.id} inv={inv} />
+          <InvitationRow key={inv.id} inv={inv} onReveal={onReveal} />
         ))}
       </tbody>
     </table>
@@ -233,7 +300,13 @@ function MembersCard({ members }: { readonly members: readonly TeamMember[] }): 
   );
 }
 
-function LastInviteBanner({ url }: { readonly url: string }): React.JSX.Element {
+function LastInviteBanner({
+  url,
+  onReveal,
+}: {
+  readonly url: string;
+  readonly onReveal: (url: string) => void;
+}): React.JSX.Element {
   return (
     <Card className="border-foreground/20 bg-foreground/[0.04]">
       <CardContent className="flex items-center justify-between gap-4 py-3">
@@ -241,10 +314,7 @@ function LastInviteBanner({ url }: { readonly url: string }): React.JSX.Element 
         <Button
           variant="ghost"
           size="sm"
-          onClick={async () => {
-            await navigator.clipboard.writeText(url);
-            toast.success("Copied again");
-          }}
+          onClick={() => void copyInviteUrlWithFallback(url, onReveal)}
         >
           <Copy className="mr-1.5 size-3.5" />
           Copy
@@ -257,6 +327,7 @@ function LastInviteBanner({ url }: { readonly url: string }): React.JSX.Element 
 export function AdminTeamPage(): React.JSX.Element {
   const members = useTeamMembers();
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
   return (
     <AuthenticatedShell context="Team management">
       <section className="mx-auto max-w-5xl space-y-8 px-6 py-8">
@@ -269,16 +340,25 @@ export function AdminTeamPage(): React.JSX.Element {
           </div>
           <InvitationDialog onCreated={setLastInviteUrl} />
         </header>
-        {lastInviteUrl ? <LastInviteBanner url={lastInviteUrl} /> : null}
+        {lastInviteUrl ? <LastInviteBanner url={lastInviteUrl} onReveal={setFallbackUrl} /> : null}
         <MembersCard members={members.data?.members ?? []} />
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Invitations</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <InvitationsTable />
+            <InvitationsTable onReveal={setFallbackUrl} />
           </CardContent>
         </Card>
+        {fallbackUrl ? (
+          <ClipboardFallbackDialog
+            url={fallbackUrl}
+            open={Boolean(fallbackUrl)}
+            onOpenChange={(next) => {
+              if (!next) setFallbackUrl(null);
+            }}
+          />
+        ) : null}
       </section>
     </AuthenticatedShell>
   );

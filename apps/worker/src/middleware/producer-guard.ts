@@ -1,8 +1,9 @@
-import { cases, eq, inArray, makeDb, and } from "@mizan/db";
+import { cases, eq, makeDb } from "@mizan/db";
 import type { Case } from "@mizan/db";
 import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import type { CloudflareBindings } from "../env.ts";
+import { claimProducerCase } from "./producer-guard-helpers.ts";
 import type { RoleVariables } from "./require-role.ts";
 
 /**
@@ -77,6 +78,9 @@ export const producerGuard = (target: ProducerTarget) => {
     const db = makeDb(c.env.DB);
     const [existing] = await db.select().from(cases).where(eq(cases.id, caseId)).limit(1);
     if (!existing) return c.json({ error: "case not found" }, 404);
+    if (existing.organization_id !== c.var.viewer.organizationId) {
+      return c.json({ error: "case not found" }, 404);
+    }
     if (existing.status === "QUEUED" || existing.status === "RUNNING") {
       return inFlightResponse(c, existing, onInFlight);
     }
@@ -84,22 +88,18 @@ export const producerGuard = (target: ProducerTarget) => {
       return c.json({ error: "invalid_source_status", current_status: existing.status }, 409);
     }
 
-    const runId = crypto.randomUUID();
-    const updated = await db
-      .update(cases)
-      .set({ status: target, current_run_id: runId, updated_at: new Date() })
-      .where(and(eq(cases.id, caseId), inArray(cases.status, [...sources])))
-      .returning();
+    const claim = await claimProducerCase(db, {
+      caseId,
+      target,
+      fromStatus: existing.status,
+      organizationId: existing.organization_id,
+      actorUserId: c.var.viewer.userId,
+      sources,
+    });
+    if (!claim) return c.json({ error: "case status race lost" }, 409);
 
-    if (updated.length === 0) {
-      return c.json({ error: "case status race lost" }, 409);
-    }
-
-    const row = updated[0];
-    if (!row) return c.json({ error: "case status race lost" }, 409);
-
-    c.set("runId", runId);
-    c.set("caseRow", row);
+    c.set("runId", claim.runId);
+    c.set("caseRow", claim.row);
     await next();
     return;
   });

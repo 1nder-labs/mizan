@@ -87,6 +87,39 @@ export const COPY = {
     actionBlock: "Block",
     actionOverride: "Override",
   },
+  realtime: {
+    assignedToast: "New case assigned to you",
+    unassignedToast: "A case was unassigned from you",
+  },
+  chat: {
+    panelTitle: "Mizan Copilot",
+    panelClose: "Close copilot",
+    composerPlaceholder: "Ask about cases, policy, signals, or audit…",
+    sendLabel: "Send",
+    stopLabel: "Stop",
+    stoppedMarker: "(stopped)",
+    newConversation: "New conversation",
+    emptyTitle: "Ask Mizan Copilot",
+    emptyDescription: "Read-only advisory answers about your queue and cases.",
+    listEmpty: "No cases match this filter.",
+    listTruncated: "Showing the first page of matches. Narrow the filter to see fewer.",
+    toolQueued: (toolName: string) => `Queued: ${toolName}`,
+    toolError: "Tool call failed",
+    retryLabel: "Retry",
+    schemaDrift: "This conversation uses an older message format and cannot be loaded.",
+  },
+  org: {
+    switcherLabel: "Active organization",
+    switchPrompt: "Switch workspace",
+  },
+  invite: {
+    linkCopied: "Invite link copied",
+    clipboardBlockedTitle: "Clipboard blocked",
+    clipboardBlockedBody:
+      "Your browser blocked the clipboard. We can show the URL on screen instead — make sure only you can see it.",
+    revealUrlConfirm: "Show URL",
+    copyManuallyHint: "Copy manually from the field below.",
+  },
 } as const;
 
 const STATUS_DISPLAY: Readonly<Record<CaseStatus, string>> = {

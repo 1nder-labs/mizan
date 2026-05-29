@@ -25,3 +25,47 @@ if (typeof window !== "undefined" && typeof window.matchMedia === "undefined") {
     }),
   });
 }
+
+/** JSDOM lacks EventSource; live-events hooks no-op safely in integration tests. */
+if (typeof globalThis.EventSource === "undefined") {
+  class TestEventSource {
+    readonly url: string;
+    onerror: (() => void) | null = null;
+
+    constructor(url: string) {
+      this.url = url;
+    }
+
+    addEventListener(_type: string, _listener: (event: MessageEvent<string>) => void): void {}
+
+    close(): void {}
+  }
+  globalThis.EventSource = TestEventSource as typeof EventSource;
+}
+
+if (typeof globalThis.BroadcastChannel === "undefined") {
+  class TestBroadcastChannel {
+    readonly name: string;
+    onmessage: ((event: MessageEvent<string>) => void) | null = null;
+
+    constructor(name: string) {
+      this.name = name;
+    }
+
+    postMessage(_data: string): void {}
+
+    close(): void {}
+  }
+  globalThis.BroadcastChannel = TestBroadcastChannel as typeof BroadcastChannel;
+}
+
+if (typeof navigator !== "undefined" && !navigator.locks) {
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: {
+      request: async (_name: string, callback: () => Promise<void>) => {
+        await callback();
+      },
+    },
+  });
+}

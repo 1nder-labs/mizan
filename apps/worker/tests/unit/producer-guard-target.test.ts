@@ -24,6 +24,7 @@ const draftRow: Case = {
   updated_at: new Date(),
   created_by: "33333333-3333-4333-8333-333333333301",
   assigned_to: null,
+  organization_id: "org-test-001",
 };
 
 const queuedRow: Case = {
@@ -34,13 +35,23 @@ const queuedRow: Case = {
 
 let selectRows: Case[] = [draftRow];
 let lastSetStatus: string | undefined;
+let lastRunId: string | null = null;
 
 const dbChain = {
   from: () => dbChain,
   where: () => dbChain,
   limit: () => Promise.resolve(selectRows),
-  set: (values: { status: string }) => {
+  get: () =>
+    Promise.resolve({
+      ...draftRow,
+      status: lastSetStatus ?? draftRow.status,
+      current_run_id: lastRunId,
+    }),
+  set: (values: { status: string; current_run_id?: string | null }) => {
     lastSetStatus = values.status;
+    if (values.current_run_id !== undefined) {
+      lastRunId = values.current_run_id;
+    }
     return dbChain;
   },
   returning: () =>
@@ -48,7 +59,7 @@ const dbChain = {
       {
         ...draftRow,
         status: lastSetStatus ?? draftRow.status,
-        current_run_id: "44444444-4444-4444-8444-444444444401",
+        current_run_id: lastRunId,
       },
     ]),
 };
@@ -57,7 +68,10 @@ mock.module("@mizan/db", () => ({
   makeDb: () => ({
     select: () => dbChain,
     update: () => dbChain,
+    batch: async () => undefined,
   }),
+  buildStatusChangedEmits: () => [],
+  emitLiveEvent: () => ({}),
   cases: {
     id: "id",
     status: "status",
@@ -72,17 +86,25 @@ mock.module("@mizan/db", () => ({
 const { producerGuard } = await import("../../src/middleware/producer-guard.ts");
 
 function makeApp(target: "RUNNING" | "QUEUED") {
-  return new Hono<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>().post(
-    "/:id/brief",
-    producerGuard(target),
-    (c) => c.json({ runId: c.get("runId"), status: c.get("caseRow").status }),
-  );
+  return new Hono<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>()
+    .use("*", async (c, next) => {
+      c.set("viewer", {
+        userId: "33333333-3333-4333-8333-333333333301",
+        role: "reviewer",
+        organizationId: "org-test-001",
+      });
+      await next();
+    })
+    .post("/:id/brief", producerGuard(target), (c) =>
+      c.json({ runId: c.get("runId"), status: c.get("caseRow").status }),
+    );
 }
 
 describe("producerGuard target factory", () => {
   beforeEach(() => {
     selectRows = [draftRow];
     lastSetStatus = undefined;
+    lastRunId = null;
   });
 
   it('factory with target "RUNNING" sets cases.status to RUNNING', async () => {

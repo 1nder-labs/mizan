@@ -25,7 +25,7 @@
  * the route a single transaction surface that the runtime can
  * actually complete cross-request.
  *
- * Failure handling: any post-action throw triggers `revertClaim`,
+ * Failure handling: a post-action throw triggers `revertClaim`,
  * flipping the case back to SUSPENDED_HITL so the reviewer can retry.
  * KV cache is only written on full success — a partial failure leaves
  * no replay-protected response.
@@ -33,11 +33,13 @@
 import { zValidator } from "@hono/zod-validator";
 import { emitWorkflowEvent, promoteEvalRow } from "@mizan/mastra";
 import {
+  and,
   briefs,
   cases,
   desc,
   eq,
   makeDb,
+  resolveCaseOrganizationId,
   reviewer_actions,
   transitionCase,
   type Db,
@@ -58,6 +60,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
 import { cacheActionResponse, readCachedActionResponse } from "../lib/action-cache.ts";
+import { finalizeActionWithLiveEvents, revertActionClaim } from "./action-live-events.ts";
 import type { RoleVariables } from "../middleware/require-role.ts";
 
 type ActionContext = Context<{ Bindings: CloudflareBindings; Variables: RoleVariables }>;
@@ -77,6 +80,7 @@ function normalizeStoredRationale(rationale: string): string {
 async function loadLatestBrief(
   db: Db,
   caseId: string,
+  organizationId: string,
 ): Promise<{ recommendation: Recommendation; payload: BriefPayload } | null> {
   const row = await db
     .select({
@@ -84,7 +88,7 @@ async function loadLatestBrief(
       payload_json: briefs.payload_json,
     })
     .from(briefs)
-    .where(eq(briefs.case_id, caseId))
+    .where(and(eq(briefs.case_id, caseId), eq(briefs.organization_id, organizationId)))
     .orderBy(desc(briefs.composed_at))
     .limit(1)
     .get();
@@ -100,13 +104,8 @@ function buildResponse(
 }
 
 async function revertClaim(db: Db, caseId: string, runId: string, cause: unknown): Promise<void> {
-  const reverted = await transitionCase(db, {
-    caseId,
-    runId,
-    from: "RUNNING",
-    to: "SUSPENDED_HITL",
-  });
   const reason = cause instanceof Error ? cause.message : String(cause);
+  const reverted = await revertActionClaim(db, caseId, runId);
   if (!reverted) {
     console.error(
       `[action] revertClaim no-op — case ${caseId} run ${runId} already off RUNNING (cause=${reason})`,
@@ -122,13 +121,14 @@ interface PostActionInput {
   readonly caseId: string;
   readonly runId: string;
   readonly reviewerId: string;
+  readonly organizationId: string;
   readonly action: ReviewerAction;
   readonly rationale: string;
   readonly actionId: string;
 }
 
 async function runPostActionChain(db: Db, input: PostActionInput): Promise<BriefPayload> {
-  const brief = await loadLatestBrief(db, input.caseId);
+  const brief = await loadLatestBrief(db, input.caseId, input.organizationId);
   if (!brief) {
     throw new Error(`action: brief row missing for case ${input.caseId} run ${input.runId}`);
   }
@@ -141,6 +141,7 @@ async function runPostActionChain(db: Db, input: PostActionInput): Promise<Brief
       action: input.action,
       rationale: normalizeStoredRationale(input.rationale),
       action_id: input.actionId,
+      organization_id: await resolveCaseOrganizationId(db, input.caseId),
     })
     .onConflictDoNothing({ target: reviewer_actions.action_id });
   await emitWorkflowEvent(db, {
@@ -156,15 +157,13 @@ async function runPostActionChain(db: Db, input: PostActionInput): Promise<Brief
     recommendation: brief.recommendation,
     reviewerAction: input.action,
   });
-  const flipped = await transitionCase(db, {
+  await finalizeActionWithLiveEvents(db, {
     caseId: input.caseId,
     runId: input.runId,
-    from: "RUNNING",
-    to: "ACTIONED",
+    reviewerId: input.reviewerId,
+    action: input.action,
+    actionId: input.actionId,
   });
-  if (!flipped) {
-    throw new Error(`action: case ${input.caseId} not RUNNING at finalize (run ${input.runId})`);
-  }
   await emitWorkflowEvent(db, {
     caseId: input.caseId,
     runId: input.runId,
@@ -185,7 +184,8 @@ async function commitAction(
     brief = await runPostActionChain(db, {
       caseId,
       runId,
-      reviewerId: c.var.user.id,
+      reviewerId: c.var.viewer.userId,
+      organizationId: c.var.viewer.organizationId,
       action: body.action,
       rationale: body.rationale,
       actionId: body.action_id,
@@ -196,7 +196,7 @@ async function commitAction(
   }
   const response = buildResponse(brief, body);
   try {
-    await cacheActionResponse(c.env.KV, c.var.user.id, caseId, body.action_id, response);
+    await cacheActionResponse(c.env.KV, c.var.viewer.userId, caseId, body.action_id, response);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     console.error(`[action] cacheActionResponse failed post-commit (case=${caseId}): ${reason}`);
@@ -216,10 +216,19 @@ export const actionRoutes = new Hono<{
     const body = c.req.valid("json");
     const db = makeDb(c.env.DB);
 
-    const cached = await readCachedActionResponse(c.env.KV, c.var.user.id, caseId, body.action_id);
+    const cached = await readCachedActionResponse(
+      c.env.KV,
+      c.var.viewer.userId,
+      caseId,
+      body.action_id,
+    );
     if (cached) return c.json(cached);
 
-    const caseRow = await db.select().from(cases).where(eq(cases.id, caseId)).get();
+    const caseRow = await db
+      .select()
+      .from(cases)
+      .where(and(eq(cases.id, caseId), eq(cases.organization_id, c.var.viewer.organizationId)))
+      .get();
     if (!caseRow) return c.json(errorBody("not_found"), 404);
     if (!caseRow.current_run_id) return c.json(errorBody("no_run"), 409);
     const runId = caseRow.current_run_id;

@@ -5,14 +5,12 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   CreateInvitationResponseSchema,
-  InvitationAcceptResponseSchema,
   InvitationLookupResponseSchema,
   TeamErrorBodySchema,
   TeamInvitationsResponseSchema,
   TeamMembersResponseSchema,
   type CreateInvitationRequest,
   type CreateInvitationResponse,
-  type InvitationAcceptResponse,
   type InvitationLookupResponse,
   type TeamErrorCode,
   type TeamInvitationsResponse,
@@ -100,15 +98,5 @@ export function useInvitationLookup(
     queryKey: ["team", "invitation-lookup", token],
     queryFn: () => fetchInvitationLookup(token),
     retry: 0,
-  });
-}
-
-export function useAcceptInvitation() {
-  return useMutation<InvitationAcceptResponse, Error, { token: string }>({
-    mutationFn: async ({ token }) => {
-      const res = await apiMutate.team.invitations[":token"].accept.$post({ param: { token } });
-      if (!res.ok) throw await readTeamError(res);
-      return InvitationAcceptResponseSchema.parse(await res.json());
-    },
   });
 }

@@ -16,7 +16,9 @@ import type {
   AuditListResponse,
   CaseDetailResponse,
   CaseSignalsResponse,
+  ChatThreadListResponse,
   DocumentUrlResponse,
+  MeResponse,
   PolicyClauseResponse,
   QueueResponse,
   ReviewerActionResponse,
@@ -37,6 +39,8 @@ type WireDocumentUrl = InferResponseType<
 >;
 type WirePolicyClause = InferResponseType<(typeof client.policy.clauses)[":id"]["$get"]>;
 type WireCaseSignals = InferResponseType<(typeof client.cases)[":id"]["signals"]["$get"]>;
+type WireMe = InferResponseType<typeof client.me.$get>;
+type WireChatThreads = InferResponseType<(typeof client.chat)["threads"]["$get"]>;
 
 /**
  * Asserts that the wire queue-list response carries EXACTLY
@@ -80,6 +84,10 @@ const _policyClauseExact: Equal<WirePolicyClause, PolicyClauseResponse> = true;
  */
 const _caseSignalsExact: Equal<WireCaseSignals, CaseSignalsResponse> = true;
 
+const _meExact: Equal<WireMe, MeResponse> = true;
+
+const _chatThreadsExact: Equal<WireChatThreads, ChatThreadListResponse> = true;
+
 describe("AppType contract snapshot", () => {
   test("queue-list wire type matches QueueResponse exactly", () => {
     expect(_queueListExact).toBe(true);
@@ -107,5 +115,13 @@ describe("AppType contract snapshot", () => {
 
   test("case-signals wire type matches CaseSignalsResponse exactly", () => {
     expect(_caseSignalsExact).toBe(true);
+  });
+
+  test("me wire type matches MeResponse exactly", () => {
+    expect(_meExact).toBe(true);
+  });
+
+  test("chat thread list wire type matches ChatThreadListResponse exactly", () => {
+    expect(_chatThreadsExact).toBe(true);
   });
 });

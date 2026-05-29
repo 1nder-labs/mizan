@@ -1,13 +1,14 @@
-import { briefs, makeDb } from "@mizan/db";
+import { briefs, makeDb, resolveCaseOrganizationId, buildBriefReadyEmits } from "@mizan/db";
 import {
   BriefPayloadSchema,
   PolicyCitationSchema,
   type BriefPayload,
+  type CloudflareBindings,
   type PolicyCitation,
 } from "@mizan/shared";
-import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
-import type { CloudflareBindings } from "@mizan/shared";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
+import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
+import { emitLiveEventsBestEffort } from "../shared/emit-live-events.ts";
 import { runStructuredLlm } from "../shared/runStructuredLlm.ts";
 import { wrapUntrustedData } from "../shared/untrusted-data.ts";
 import {
@@ -135,6 +136,7 @@ export async function persistBrief(
 ): Promise<void> {
   const db = makeDb(env.DB);
   const composedAt = new Date();
+  const organizationId = await resolveCaseOrganizationId(db, caseId);
   try {
     await db
       .insert(briefs)
@@ -145,6 +147,7 @@ export async function persistBrief(
         confidence: brief.confidence,
         payload_json: brief,
         composed_at: composedAt,
+        organization_id: organizationId,
       })
       .onConflictDoUpdate({
         target: [briefs.case_id, briefs.run_id],
@@ -155,6 +158,11 @@ export async function persistBrief(
           composed_at: composedAt,
         },
       });
+    await emitLiveEventsBestEffort(
+      db,
+      buildBriefReadyEmits({ caseId, runId, organizationId }),
+      caseId,
+    );
   } catch (cause) {
     throw new Error(
       `persistBrief failed (case_id=${caseId} run_id=${runId}): ${

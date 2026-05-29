@@ -56,7 +56,7 @@ async function streamBriefResponse(
   const { run, requestContext, langfuse } = await createBriefRun(c.env, {
     caseId,
     runId,
-    reviewerId: c.var.user.id,
+    reviewerId: c.var.viewer.userId,
     category: caseRow.category,
     geography: caseRow.geography,
   });
@@ -150,7 +150,7 @@ async function enqueueBrief(c: BriefContext): Promise<Response> {
       caseId,
       runId,
       enqueuedAt: Date.now(),
-      requestedBy: c.var.user.id,
+      requestedBy: c.var.viewer.userId,
     });
     await c.env.BRIEF_QUEUE.send(message, { contentType: "json" });
   } catch (error) {

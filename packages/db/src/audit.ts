@@ -36,8 +36,10 @@ function truncateRationale(value: string): string {
 export async function fetchAuditPage(
   db: Db,
   search: AuditListSearch,
+  organizationId: string,
 ): Promise<{ entries: AuditRow[]; total: number }> {
   const offset = (search.page - 1) * search.page_size;
+  const orgFilter = eq(reviewer_actions.organization_id, organizationId);
   const rows = await db
     .select({
       id: reviewer_actions.id,
@@ -52,11 +54,16 @@ export async function fetchAuditPage(
     .from(reviewer_actions)
     .innerJoin(cases, eq(cases.id, reviewer_actions.case_id))
     .leftJoin(users, eq(users.id, reviewer_actions.reviewer_id))
+    .where(orgFilter)
     .orderBy(desc(reviewer_actions.acted_at), desc(reviewer_actions.id))
     .limit(search.page_size)
     .offset(offset);
 
-  const totalRow = await db.select({ value: count() }).from(reviewer_actions).get();
+  const totalRow = await db
+    .select({ value: count() })
+    .from(reviewer_actions)
+    .where(orgFilter)
+    .get();
   const total = totalRow?.value ?? 0;
 
   return {

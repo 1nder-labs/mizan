@@ -1,6 +1,13 @@
-import { makeDb, signals, type NewSignal } from "@mizan/db";
+import {
+  makeDb,
+  resolveCaseOrganizationId,
+  signals,
+  buildSignalPersistedEmits,
+  type NewSignal,
+} from "@mizan/db";
 import type { CloudflareBindings } from "@mizan/shared";
 import type { PhotoSignalPayload, StoryCoherencePayload, VouchingChain } from "@mizan/shared";
+import { emitLiveEventsBestEffort } from "./emit-live-events.ts";
 
 /** Discriminated union of (signal_type, payload) pairs upsertable from Phase 4 steps. */
 export type SignalUpsertInput =
@@ -34,12 +41,14 @@ export async function upsertSignal(
 ): Promise<void> {
   const db = makeDb(input.env.DB);
   const recordedAt = new Date();
+  const organizationId = await resolveCaseOrganizationId(db, input.caseId);
   const row: NewSignal = {
     case_id: input.caseId,
     run_id: input.runId,
     signal_type: input.signalType,
     payload_json: input.payload,
     recorded_at: recordedAt,
+    organization_id: organizationId,
   };
   try {
     await db
@@ -52,6 +61,16 @@ export async function upsertSignal(
           recorded_at: recordedAt,
         },
       });
+    await emitLiveEventsBestEffort(
+      db,
+      buildSignalPersistedEmits({
+        caseId: input.caseId,
+        runId: input.runId,
+        organizationId,
+        signalType: input.signalType,
+      }),
+      input.caseId,
+    );
   } catch (cause) {
     throw new Error(
       `upsertSignal failed (case_id=${input.caseId} run_id=${input.runId} signal_type=${input.signalType}): ${

@@ -1,4 +1,12 @@
-import { and, briefs, eq, transitionCase, type Db } from "@mizan/db";
+import {
+  and,
+  briefs,
+  eq,
+  resolveCaseOrganizationId,
+  transitionCase,
+  buildStatusChangedEmits,
+  type Db,
+} from "@mizan/db";
 import type { BriefPayload } from "@mizan/shared";
 import { emitWorkflowEvent } from "../observability/workflow-event-logger.ts";
 import type { PartialBriefState } from "../schemas/partial-brief-state.ts";
@@ -8,6 +16,7 @@ import {
   type ReviewerActionStepState,
   type ReviewerActionSuspendPayload,
 } from "../schemas/reviewer-action-suspend.ts";
+import { emitLiveEventsBestEffort } from "./shared/emit-live-events.ts";
 
 async function loadBriefId(db: Db, caseId: string, runId: string): Promise<string> {
   const briefRow = await db
@@ -51,6 +60,18 @@ export async function prepareReviewerSuspend(
       `awaitReviewerAction: case ${inputData.caseId} not RUNNING for run ${inputData.runId}`,
     );
   }
+
+  await emitLiveEventsBestEffort(
+    db,
+    buildStatusChangedEmits({
+      caseId: inputData.caseId,
+      organizationId: await resolveCaseOrganizationId(db, inputData.caseId),
+      fromStatus: "RUNNING",
+      toStatus: "SUSPENDED_HITL",
+      actorUserId: null,
+    }),
+    inputData.caseId,
+  );
 
   await emitWorkflowEvent(db, {
     caseId: inputData.caseId,

@@ -16,12 +16,16 @@
  * navigation signal, not a real exception) when the session is missing
  * or lacks admin role.
  */
+import { organizationClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
-import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
+import { DEFAULT_QUEUE_SEARCH, type MeResponse } from "@mizan/shared";
+import { meQueryOptions } from "./me-api.ts";
 
-export const authClient = createAuthClient();
+export const authClient = createAuthClient({
+  plugins: [organizationClient()],
+});
 
 type SessionData = Awaited<ReturnType<typeof authClient.getSession>>["data"];
 
@@ -46,8 +50,11 @@ export async function requireSession(qc: QueryClient): Promise<NonNullable<Sessi
   return session;
 }
 
-export async function requireAdmin(qc: QueryClient): Promise<NonNullable<SessionData>> {
-  const session = await requireSession(qc);
-  if (session.user.role !== "admin") throw redirect({ to: "/queue", search: DEFAULT_QUEUE_SEARCH });
-  return session;
+export async function requireAdmin(qc: QueryClient): Promise<MeResponse> {
+  await requireSession(qc);
+  const me = await qc.ensureQueryData(meQueryOptions());
+  if (me.user.role !== "admin") {
+    throw redirect({ to: "/queue", search: DEFAULT_QUEUE_SEARCH });
+  }
+  return me;
 }

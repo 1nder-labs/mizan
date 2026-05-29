@@ -1,23 +1,19 @@
 /**
  * `/invite/$token` accept landing page — public surface.
  *
- * Three render branches:
- *   1. Token invalid / expired / already accepted → error card with
- *      home button.
- *   2. Token valid + viewer not signed in → call-to-action: "Sign in
- *      as <email>". After login, the accept button auto-fires (effect
- *      detects fresh session).
- *   3. Token valid + viewer signed in with matching email → "Accept
- *      and join" button calls accept API, then navigates to /queue.
+ * Invite acceptance happens server-side during signup (org database hook).
+ * This page validates the token, then either prompts sign-in or redirects
+ * an already-authenticated matching user to the queue.
  */
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, getRouteApi, useNavigate } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
-import { useAcceptInvitation, useInvitationLookup } from "@/hooks/use-team.ts";
+import { useInvitationLookup } from "@/hooks/use-team.ts";
 import { sessionQueryOptions } from "@/lib/auth-client.ts";
 
 const inviteApi = getRouteApi("/invite/$token");
@@ -71,10 +67,12 @@ function InviteSignInPrompt({
             <strong>{inv.role}</strong>.
           </p>
           <p className="text-xs text-muted-foreground">
-            Sign in with that email to finish joining the team.
+            Create an account with that email — you'll join the team automatically after signup.
           </p>
           <Button asChild className="w-full">
-            <Link to="/login">Sign in</Link>
+            <Link to="/signup" search={{ email: inv.email }}>
+              Create account
+            </Link>
           </Button>
         </CardContent>
       </Card>
@@ -82,53 +80,13 @@ function InviteSignInPrompt({
   );
 }
 
-function InviteJoining({ role }: { readonly role: string }): React.JSX.Element {
-  return (
-    <InviteShell>
-      <Card>
-        <CardHeader>
-          <CardTitle>Joining the team…</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>Setting your role to {role}.</p>
-        </CardContent>
-      </Card>
-    </InviteShell>
-  );
-}
-
-function useAutoAccept(args: {
-  readonly token: string;
-  readonly enabled: boolean;
-  readonly accept: ReturnType<typeof useAcceptInvitation>;
-  readonly navigate: ReturnType<typeof useNavigate>;
-}): void {
-  const { token, enabled, accept, navigate } = args;
-  useEffect(() => {
-    if (!enabled || accept.isPending || accept.isSuccess) return;
-    accept.mutate(
-      { token },
-      {
-        onSuccess: (data) => {
-          toast.success("Welcome to the team");
-          void navigate({ to: data.redirectTo });
-        },
-        onError: (error) => toast.error(error.message),
-      },
-    );
-  }, [token, enabled, accept, navigate]);
-}
-
-export function InviteAcceptPage(): React.JSX.Element {
-  const { token } = inviteApi.useParams();
-  const navigate = useNavigate();
-  const lookup = useInvitationLookup(token);
-  const session = useQuery(sessionQueryOptions());
-  const accept = useAcceptInvitation();
-  const inv = lookup.data;
-  const viewerEmail = session.data?.user.email?.toLowerCase() ?? null;
-  const emailMatches = inv && viewerEmail !== null && viewerEmail === inv.email;
-  useAutoAccept({ token, enabled: Boolean(inv && emailMatches), accept, navigate });
+/** Renders the pre-redirect gate, or null once the viewer may proceed. */
+function renderInviteGate(
+  lookup: ReturnType<typeof useInvitationLookup>,
+  hasSession: boolean,
+  emailMatches: boolean,
+  viewerEmail: string | null,
+): React.JSX.Element | null {
   if (lookup.isPending) {
     return (
       <InviteShell>
@@ -140,13 +98,15 @@ export function InviteAcceptPage(): React.JSX.Element {
       </InviteShell>
     );
   }
+  const inv = lookup.data;
   if (lookup.isError || !inv) {
     return <InviteError message="This invitation is not valid. Ask your admin for a fresh link." />;
   }
   if (inv.accepted) return <InviteError message="This invitation has already been accepted." />;
-  if (Date.now() > inv.expiresAt)
+  if (Date.now() > inv.expiresAt) {
     return <InviteError message="This invitation has expired. Ask your admin for a fresh link." />;
-  if (!session.data) return <InviteSignInPrompt inv={inv} />;
+  }
+  if (!hasSession) return <InviteSignInPrompt inv={inv} />;
   if (!emailMatches) {
     return (
       <InviteError
@@ -154,5 +114,35 @@ export function InviteAcceptPage(): React.JSX.Element {
       />
     );
   }
-  return <InviteJoining role={inv.role} />;
+  return null;
+}
+
+export function InviteAcceptPage(): React.JSX.Element {
+  const { token } = inviteApi.useParams();
+  const navigate = useNavigate();
+  const lookup = useInvitationLookup(token);
+  const session = useQuery(sessionQueryOptions());
+  const inv = lookup.data;
+  const viewerEmail = session.data?.user.email?.toLowerCase() ?? null;
+  const emailMatches = Boolean(
+    inv && viewerEmail !== null && viewerEmail === inv.email.toLowerCase(),
+  );
+
+  useEffect(() => {
+    if (!inv || !session.data || !emailMatches) return;
+    toast.success(`Welcome — you're now a ${inv.role} in ${inv.inviterName}'s workspace`);
+    void navigate({ to: "/queue", search: DEFAULT_QUEUE_SEARCH });
+  }, [inv, session.data, emailMatches, navigate]);
+
+  const gate = renderInviteGate(lookup, Boolean(session.data), emailMatches, viewerEmail);
+  if (gate) return gate;
+  return (
+    <InviteShell>
+      <Card>
+        <CardContent className="p-6 text-sm text-muted-foreground">
+          Redirecting to your queue…
+        </CardContent>
+      </Card>
+    </InviteShell>
+  );
 }

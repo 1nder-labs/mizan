@@ -2,17 +2,19 @@
 /**
  * Seeds five documentary cases into local D1 via wrangler.
  * Idempotent: ON CONFLICT (id) DO NOTHING.
- *
- * Requires admin user from `bun run db:seed` and applied migrations.
  */
 
 import { CaseOverlaySchema, SeedCaseSchema, type SeedCase } from "@mizan/shared";
 import { z } from "zod";
 import { SEED_CASE_FILES, seedJsonPath } from "./seed-helpers.ts";
 
-const AdminLookupSchema = z.array(z.object({ results: z.array(z.object({ id: z.string() })) }));
+const LookupSchema = z.array(
+  z.object({
+    results: z.array(z.object({ id: z.string(), organization_id: z.string() })),
+  }),
+);
 
-async function fetchAdminUserId(): Promise<string> {
+async function fetchAdminContext(): Promise<{ userId: string; organizationId: string }> {
   const proc = Bun.spawn(
     [
       "bunx",
@@ -22,7 +24,7 @@ async function fetchAdminUserId(): Promise<string> {
       "DB",
       "--local",
       "--command",
-      "SELECT id FROM users WHERE email = 'admin@mizan.test' LIMIT 1",
+      `SELECT u.id, m.organization_id FROM users u JOIN member m ON m.user_id = u.id WHERE u.email = 'admin@mizan.test' AND m.role = 'admin' LIMIT 1`,
       "--json",
     ],
     { cwd: "apps/worker", stdout: "pipe", stderr: "pipe" },
@@ -33,19 +35,19 @@ async function fetchAdminUserId(): Promise<string> {
     throw new Error(`admin lookup failed (exit ${exitCode}): ${err}`);
   }
   const raw = await new Response(proc.stdout).text();
-  const parsed = AdminLookupSchema.parse(JSON.parse(raw));
+  const parsed = LookupSchema.parse(JSON.parse(raw));
   const row = parsed[0]?.results[0];
-  if (!row?.id) {
+  if (!row?.id || !row.organization_id) {
     throw new Error("admin@mizan.test not found — run bun run db:seed first");
   }
-  return row.id;
+  return { userId: row.id, organizationId: row.organization_id };
 }
 
 function sqlEscape(value: string): string {
   return value.replace(/'/g, "''");
 }
 
-async function seedCase(seed: SeedCase, adminId: string): Promise<void> {
+async function seedCase(seed: SeedCase, adminId: string, organizationId: string): Promise<void> {
   const overlay = CaseOverlaySchema.parse({
     story: seed.story,
     organizer_name: seed.organizer_name,
@@ -53,8 +55,8 @@ async function seedCase(seed: SeedCase, adminId: string): Promise<void> {
     ...(seed.vouching_narrative ? { vouching_narrative: seed.vouching_narrative } : {}),
   });
   const overlayJson = sqlEscape(JSON.stringify(overlay));
-  const sql = `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-VALUES ('${seed.id}', '${seed.status}', '${seed.category}', '${seed.geography}', '${seed.claimed_zakat_category}', '${overlayJson}', '${adminId}', ${Date.now()}, ${Date.now()})
+  const sql = `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+VALUES ('${seed.id}', '${seed.status}', '${seed.category}', '${seed.geography}', '${seed.claimed_zakat_category}', '${overlayJson}', '${adminId}', '${organizationId}', ${Date.now()}, ${Date.now()})
 ON CONFLICT(id) DO NOTHING;`;
   const proc = Bun.spawn(["bunx", "wrangler", "d1", "execute", "DB", "--local", "--command", sql], {
     cwd: "apps/worker",
@@ -69,10 +71,10 @@ ON CONFLICT(id) DO NOTHING;`;
   console.log(`seeded ${seed.id} (${seed.category}/${seed.geography})`);
 }
 
-const adminId = await fetchAdminUserId();
+const admin = await fetchAdminContext();
 
 for (const filename of SEED_CASE_FILES) {
   const text = await Bun.file(seedJsonPath(filename)).text();
   const seed = SeedCaseSchema.parse(JSON.parse(text));
-  await seedCase(seed, adminId);
+  await seedCase(seed, admin.userId, admin.organizationId);
 }

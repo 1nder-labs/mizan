@@ -9,6 +9,7 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { CaseSignalsResponseSchema, type CaseSignalsResponse } from "@mizan/shared";
 import { api } from "@/lib/rpc.ts";
 import { assertAuthorized } from "@/lib/cases-api.ts";
+import { queryKeys } from "@/lib/query-keys.ts";
 
 async function fetchCaseSignals(caseId: string): Promise<CaseSignalsResponse> {
   const res = await api.cases[":id"].signals.$get({ param: { id: caseId } });
@@ -20,7 +21,7 @@ async function fetchCaseSignals(caseId: string): Promise<CaseSignalsResponse> {
 
 export function useCaseSignals(caseId: string): UseQueryResult<CaseSignalsResponse, Error> {
   return useQuery<CaseSignalsResponse, Error>({
-    queryKey: ["case-signals", caseId],
+    queryKey: queryKeys.signals.detail(caseId),
     queryFn: () => fetchCaseSignals(caseId),
     staleTime: 30_000,
   });

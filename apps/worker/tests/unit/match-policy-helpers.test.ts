@@ -20,6 +20,7 @@ describe("matchPolicy helpers", () => {
         current_run_id: null,
         created_by: "user",
         assigned_to: null,
+        organization_id: "org-test-001",
         created_at: new Date(),
         updated_at: new Date(),
         story: "Urgent surgery",

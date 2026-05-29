@@ -11,8 +11,16 @@
  * Returns 200 with the canonical `{case_id, assigned_to}` on success.
  */
 import { zValidator } from "@hono/zod-validator";
-import { eq } from "drizzle-orm";
-import { cases, makeDb, users, type Db } from "@mizan/db";
+import { and, eq } from "drizzle-orm";
+import {
+  buildAssignmentEmits,
+  cases,
+  emitLiveEvent,
+  makeDb,
+  member,
+  users,
+  type Db,
+} from "@mizan/db";
 import {
   CaseAssignErrorBodySchema,
   CaseAssignRequestSchema,
@@ -30,17 +38,36 @@ function assignError(code: CaseAssignErrorCode): { error: CaseAssignErrorCode } 
   return CaseAssignErrorBodySchema.parse({ error: code });
 }
 
-async function loadCase(db: Db, caseId: string) {
+async function loadCase(db: Db, caseId: string, organizationId: string) {
   return db
-    .select({ id: cases.id, assigned_to: cases.assigned_to })
+    .select({
+      id: cases.id,
+      assigned_to: cases.assigned_to,
+      organization_id: cases.organization_id,
+    })
     .from(cases)
-    .where(eq(cases.id, caseId))
+    .where(and(eq(cases.id, caseId), eq(cases.organization_id, organizationId)))
     .get();
 }
 
-async function userExists(db: Db, userId: string): Promise<boolean> {
-  const row = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).get();
+/**
+ * A user is assignable only when they hold a membership in the same
+ * organization as the case. A bare `users` existence check would let an
+ * admin assign a case to a member of a different organization.
+ */
+async function isOrgMember(db: Db, userId: string, organizationId: string): Promise<boolean> {
+  const row = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(and(eq(member.userId, userId), eq(member.organizationId, organizationId)))
+    .get();
   return Boolean(row);
+}
+
+async function loadActorEmail(db: Db, userId: string): Promise<string> {
+  const row = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).get();
+  if (!row?.email) throw new Error(`assignment: actor email missing for user ${userId}`);
+  return row.email;
 }
 
 function canReviewerMutate(
@@ -66,20 +93,31 @@ export const assignmentsRoutes = new Hono<{
     const { id } = c.req.valid("param");
     const { user_id: nextAssignment } = c.req.valid("json");
     const db = makeDb(c.env.DB);
-    const row = await loadCase(db, id);
+    const viewer = c.var.viewer;
+    const row = await loadCase(db, id, viewer.organizationId);
     if (!row) return c.json(assignError("not_found"), 404);
-    const viewer = c.var.user;
     if (viewer.role === "reviewer") {
-      const denial = canReviewerMutate(row.assigned_to, nextAssignment, viewer.id);
+      const denial = canReviewerMutate(row.assigned_to, nextAssignment, viewer.userId);
       if (denial) return c.json(assignError(denial), 403);
     }
-    if (nextAssignment && !(await userExists(db, nextAssignment))) {
+    if (nextAssignment && !(await isOrgMember(db, nextAssignment, viewer.organizationId))) {
       return c.json(assignError("invalid_user"), 400);
     }
-    await db
+    const actorEmail = await loadActorEmail(db, viewer.userId);
+    const emits = buildAssignmentEmits({
+      caseId: id,
+      organizationId: row.organization_id,
+      previousAssignee: row.assigned_to,
+      nextAssignee: nextAssignment,
+      actorUserId: viewer.userId,
+      actorEmail,
+    });
+    const updateStmt = db
       .update(cases)
       .set({ assigned_to: nextAssignment, updated_at: new Date() })
-      .where(eq(cases.id, id));
+      .where(and(eq(cases.id, id), eq(cases.organization_id, viewer.organizationId)));
+    const emitStmts = emits.map((emit) => emitLiveEvent(db, emit));
+    await db.batch([updateStmt, ...emitStmts]);
     const body = CaseAssignResponseSchema.parse({ case_id: id, assigned_to: nextAssignment });
     return c.json(body);
   },

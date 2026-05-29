@@ -97,7 +97,11 @@ async function streamCaseEvents(c: StreamContext, stream: StreamApi): Promise<vo
 
   const db = makeDb(c.env.DB);
   const caseRow = await db.select().from(cases).where(eq(cases.id, caseId)).get();
-  if (!caseRow?.current_run_id) {
+  if (!caseRow || caseRow.organization_id !== c.var.viewer.organizationId) {
+    await stream.writeSSE({ retry: RECONNECT_BACKOFF_MS, data: "" });
+    return;
+  }
+  if (!caseRow.current_run_id) {
     await stream.writeSSE({ retry: RECONNECT_BACKOFF_MS, data: "" });
     return;
   }

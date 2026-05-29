@@ -8,9 +8,8 @@
  * A unique email is generated per test run using `Date.now()` so the suite
  * is idempotent across re-runs within the same Miniflare session.
  *
- * `autoSignIn: false` is set in the auth config, so sign-up returns 200 with
- * user data but does NOT set a session cookie. A separate sign-in call is
- * required to obtain the session cookie.
+ * `autoSignIn: true` is set in the auth config, so sign-up returns 200 with
+ * a session cookie and auto-provisions an admin org membership.
  */
 
 import { applyD1Migrations } from "cloudflare:test";
@@ -33,7 +32,7 @@ describe("auth flow", () => {
     await applyD1Migrations(env.DB, inject("migrations"));
   }, 60_000);
 
-  it("sign-up returns 200 (no session cookie — autoSignIn: false)", async () => {
+  it("sign-up returns 200 and sets a session cookie (autoSignIn: true)", async () => {
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/auth/sign-up/email`, {
         method: "POST",
@@ -42,6 +41,8 @@ describe("auth flow", () => {
       }),
     );
     expect(res.status).toBe(200);
+    sessionCookie = getCookies(res);
+    expect(sessionCookie).not.toBe("");
   });
 
   it("sign-in returns 200 and sets a session cookie", async () => {
@@ -57,7 +58,7 @@ describe("auth flow", () => {
     expect(sessionCookie).not.toBe("");
   });
 
-  it("GET /api/me returns 200 with user identity and reviewer role", async () => {
+  it("GET /api/me returns 200 with user identity and admin role", async () => {
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/me`, {
         headers: { Cookie: sessionCookie },
@@ -68,8 +69,9 @@ describe("auth flow", () => {
     expect(body).toMatchObject({
       user: {
         email,
-        role: "reviewer",
+        role: "admin",
         id: expect.any(String),
+        activeOrganizationId: expect.any(String),
       },
     });
   });

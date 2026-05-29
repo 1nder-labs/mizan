@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
+import { Route as SignupRouteImport } from "./routes/signup";
 import { Route as QueueRouteImport } from "./routes/queue";
 import { Route as LoginRouteImport } from "./routes/login";
 import { Route as IndexRouteImport } from "./routes/index";
@@ -17,6 +18,11 @@ import { Route as CaseCaseIdRouteImport } from "./routes/case/$caseId";
 import { Route as AdminTeamRouteImport } from "./routes/admin/team";
 import { Route as AdminAuditRouteImport } from "./routes/admin/audit";
 
+const SignupRoute = SignupRouteImport.update({
+  id: "/signup",
+  path: "/signup",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const QueueRoute = QueueRouteImport.update({
   id: "/queue",
   path: "/queue",
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/login": typeof LoginRoute;
   "/queue": typeof QueueRoute;
+  "/signup": typeof SignupRoute;
   "/admin/audit": typeof AdminAuditRoute;
   "/admin/team": typeof AdminTeamRoute;
   "/case/$caseId": typeof CaseCaseIdRoute;
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/login": typeof LoginRoute;
   "/queue": typeof QueueRoute;
+  "/signup": typeof SignupRoute;
   "/admin/audit": typeof AdminAuditRoute;
   "/admin/team": typeof AdminTeamRoute;
   "/case/$caseId": typeof CaseCaseIdRoute;
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   "/": typeof IndexRoute;
   "/login": typeof LoginRoute;
   "/queue": typeof QueueRoute;
+  "/signup": typeof SignupRoute;
   "/admin/audit": typeof AdminAuditRoute;
   "/admin/team": typeof AdminTeamRoute;
   "/case/$caseId": typeof CaseCaseIdRoute;
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | "/"
     | "/login"
     | "/queue"
+    | "/signup"
     | "/admin/audit"
     | "/admin/team"
     | "/case/$caseId"
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | "/"
     | "/login"
     | "/queue"
+    | "/signup"
     | "/admin/audit"
     | "/admin/team"
     | "/case/$caseId"
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | "/"
     | "/login"
     | "/queue"
+    | "/signup"
     | "/admin/audit"
     | "/admin/team"
     | "/case/$caseId"
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   LoginRoute: typeof LoginRoute;
   QueueRoute: typeof QueueRoute;
+  SignupRoute: typeof SignupRoute;
   AdminAuditRoute: typeof AdminAuditRoute;
   AdminTeamRoute: typeof AdminTeamRoute;
   CaseCaseIdRoute: typeof CaseCaseIdRoute;
@@ -123,6 +136,13 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/signup": {
+      id: "/signup";
+      path: "/signup";
+      fullPath: "/signup";
+      preLoaderRoute: typeof SignupRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/queue": {
       id: "/queue";
       path: "/queue";
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   QueueRoute: QueueRoute,
+  SignupRoute: SignupRoute,
   AdminAuditRoute: AdminAuditRoute,
   AdminTeamRoute: AdminTeamRoute,
   CaseCaseIdRoute: CaseCaseIdRoute,

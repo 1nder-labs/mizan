@@ -13,7 +13,7 @@
  * the unindexed lookup is well under the 50 ms budget.
  */
 import { zValidator } from "@hono/zod-validator";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { makeDb, signals as signalsTable, type Db } from "@mizan/db";
 import { CaseSignalsResponseSchema } from "@mizan/shared";
 import { Hono } from "hono";
@@ -23,7 +23,7 @@ import type { RoleVariables } from "../middleware/require-role.ts";
 
 const ParamIdSchema = z.object({ id: z.string().uuid() });
 
-async function fetchLatestSignalsForCase(db: Db, caseId: string) {
+async function fetchLatestSignalsForCase(db: Db, caseId: string, organizationId: string) {
   return db
     .select({
       signal_type: signalsTable.signal_type,
@@ -32,7 +32,7 @@ async function fetchLatestSignalsForCase(db: Db, caseId: string) {
       run_id: signalsTable.run_id,
     })
     .from(signalsTable)
-    .where(eq(signalsTable.case_id, caseId))
+    .where(and(eq(signalsTable.case_id, caseId), eq(signalsTable.organization_id, organizationId)))
     .orderBy(desc(signalsTable.recorded_at))
     .all();
 }
@@ -53,7 +53,7 @@ export const signalsRoutes = new Hono<{
 }>().get("/:id/signals", zValidator("param", ParamIdSchema), async (c) => {
   const { id } = c.req.valid("param");
   const db = makeDb(c.env.DB);
-  const rows = await fetchLatestSignalsForCase(db, id);
+  const rows = await fetchLatestSignalsForCase(db, id, c.var.viewer.organizationId);
   const latest = pickLatestPerType(rows);
   const payload = CaseSignalsResponseSchema.parse({
     signals: latest.map((row) => ({

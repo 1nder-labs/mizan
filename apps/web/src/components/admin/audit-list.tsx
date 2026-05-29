@@ -13,6 +13,8 @@ import { getRouteApi } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { auditListQueryOptions } from "@/lib/audit-api.ts";
+import { useLiveEvents } from "@/hooks/use-live-events.ts";
+import { useViewerTopics } from "@/hooks/use-viewer-topics.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { AuditEntriesTable } from "./audit-table.tsx";
 import { AuditPagination } from "./audit-pagination.tsx";
@@ -41,6 +43,8 @@ function AuditErrorCard({ onRetry, isFetching }: AuditErrorCardProps): React.JSX
 
 export function AuditList(): React.JSX.Element {
   const search = auditRoute.useSearch();
+  const { orgId } = useViewerTopics();
+  useLiveEvents(orgId ? `org:${orgId}` : "", { enabled: Boolean(orgId) });
   const { data, isPending, isError, error, refetch, isFetching } = useQuery(
     auditListQueryOptions(search),
   );

@@ -1,6 +1,6 @@
 export { clampInt, clampUnit, ensureUuid } from "./clamp.ts";
 
-export { LoginSchema, type LoginInput } from "./schemas/login.ts";
+export { LoginSchema, SignupSchema, type LoginInput, type SignupInput } from "./schemas/login.ts";
 
 export {
   ASSIGNEE_QUERY_PARAM,
@@ -207,6 +207,30 @@ export {
 } from "./schemas/audit.ts";
 
 export { SeedCaseSchema, type SeedCase } from "./schemas/seed-case.ts";
+
+export { ViewerContextSchema, type ViewerContext } from "./schemas/viewer.ts";
+export { MeResponseSchema, type MeResponse } from "./schemas/me.ts";
+
+export {
+  LiveEventPayloadSchema,
+  LiveEventRowSchema,
+  LiveEventTopicSchema,
+  LiveEventTypeEnum,
+  type LiveEventPayload,
+  type LiveEventRow,
+  type LiveEventType,
+} from "./schemas/live-event.ts";
+
+export {
+  ChatMessageRecordSchema,
+  ChatThreadDetailResponseSchema,
+  ChatThreadListResponseSchema,
+  ChatThreadSchema,
+  type ChatMessageRecord,
+  type ChatThread,
+  type ChatThreadDetailResponse,
+  type ChatThreadListResponse,
+} from "./schemas/chat.ts";
 
 export { BriefQueueMessageSchema, type BriefQueueMessage } from "./schemas/queue-message.ts";
 

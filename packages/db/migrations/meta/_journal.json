@@ -50,6 +50,20 @@
       "when": 1779788724685,
       "tag": "0006_chemical_captain_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1779840209137,
+      "tag": "0007_phase_7_7_org_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1779840215571,
+      "tag": "0008_phase_7_7_live_chat",
+      "breakpoints": true
     }
   ]
 }

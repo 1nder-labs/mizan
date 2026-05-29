@@ -20,6 +20,7 @@ describe("insertCasesSchema refinements", () => {
         category: "",
         geography: "US",
         created_by: "user-id-abc",
+        organization_id: "org-test-001",
       }),
     ).toThrow();
   });
@@ -29,6 +30,7 @@ describe("insertCasesSchema refinements", () => {
       category: "zakat",
       geography: "US",
       created_by: "user-id-abc",
+      organization_id: "org-test-001",
     });
     expect(result.category).toBe("zakat");
   });

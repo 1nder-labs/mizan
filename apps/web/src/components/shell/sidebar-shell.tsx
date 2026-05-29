@@ -8,6 +8,7 @@ import { Link } from "@tanstack/react-router";
 import { History, ListChecks, LogOut, ShieldCheck, Users2 } from "lucide-react";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
 import { sessionQueryOptions } from "@/lib/auth-client.ts";
+import { meQueryOptions } from "@/lib/me-api.ts";
 import { useSignOut } from "@/hooks/use-sign-out.ts";
 import { Button } from "@/components/ui/button.tsx";
 import {
@@ -34,6 +35,8 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar.tsx";
+import { ChatPanel } from "@/components/chat/chat-panel.tsx";
+import { ActiveOrgSwitcher } from "@/components/org/active-org-switcher.tsx";
 
 interface SidebarShellProps {
   readonly context: string;
@@ -182,7 +185,9 @@ function NavGroup({ isAdmin }: { readonly isAdmin: boolean }): React.JSX.Element
 
 export function SidebarShell({ context, children }: SidebarShellProps): React.JSX.Element {
   const { data: session } = useQuery(sessionQueryOptions());
-  const isAdmin = session?.user.role === "admin";
+  const { data: me } = useQuery(meQueryOptions());
+  const isAdmin = me?.user.role === "admin";
+  const displayRole = me?.user.role ?? "reviewer";
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
@@ -193,8 +198,9 @@ export function SidebarShell({ context, children }: SidebarShellProps): React.JS
           <NavGroup isAdmin={Boolean(isAdmin)} />
         </SidebarContent>
         <SidebarFooter>
+          <ActiveOrgSwitcher />
           <SidebarMenu>
-            <UserPill user={session?.user ?? null} />
+            <UserPill user={session?.user ? { ...session.user, role: displayRole } : null} />
           </SidebarMenu>
         </SidebarFooter>
         <SidebarRail />
@@ -203,6 +209,7 @@ export function SidebarShell({ context, children }: SidebarShellProps): React.JS
         <TopBar context={context} />
         {children}
       </SidebarInset>
+      <ChatPanel />
     </SidebarProvider>
   );
 }
