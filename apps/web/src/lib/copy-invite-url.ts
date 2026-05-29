@@ -36,3 +36,15 @@ export async function copyInviteUrl(url: string): Promise<void> {
 
   throw new Error(COPY.invite.clipboardBlockedBody);
 }
+
+/** Copies the URL, revealing it in an on-screen fallback when the clipboard is blocked. */
+export async function copyInviteUrlWithFallback(
+  url: string,
+  onReveal: (url: string) => void,
+): Promise<void> {
+  try {
+    await copyInviteUrl(url);
+  } catch {
+    onReveal(url);
+  }
+}
