@@ -49,7 +49,7 @@ export async function handleChatPost(
   db: Db,
 ): Promise<Response> {
   const validated = await persistLatestUserMessage(db, body.threadId, body.messages);
-  const tools = buildCopilotTools();
+  const tools = buildCopilotTools(c.env, viewer.role);
   const agent = createReviewerCopilotAgent(c.env, tools);
   const requestContext = buildChatRequestContext(viewer, db, body.context);
 

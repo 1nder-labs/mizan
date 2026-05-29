@@ -36,6 +36,11 @@ export { CorpusSchema, ClauseSchema, type Corpus, type Clause } from "./schemas/
 export { allCorpusClauseIds, loadPolicyCorpora } from "./corpus/load.ts";
 export { chunkCorpusRecords, type ChunkRecord } from "./corpus/chunk.ts";
 export { getClauseById, type ClauseWithMeta, type CorpusSource } from "./corpus/lookup.ts";
+export {
+  searchPolicyVectorize,
+  type PolicySearchHit,
+  type PolicyVectorSearchEnv,
+} from "./corpus/vector-search.ts";
 export { CreatorIdSchema } from "./schemas/extractions/creator-id.ts";
 export { flushLangfuse } from "./observability/flush.ts";
 export {
@@ -80,6 +85,7 @@ export { createReviewerCopilotAgent } from "./agents/reviewer-copilot/index.ts";
 export {
   buildReviewerCopilotTools,
   type CopilotHandlerDeps,
+  type CopilotRole,
   type CopilotRuntimeBag,
 } from "./agents/reviewer-copilot/tools/index.ts";
 export { createTool, type Tool } from "@mastra/core/tools";

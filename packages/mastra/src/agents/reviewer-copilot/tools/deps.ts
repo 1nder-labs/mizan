@@ -34,6 +34,15 @@ export interface CopilotPolicyClause {
   readonly corpusVersion: string;
 }
 
+/** One ranked clause hit returned by the copilot search_policy handler. */
+export interface CopilotPolicySearchHit {
+  readonly clauseId: string;
+  readonly source: PolicyClauseSource;
+  readonly title: string;
+  readonly snippet: string;
+  readonly score: number;
+}
+
 /** Signal row returned by the copilot list_signals handler. */
 export interface CopilotSignalRow {
   readonly signal_type: string;
@@ -71,6 +80,7 @@ export interface CopilotHandlerDeps {
     db: Db,
   ) => Promise<CopilotSignalRow[]>;
   readonly getPolicyClause: (clauseId: string, source: PolicyClauseSource) => CopilotPolicyClause;
+  readonly searchPolicy: (query: string, limit: number) => Promise<CopilotPolicySearchHit[]>;
   readonly listTeamMembers: (viewer: ViewerContext, db: Db) => Promise<CopilotTeamMember[]>;
   readonly listAuditPage: (
     query: AuditListSearch,

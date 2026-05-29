@@ -14,7 +14,8 @@ function formatRelativeTime(updatedAt: number): string {
 }
 
 /**
- * Vertical thread picker with relative timestamps and new-conversation action.
+ * Full-height conversation list for the copilot rail: heading, new-chat
+ * action, and a scrollable list of threads with relative timestamps.
  */
 export function ChatThreadList({
   threads,
@@ -28,30 +29,32 @@ export function ChatThreadList({
   readonly onCreate: () => void;
 }): React.JSX.Element {
   return (
-    <div className="border-b border-border/60 p-2">
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Threads</p>
+    <div className="flex h-full flex-col p-2">
+      <div className="mb-1 flex items-center justify-between gap-2 px-1">
+        <p className="truncate text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          {COPY.chat.threadsHeading}
+        </p>
         <Button
           type="button"
-          size="sm"
-          variant="outline"
-          className="h-7 gap-1 px-2 text-xs"
+          size="icon"
+          variant="ghost"
+          className="size-6 shrink-0"
+          aria-label={COPY.chat.newChat}
           onClick={onCreate}
         >
-          <Plus className="size-3" />
-          New
+          <Plus className="size-3.5" />
         </Button>
       </div>
-      <ul className="max-h-28 space-y-1 overflow-y-auto">
+      <ul className="flex-1 space-y-1 overflow-y-auto">
         {threads.map((thread) => (
           <li key={thread.id}>
             <button
               type="button"
-              className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs transition-colors ${threadId === thread.id ? "bg-muted font-medium" : "hover:bg-muted/60"}`}
+              className={`flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors ${threadId === thread.id ? "bg-muted font-medium" : "hover:bg-muted/60"}`}
               onClick={() => onSelect(thread.id)}
             >
-              <span className="truncate">{thread.title}</span>
-              <span className="ml-2 shrink-0 text-[10px] text-muted-foreground">
+              <span className="truncate text-xs">{thread.title}</span>
+              <span className="text-[10px] text-muted-foreground">
                 {formatRelativeTime(thread.updatedAt)}
               </span>
             </button>

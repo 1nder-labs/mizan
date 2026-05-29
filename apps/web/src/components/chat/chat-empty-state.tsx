@@ -1,23 +1,26 @@
 import { useMatchRoute, useParams } from "@tanstack/react-router";
+import { Sparkles } from "lucide-react";
 import { COPY } from "@/lib/copy-constants.ts";
 import { Button } from "@/components/ui/button.tsx";
 
 const QUEUE_PROMPTS = [
-  "Show my SUSPENDED_HITL cases",
-  "What changed today?",
-  "Who is admin in this org?",
-  "List my recent actions",
+  "What's awaiting my review?",
+  "Show unassigned cases in the queue",
+  "Search policy for medical treatment eligibility",
+  "Which of my cases changed most recently?",
 ] as const;
 
 const CASE_PROMPTS = [
-  "Summarize this case's signals",
-  "What does the brief recommend?",
-  "Show this case's audit history",
-  "Look up clause `zakat.local_first`",
+  "What evidence is missing on this case?",
+  "Walk me through this case's trust signals and their scores",
+  "Which policy clauses did the brief cite, and why?",
+  "What should I ask the organizer before deciding?",
 ] as const;
 
 /**
- * Route-aware starter prompts for an empty copilot thread.
+ * Route-aware starter prompts for an empty copilot thread. Every prompt maps
+ * to a tool the copilot actually has: case-context prompts hit the per-case
+ * tools, queue-context prompts stay inside list_cases filters + policy search.
  */
 export function ChatEmptyState({
   onPickPrompt,
@@ -30,19 +33,25 @@ export function ChatEmptyState({
   const prompts = onCaseDetail ? CASE_PROMPTS : QUEUE_PROMPTS;
 
   return (
-    <div className="space-y-3 px-3 py-2">
-      <div className="rounded-md border border-dashed border-border/50 p-3 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">{COPY.chat.emptyTitle}</p>
-        <p className="mt-1">{COPY.chat.emptyDescription}</p>
+    <div className="flex h-full flex-col justify-center gap-6 px-5 py-8">
+      <div className="space-y-2">
+        <span className="inline-flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Sparkles className="size-4" />
+        </span>
+        <h2 className="text-lg font-semibold leading-snug text-foreground">
+          {COPY.chat.emptyTitle}
+        </h2>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {COPY.chat.emptyDescription}
+        </p>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2">
         {prompts.map((prompt) => (
           <Button
             key={prompt}
             type="button"
-            size="sm"
             variant="outline"
-            className="h-auto whitespace-normal text-left text-xs"
+            className="h-auto justify-start whitespace-normal px-3 py-2 text-left text-sm font-normal text-foreground/90"
             onClick={() => onPickPrompt(prompt)}
           >
             {prompt}

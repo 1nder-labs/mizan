@@ -1,48 +1,93 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
-import { COPY } from "@/lib/copy-constants.ts";
-import { Button } from "@/components/ui/button.tsx";
-import { ChatPanelBody } from "@/components/chat/chat-panel-body.tsx";
 import { Link } from "@tanstack/react-router";
-import { X } from "lucide-react";
+import { COPY } from "@/lib/copy-constants.ts";
+import { cn } from "@/lib/utils.ts";
+import { useChatPanelResize, type ChatPanelResize } from "@/hooks/use-chat-panel-resize.ts";
+import { useChatThread } from "@/hooks/use-chat-thread.ts";
+import { ChatPanelBody } from "@/components/chat/chat-panel-body.tsx";
+import { ChatPanelHeader } from "@/components/chat/chat-panel-header.tsx";
+import { ChatThreadRail } from "@/components/chat/chat-thread-rail.tsx";
+
+const RAIL_WIDTH = 224;
+
+/** CSSProperties permitting the `--chat-w` custom property without a cast. */
+type ChatPanelStyle = React.CSSProperties & Record<`--${string}`, string>;
+
+function useEscapeKey(onEscape: () => void): void {
+  useEffect(() => {
+    const handler = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") onEscape();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onEscape]);
+}
+
+function ChatPanelFooter(): React.JSX.Element {
+  return (
+    <div className="border-t border-border/40 px-3 py-1.5 text-[10px] text-muted-foreground">
+      <Link to="/queue" search={DEFAULT_QUEUE_SEARCH}>
+        {COPY.chat.backToQueue}
+      </Link>
+    </div>
+  );
+}
+
+function ResizeHandle({ handleProps }: { readonly handleProps: ChatPanelResize["handleProps"] }) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={COPY.chat.resizeLabel}
+      tabIndex={0}
+      className="absolute inset-y-0 left-0 hidden w-1.5 cursor-ew-resize transition-colors hover:bg-border focus-visible:bg-border focus-visible:outline-none lg:block"
+      {...handleProps}
+    />
+  );
+}
 
 export function OpenChatPanel({ onClose }: { readonly onClose: () => void }): React.JSX.Element {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  const { width, handleProps } = useChatPanelResize();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const { threadId, setThreadId, createThread, threads } = useChatThread();
+  useEscapeKey(onClose);
+
+  const newChat = useCallback((): void => {
+    void createThread.mutate();
+    setHistoryOpen(false);
+  }, [createThread]);
+
+  const panelStyle: ChatPanelStyle = { "--chat-w": `${width + (historyOpen ? RAIL_WIDTH : 0)}px` };
 
   return (
     <aside
       aria-label={COPY.chat.panelTitle}
-      className="fixed inset-y-0 right-0 z-40 flex w-[380px] translate-x-0 flex-col border-l border-border bg-background shadow-elev-2 transition-transform duration-200 max-lg:inset-0 max-lg:z-50 max-lg:w-full"
+      style={panelStyle}
+      className={cn(
+        "fixed inset-0 z-50 flex flex-col border-border bg-background shadow-elev-2",
+        "lg:inset-y-3 lg:right-3 lg:left-auto lg:z-40 lg:w-[var(--chat-w)] lg:rounded-2xl lg:border",
+        "lg:transition-[width] lg:duration-200 lg:ease-out",
+      )}
     >
-      <header className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-        <div>
-          <p className="text-sm font-semibold">{COPY.chat.panelTitle}</p>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            Cmd+Shift+K
-          </p>
-        </div>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label={COPY.chat.panelClose}
-          onClick={onClose}
-        >
-          <X className="size-4" />
-        </Button>
-      </header>
-      <ChatPanelBody />
-      <div className="border-t border-border/40 px-3 py-2 text-[10px] text-muted-foreground">
-        <Link to="/queue" search={DEFAULT_QUEUE_SEARCH}>
-          Back to queue
-        </Link>
+      <ChatPanelHeader
+        historyOpen={historyOpen}
+        onToggleHistory={() => setHistoryOpen((prev) => !prev)}
+        onNewChat={newChat}
+        onClose={onClose}
+      />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <ChatThreadRail
+          open={historyOpen}
+          threads={threads.data?.threads ?? []}
+          threadId={threadId}
+          onSelect={setThreadId}
+          onCreate={() => void createThread.mutate()}
+        />
+        <ChatPanelBody threadId={threadId} />
       </div>
+      <ChatPanelFooter />
+      <ResizeHandle handleProps={handleProps} />
     </aside>
   );
 }
