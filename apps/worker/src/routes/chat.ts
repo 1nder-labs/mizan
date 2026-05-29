@@ -1,7 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
 import { lt } from "drizzle-orm";
 import { and, desc, eq, makeDb, chat_messages, chat_threads } from "@mizan/db";
-import { ChatThreadListResponseSchema, ChatMessageRecordSchema } from "@mizan/shared";
+import {
+  ChatThreadCreatedResponseSchema,
+  ChatThreadListResponseSchema,
+  ChatMessageRecordSchema,
+} from "@mizan/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import { extractViewer } from "../lib/viewer-context.ts";
@@ -106,7 +110,7 @@ export const chatRoutes = new Hono<{
       .returning({ id: chat_threads.id })
       .get();
     if (!inserted) return c.json({ error: "create_failed" }, 500);
-    return c.json({ id: inserted.id }, 201);
+    return c.json(ChatThreadCreatedResponseSchema.parse({ id: inserted.id }), 201);
   })
   .get("/threads/:id", async (c) => {
     const threadId = c.req.param("id");

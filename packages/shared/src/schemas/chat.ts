@@ -19,6 +19,10 @@ export const ChatThreadListResponseSchema = z
 
 export type ChatThreadListResponse = z.infer<typeof ChatThreadListResponseSchema>;
 
+export const ChatThreadCreatedResponseSchema = z.object({ id: z.string().uuid() }).strict();
+
+export type ChatThreadCreatedResponse = z.infer<typeof ChatThreadCreatedResponseSchema>;
+
 export const ChatMessageRecordSchema = z
   .object({
     id: z.string(),

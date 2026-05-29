@@ -48,6 +48,7 @@ function toQuery(search: QueueSearch): Record<string, string> {
   if (search.status) query.status = search.status;
   if (search.category) query.category = search.category;
   if (search.geography) query.geography = search.geography;
+  if (search.assignee) query.assignee = search.assignee;
   return query;
 }
 

@@ -15,26 +15,11 @@ import type { CaseDetailResponse } from "@mizan/shared";
 import { BriefSummaryCard } from "./brief-summary.tsx";
 import { ActionForm } from "./action-form.tsx";
 import { ReviewerActionError, submitReviewerAction } from "@/lib/cases-api.ts";
+import { describeActionError } from "@/lib/describe-action-error.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
 
 interface ActionPanelProps {
   readonly detail: CaseDetailResponse;
-}
-
-function describeError(error: unknown): string {
-  if (!(error instanceof ReviewerActionError)) {
-    return error instanceof Error ? error.message : "Action failed";
-  }
-  switch (error.code) {
-    case "not_suspended_or_claimed":
-      return "Another reviewer acted on this case";
-    case "not_found":
-      return "Case not found";
-    case "no_run":
-      return "Case has no active workflow run";
-    case "workflow_failed":
-      return "Workflow failed to resume — try again";
-  }
 }
 
 export function ActionPanel({ detail }: ActionPanelProps): React.JSX.Element {
@@ -50,7 +35,7 @@ export function ActionPanel({ detail }: ActionPanelProps): React.JSX.Element {
       });
     },
     onError: (error) => {
-      toast.error(describeError(error));
+      toast.error(describeActionError(error));
       if (error instanceof ReviewerActionError && error.code === "not_suspended_or_claimed") {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.cases.detail(detail.case.id),

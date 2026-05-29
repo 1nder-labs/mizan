@@ -19,7 +19,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import { ActionForm } from "@/components/case/action-form.tsx";
-import { ReviewerActionError, submitReviewerAction } from "@/lib/cases-api.ts";
+import { submitReviewerAction } from "@/lib/cases-api.ts";
+import { describeActionError } from "@/lib/describe-action-error.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 
@@ -28,22 +29,6 @@ interface KanbanActionModalProps {
   readonly actionId: string | null;
   readonly open: boolean;
   readonly onOpenChange: (next: boolean) => void;
-}
-
-function describeError(error: unknown): string {
-  if (!(error instanceof ReviewerActionError)) {
-    return error instanceof Error ? error.message : "Action failed";
-  }
-  switch (error.code) {
-    case "not_suspended_or_claimed":
-      return "Another reviewer acted on this case";
-    case "not_found":
-      return "Case not found";
-    case "no_run":
-      return "Case has no active workflow run";
-    case "workflow_failed":
-      return "Workflow failed to resume — try again";
-  }
 }
 
 export function KanbanActionModal({
@@ -67,7 +52,7 @@ export function KanbanActionModal({
       await queryClient.invalidateQueries({ queryKey: queryKeys.cases.all });
     },
     onError: (error) => {
-      toast.error(describeError(error));
+      toast.error(describeActionError(error));
     },
   });
   const formLocked = mutation.isPending || mutation.isSuccess;

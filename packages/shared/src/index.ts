@@ -223,11 +223,13 @@ export {
 
 export {
   ChatMessageRecordSchema,
+  ChatThreadCreatedResponseSchema,
   ChatThreadDetailResponseSchema,
   ChatThreadListResponseSchema,
   ChatThreadSchema,
   type ChatMessageRecord,
   type ChatThread,
+  type ChatThreadCreatedResponse,
   type ChatThreadDetailResponse,
   type ChatThreadListResponse,
 } from "./schemas/chat.ts";

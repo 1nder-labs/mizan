@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ChatThreadCreatedResponseSchema } from "@mizan/shared";
 import { COPY } from "@/lib/copy-constants.ts";
 import { chatThreadQueryOptions, chatThreadsQueryOptions } from "@/lib/chat-api.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
@@ -28,9 +29,7 @@ export function useChatThread() {
         json: { title: COPY.chat.newConversation },
       });
       if (!res.ok) throw new Error("create thread failed");
-      const body: { id?: string } = await res.json();
-      if (!body.id) throw new Error("create thread missing id");
-      return body.id;
+      return ChatThreadCreatedResponseSchema.parse(await res.json()).id;
     },
     onSuccess: async (id) => {
       setSelectedId(id);
