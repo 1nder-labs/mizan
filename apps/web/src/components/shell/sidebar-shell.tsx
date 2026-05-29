@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/sidebar.tsx";
 import { ChatPanel } from "@/components/chat/chat-panel.tsx";
 import { ActiveOrgSwitcher } from "@/components/org/active-org-switcher.tsx";
+import { ThemeToggle } from "@/components/shell/theme-toggle.tsx";
 
 interface SidebarShellProps {
   readonly context: string;
@@ -198,6 +199,7 @@ export function SidebarShell({ context, children }: SidebarShellProps): React.JS
           <NavGroup isAdmin={Boolean(isAdmin)} />
         </SidebarContent>
         <SidebarFooter>
+          <ThemeToggle />
           <ActiveOrgSwitcher />
           <SidebarMenu>
             <UserPill user={session?.user ? { ...session.user, role: displayRole } : null} />

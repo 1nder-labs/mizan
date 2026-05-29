@@ -42,9 +42,10 @@ export function ToolListBody({
         {rows.slice(0, 50).map((row, index) => {
           const label = rowKey(row, index);
           const caseId = linkCaseId(row);
+          const key = `${index}-${label}`;
           if (caseId) {
             return (
-              <li key={label}>
+              <li key={key}>
                 <Link className="underline" to="/case/$caseId" params={{ caseId }}>
                   {label}
                 </Link>
@@ -52,7 +53,7 @@ export function ToolListBody({
             );
           }
           return (
-            <li key={label} className="text-muted-foreground">
+            <li key={key} className="text-muted-foreground">
               {label}
             </li>
           );
@@ -70,10 +71,10 @@ export function ListCasesBody({ output }: { readonly output: unknown }): React.J
       truncated={readTruncated(output)}
       emptyMessage={COPY.chat.listEmpty}
       rowKey={(row, index) => {
-        if (typeof row["category"] === "string" && typeof row["id"] === "string") {
-          return `${row["category"]} · ${row["id"].slice(0, 8)}`;
-        }
-        return `case-${index}`;
+        const category = typeof row["category"] === "string" ? row["category"] : null;
+        const geography = typeof row["geography"] === "string" ? row["geography"] : null;
+        if (category && geography) return `${category} · ${geography}`;
+        return category ?? `Case ${index + 1}`;
       }}
       linkCaseId={(row) => (typeof row["id"] === "string" ? row["id"] : null)}
     />

@@ -120,6 +120,12 @@ export const COPY = {
     switcherLabel: "Active organization",
     switchPrompt: "Switch workspace",
   },
+  theme: {
+    label: "Theme",
+    system: "System theme",
+    light: "Light theme",
+    dark: "Dark theme",
+  },
   invite: {
     linkCopied: "Invite link copied",
     clipboardBlockedTitle: "Clipboard blocked",
