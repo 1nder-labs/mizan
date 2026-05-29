@@ -1,17 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { LiveEventRowSchema, type LiveEventRow } from "@mizan/shared";
+import { LiveEventRowSchema, LiveEventTypeEnum, type LiveEventRow } from "@mizan/shared";
 import { dispatchLiveEvent } from "@/hooks/live-events-dispatch.ts";
 
-const LIVE_EVENT_TYPES = [
-  "case.status_changed",
-  "case.assigned",
-  "case.unassigned",
-  "case.brief_ready",
-  "case.actioned",
-  "audit.new",
-  "signal.persisted",
-  "workflow.event",
-] as const;
+/** SSE event names to subscribe — single source of truth is the zod enum. */
+const LIVE_EVENT_TYPES = LiveEventTypeEnum.options;
 
 function parseLiveRow(data: string): LiveEventRow | undefined {
   let raw: unknown;

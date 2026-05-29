@@ -114,7 +114,7 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
       <StatusTabs search={search} onSearchChange={onSearchChange} />
       <div className="flex flex-wrap items-center gap-2">
         <TextFilter
-          key={search.category ?? ""}
+          key={`category-${search.category ?? ""}`}
           value={search.category}
           placeholder="Filter by category"
           ariaLabel="Filter by category"
@@ -122,7 +122,7 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
           onCommit={(next) => onSearchChange({ category: next })}
         />
         <TextFilter
-          key={search.geography ?? ""}
+          key={`geography-${search.geography ?? ""}`}
           value={search.geography}
           placeholder="Country (e.g. PS, ID)"
           ariaLabel="Filter by geography"

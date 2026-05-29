@@ -12,6 +12,7 @@ import { sessionQueryOptions } from "@/lib/auth-client.ts";
 import { useTeamMembers } from "@/hooks/use-team.ts";
 import { useAssignCase } from "@/hooks/use-assign-case.ts";
 import { cn } from "@/lib/utils.ts";
+import { deriveOptionDisabled } from "./case-assignment-policy.ts";
 
 interface CaseAssignmentProps {
   readonly caseId: string;
@@ -19,17 +20,6 @@ interface CaseAssignmentProps {
 }
 
 const UNASSIGNED_VALUE = "__unassigned__";
-
-function deriveOptionDisabled(
-  role: "reviewer" | "admin",
-  currentAssignee: string | null,
-  optionUserId: string | null,
-  viewerId: string,
-): boolean {
-  if (role === "admin") return false;
-  if (optionUserId === null) return currentAssignee !== viewerId;
-  return optionUserId === viewerId && currentAssignee === null;
-}
 
 function AssigneeSelect({
   selectId,

@@ -5,7 +5,7 @@
  * Tiles open a `DocumentViewerDialog` backed by a short-TTL presigned
  * R2 URL. Tiles disable cleanly when the overlay is missing.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, IdCard, Landmark, Loader2, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 import type { DocumentKey } from "@mizan/shared";
@@ -103,12 +103,13 @@ function ActiveDialog({
   readonly onOpenChange: (next: boolean) => void;
 }): React.JSX.Element | null {
   const query = useDocumentUrl(caseId, docKey ?? "creator_id", open && docKey !== null);
+  const errorMessage = query.isError ? query.error.message : null;
+  useEffect(() => {
+    if (errorMessage) toast.error(COPY.documents.loadError, { description: errorMessage });
+  }, [errorMessage]);
   if (!docKey) return null;
   const spec = TILES.find((entry) => entry.docKey === docKey);
   const label = spec?.label ?? "Document";
-  if (query.isError) {
-    toast.error(COPY.documents.loadError, { description: query.error.message });
-  }
   const description = query.isPending ? COPY.documents.loadingLabel : "";
   return (
     <DocumentViewerDialog
