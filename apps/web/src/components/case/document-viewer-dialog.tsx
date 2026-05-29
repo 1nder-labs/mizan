@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog.tsx";
 import { COPY } from "@/lib/copy-constants.ts";
 import { ImageViewer } from "./image-viewer.tsx";
+import { classifyDocumentKind } from "./document-kind.ts";
 
 const PdfViewer = lazy(() => import("./pdf-viewer.tsx"));
 
@@ -29,16 +30,6 @@ interface DocumentViewerDialogProps {
   readonly title: string;
   readonly description: string;
   readonly fileName: string;
-}
-
-function classifyDocumentKind(url: string | null): "pdf" | "image" {
-  if (!url) return "image";
-  try {
-    const parsed = new URL(url);
-    return parsed.pathname.toLowerCase().endsWith(".pdf") ? "pdf" : "image";
-  } catch {
-    return "image";
-  }
 }
 
 function ViewerBody({

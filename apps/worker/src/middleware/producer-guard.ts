@@ -4,7 +4,7 @@ import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import type { CloudflareBindings } from "../env.ts";
 import { claimProducerCase } from "./producer-guard-helpers.ts";
-import type { RoleVariables } from "./require-role.ts";
+import type { ViewerVariables } from "./require-role.ts";
 
 /**
  * Source statuses accepted by `producerGuard("RUNNING")` — the Mode A
@@ -26,7 +26,7 @@ const ALLOWED_QUEUED_SOURCES = ["DRAFT", "FAILED"] as const;
 
 export type ProducerTarget = "RUNNING" | "QUEUED";
 
-export type ProducerVariables = RoleVariables & {
+export type ProducerVariables = ViewerVariables & {
   runId: string;
   caseRow: Case;
 };

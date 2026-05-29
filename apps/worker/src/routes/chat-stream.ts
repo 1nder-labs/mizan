@@ -64,16 +64,21 @@ export async function handleChatPost(
         writer.merge(aiSdkStream);
       },
       onFinish: async ({ responseMessage }) => {
-        await db.insert(chat_messages).values({
-          thread_id: body.threadId,
-          role: "assistant",
-          parts_json: responseMessage.parts,
-          created_at: new Date(),
-        });
-        await db
-          .update(chat_threads)
-          .set({ updated_at: new Date() })
-          .where(eq(chat_threads.id, body.threadId));
+        try {
+          await db.insert(chat_messages).values({
+            thread_id: body.threadId,
+            role: "assistant",
+            parts_json: responseMessage.parts,
+            created_at: new Date(),
+          });
+          await db
+            .update(chat_threads)
+            .set({ updated_at: new Date() })
+            .where(eq(chat_threads.id, body.threadId));
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.error(`[chat] onFinish persist failed (thread=${body.threadId}): ${reason}`);
+        }
       },
     });
     return createUIMessageStreamResponse({ stream: uiStream });

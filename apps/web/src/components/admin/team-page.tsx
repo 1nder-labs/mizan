@@ -6,10 +6,13 @@
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { Copy, MailPlus } from "lucide-react";
 import {
   CreateInvitationRequestSchema,
   type CreateInvitationRequest,
+  type CreateInvitationResponse,
+  type TeamInvitation,
   type TeamMember,
 } from "@mizan/shared";
 import { AuthenticatedShell } from "@/components/shell/authenticated-shell.tsx";
@@ -104,6 +107,28 @@ async function copyInviteUrlWithFallback(
   }
 }
 
+/**
+ * Runs the create-invitation flow with copy-to-clipboard fallback. Surfaces a
+ * toast (rather than an unhandled rejection that leaves the dialog stuck) when
+ * the mutation rejects.
+ */
+async function runInviteSubmit(args: {
+  readonly create: (values: CreateInvitationRequest) => Promise<CreateInvitationResponse>;
+  readonly values: CreateInvitationRequest;
+  readonly setFallbackUrl: (url: string | null) => void;
+  readonly onCreated: (url: string) => void;
+  readonly onDone: () => void;
+}): Promise<void> {
+  try {
+    const result = await args.create(args.values);
+    await copyInviteUrlWithFallback(result.inviteUrl, args.setFallbackUrl);
+    args.onCreated(result.inviteUrl);
+    args.onDone();
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : "Invitation failed");
+  }
+}
+
 function ClipboardFallbackDialog({
   url,
   open,
@@ -151,11 +176,7 @@ function InvitationForm({
   );
 }
 
-function InvitationDialog({
-  onCreated,
-}: {
-  readonly onCreated: (url: string) => void;
-}): React.JSX.Element {
+function useInviteDialog(onCreated: (url: string) => void) {
   const [open, setOpen] = useState(false);
   const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
   const mutation = useCreateInvitation();
@@ -163,13 +184,35 @@ function InvitationDialog({
     resolver: zodResolver(CreateInvitationRequestSchema),
     defaultValues: { email: "", role: "reviewer", ttlHours: 72 },
   });
-  async function submitInvite(values: CreateInvitationRequest): Promise<void> {
-    const result = await mutation.mutateAsync(values);
-    await copyInviteUrlWithFallback(result.inviteUrl, setFallbackUrl);
-    onCreated(result.inviteUrl);
-    setOpen(false);
-    form.reset();
-  }
+  const submitInvite = (values: CreateInvitationRequest): Promise<void> =>
+    runInviteSubmit({
+      create: mutation.mutateAsync,
+      values,
+      setFallbackUrl,
+      onCreated,
+      onDone: () => {
+        setOpen(false);
+        form.reset();
+      },
+    });
+  return {
+    open,
+    setOpen,
+    fallbackUrl,
+    setFallbackUrl,
+    form,
+    submitInvite,
+    pending: mutation.isPending,
+  };
+}
+
+function InvitationDialog({
+  onCreated,
+}: {
+  readonly onCreated: (url: string) => void;
+}): React.JSX.Element {
+  const { open, setOpen, fallbackUrl, setFallbackUrl, form, submitInvite, pending } =
+    useInviteDialog(onCreated);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -185,7 +228,7 @@ function InvitationDialog({
             Generates a one-time invitation URL. Copy and send manually.
           </DialogDescription>
         </DialogHeader>
-        <InvitationForm form={form} pending={mutation.isPending} onSubmit={submitInvite} />
+        <InvitationForm form={form} pending={pending} onSubmit={submitInvite} />
       </DialogContent>
       {fallbackUrl ? (
         <ClipboardFallbackDialog
@@ -204,14 +247,7 @@ function InvitationRow({
   inv,
   onReveal,
 }: {
-  readonly inv: {
-    id: string;
-    token: string;
-    email: string;
-    role: string;
-    expiresAt: number;
-    acceptedAt: number | null;
-  };
+  readonly inv: TeamInvitation;
   readonly onReveal: (url: string) => void;
 }): React.JSX.Element {
   const url = `${window.location.origin}/invite/${inv.token}`;

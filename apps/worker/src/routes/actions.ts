@@ -61,9 +61,9 @@ import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
 import { cacheActionResponse, readCachedActionResponse } from "../lib/action-cache.ts";
 import { finalizeActionWithLiveEvents, revertActionClaim } from "./action-live-events.ts";
-import type { RoleVariables } from "../middleware/require-role.ts";
+import type { ViewerVariables } from "../middleware/require-role.ts";
 
-type ActionContext = Context<{ Bindings: CloudflareBindings; Variables: RoleVariables }>;
+type ActionContext = Context<{ Bindings: CloudflareBindings; Variables: ViewerVariables }>;
 
 const ParamIdSchema = z.object({ id: z.string().uuid() });
 const EMPTY_RATIONALE = "(none)";
@@ -206,7 +206,7 @@ async function commitAction(
 
 export const actionRoutes = new Hono<{
   Bindings: CloudflareBindings;
-  Variables: RoleVariables;
+  Variables: ViewerVariables;
 }>().post(
   "/:id/action",
   zValidator("param", ParamIdSchema),

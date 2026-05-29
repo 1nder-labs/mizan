@@ -30,7 +30,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
-import type { RoleVariables } from "../middleware/require-role.ts";
+import type { ViewerVariables } from "../middleware/require-role.ts";
 
 const ParamIdSchema = z.object({ id: z.string().uuid() });
 
@@ -84,7 +84,7 @@ function canReviewerMutate(
 
 export const assignmentsRoutes = new Hono<{
   Bindings: CloudflareBindings;
-  Variables: RoleVariables;
+  Variables: ViewerVariables;
 }>().post(
   "/:id/assign",
   zValidator("param", ParamIdSchema),

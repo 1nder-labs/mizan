@@ -24,7 +24,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
 import { requireRole } from "../middleware/require-role.ts";
-import type { RoleVariables } from "../middleware/require-role.ts";
+import type { ViewerVariables } from "../middleware/require-role.ts";
 
 const ParamSchema = z.object({ id: z.string().min(1) });
 
@@ -34,7 +34,7 @@ function clauseErrorBody(code: PolicyClauseErrorCode): { error: PolicyClauseErro
 
 export const policyClauseRoutes = new Hono<{
   Bindings: CloudflareBindings;
-  Variables: RoleVariables;
+  Variables: ViewerVariables;
 }>()
   .use("*", requireRole(["reviewer", "admin"]))
   .get(

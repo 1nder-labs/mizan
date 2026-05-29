@@ -2,7 +2,7 @@
  * Admin-gated routes mounted at `/api/admin`.
  *
  * All routes in this sub-router are protected by `requireRole("admin")`.
- * The `RoleVariables` type (which extends `AuthVariables`) ensures that
+ * The `ViewerVariables` type (which extends `AuthVariables`) ensures that
  * both `c.var.auth` (set by the global `authInit`) and `c.var.user`
  * (set by `requireRole`) are fully typed on every handler below.
  *

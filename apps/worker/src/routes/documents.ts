@@ -27,7 +27,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
 import { signR2GetUrl } from "../lib/r2-presign.ts";
-import type { RoleVariables } from "../middleware/require-role.ts";
+import type { ViewerVariables } from "../middleware/require-role.ts";
 
 const PRESIGN_TTL_SECONDS = 300;
 const DEFAULT_BUCKET_NAME = "mizan-uploads";
@@ -86,7 +86,7 @@ function readR2Creds(env: CloudflareBindings): {
 
 export const documentsRoutes = new Hono<{
   Bindings: CloudflareBindings;
-  Variables: RoleVariables;
+  Variables: ViewerVariables;
 }>().get("/:id/documents/:docKey/url", zValidator("param", ParamSchema), async (c) => {
   const { id, docKey } = c.req.valid("param");
   const db = makeDb(c.env.DB);
@@ -97,7 +97,7 @@ export const documentsRoutes = new Hono<{
   const creds = readR2Creds(c.env);
   if (!creds) {
     console.error(`[documents] missing R2 creds in env (case=${id})`);
-    return c.json(docErrorBody("not_ready"), 503);
+    return c.json(docErrorBody("storage_unconfigured"), 500);
   }
   try {
     const signed = await signR2GetUrl({
@@ -117,6 +117,6 @@ export const documentsRoutes = new Hono<{
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     console.error(`[documents] presign failed (case=${id} docKey=${docKey}): ${reason}`);
-    return c.json(docErrorBody("not_ready"), 500);
+    return c.json(docErrorBody("presign_failed"), 500);
   }
 });

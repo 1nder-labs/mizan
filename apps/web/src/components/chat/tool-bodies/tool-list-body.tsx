@@ -1,9 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { COPY } from "@/lib/copy-constants.ts";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+import { isRecord } from "./is-record.ts";
 
 function readRows(output: unknown, key: string): readonly Record<string, unknown>[] {
   if (!isRecord(output)) return [];

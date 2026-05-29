@@ -1,8 +1,5 @@
 import { Link } from "@tanstack/react-router";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+import { isRecord } from "./is-record.ts";
 
 function readCaseRecord(output: unknown): Record<string, unknown> | null {
   if (!isRecord(output)) return null;

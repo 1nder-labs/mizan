@@ -19,7 +19,7 @@ import { CaseSignalsResponseSchema } from "@mizan/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
-import type { RoleVariables } from "../middleware/require-role.ts";
+import type { ViewerVariables } from "../middleware/require-role.ts";
 
 const ParamIdSchema = z.object({ id: z.string().uuid() });
 
@@ -49,7 +49,7 @@ function pickLatestPerType<T extends { readonly signal_type: string; readonly re
 
 export const signalsRoutes = new Hono<{
   Bindings: CloudflareBindings;
-  Variables: RoleVariables;
+  Variables: ViewerVariables;
 }>().get("/:id/signals", zValidator("param", ParamIdSchema), async (c) => {
   const { id } = c.req.valid("param");
   const db = makeDb(c.env.DB);

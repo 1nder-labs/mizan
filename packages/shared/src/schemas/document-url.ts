@@ -22,6 +22,8 @@ export const DocumentUrlErrorCodeEnum = z.enum([
   "no_run",
   "not_ready",
   "invalid_doc_key",
+  "storage_unconfigured",
+  "presign_failed",
 ]);
 
 export const DocumentUrlErrorBodySchema = z

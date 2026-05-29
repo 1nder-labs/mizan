@@ -7,7 +7,7 @@ import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { CloudflareBindings } from "../env.ts";
 import type { ProducerVariables } from "../middleware/producer-guard.ts";
-import type { RoleVariables } from "../middleware/require-role.ts";
+import type { ViewerVariables } from "../middleware/require-role.ts";
 
 const LIVE_TAIL_INTERVAL_MS = 500;
 const STREAM_WALL_CLOCK_MS = 90_000;
@@ -15,7 +15,7 @@ const RECONNECT_BACKOFF_MS = 5_000;
 
 type StreamContext = Context<{
   Bindings: CloudflareBindings;
-  Variables: ProducerVariables & RoleVariables;
+  Variables: ProducerVariables & ViewerVariables;
 }>;
 
 type StreamApi = {

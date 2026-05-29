@@ -68,6 +68,3 @@ export function requireRole(
     },
   );
 }
-
-/** @deprecated Use ViewerVariables — kept for incremental migration of type imports. */
-export type RoleVariables = ViewerVariables;
