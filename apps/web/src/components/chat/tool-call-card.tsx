@@ -4,10 +4,10 @@ import { GetBriefBody } from "@/components/chat/tool-bodies/get-brief-body.tsx";
 import { GetCaseBody } from "@/components/chat/tool-bodies/get-case-body.tsx";
 import { GetPolicyClauseBody } from "@/components/chat/tool-bodies/get-policy-clause-body.tsx";
 import {
-  listAuditBody,
-  listCasesBody,
-  listSignalsBody,
-  listTeamBody,
+  ListAuditBody,
+  ListCasesBody,
+  ListSignalsBody,
+  ListTeamBody,
 } from "@/components/chat/tool-bodies/tool-list-body.tsx";
 
 interface ToolCallPart {
@@ -23,25 +23,22 @@ function extractToolName(part: ToolCallPart): string {
   return part.type;
 }
 
-function renderDoneBody(toolName: string, output: unknown): React.JSX.Element {
-  switch (toolName) {
-    case "list_cases":
-      return listCasesBody(output);
-    case "list_signals":
-      return listSignalsBody(output);
-    case "list_team":
-      return listTeamBody(output);
-    case "list_audit":
-      return listAuditBody(output);
-    case "get_case":
-      return <GetCaseBody output={output} />;
-    case "get_brief":
-      return <GetBriefBody output={output} />;
-    case "get_policy_clause":
-      return <GetPolicyClauseBody output={output} />;
-    default:
-      return <p className="text-xs text-muted-foreground">{COPY.chat.listEmpty}</p>;
-  }
+/** Maps a tool name to its done-state body element. */
+function DoneBody({
+  toolName,
+  output,
+}: {
+  readonly toolName: string;
+  readonly output: unknown;
+}): React.JSX.Element {
+  if (toolName === "list_cases") return <ListCasesBody output={output} />;
+  if (toolName === "list_signals") return <ListSignalsBody output={output} />;
+  if (toolName === "list_team") return <ListTeamBody output={output} />;
+  if (toolName === "list_audit") return <ListAuditBody output={output} />;
+  if (toolName === "get_case") return <GetCaseBody output={output} />;
+  if (toolName === "get_brief") return <GetBriefBody output={output} />;
+  if (toolName === "get_policy_clause") return <GetPolicyClauseBody output={output} />;
+  return <p className="text-xs text-muted-foreground">{COPY.chat.listEmpty}</p>;
 }
 
 /**
@@ -74,7 +71,11 @@ export function ToolCallCard({
           </Button>
         </div>
       ) : null}
-      {done ? <div className="mt-2">{renderDoneBody(toolName, part.output)}</div> : null}
+      {done ? (
+        <div className="mt-2">
+          <DoneBody toolName={toolName} output={part.output} />
+        </div>
+      ) : null}
     </div>
   );
 }

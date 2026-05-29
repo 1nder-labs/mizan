@@ -16,7 +16,7 @@ export const users = sqliteTable("users", {
     .notNull(),
 });
 
-export const organization = sqliteTable("organization", {
+export const organizations = sqliteTable("organizations", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
@@ -27,8 +27,8 @@ export const organization = sqliteTable("organization", {
     .notNull(),
 });
 
-export const member = sqliteTable(
-  "member",
+export const members = sqliteTable(
+  "members",
   {
     id: text("id").primaryKey(),
     userId: text("user_id")
@@ -36,17 +36,17 @@ export const member = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     organizationId: text("organization_id")
       .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+      .references(() => organizations.id, { onDelete: "cascade" }),
     role: text("role", { enum: ["admin", "reviewer"] as const }).notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
       .notNull(),
   },
-  (table) => [uniqueIndex("member_user_org_uniq").on(table.userId, table.organizationId)],
+  (table) => [uniqueIndex("members_user_org_uniq").on(table.userId, table.organizationId)],
 );
 
-export const invitation = sqliteTable(
-  "invitation",
+export const invitations = sqliteTable(
+  "invitations",
   {
     id: text("id").primaryKey(),
     email: text("email").notNull(),
@@ -55,7 +55,7 @@ export const invitation = sqliteTable(
       .references(() => users.id, { onDelete: "restrict" }),
     organizationId: text("organization_id")
       .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+      .references(() => organizations.id, { onDelete: "cascade" }),
     role: text("role", { enum: ["admin", "reviewer"] as const })
       .notNull()
       .default("reviewer"),
@@ -69,7 +69,7 @@ export const invitation = sqliteTable(
       .notNull(),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
   },
-  (table) => [index("invitation_email_status_idx").on(table.email, table.status)],
+  (table) => [index("invitations_email_status_idx").on(table.email, table.status)],
 );
 
 export const sessions = sqliteTable(
@@ -89,7 +89,7 @@ export const sessions = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    activeOrganizationId: text("active_organization_id").references(() => organization.id),
+    activeOrganizationId: text("active_organization_id").references(() => organizations.id),
     timezone: text("timezone"),
     city: text("city"),
     country: text("country"),
@@ -153,27 +153,27 @@ export const verifications = sqliteTable(
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   accounts: many(accounts),
-  members: many(member),
+  members: many(members),
 }));
 
-export const organizationRelations = relations(organization, ({ many }) => ({
-  members: many(member),
-  invitations: many(invitation),
+export const organizationRelations = relations(organizations, ({ many }) => ({
+  members: many(members),
+  invitations: many(invitations),
 }));
 
-export const memberRelations = relations(member, ({ one }) => ({
-  user: one(users, { fields: [member.userId], references: [users.id] }),
-  organization: one(organization, {
-    fields: [member.organizationId],
-    references: [organization.id],
+export const memberRelations = relations(members, ({ one }) => ({
+  user: one(users, { fields: [members.userId], references: [users.id] }),
+  organization: one(organizations, {
+    fields: [members.organizationId],
+    references: [organizations.id],
   }),
 }));
 
-export const invitationRelations = relations(invitation, ({ one }) => ({
-  inviter: one(users, { fields: [invitation.inviterId], references: [users.id] }),
-  organization: one(organization, {
-    fields: [invitation.organizationId],
-    references: [organization.id],
+export const invitationRelations = relations(invitations, ({ one }) => ({
+  inviter: one(users, { fields: [invitations.inviterId], references: [users.id] }),
+  organization: one(organizations, {
+    fields: [invitations.organizationId],
+    references: [organizations.id],
   }),
 }));
 
@@ -182,9 +182,9 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
     fields: [sessions.userId],
     references: [users.id],
   }),
-  activeOrganization: one(organization, {
+  activeOrganization: one(organizations, {
     fields: [sessions.activeOrganizationId],
-    references: [organization.id],
+    references: [organizations.id],
   }),
 }));
 

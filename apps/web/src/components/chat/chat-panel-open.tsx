@@ -17,7 +17,6 @@ export function OpenChatPanel({ onClose }: { readonly onClose: () => void }): Re
 
   return (
     <aside
-      role="complementary"
       aria-label={COPY.chat.panelTitle}
       className="fixed inset-y-0 right-0 z-40 flex w-[380px] translate-x-0 flex-col border-l border-border bg-background shadow-elev-2 transition-transform duration-200 max-lg:inset-0 max-lg:z-50 max-lg:w-full"
     >

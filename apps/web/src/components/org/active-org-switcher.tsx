@@ -14,7 +14,7 @@ export function ActiveOrgSwitcher(): React.JSX.Element | null {
   if (orgs.length <= 1) return null;
 
   return (
-    <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
+    <div className="p-2 group-data-[collapsible=icon]:hidden">
       <p className="mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         {COPY.org.switcherLabel}
       </p>

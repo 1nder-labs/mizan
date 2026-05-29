@@ -39,10 +39,7 @@ function useInflightPoll(caseId: string, enabled: boolean): boolean {
   const activeRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled) {
-      setRefreshing(false);
-      return;
-    }
+    if (!enabled) return;
     activeRef.current = true;
     fireInvalidate(queryClient, caseId, activeRef, setRefreshing);
     let ticks = 0;
@@ -62,7 +59,7 @@ function useInflightPoll(caseId: string, enabled: boolean): boolean {
     };
   }, [caseId, enabled, queryClient]);
 
-  return refreshing;
+  return enabled ? refreshing : false;
 }
 
 export { useInflightPoll };

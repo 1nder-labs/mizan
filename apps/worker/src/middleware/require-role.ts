@@ -1,12 +1,12 @@
 /**
  * Declarative role-gate middleware factory.
  *
- * Reads per-org role from the `member` table for `session.activeOrganizationId`.
+ * Reads per-org role from the `members` table for `session.activeOrganizationId`.
  * Sets `c.var.viewer` as the canonical identity for handlers and Mastra tools.
  */
 
 import { createMiddleware } from "hono/factory";
-import { and, eq, member, makeDb } from "@mizan/db";
+import { and, eq, members, makeDb } from "@mizan/db";
 import { ViewerContextSchema, type ViewerContext } from "@mizan/shared";
 import { readActiveOrganizationId } from "../auth/session-utils.ts";
 import type { CloudflareBindings } from "../env.ts";
@@ -23,7 +23,7 @@ function parseMemberRole(value: string): Role | null {
 }
 
 /**
- * Returns middleware that resolves the caller's org-scoped role from `member`.
+ * Returns middleware that resolves the caller's org-scoped role from `members`.
  */
 export function requireRole(
   allowed: Role | Role[],
@@ -43,9 +43,9 @@ export function requireRole(
 
       const db = makeDb(c.env.DB);
       const membership = await db
-        .select({ role: member.role })
-        .from(member)
-        .where(and(eq(member.userId, session.user.id), eq(member.organizationId, activeOrgId)))
+        .select({ role: members.role })
+        .from(members)
+        .where(and(eq(members.userId, session.user.id), eq(members.organizationId, activeOrgId)))
         .get();
 
       if (!membership) {

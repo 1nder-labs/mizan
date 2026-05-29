@@ -60,7 +60,7 @@ async function inviteReviewer(adminCookie: string): Promise<void> {
       "Content-Type": "application/json",
       Cookie: adminCookie,
     },
-    body: JSON.stringify({ email: REVIEWER.email, role: "reviewer" }),
+    body: JSON.stringify({ email: REVIEWER.email, role: "reviewer", ttlHours: 48 }),
   });
   if (!res.ok && res.status !== 409) {
     const body = await res.text();

@@ -57,35 +57,60 @@ export function KanbanCardBody({ row }: { readonly row: CaseRow }): React.JSX.El
   );
 }
 
-export function KanbanCard({ row, dragging }: KanbanCardProps): React.JSX.Element {
+/**
+ * Drag-aware click + keyboard navigation for a kanban card. Click navigates
+ * only when the pointer barely moved (so a drag gesture never opens the case);
+ * Enter/Space provide keyboard access. `downAt` is owned here and stamped by
+ * the card's own pointer-down handler (which also forwards to dnd-kit).
+ */
+function useCardClick(caseId: string, isDragging: boolean) {
   const navigate = useNavigate();
   const downAt = useRef<{ x: number; y: number } | null>(null);
+  const goToCase = (): void => {
+    void navigate({ to: "/case/$caseId", params: { caseId } });
+  };
+  return {
+    downAt,
+    onClick: (event: React.MouseEvent<HTMLLIElement>): void => {
+      const start = downAt.current;
+      if (isDragging || !start) return;
+      const dx = Math.abs(event.clientX - start.x);
+      const dy = Math.abs(event.clientY - start.y);
+      if (dx > CLICK_DRIFT_THRESHOLD_PX || dy > CLICK_DRIFT_THRESHOLD_PX) return;
+      goToCase();
+    },
+    onKeyDown: (event: React.KeyboardEvent<HTMLLIElement>): void => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        goToCase();
+      }
+    },
+  };
+}
+
+export function KanbanCard({ row, dragging }: KanbanCardProps): React.JSX.Element {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: row.id,
     data: { status: row.status },
   });
   const { onPointerDown: dndPointerDown, ...restListeners } = listeners ?? {};
+  const { role: _dndRole, tabIndex: _dndTabIndex, ...restAttributes } = attributes;
+  const { downAt, onClick, onKeyDown } = useCardClick(row.id, isDragging);
   const handlePointerDown = (event: React.PointerEvent<HTMLLIElement>): void => {
     downAt.current = { x: event.clientX, y: event.clientY };
     dndPointerDown?.(event);
-  };
-  const handleClick = (event: React.MouseEvent<HTMLLIElement>): void => {
-    if (isDragging) return;
-    const start = downAt.current;
-    if (!start) return;
-    const dx = Math.abs(event.clientX - start.x);
-    const dy = Math.abs(event.clientY - start.y);
-    if (dx > CLICK_DRIFT_THRESHOLD_PX || dy > CLICK_DRIFT_THRESHOLD_PX) return;
-    void navigate({ to: "/case/$caseId", params: { caseId: row.id } });
   };
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      {...attributes}
+      role="button"
+      tabIndex={0}
+      {...restAttributes}
       {...restListeners}
       onPointerDown={handlePointerDown}
-      onClick={handleClick}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
       className={cn(
         "list-none cursor-grab focus:outline-none active:cursor-grabbing",
         (isDragging ?? dragging) ? "opacity-40" : "opacity-100",

@@ -1,7 +1,7 @@
 /**
  * `GET /api/me` — returns the current session user's identity and active org role.
  */
-import { and, eq, makeDb, member } from "@mizan/db";
+import { and, eq, makeDb, members } from "@mizan/db";
 import { MeResponseSchema } from "@mizan/shared";
 import { Hono } from "hono";
 import type { AuthVariables } from "../middleware/auth-init.ts";
@@ -26,9 +26,9 @@ export const meRoutes = new Hono<{
   if (activeOrgId) {
     const db = makeDb(c.env.DB);
     const membership = await db
-      .select({ role: member.role })
-      .from(member)
-      .where(and(eq(member.userId, session.user.id), eq(member.organizationId, activeOrgId)))
+      .select({ role: members.role })
+      .from(members)
+      .where(and(eq(members.userId, session.user.id), eq(members.organizationId, activeOrgId)))
       .get();
     if (membership) role = parseMemberRole(membership.role);
   }

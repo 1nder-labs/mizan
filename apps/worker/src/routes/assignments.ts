@@ -17,7 +17,7 @@ import {
   cases,
   emitLiveEvent,
   makeDb,
-  member,
+  members,
   users,
   type Db,
 } from "@mizan/db";
@@ -53,13 +53,13 @@ async function loadCase(db: Db, caseId: string, organizationId: string) {
 /**
  * A user is assignable only when they hold a membership in the same
  * organization as the case. A bare `users` existence check would let an
- * admin assign a case to a member of a different organization.
+ * admin assign a case to a members of a different organization.
  */
 async function isOrgMember(db: Db, userId: string, organizationId: string): Promise<boolean> {
   const row = await db
-    .select({ id: member.id })
-    .from(member)
-    .where(and(eq(member.userId, userId), eq(member.organizationId, organizationId)))
+    .select({ id: members.id })
+    .from(members)
+    .where(and(eq(members.userId, userId), eq(members.organizationId, organizationId)))
     .get();
   return Boolean(row);
 }

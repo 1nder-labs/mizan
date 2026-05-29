@@ -3,7 +3,7 @@ import { MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { useChatShortcut } from "@/hooks/use-chat-shortcut.ts";
 import { useIsMobile } from "@/hooks/use-mobile.tsx";
-import { useSidebar } from "@/components/ui/sidebar.tsx";
+import { useSidebar } from "@/components/ui/sidebar-context.ts";
 import { OpenChatPanel } from "@/components/chat/chat-panel-open.tsx";
 
 const STORAGE_KEY = "mizan:chat:open";

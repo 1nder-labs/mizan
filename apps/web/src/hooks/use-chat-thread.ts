@@ -11,8 +11,16 @@ import { useChatTransport } from "@/hooks/use-chat-transport.ts";
 /** Thread CRUD state for the copilot panel. */
 export function useChatThread() {
   const queryClient = useQueryClient();
-  const [threadId, setThreadId] = useState<string | null>(null);
+  /**
+   * `selectedId` holds the user-chosen or newly-created thread. When null
+   * we fall back to the first thread from the server list during render —
+   * no effect-driven setState required for the common case.
+   */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const threads = useQuery(chatThreadsQueryOptions());
+
+  const firstId = threads.data?.threads[0]?.id ?? null;
+  const threadId = selectedId ?? firstId;
 
   const createThread = useMutation({
     mutationFn: async () => {
@@ -25,22 +33,24 @@ export function useChatThread() {
       return body.id;
     },
     onSuccess: async (id) => {
-      setThreadId(id);
+      setSelectedId(id);
       await queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
     },
   });
 
+  /**
+   * Create the first thread when the list is loaded and empty. Runs only
+   * when there is no existing thread and no creation is in-flight — the
+   * effect does not set state directly; it delegates to `createThread`
+   * whose `onSuccess` sets `selectedId`.
+   */
   useEffect(() => {
+    if (threads.isLoading || threads.data === undefined) return;
     if (threadId || createThread.isPending) return;
-    const first = threads.data?.threads[0]?.id;
-    if (first) {
-      setThreadId(first);
-      return;
-    }
     void createThread.mutateAsync().catch(() => undefined);
-  }, [threadId, createThread, threads.data?.threads]);
+  }, [threads.isLoading, threads.data, threadId, createThread]);
 
-  return { threadId, setThreadId, createThread, threads };
+  return { threadId, setThreadId: setSelectedId, createThread, threads };
 }
 
 async function hydrateThreadMessages(

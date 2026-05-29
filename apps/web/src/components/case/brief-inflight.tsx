@@ -28,7 +28,7 @@ export function BriefInflight({ status }: BriefInflightProps): React.JSX.Element
           <p className="font-medium text-foreground">{label}</p>
           <p className="mt-1 text-muted-foreground">
             Another session is composing this brief. This page will refresh automatically when the
-            workflow finishes — no need to start a new run.
+            workflow finishes - no need to start a new run.
           </p>
         </div>
       </div>

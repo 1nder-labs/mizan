@@ -14,7 +14,7 @@ interface InFlightNoticeProps {
 export function InFlightNotice({ onRefresh, refreshing }: InFlightNoticeProps): React.JSX.Element {
   return (
     <Card className="border-border/80 shadow-elev-1">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Loader2 className="size-4 animate-spin text-status-info-foreground" />
           <CardTitle className="text-sm font-medium">Composing brief</CardTitle>

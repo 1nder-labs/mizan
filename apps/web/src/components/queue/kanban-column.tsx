@@ -60,7 +60,7 @@ function ColumnHeader({
   readonly showPulse: boolean;
 }): React.JSX.Element {
   return (
-    <header className="relative flex items-center justify-between gap-2 border-b border-border/40 px-3 py-3">
+    <header className="relative flex items-center justify-between gap-2 border-b border-border/40 p-3">
       <div className="flex items-center gap-2">
         <span
           className={cn("size-2 rounded-full", STATUS_TONE[spec.status], showPulse && "pulse-dot")}

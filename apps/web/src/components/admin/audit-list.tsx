@@ -31,7 +31,7 @@ function AuditErrorCard({ onRetry, isFetching }: AuditErrorCardProps): React.JSX
     <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
       <p className="text-destructive">Could not load reviewer actions.</p>
       <p className="mt-1 text-muted-foreground">
-        The audit feed temporarily failed to load — retry below.
+        The audit feed temporarily failed to load - retry below.
       </p>
       <Button variant="outline" size="sm" onClick={onRetry} disabled={isFetching} className="mt-3">
         <RefreshCw className={isFetching ? "size-3 animate-spin" : "size-3"} />

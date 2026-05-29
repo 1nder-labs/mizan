@@ -1,5 +1,5 @@
 import { and, asc, eq, gt } from "drizzle-orm";
-import { invitation, member, type Db } from "@mizan/db";
+import { invitations, members, type Db } from "@mizan/db";
 import { getOrganizationInvitationApi, type AuthLike } from "./org-invitations.ts";
 
 function slugify(value: string): string {
@@ -30,10 +30,10 @@ function workspaceSlug(user: { name?: string | null; email: string }): string {
  * before `session.create.before`, so `seedActiveOrganization` can resolve the
  * active org in the same signup flow.
  *
- * Invited signups join the inviter's org; the invitation row is marked
+ * Invited signups join the inviter's org; the invitations row is marked
  * accepted to keep it single-use (better-auth exposes no server-only accept
  * endpoint — `addMember` adds the membership and the status flip consumes the
- * invitation).
+ * invitations).
  */
 async function provisionOrgOnSignup(
   user: { id: string; email: string; name?: string | null },
@@ -44,12 +44,12 @@ async function provisionOrgOnSignup(
   const api = getOrganizationInvitationApi(getAuth());
   const pending = await db
     .select()
-    .from(invitation)
+    .from(invitations)
     .where(
       and(
-        eq(invitation.email, user.email.toLowerCase()),
-        eq(invitation.status, "pending"),
-        gt(invitation.expiresAt, new Date(Date.now())),
+        eq(invitations.email, user.email.toLowerCase()),
+        eq(invitations.status, "pending"),
+        gt(invitations.expiresAt, new Date(Date.now())),
       ),
     )
     .get();
@@ -57,7 +57,7 @@ async function provisionOrgOnSignup(
     await api.addMember({
       body: { userId: user.id, organizationId: pending.organizationId, role: pending.role },
     });
-    await db.update(invitation).set({ status: "accepted" }).where(eq(invitation.id, pending.id));
+    await db.update(invitations).set({ status: "accepted" }).where(eq(invitations.id, pending.id));
     return;
   }
   await api.createOrganization({
@@ -72,10 +72,10 @@ async function seedActiveOrganization(
   if (session.activeOrganizationId) return { data: session };
   const db = getDb();
   const firstMember = await db
-    .select({ organizationId: member.organizationId })
-    .from(member)
-    .where(eq(member.userId, session.userId))
-    .orderBy(asc(member.createdAt))
+    .select({ organizationId: members.organizationId })
+    .from(members)
+    .where(eq(members.userId, session.userId))
+    .orderBy(asc(members.createdAt))
     .limit(1)
     .get();
   if (!firstMember) return { data: session };

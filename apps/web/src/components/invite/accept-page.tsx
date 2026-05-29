@@ -67,7 +67,7 @@ function InviteSignInPrompt({
             <strong>{inv.role}</strong>.
           </p>
           <p className="text-xs text-muted-foreground">
-            Create an account with that email — you'll join the team automatically after signup.
+            Create an account with that email - you'll join the team automatically after signup.
           </p>
           <Button asChild className="w-full">
             <Link to="/signup" search={{ email: inv.email }}>

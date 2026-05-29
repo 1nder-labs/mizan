@@ -65,6 +65,9 @@ export function useWorkflowTapeInvalidation(caseId: string, enabled: boolean): v
      */
     source.onerror = () => source.close();
     for (const eventName of TAPE_EVENT_TYPES) source.addEventListener(eventName, handleFrame);
-    return () => source.close();
+    return () => {
+      for (const eventName of TAPE_EVENT_TYPES) source.removeEventListener(eventName, handleFrame);
+      source.close();
+    };
   }, [caseId, enabled, queryClient]);
 }

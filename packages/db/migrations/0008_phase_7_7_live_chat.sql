@@ -16,7 +16,7 @@ CREATE TABLE `chat_threads` (
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`organization_id`) REFERENCES `organization`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`organization_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX `chat_threads_user_org_updated_idx` ON `chat_threads` (`user_id`,`organization_id`,`updated_at`);--> statement-breakpoint
@@ -29,13 +29,13 @@ CREATE TABLE `live_events` (
 	`organization_id` text,
 	`actor_user_id` text,
 	`emitted_at` integer NOT NULL,
-	FOREIGN KEY (`organization_id`) REFERENCES `organization`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`organization_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`actor_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `live_events_topic_seq_uniq` ON `live_events` (`topic`,`seq`);--> statement-breakpoint
 CREATE INDEX `live_events_topic_emitted_idx` ON `live_events` (`topic`,`emitted_at`);--> statement-breakpoint
-CREATE TABLE `invitation` (
+CREATE TABLE `invitations` (
 	`id` text PRIMARY KEY NOT NULL,
 	`email` text NOT NULL,
 	`inviter_id` text NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE `invitation` (
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	`expires_at` integer NOT NULL,
 	FOREIGN KEY (`inviter_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE restrict,
-	FOREIGN KEY (`organization_id`) REFERENCES `organization`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`organization_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `invitation_email_status_idx` ON `invitation` (`email`,`status`);
+CREATE INDEX `invitations_email_status_idx` ON `invitations` (`email`,`status`);

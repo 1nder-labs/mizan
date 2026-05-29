@@ -2,7 +2,7 @@
  * Read helpers for signals, policy, team, and audit surfaces.
  */
 import { and, desc, eq } from "drizzle-orm";
-import { fetchAuditPage, member, signals as signalsTable, users, type Db } from "@mizan/db";
+import { fetchAuditPage, members, signals as signalsTable, users, type Db } from "@mizan/db";
 import { getClauseById } from "@mizan/mastra";
 import type { AuditListSearch, PolicyClauseSource, ViewerContext } from "@mizan/shared";
 import { NotFoundError } from "./cases-handler.ts";
@@ -67,16 +67,16 @@ export function getPolicyClause(clauseId: string, source: PolicyClauseSource) {
 export async function listTeamMembers(viewer: ViewerContext, db: Db) {
   const rows = await db
     .select({
-      userId: member.userId,
+      userId: members.userId,
       email: users.email,
       name: users.name,
-      role: member.role,
-      createdAt: member.createdAt,
+      role: members.role,
+      createdAt: members.createdAt,
     })
-    .from(member)
-    .innerJoin(users, eq(users.id, member.userId))
-    .where(eq(member.organizationId, viewer.organizationId))
-    .orderBy(desc(member.createdAt))
+    .from(members)
+    .innerJoin(users, eq(users.id, members.userId))
+    .where(eq(members.organizationId, viewer.organizationId))
+    .orderBy(desc(members.createdAt))
     .all();
   return rows.map((row) => ({
     id: row.userId,

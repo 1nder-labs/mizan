@@ -26,7 +26,7 @@ export const Route = createFileRoute("/signup")({
   component: SignupRoutePage,
 });
 
-function SignupRoutePage(): React.JSX.Element {
+export function SignupRoutePage(): React.JSX.Element {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const search = Route.useSearch();

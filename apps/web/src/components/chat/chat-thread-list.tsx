@@ -28,7 +28,7 @@ export function ChatThreadList({
   readonly onCreate: () => void;
 }): React.JSX.Element {
   return (
-    <div className="border-b border-border/60 px-2 py-2">
+    <div className="border-b border-border/60 p-2">
       <div className="mb-2 flex items-center justify-between gap-2 px-1">
         <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Threads</p>
         <Button

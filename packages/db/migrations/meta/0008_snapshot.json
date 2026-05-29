@@ -990,7 +990,7 @@
       "checkConstraints": {}
     },
     "invitation": {
-      "name": "invitation",
+      "name": "invitations",
       "columns": {
         "id": {
           "name": "id",
@@ -1053,8 +1053,8 @@
         }
       },
       "indexes": {
-        "invitation_email_status_idx": {
-          "name": "invitation_email_status_idx",
+        "invitations_email_status_idx": {
+          "name": "invitations_email_status_idx",
           "columns": ["email", "status"],
           "isUnique": false
         }
@@ -1084,7 +1084,7 @@
       "checkConstraints": {}
     },
     "member": {
-      "name": "member",
+      "name": "members",
       "columns": {
         "id": {
           "name": "id",
@@ -1124,8 +1124,8 @@
         }
       },
       "indexes": {
-        "member_user_org_uniq": {
-          "name": "member_user_org_uniq",
+        "members_user_org_uniq": {
+          "name": "members_user_org_uniq",
           "columns": ["user_id", "organization_id"],
           "isUnique": true
         }
@@ -1155,7 +1155,7 @@
       "checkConstraints": {}
     },
     "organization": {
-      "name": "organization",
+      "name": "organizations",
       "columns": {
         "id": {
           "name": "id",

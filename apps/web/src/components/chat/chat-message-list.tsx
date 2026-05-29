@@ -57,6 +57,7 @@ function MessageParts({
   return (
     <div className="space-y-2">
       {message.parts.map((part, index) => {
+        const partKey = `${message.id}-${part.type}-${index}`;
         if (part.type === "text") {
           const display =
             message.role === "assistant" && showStopped
@@ -64,7 +65,7 @@ function MessageParts({
               : part.text;
           return (
             <div
-              key={`${message.id}-${index}`}
+              key={partKey}
               className={`rounded-md px-3 py-2 text-sm ${message.role === "user" ? "bg-muted" : "bg-card border border-border/40"}`}
             >
               <Markdown>{display}</Markdown>
@@ -72,7 +73,7 @@ function MessageParts({
           );
         }
         if (part.type.startsWith("tool-")) {
-          return <ToolCallCard key={`${message.id}-${index}`} part={part} onRetry={onRegenerate} />;
+          return <ToolCallCard key={partKey} part={part} onRetry={onRegenerate} />;
         }
         return null;
       })}
@@ -103,7 +104,7 @@ export function ChatMessages({
       role="log"
       aria-live="polite"
       aria-atomic="false"
-      className="flex-1 space-y-3 overflow-y-auto px-3 py-3"
+      className="flex-1 space-y-3 overflow-y-auto p-3"
       onScroll={onScroll}
     >
       {messages.map((message) => (

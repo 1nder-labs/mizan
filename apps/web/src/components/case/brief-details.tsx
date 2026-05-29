@@ -63,7 +63,7 @@ function BulletList({ items }: { readonly items: readonly string[] }): React.JSX
   return (
     <ul className="space-y-2 text-sm text-foreground">
       {items.map((item, index) => (
-        <li key={`${index}-${item.slice(0, 24)}`} className="flex gap-2">
+        <li key={`${index}-${item}`} className="flex gap-2">
           <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground" aria-hidden />
           {item}
         </li>
@@ -87,11 +87,8 @@ function PolicyCitationsTab({ payload }: { readonly payload: BriefPayload }): Re
   }
   return (
     <ul className="space-y-3 text-sm">
-      {payload.policy_citations.map((citation, index) => (
-        <li
-          key={`${index}-${citation.clauseId}`}
-          className="rounded-md border border-border/70 bg-muted/40 p-3"
-        >
+      {payload.policy_citations.map((citation) => (
+        <li key={citation.clauseId} className="rounded-md border border-border/70 bg-muted/40 p-3">
           <div className="flex items-center gap-2">
             <CitationChip clauseId={citation.clauseId} source={citation.source} />
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">

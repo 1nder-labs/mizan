@@ -27,6 +27,16 @@ const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.5;
 const SCALE_STEP = 0.25;
 
+/** Stable loading indicator element — hoisted to avoid recreating on each render. */
+const PDF_LOADING_NODE = (
+  <p className="text-center text-sm text-muted-foreground">{COPY.documents.loadingLabel}</p>
+);
+
+/** Stable error indicator element — hoisted to avoid recreating on each render. */
+const PDF_ERROR_NODE = (
+  <p className="text-center text-sm text-destructive">{COPY.documents.loadError}</p>
+);
+
 interface PdfViewerProps {
   readonly url: string;
   readonly fileName: string;
@@ -164,10 +174,8 @@ function PdfBody({
         options={DOCUMENT_OPTIONS}
         onLoadSuccess={onLoadSuccess}
         onLoadError={onLoadError}
-        loading={
-          <p className="text-center text-sm text-muted-foreground">{COPY.documents.loadingLabel}</p>
-        }
-        error={<p className="text-center text-sm text-destructive">{COPY.documents.loadError}</p>}
+        loading={PDF_LOADING_NODE}
+        error={PDF_ERROR_NODE}
         aria-label={fileName}
       >
         <Page

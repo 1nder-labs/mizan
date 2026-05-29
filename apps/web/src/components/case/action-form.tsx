@@ -6,7 +6,9 @@ import {
   type ReviewerActionRequest,
 } from "@mizan/shared";
 import { Form } from "@/components/ui/form.tsx";
-import { ActionRadioField, RationaleField, SubmitActionButton } from "./action-form-fields.tsx";
+import { ActionRadioField } from "./action-form-fields.tsx";
+import { RationaleField } from "./rationale-field.tsx";
+import { SubmitActionButton } from "./submit-action-button.tsx";
 
 interface ActionFormProps {
   readonly pending: boolean;

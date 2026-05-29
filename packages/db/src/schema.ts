@@ -15,7 +15,7 @@
  */
 
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { organization, users } from "./auth.schema.ts";
+import { organizations, users } from "./auth.schema.ts";
 
 import type { BriefPayload, CaseOverlay, SignalPayload } from "@mizan/shared";
 
@@ -77,7 +77,7 @@ export const cases = sqliteTable(
     assigned_to: text("assigned_to").references(() => users.id, { onDelete: "set null" }),
     organization_id: text("organization_id")
       .notNull()
-      .references(() => organization.id, { onDelete: "restrict" }),
+      .references(() => organizations.id, { onDelete: "restrict" }),
   },
   (table) => [
     index("cases_org_status_updated_idx").on(table.organization_id, table.status, table.updated_at),
@@ -106,7 +106,7 @@ export const briefs = sqliteTable(
     payload_json: text("payload_json", { mode: "json" }).$type<BriefPayload>().notNull(),
     organization_id: text("organization_id")
       .notNull()
-      .references(() => organization.id, { onDelete: "restrict" }),
+      .references(() => organizations.id, { onDelete: "restrict" }),
   },
   (table) => [
     index("briefs_org_case_id_idx").on(table.organization_id, table.case_id),
@@ -141,7 +141,7 @@ export const signals = sqliteTable(
       .$defaultFn(() => new Date()),
     organization_id: text("organization_id")
       .notNull()
-      .references(() => organization.id, { onDelete: "restrict" }),
+      .references(() => organizations.id, { onDelete: "restrict" }),
   },
   /**
    * `signals_case_run_type_uniq` is a covering composite index whose
@@ -177,7 +177,7 @@ export const reviewer_actions = sqliteTable(
     action_id: text("action_id").notNull(),
     organization_id: text("organization_id")
       .notNull()
-      .references(() => organization.id, { onDelete: "restrict" }),
+      .references(() => organizations.id, { onDelete: "restrict" }),
   },
   (table) => [
     index("reviewer_actions_org_case_id_idx").on(table.organization_id, table.case_id),
@@ -208,7 +208,7 @@ export const workflow_events = sqliteTable(
       .$defaultFn(() => new Date()),
     organization_id: text("organization_id")
       .notNull()
-      .references(() => organization.id, { onDelete: "restrict" }),
+      .references(() => organizations.id, { onDelete: "restrict" }),
   },
   (table) => [
     uniqueIndex("workflow_events_run_seq_idx").on(table.run_id, table.seq),
@@ -226,7 +226,7 @@ export const live_events = sqliteTable(
     seq: integer("seq").notNull(),
     event_type: text("event_type").notNull(),
     payload_json: text("payload_json", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
-    organization_id: text("organization_id").references(() => organization.id, {
+    organization_id: text("organization_id").references(() => organizations.id, {
       onDelete: "cascade",
     }),
     actor_user_id: text("actor_user_id").references(() => users.id),
@@ -251,7 +251,7 @@ export const chat_threads = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     organization_id: text("organization_id")
       .notNull()
-      .references(() => organization.id, { onDelete: "cascade" }),
+      .references(() => organizations.id, { onDelete: "cascade" }),
     title: text("title"),
     created_at: integer("created_at", { mode: "timestamp_ms" })
       .notNull()

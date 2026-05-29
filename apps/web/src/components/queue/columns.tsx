@@ -89,7 +89,7 @@ const recommendationColumn: ColumnDef<CaseRow> = {
     row.original.latest_brief ? (
       <RecommendationBadge recommendation={row.original.latest_brief.recommendation} />
     ) : (
-      <span className="text-xs text-muted-foreground">—</span>
+      <span className="text-xs text-muted-foreground">-</span>
     ),
 };
 
@@ -102,7 +102,7 @@ const verificationColumn: ColumnDef<CaseRow> = {
         {humanVerification(row.original.latest_brief.verification_path)}
       </span>
     ) : (
-      <span className="text-xs text-muted-foreground">—</span>
+      <span className="text-xs text-muted-foreground">-</span>
     ),
 };
 

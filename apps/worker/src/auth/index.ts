@@ -11,6 +11,7 @@ import { drizzle } from "drizzle-orm/d1";
 import { makeDb, schema } from "@mizan/db";
 import type { CloudflareBindings } from "../env.ts";
 import { buildOrgDatabaseHooks } from "./org-hooks.ts";
+import { orgAccessControl, orgRoles } from "./org-access.ts";
 import type { AuthLike } from "./org-invitations.ts";
 
 const R2_MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -79,6 +80,8 @@ export function createAuth(
     ...cliDatabase,
     plugins: [
       organization({
+        ac: orgAccessControl,
+        roles: orgRoles,
         creatorRole: "admin",
         allowUserToCreateOrganization: true,
         invitationExpiresIn: 48 * 60 * 60,

@@ -1135,8 +1135,9 @@ Fresh signup → admin of own org → empty queue. Invited signup → reviewer i
 - `wrangler deploy` to `mizan.<slug>.workers.dev`
 - Demo video recorded (Loom or local) ≤5min covering: problem framing, live brief streaming, HITL suspend/resume, Langfuse trace tree, eval spec run, provider swap demonstration
 - Architecture diagram extracted from §7.5 + §7.8 Mermaid into a 1-page PDF
+- Resumable brief streaming via a Durable-Object-backed resumable-stream store: a reviewer opening (or reloading) a RUNNING case reconnects to the in-flight brief token stream instead of the current 409 + poll-until-persisted behavior. Server exposes a `GET /api/cases/:id/brief/stream` resume route reading the run's `activeStreamId`; client uses `useChat({ resume: true })`. Mastra `resumeStream` covers HITL-resume only, not stream-rejoin — the DO is the Workers-native substitute for the AI SDK resumable-stream Redis store. Until shipped, the real-time SSE event bus (Phase 7.7) surfaces step-level progress from the `workflow_events` tape.
 
-**Out of scope:** Any new feature, any production-only concern (DO pubsub, real reverse-image-search, real KYC).
+**Out of scope:** Any new feature beyond the above, real reverse-image-search, real KYC.
 
 **Deliverable:** Deployed URL + ≤5min video + repo with companion docs + 1-page architecture PDF.
 

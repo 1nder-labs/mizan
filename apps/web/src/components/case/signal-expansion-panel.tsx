@@ -131,7 +131,7 @@ function SignalRow({
         <SignalRowHeader label={label} entry={entry} open={open} />
       </button>
       {open && entry ? (
-        <div className="animate-rise border-t border-border/40 bg-muted/10 px-4 py-4">
+        <div className="animate-rise border-t border-border/40 bg-muted/10 p-4">
           <SignalBody entry={entry} caseId={caseId} />
         </div>
       ) : null}

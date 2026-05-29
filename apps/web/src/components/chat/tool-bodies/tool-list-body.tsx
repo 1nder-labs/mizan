@@ -65,7 +65,8 @@ export function ToolListBody({
   );
 }
 
-export function listCasesBody(output: unknown): React.JSX.Element {
+/** Renders the list_cases tool output as a linked case list. */
+export function ListCasesBody({ output }: { readonly output: unknown }): React.JSX.Element {
   return (
     <ToolListBody
       rows={readRows(output, "cases")}
@@ -82,7 +83,8 @@ export function listCasesBody(output: unknown): React.JSX.Element {
   );
 }
 
-export function listSignalsBody(output: unknown): React.JSX.Element {
+/** Renders the list_signals tool output as a signal list. */
+export function ListSignalsBody({ output }: { readonly output: unknown }): React.JSX.Element {
   return (
     <ToolListBody
       rows={readRows(output, "signals")}
@@ -96,7 +98,8 @@ export function listSignalsBody(output: unknown): React.JSX.Element {
   );
 }
 
-export function listTeamBody(output: unknown): React.JSX.Element {
+/** Renders the list_team tool output as a member list. */
+export function ListTeamBody({ output }: { readonly output: unknown }): React.JSX.Element {
   return (
     <ToolListBody
       rows={readRows(output, "members")}
@@ -108,7 +111,8 @@ export function listTeamBody(output: unknown): React.JSX.Element {
   );
 }
 
-export function listAuditBody(output: unknown): React.JSX.Element {
+/** Renders the list_audit tool output as an audit entry list. */
+export function ListAuditBody({ output }: { readonly output: unknown }): React.JSX.Element {
   return (
     <ToolListBody
       rows={readRows(output, "entries")}

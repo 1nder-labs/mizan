@@ -24,7 +24,7 @@ async function fetchAdminContext(): Promise<{ userId: string; organizationId: st
       "DB",
       "--local",
       "--command",
-      `SELECT u.id, m.organization_id FROM users u JOIN member m ON m.user_id = u.id WHERE u.email = 'admin@mizan.test' AND m.role = 'admin' LIMIT 1`,
+      `SELECT u.id, m.organization_id FROM users u JOIN members m ON m.user_id = u.id WHERE u.email = 'admin@mizan.test' AND m.role = 'admin' LIMIT 1`,
       "--json",
     ],
     { cwd: "apps/worker", stdout: "pipe", stderr: "pipe" },

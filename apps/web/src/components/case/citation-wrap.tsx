@@ -21,7 +21,7 @@ const defaultChipFactory: ChipFactory = (clauseId, source, key) => (
 );
 
 function sortByLengthDesc(citations: readonly PolicyCitation[]): PolicyCitation[] {
-  return [...citations].sort((a, b) => b.clauseId.length - a.clauseId.length);
+  return citations.toSorted((a, b) => b.clauseId.length - a.clauseId.length);
 }
 
 function indicesOfAll(haystack: string, needle: string): number[] {

@@ -58,7 +58,7 @@ const NAV_ITEMS: readonly NavItem[] = [
 
 function OrgPill(): React.JSX.Element {
   return (
-    <div className="flex items-center gap-2 px-2 py-2">
+    <div className="flex items-center gap-2 p-2">
       <div className="grid size-8 shrink-0 place-items-center rounded-md bg-foreground text-background">
         <ShieldCheck className="size-4" />
       </div>
