@@ -38,6 +38,8 @@ if (typeof globalThis.EventSource === "undefined") {
 
     addEventListener(_type: string, _listener: (event: MessageEvent<string>) => void): void {}
 
+    removeEventListener(_type: string, _listener: (event: MessageEvent<string>) => void): void {}
+
     close(): void {}
   }
   globalThis.EventSource = TestEventSource as typeof EventSource;

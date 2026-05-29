@@ -25,6 +25,15 @@ class MockEventSource {
     this.listeners.set(type, bucket);
   }
 
+  removeEventListener(type: string, listener: (event: MessageEvent<string>) => void): void {
+    const bucket = this.listeners.get(type);
+    if (!bucket) return;
+    this.listeners.set(
+      type,
+      bucket.filter((entry) => entry !== listener),
+    );
+  }
+
   close(): void {
     this.closed = true;
   }

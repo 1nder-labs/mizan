@@ -12,6 +12,9 @@ import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
 import { humanVerification } from "@/lib/display-labels.ts";
 
+/** Typographic placeholder for a column with no value yet (em dash). */
+const EMPTY_CELL = "—";
+
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
   day: "numeric",
@@ -89,7 +92,7 @@ const recommendationColumn: ColumnDef<CaseRow> = {
     row.original.latest_brief ? (
       <RecommendationBadge recommendation={row.original.latest_brief.recommendation} />
     ) : (
-      <span className="text-xs text-muted-foreground">-</span>
+      <span className="text-xs text-muted-foreground">{EMPTY_CELL}</span>
     ),
 };
 
@@ -102,7 +105,7 @@ const verificationColumn: ColumnDef<CaseRow> = {
         {humanVerification(row.original.latest_brief.verification_path)}
       </span>
     ) : (
-      <span className="text-xs text-muted-foreground">-</span>
+      <span className="text-xs text-muted-foreground">{EMPTY_CELL}</span>
     ),
 };
 
