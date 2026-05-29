@@ -109,6 +109,7 @@ export const COPY = {
     emptyDescription:
       "Mizan Copilot reads the case, brief, signals, and policy you already have access to — and surfaces evidence. It never decides for you.",
     listEmpty: "No cases match this filter.",
+    policySearchEmpty: "No policy clauses matched.",
     listTruncated: "Showing the first page of matches. Narrow the filter to see fewer.",
     toolQueued: (toolName: string) => `Queued: ${toolName}`,
     toolError: "Tool call failed",

@@ -108,6 +108,24 @@ export function ListTeamBody({ output }: { readonly output: unknown }): React.JS
   );
 }
 
+/** Renders the search_policy tool output as a ranked clause list. */
+export function SearchPolicyBody({ output }: { readonly output: unknown }): React.JSX.Element {
+  return (
+    <ToolListBody
+      rows={readRows(output, "results")}
+      truncated={false}
+      emptyMessage={COPY.chat.policySearchEmpty}
+      rowKey={(row, index) => {
+        if (typeof row["clauseId"] === "string" && typeof row["title"] === "string") {
+          return `${row["clauseId"]} · ${row["title"]}`;
+        }
+        return `clause-${index}`;
+      }}
+      linkCaseId={() => null}
+    />
+  );
+}
+
 /** Renders the list_audit tool output as an audit entry list. */
 export function ListAuditBody({ output }: { readonly output: unknown }): React.JSX.Element {
   return (

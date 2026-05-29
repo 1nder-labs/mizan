@@ -8,6 +8,7 @@ import {
   ListCasesBody,
   ListSignalsBody,
   ListTeamBody,
+  SearchPolicyBody,
 } from "@/components/chat/tool-bodies/tool-list-body.tsx";
 
 interface ToolCallPart {
@@ -38,6 +39,7 @@ function DoneBody({
   if (toolName === "get_case") return <GetCaseBody output={output} />;
   if (toolName === "get_brief") return <GetBriefBody output={output} />;
   if (toolName === "get_policy_clause") return <GetPolicyClauseBody output={output} />;
+  if (toolName === "search_policy") return <SearchPolicyBody output={output} />;
   return <p className="text-xs text-muted-foreground">{COPY.chat.listEmpty}</p>;
 }
 
