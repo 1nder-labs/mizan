@@ -21,6 +21,8 @@ export interface StepEntry {
   readonly id: string;
   readonly label: string;
   readonly state: StepState;
+  /** Concise human summary of the step's result, surfaced as it completes. */
+  readonly detail?: string | undefined;
   readonly durationMs?: number | undefined;
   readonly note?: string | undefined;
 }

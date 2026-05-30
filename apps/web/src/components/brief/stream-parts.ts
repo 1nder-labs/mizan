@@ -119,12 +119,45 @@ function statusToState(status: string | undefined, previous: StepState): StepSta
   return previous;
 }
 
-function upsertStep(map: Map<string, StepEntry>, stepId: string, status: string | undefined): void {
+/**
+ * Concise, defensive summary of a step's result — the "what just happened"
+ * line shown under high-signal steps as they complete. Returns undefined when
+ * the output isn't present or doesn't match the expected shape (no throw, no
+ * noise). Extend per step as more results are worth surfacing.
+ */
+function summarizeStep(stepId: string, output: unknown): string | undefined {
+  const out = asRecord(output);
+  if (!out) return undefined;
+  if (stepId === "classifyCampaign") {
+    const classify = asRecord(out.classify);
+    if (!classify) return undefined;
+    const bits = [
+      asString(classify.category),
+      asString(classify.verification_path),
+      asString(classify.geography_tier),
+    ].filter((value): value is string => Boolean(value));
+    return bits.length > 0 ? bits.join(" · ") : undefined;
+  }
+  if (stepId === "composeBrief") {
+    const brief = asRecord(out.brief);
+    const recommendation = brief ? asString(brief.recommendation) : undefined;
+    return recommendation ? `Recommendation: ${recommendation}` : undefined;
+  }
+  return undefined;
+}
+
+function upsertStep(
+  map: Map<string, StepEntry>,
+  stepId: string,
+  status: string | undefined,
+  output: unknown,
+): void {
   const previous = map.get(stepId);
   map.set(stepId, {
     id: stepId,
     label: stepLabel(stepId),
     state: statusToState(status, previous?.state ?? "pending"),
+    detail: summarizeStep(stepId, output) ?? previous?.detail,
   });
 }
 
@@ -134,7 +167,7 @@ function applyWorkflowStepPart(map: Map<string, StepEntry>, part: PartLike): voi
   const stepId = asString(data.stepId);
   const step = asRecord(data.step);
   if (!stepId || !step) return;
-  upsertStep(map, stepId, asString(step.status));
+  upsertStep(map, stepId, asString(step.status), step.output);
 }
 
 /** `data-workflow`: a full run snapshot whose `steps` map carries every step. */
@@ -144,7 +177,7 @@ function applyWorkflowSnapshotPart(map: Map<string, StepEntry>, part: PartLike):
   if (!steps) return;
   for (const [stepId, raw] of Object.entries(steps)) {
     const step = asRecord(raw);
-    if (step) upsertStep(map, stepId, asString(step.status));
+    if (step) upsertStep(map, stepId, asString(step.status), step.output);
   }
 }
 

@@ -40,7 +40,12 @@ function StepRow({ step }: { readonly step: StepEntry }): React.JSX.Element {
         <StepIcon state={step.state} />
       </span>
       <span className="font-mono text-xs text-foreground tabular">{step.id}</span>
-      <span className="flex-1 truncate text-sm text-muted-foreground">{step.label}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm text-foreground">{step.label}</span>
+        {step.detail ? (
+          <span className="truncate text-xs text-muted-foreground">{step.detail}</span>
+        ) : null}
+      </span>
       {step.durationMs !== undefined ? (
         <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground tabular">
           {formatDuration(step.durationMs)}

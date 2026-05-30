@@ -45,6 +45,28 @@ describe("foldParts", () => {
     });
   });
 
+  test("surfaces a step result detail from the step output", () => {
+    const view = foldParts([
+      {
+        type: "data-workflow-step",
+        data: {
+          stepId: "classifyCampaign",
+          step: {
+            status: "success",
+            output: {
+              classify: {
+                category: "medical",
+                verification_path: "documentary",
+                geography_tier: "SAFE",
+              },
+            },
+          },
+        },
+      },
+    ]);
+    expect(view.steps[0]?.detail).toBe("medical · documentary · SAFE");
+  });
+
   test("derives steps from a data-workflow snapshot map and keeps terminal states", () => {
     const view = foldParts([
       {
