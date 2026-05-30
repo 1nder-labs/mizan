@@ -26,20 +26,46 @@ describe("foldParts", () => {
     expect(view.tools[0]?.output).toEqual({ ok: true });
   });
 
-  test("derives step states from data-workflow events", () => {
+  test("derives step state from a data-workflow-step status update", () => {
     const view = foldParts([
-      { type: "data-workflow", data: { event: "step.start", step: "extractClaims" } },
       {
-        type: "data-workflow",
-        data: { event: "step.finish", step: "extractClaims", durationMs: 1234 },
+        type: "data-workflow-step",
+        data: { stepId: "classifyCampaign", step: { status: "running" } },
+      },
+      {
+        type: "data-workflow-step",
+        data: { stepId: "classifyCampaign", step: { status: "success" } },
       },
     ]);
     expect(view.steps).toHaveLength(1);
     expect(view.steps[0]).toMatchObject({
-      id: "extractClaims",
+      id: "classifyCampaign",
+      label: "Classifying campaign",
       state: "done",
-      durationMs: 1234,
     });
+  });
+
+  test("derives steps from a data-workflow snapshot map and keeps terminal states", () => {
+    const view = foldParts([
+      {
+        type: "data-workflow",
+        data: {
+          steps: {
+            classifyCampaign: { status: "success" },
+            matchPolicy: { status: "running" },
+          },
+        },
+      },
+      {
+        type: "data-workflow",
+        data: {
+          steps: { classifyCampaign: { status: "running" }, matchPolicy: { status: "running" } },
+        },
+      },
+    ]);
+    const byId = Object.fromEntries(view.steps.map((s) => [s.id, s.state]));
+    expect(byId.classifyCampaign).toBe("done");
+    expect(byId.matchPolicy).toBe("running");
   });
 
   test("captures error parts as errorText", () => {
