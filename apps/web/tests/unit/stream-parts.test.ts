@@ -67,6 +67,29 @@ describe("foldParts", () => {
     expect(view.steps[0]?.detail).toBe("medical · documentary · SAFE");
   });
 
+  test("surfaces the composeBrief recommendation as detail", () => {
+    const view = foldParts([
+      {
+        type: "data-workflow-step",
+        data: {
+          stepId: "composeBrief",
+          step: { status: "success", output: { brief: { recommendation: "REQUEST_DOCS" } } },
+        },
+      },
+    ]);
+    expect(view.steps[0]?.detail).toBe("Recommendation: REQUEST_DOCS");
+  });
+
+  test("maps a suspended step to the running UI state", () => {
+    const view = foldParts([
+      {
+        type: "data-workflow-step",
+        data: { stepId: "awaitReviewerAction", step: { status: "suspended" } },
+      },
+    ]);
+    expect(view.steps[0]?.state).toBe("running");
+  });
+
   test("derives steps from a data-workflow snapshot map and keeps terminal states", () => {
     const view = foldParts([
       {

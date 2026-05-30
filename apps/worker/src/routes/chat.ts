@@ -3,6 +3,7 @@ import { lt } from "drizzle-orm";
 import { and, desc, eq, makeDb, chat_messages, chat_threads } from "@mizan/db";
 import {
   ChatThreadCreatedResponseSchema,
+  ChatThreadDetailResponseSchema,
   ChatThreadListResponseSchema,
   ChatMessageRecordSchema,
 } from "@mizan/shared";
@@ -136,7 +137,7 @@ export const chatRoutes = new Hono<{
     if (!parsed.success) {
       return c.json({ error: "thread_schema_drift", threadId }, 422);
     }
-    return c.json({ threadId, messages: parsed.data });
+    return c.json(ChatThreadDetailResponseSchema.parse({ threadId, messages: parsed.data }));
   })
   .post("/", zValidator("json", ChatPostSchema), async (c) => {
     const body = c.req.valid("json");

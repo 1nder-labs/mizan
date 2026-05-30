@@ -5,6 +5,17 @@ import { dispatchLiveEvent } from "@/hooks/live-events-dispatch.ts";
 /** SSE event names to subscribe — single source of truth is the zod enum. */
 const LIVE_EVENT_TYPES = LiveEventTypeEnum.options;
 
+/**
+ * Logs a subscription failure. The lock runner is fire-and-forget, but a
+ * rejected `navigator.locks.request` must never vanish silently — that would
+ * leave the tab quiet with no diagnostic. Callers skip this after unmount,
+ * where rejection is expected.
+ */
+function reportSubscribeError(topic: string, error: unknown): void {
+  const reason = error instanceof Error ? error.message : String(error);
+  console.error(`[useLiveEvents] subscription failed (topic=${topic}): ${reason}`);
+}
+
 function parseLiveRow(data: string): LiveEventRow | undefined {
   let raw: unknown;
   try {
@@ -92,7 +103,9 @@ export function subscribeLiveEvents(
     });
   };
 
-  void runWithLock();
+  runWithLock().catch((error: unknown) => {
+    if (!stopped) reportSubscribeError(topic, error);
+  });
   return () => {
     stopped = true;
     releaseLock?.();

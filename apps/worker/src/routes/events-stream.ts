@@ -10,10 +10,11 @@ import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
 import { requireRole, type ViewerVariables } from "../middleware/require-role.ts";
-
-const LIVE_TAIL_INTERVAL_MS = 500;
-const STREAM_WALL_CLOCK_MS = 90_000;
-const RECONNECT_BACKOFF_MS = 5_000;
+import {
+  LIVE_TAIL_INTERVAL_MS,
+  RECONNECT_BACKOFF_MS,
+  STREAM_WALL_CLOCK_MS,
+} from "./sse-constants.ts";
 
 const TopicQuerySchema = z.object({ topic: z.string().min(1) });
 const TopicPattern = /^(org|user|case):(.+)$/;

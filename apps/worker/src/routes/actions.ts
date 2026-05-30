@@ -39,7 +39,6 @@ import {
   desc,
   eq,
   makeDb,
-  resolveCaseOrganizationId,
   reviewer_actions,
   transitionCase,
   type Db,
@@ -59,7 +58,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
-import { cacheActionResponse, readCachedActionResponse } from "../lib/action-cache.ts";
+import { cacheActionResponse, tryReadCachedActionResponse } from "../lib/action-cache.ts";
 import { finalizeActionWithLiveEvents, revertActionClaim } from "./action-live-events.ts";
 import type { ViewerVariables } from "../middleware/require-role.ts";
 
@@ -103,18 +102,32 @@ function buildResponse(
   return ReviewerActionResponseSchema.parse({ status: "success", brief, action: body });
 }
 
+/**
+ * Reverts a failed post-action claim back to SUSPENDED_HITL. Must never throw:
+ * the caller is already handling a chain failure, and letting a revert D1 error
+ * propagate would crash the request with a 500 AND leave the case stuck in
+ * RUNNING. On revert failure we log loudly — the queue consumer's stale-claim
+ * recovery is the backstop.
+ */
 async function revertClaim(db: Db, caseId: string, runId: string, cause: unknown): Promise<void> {
   const reason = cause instanceof Error ? cause.message : String(cause);
-  const reverted = await revertActionClaim(db, caseId, runId);
-  if (!reverted) {
+  try {
+    const reverted = await revertActionClaim(db, caseId, runId);
+    if (!reverted) {
+      console.error(
+        `[action] revertClaim no-op — case ${caseId} run ${runId} already off RUNNING (cause=${reason})`,
+      );
+      return;
+    }
     console.error(
-      `[action] revertClaim no-op — case ${caseId} run ${runId} already off RUNNING (cause=${reason})`,
+      `[action] post-action chain failed — reverted claim (case=${caseId} run=${runId}): ${reason}`,
     );
-    return;
+  } catch (revertError) {
+    const revertReason = revertError instanceof Error ? revertError.message : String(revertError);
+    console.error(
+      `[action] revertClaim FAILED — case ${caseId} run ${runId} may be stuck RUNNING (chain cause=${reason}, revert error=${revertReason})`,
+    );
   }
-  console.error(
-    `[action] post-action chain failed — reverted claim (case=${caseId} run=${runId}): ${reason}`,
-  );
 }
 
 interface PostActionInput {
@@ -141,7 +154,7 @@ async function runPostActionChain(db: Db, input: PostActionInput): Promise<Brief
       action: input.action,
       rationale: normalizeStoredRationale(input.rationale),
       action_id: input.actionId,
-      organization_id: await resolveCaseOrganizationId(db, input.caseId),
+      organization_id: input.organizationId,
     })
     .onConflictDoNothing({ target: reviewer_actions.action_id });
   await emitWorkflowEvent(db, {
@@ -216,7 +229,7 @@ export const actionRoutes = new Hono<{
     const body = c.req.valid("json");
     const db = makeDb(c.env.DB);
 
-    const cached = await readCachedActionResponse(
+    const cached = await tryReadCachedActionResponse(
       c.env.KV,
       c.var.viewer.userId,
       caseId,

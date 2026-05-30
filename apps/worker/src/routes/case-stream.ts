@@ -1,17 +1,18 @@
 /**
  * SSE stream of `workflow_events` for case resumability.
  */
-import { and, eq, gt, makeDb, workflow_events, cases } from "@mizan/db";
+import { and, eq, gt, makeDb, workflow_events, cases, type Case } from "@mizan/db";
 import { TERMINAL_CASE_STATUSES, toWorkflowEventWire } from "@mizan/shared";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { CloudflareBindings } from "../env.ts";
 import type { ProducerVariables } from "../middleware/producer-guard.ts";
 import type { ViewerVariables } from "../middleware/require-role.ts";
-
-const LIVE_TAIL_INTERVAL_MS = 500;
-const STREAM_WALL_CLOCK_MS = 90_000;
-const RECONNECT_BACKOFF_MS = 5_000;
+import {
+  LIVE_TAIL_INTERVAL_MS,
+  RECONNECT_BACKOFF_MS,
+  STREAM_WALL_CLOCK_MS,
+} from "./sse-constants.ts";
 
 type StreamContext = Context<{
   Bindings: CloudflareBindings;
@@ -91,12 +92,33 @@ async function safeFetch(
   }
 }
 
+/**
+ * Loads the case row, shielding the initial D1 read like the tail `safeFetch`.
+ * Returns the row (or null if absent) on success, or `undefined` when a D1
+ * error was handled (retry directive already sent) so the caller bails out.
+ */
+async function loadCaseRowSafe(
+  db: ReturnType<typeof makeDb>,
+  caseId: string,
+  stream: StreamApi,
+): Promise<Case | null | undefined> {
+  try {
+    return (await db.select().from(cases).where(eq(cases.id, caseId)).get()) ?? null;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[sse-stream] D1 case read failed (case_id=${caseId}): ${reason}`);
+    await stream.writeSSE({ retry: RECONNECT_BACKOFF_MS, data: "" });
+    return undefined;
+  }
+}
+
 async function streamCaseEvents(c: StreamContext, stream: StreamApi): Promise<void> {
   const caseId = c.req.param("id");
   if (!caseId) return;
 
   const db = makeDb(c.env.DB);
-  const caseRow = await db.select().from(cases).where(eq(cases.id, caseId)).get();
+  const caseRow = await loadCaseRowSafe(db, caseId, stream);
+  if (caseRow === undefined) return;
   if (!caseRow || caseRow.organization_id !== c.var.viewer.organizationId) {
     await stream.writeSSE({ retry: RECONNECT_BACKOFF_MS, data: "" });
     return;

@@ -42,3 +42,23 @@ export async function readCachedActionResponse(
   const parsed = ReviewerActionResponseSchema.safeParse(raw);
   return parsed.success ? parsed.data : undefined;
 }
+
+/**
+ * Resilient cache read. A KV read failure must NOT crash the action with a 500
+ * — it degrades to a cache miss, and the atomic SUSPENDED_HITL→RUNNING claim
+ * downstream still prevents a true double-apply. Returns undefined on any error.
+ */
+export async function tryReadCachedActionResponse(
+  kv: KVNamespace,
+  userId: string,
+  caseId: string,
+  actionId: string,
+): Promise<ReviewerActionResponse | undefined> {
+  try {
+    return await readCachedActionResponse(kv, userId, caseId, actionId);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[action] cache read failed, degrading to miss (case=${caseId}): ${reason}`);
+    return undefined;
+  }
+}
