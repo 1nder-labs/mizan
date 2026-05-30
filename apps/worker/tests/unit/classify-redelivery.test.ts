@@ -11,6 +11,7 @@ function makeCase(overrides: Partial<Case>): Case {
   return {
     id: "11111111-1111-4111-8111-111111111101",
     status: "DRAFT",
+    title: "Test campaign",
     category: "medical",
     geography: "US",
     claimed_zakat_category: "medical",

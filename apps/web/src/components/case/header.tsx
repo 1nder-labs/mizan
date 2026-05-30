@@ -1,6 +1,6 @@
 /**
- * Case-detail header card. Carries the id (short + monospace), status
- * badge, category, geography, and the back link to /queue.
+ * Case-detail header card. Leads with the campaign title, then status badge,
+ * category · geography, and the back link to /queue.
  */
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Clock } from "lucide-react";
@@ -21,15 +21,16 @@ export function CaseHeader({ caseRow }: { readonly caseRow: CaseRow }): React.JS
           </Link>
         </Button>
         <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Case</span>
-            <span className="font-mono text-sm text-foreground tabular">{caseRow.id}</span>
-          </div>
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Campaign
+          </span>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold capitalize tracking-tight">{caseRow.category}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{caseRow.title}</h1>
             <CaseStatusBadge status={caseRow.status} />
           </div>
-          <p className="text-sm text-muted-foreground">{caseRow.geography}</p>
+          <p className="text-sm capitalize text-muted-foreground">
+            {caseRow.category} · {caseRow.geography}
+          </p>
         </div>
       </div>
       <div className="flex flex-col items-end gap-3">

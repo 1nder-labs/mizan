@@ -77,6 +77,7 @@ export type LatestBriefProjection = z.infer<typeof LatestBriefProjectionSchema>;
 export const CaseRowSchema = z.object({
   id: z.string().uuid(),
   status: CaseStatusEnum,
+  title: z.string(),
   category: z.string(),
   geography: z.string(),
   claimed_zakat_category: z.string().nullable(),

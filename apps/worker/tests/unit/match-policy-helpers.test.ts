@@ -13,6 +13,7 @@ describe("matchPolicy helpers", () => {
       {
         id: "case-1",
         status: "DRAFT",
+        title: "Test campaign",
         category: "medical",
         geography: "US",
         claimed_zakat_category: "medical",

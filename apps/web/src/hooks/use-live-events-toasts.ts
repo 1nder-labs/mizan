@@ -7,10 +7,7 @@ import { COPY } from "@/lib/copy-constants.ts";
  */
 export function toastLiveEvent(event: LiveEventRow): void {
   if (event.payload.event_type === "case.assigned") {
-    toast.success(COPY.realtime.assignedToast, {
-      description: event.payload.case_id,
-      duration: 8_000,
-    });
+    toast.success(COPY.realtime.assignedToast, { duration: 8_000 });
     return;
   }
   if (event.payload.event_type === "case.unassigned") {

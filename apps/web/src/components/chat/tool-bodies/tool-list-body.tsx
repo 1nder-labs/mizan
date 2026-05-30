@@ -71,9 +71,8 @@ export function ListCasesBody({ output }: { readonly output: unknown }): React.J
       truncated={readTruncated(output)}
       emptyMessage={COPY.chat.listEmpty}
       rowKey={(row, index) => {
+        if (typeof row["title"] === "string" && row["title"].length > 0) return row["title"];
         const category = typeof row["category"] === "string" ? row["category"] : null;
-        const geography = typeof row["geography"] === "string" ? row["geography"] : null;
-        if (category && geography) return `${category} · ${geography}`;
         return category ?? `Case ${index + 1}`;
       }}
       linkCaseId={(row) => (typeof row["id"] === "string" ? row["id"] : null)}

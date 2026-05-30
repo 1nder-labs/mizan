@@ -10,6 +10,7 @@ import {
   QUEUE_PAGE_SIZE,
   type CaseDetailResponse,
   type CaseOverlay,
+  type CaseRow,
   type LatestBriefProjection,
   type QueueResponse,
   type QueueSearch,
@@ -21,6 +22,34 @@ export class NotFoundError extends Error {
     super(message);
     this.name = "NotFoundError";
   }
+}
+
+interface PublicCaseColumns {
+  readonly id: string;
+  readonly status: CaseRow["status"];
+  readonly title: string;
+  readonly category: string;
+  readonly geography: string;
+  readonly claimed_zakat_category: string | null;
+  readonly created_at: Date;
+  readonly updated_at: Date;
+  readonly assigned_to: string | null;
+}
+
+/** Maps shared public case columns + a resolved brief to the wire `CaseRow`. */
+function mapCaseRow(row: PublicCaseColumns, latestBrief: LatestBriefProjection | null): CaseRow {
+  return {
+    id: row.id,
+    status: row.status,
+    title: row.title,
+    category: row.category,
+    geography: row.geography,
+    claimed_zakat_category: row.claimed_zakat_category,
+    created_at: row.created_at.getTime(),
+    updated_at: row.updated_at.getTime(),
+    latest_brief: latestBrief,
+    assigned_to: row.assigned_to,
+  };
 }
 
 function resolveAssigneeFilter(search: QueueSearch, viewer: ViewerContext): SQL | undefined {
@@ -126,17 +155,9 @@ export async function listCasesForViewer(
 
   const total = totalRows[0]?.value ?? 0;
   return {
-    cases: rows.map((row) => ({
-      id: row.id,
-      status: row.status,
-      category: row.category,
-      geography: row.geography,
-      claimed_zakat_category: row.claimed_zakat_category,
-      created_at: row.created_at.getTime(),
-      updated_at: row.updated_at.getTime(),
-      latest_brief: resolveLatestBrief(row.latestRecommendation, row.latestVerificationPath),
-      assigned_to: row.assigned_to,
-    })),
+    cases: rows.map((row) =>
+      mapCaseRow(row, resolveLatestBrief(row.latestRecommendation, row.latestVerificationPath)),
+    ),
     page: input.page,
     pageSize: QUEUE_PAGE_SIZE,
     total,
@@ -163,17 +184,7 @@ export async function fetchCaseDetail(
     : null;
 
   const draft = {
-    case: {
-      id: row.id,
-      status: row.status,
-      category: row.category,
-      geography: row.geography,
-      claimed_zakat_category: row.claimed_zakat_category,
-      created_at: row.created_at.getTime(),
-      updated_at: row.updated_at.getTime(),
-      latest_brief: latestBrief,
-      assigned_to: row.assigned_to,
-    },
+    case: mapCaseRow(row, latestBrief),
     brief: brief
       ? {
           recommendation: brief.recommendation,

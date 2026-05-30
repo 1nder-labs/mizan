@@ -22,10 +22,6 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
 });
 
-function shortId(id: string): string {
-  return id.slice(0, 8);
-}
-
 function nextSort(current: QueueSort): QueueSort {
   if (current === "updated_desc") return "updated_asc";
   if (current === "updated_asc") return "created_desc";
@@ -61,7 +57,7 @@ const idColumn: ColumnDef<CaseRow> = {
   id: "id",
   header: "Case",
   cell: ({ row }) => (
-    <span className="font-mono text-xs text-foreground tabular">{shortId(row.original.id)}</span>
+    <span className="text-sm font-medium text-foreground">{row.original.title}</span>
   ),
 };
 

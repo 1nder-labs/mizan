@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "543dcd5b-afd4-48db-b8dd-4211abfbfdd3",
-  "prevId": "7a2cb526-7d01-48a5-b2df-9edb6ba24765",
+  "id": "981fb8ca-fba0-424d-9a2f-4b7d92d2834f",
+  "prevId": "543dcd5b-afd4-48db-b8dd-4211abfbfdd3",
   "tables": {
     "briefs": {
       "name": "briefs",
@@ -122,6 +122,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'DRAFT'"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Untitled campaign'"
         },
         "category": {
           "name": "category",

@@ -1,0 +1,1 @@
+ALTER TABLE `cases` ADD `title` text DEFAULT 'Untitled campaign' NOT NULL;

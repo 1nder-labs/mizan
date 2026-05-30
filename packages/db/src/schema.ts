@@ -58,6 +58,7 @@ export const cases = sqliteTable(
     })
       .notNull()
       .default("DRAFT"),
+    title: text("title").notNull().default("Untitled campaign"),
     category: text("category").notNull(),
     geography: text("geography").notNull(),
     claimed_zakat_category: text("claimed_zakat_category"),

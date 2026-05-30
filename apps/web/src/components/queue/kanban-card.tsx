@@ -31,17 +31,14 @@ export function KanbanCardBody({ row }: { readonly row: CaseRow }): React.JSX.El
   return (
     <div className="space-y-2.5">
       <div className="flex items-start justify-between gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80 tabular">
-          {row.id.slice(0, 8)}
-        </span>
+        <p className="text-[15px] font-semibold leading-tight tracking-tight text-foreground">
+          {row.title}
+        </p>
         <CaseStatusBadge status={row.status} />
       </div>
-      <div className="space-y-0.5">
-        <p className="text-[15px] font-semibold capitalize leading-tight tracking-tight text-foreground">
-          {row.category}
-        </p>
-        <p className="text-xs text-muted-foreground">{row.geography}</p>
-      </div>
+      <p className="text-xs capitalize text-muted-foreground">
+        {row.category} · {row.geography}
+      </p>
       {row.latest_brief ? (
         <div className="flex items-center gap-2 border-t border-border/40 pt-2">
           <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">

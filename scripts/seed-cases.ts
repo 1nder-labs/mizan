@@ -55,8 +55,8 @@ async function seedCase(seed: SeedCase, adminId: string, organizationId: string)
     ...(seed.vouching_narrative ? { vouching_narrative: seed.vouching_narrative } : {}),
   });
   const overlayJson = sqlEscape(JSON.stringify(overlay));
-  const sql = `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
-VALUES ('${seed.id}', '${seed.status}', '${seed.category}', '${seed.geography}', '${seed.claimed_zakat_category}', '${overlayJson}', '${adminId}', '${organizationId}', ${Date.now()}, ${Date.now()})
+  const sql = `INSERT INTO cases (id, status, title, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+VALUES ('${seed.id}', '${seed.status}', '${sqlEscape(seed.title)}', '${seed.category}', '${seed.geography}', '${seed.claimed_zakat_category}', '${overlayJson}', '${adminId}', '${organizationId}', ${Date.now()}, ${Date.now()})
 ON CONFLICT(id) DO NOTHING;`;
   const proc = Bun.spawn(["bunx", "wrangler", "d1", "execute", "DB", "--local", "--command", sql], {
     cwd: "apps/worker",

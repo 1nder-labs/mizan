@@ -26,16 +26,26 @@ import { useViewerTopics } from "@/hooks/use-viewer-topics.ts";
 
 const queueApi = getRouteApi("/queue");
 
+/**
+ * Org topic keeps the board cache fresh; user topic additionally toasts on
+ * assignment. `replayGraceMs` suppresses toasts for the catch-up replay the
+ * SSE stream sends on connect, so only live assignments notify.
+ */
+function useQueueLiveEvents(orgId: string | undefined, userId: string | undefined): void {
+  useLiveEvents(orgId ? `org:${orgId}` : "", { enabled: Boolean(orgId) });
+  useLiveEvents(userId ? `user:${userId}` : "", {
+    enabled: Boolean(userId),
+    onEvent: toastLiveEvent,
+    replayGraceMs: 2_500,
+  });
+}
+
 export function QueuePage(): React.JSX.Element {
   const search = queueApi.useSearch();
   const navigate = useNavigate({ from: "/queue" });
   const query = useQuery(casesListQueryOptions(search));
   const { orgId, userId } = useViewerTopics();
-  useLiveEvents(orgId ? `org:${orgId}` : "", { enabled: Boolean(orgId) });
-  useLiveEvents(userId ? `user:${userId}` : "", {
-    enabled: Boolean(userId),
-    onEvent: toastLiveEvent,
-  });
+  useQueueLiveEvents(orgId, userId);
 
   function setSearch(next: Partial<QueueSearch>): void {
     void navigate({ search: (prev) => ({ ...prev, ...next, page: next.page ?? 1 }) });

@@ -27,6 +27,7 @@ const FIXTURE: QueueResponse = {
     {
       id: "11111111-1111-4111-8111-111111111111",
       status: "READY_FOR_REVIEW",
+      title: "Gaza family relief appeal",
       category: "humanitarian",
       geography: "PS",
       claimed_zakat_category: null,
@@ -37,6 +38,7 @@ const FIXTURE: QueueResponse = {
     {
       id: "22222222-2222-4222-8222-222222222222",
       status: "DRAFT",
+      title: "Jakarta school fees",
       category: "education",
       geography: "ID",
       claimed_zakat_category: "fakir",
@@ -80,8 +82,8 @@ describe("<QueueTable /> integration", () => {
         onSearchChange={() => {}}
       />,
     );
-    expect(await screen.findByText("11111111")).toBeInTheDocument();
-    expect(screen.getByText("22222222")).toBeInTheDocument();
+    expect(await screen.findByText("Gaza family relief appeal")).toBeInTheDocument();
+    expect(screen.getByText("Jakarta school fees")).toBeInTheDocument();
     expect(screen.getAllByText("Ready").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/documentary/i)).toBeInTheDocument();
     const emDashes = screen.getAllByText("—");
