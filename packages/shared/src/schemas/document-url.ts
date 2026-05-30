@@ -9,9 +9,23 @@ import { z } from "zod";
  */
 export const DocumentKeyEnum = z.enum(["creator_id", "bank_statement", "category_doc"]);
 
+/**
+ * A document URL is either a remote presigned R2 URL (production) or a
+ * same-origin raw-serve path like `/api/cases/:id/documents/:docKey/raw`
+ * (local dev, where Miniflare R2 has no presign endpoint). Both go straight
+ * into an `<img>`/`<embed>` `src`, which resolves a root-relative path against
+ * the page origin.
+ */
+const DocumentSrcSchema = z
+  .string()
+  .min(1)
+  .refine((v) => v.startsWith("/") || /^https?:\/\//.test(v), {
+    message: "must be an absolute http(s) URL or a root-relative path",
+  });
+
 export const DocumentUrlResponseSchema = z
   .object({
-    url: z.string().url(),
+    url: DocumentSrcSchema,
     expiresInSeconds: z.number().int().min(60).max(3600),
     docKey: DocumentKeyEnum,
   })

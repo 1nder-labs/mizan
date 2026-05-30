@@ -24,10 +24,16 @@ import {
   type DocumentUrlErrorCode,
 } from "@mizan/shared";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
 import { signR2GetUrl } from "../lib/r2-presign.ts";
 import type { ViewerVariables } from "../middleware/require-role.ts";
+
+type DocContext = Context<{ Bindings: CloudflareBindings; Variables: ViewerVariables }>;
+type KeyResolution =
+  | { readonly ok: true; readonly objectKey: string }
+  | { readonly ok: false; readonly status: 404 | 409; readonly code: DocumentUrlErrorCode };
 
 const PRESIGN_TTL_SECONDS = 300;
 const DEFAULT_BUCKET_NAME = "mizan-uploads";
@@ -84,21 +90,27 @@ function readR2Creds(env: CloudflareBindings): {
   };
 }
 
-export const documentsRoutes = new Hono<{
-  Bindings: CloudflareBindings;
-  Variables: ViewerVariables;
-}>().get("/:id/documents/:docKey/url", zValidator("param", ParamSchema), async (c) => {
-  const { id, docKey } = c.req.valid("param");
+/** Org-scoped: resolves the R2 object key for a case document, or a denial. */
+async function resolveDocObjectKey(
+  c: DocContext,
+  id: string,
+  docKey: DocumentKey,
+): Promise<KeyResolution> {
   const db = makeDb(c.env.DB);
   const { overlay, exists } = await loadCaseOverlay(db, id, c.var.viewer.organizationId);
-  if (!exists) return c.json(docErrorBody("not_found"), 404);
+  if (!exists) return { ok: false, status: 404, code: "not_found" };
   const objectKey = resolveObjectKey(overlay, docKey);
-  if (!objectKey) return c.json(docErrorBody("not_ready"), 409);
-  const creds = readR2Creds(c.env);
-  if (!creds) {
-    console.error(`[documents] missing R2 creds in env (case=${id})`);
-    return c.json(docErrorBody("storage_unconfigured"), 500);
-  }
+  if (!objectKey) return { ok: false, status: 409, code: "not_ready" };
+  return { ok: true, objectKey };
+}
+
+/** Production path: a short-TTL presigned remote-R2 GET URL. */
+async function presignedUrlResponse(
+  c: DocContext,
+  objectKey: string,
+  docKey: DocumentKey,
+  creds: NonNullable<ReturnType<typeof readR2Creds>>,
+): Promise<Response> {
   try {
     const signed = await signR2GetUrl({
       accountId: creds.accountId,
@@ -116,7 +128,42 @@ export const documentsRoutes = new Hono<{
     return c.json(body);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    console.error(`[documents] presign failed (case=${id} docKey=${docKey}): ${reason}`);
+    console.error(`[documents] presign failed (docKey=${docKey}): ${reason}`);
     return c.json(docErrorBody("presign_failed"), 500);
   }
-});
+}
+
+export const documentsRoutes = new Hono<{
+  Bindings: CloudflareBindings;
+  Variables: ViewerVariables;
+}>()
+  .get("/:id/documents/:docKey/url", zValidator("param", ParamSchema), async (c) => {
+    const { id, docKey } = c.req.valid("param");
+    const resolved = await resolveDocObjectKey(c, id, docKey);
+    if (!resolved.ok) return c.json(docErrorBody(resolved.code), resolved.status);
+    const creds = readR2Creds(c.env);
+    if (creds) return presignedUrlResponse(c, resolved.objectKey, docKey, creds);
+    /**
+     * No presign creds → local Miniflare dev. There is no R2 presign endpoint
+     * locally, so hand back a same-origin raw-serve path the Worker streams
+     * from the bound bucket. Presign stays the production path above.
+     */
+    const body = DocumentUrlResponseSchema.parse({
+      url: `/api/cases/${id}/documents/${docKey}/raw`,
+      expiresInSeconds: PRESIGN_TTL_SECONDS,
+      docKey,
+    });
+    return c.json(body);
+  })
+  .get("/:id/documents/:docKey/raw", zValidator("param", ParamSchema), async (c) => {
+    const { id, docKey } = c.req.valid("param");
+    const resolved = await resolveDocObjectKey(c, id, docKey);
+    if (!resolved.ok) return c.json(docErrorBody(resolved.code), resolved.status);
+    const object = await c.env.R2_BUCKET.get(resolved.objectKey);
+    if (!object) return c.json(docErrorBody("not_ready"), 404);
+    const bytes = await object.arrayBuffer();
+    const headers = new Headers();
+    headers.set("Content-Type", object.httpMetadata?.contentType ?? "application/octet-stream");
+    headers.set("Cache-Control", "private, max-age=300");
+    return new Response(bytes, { headers });
+  });
