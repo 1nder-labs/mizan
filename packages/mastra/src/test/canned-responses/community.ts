@@ -34,12 +34,14 @@ const PLACEHOLDER_BANK_LOW_CONFIDENCE = {
 
 function placeholderCategoryLowConfidence(): Record<string, unknown> {
   return {
-    doc_kind: "org_registration",
-    org_name: "",
-    registration_number: "",
-    jurisdiction: "",
-    tax_exempt_status: null,
-    confidence: 10,
+    doc: {
+      doc_kind: "org_registration",
+      org_name: "",
+      registration_number: "",
+      jurisdiction: "",
+      tax_exempt_status: null,
+      confidence: 10,
+    },
   };
 }
 
@@ -70,8 +72,11 @@ export function case006Responses(): Record<string, unknown> {
       coherence_summary: "Community vouching narrative is internally consistent.",
     },
     "classifyVouchingChain.classify": {
-      structure: "individual-to-individual" as const,
-      weakest_link_narrative: "Funds move through neighbor network without institutional partner.",
+      chain: {
+        structure: "individual-to-individual" as const,
+        weakest_link_narrative:
+          "Funds move through neighbor network without institutional partner.",
+      },
     },
     "composeBrief.compose": {
       ...briefPayload("REQUEST_DOCS", 58, DEFAULT_SAFETY_CITATIONS),
@@ -100,9 +105,11 @@ export function case007Responses(): Record<string, unknown> {
       coherence_summary: "Partner-org masjid rebuild narrative is coherent.",
     },
     "classifyVouchingChain.classify": {
-      structure: "individual-via-partner-org" as const,
-      partner_org_name: "Sudan Aid Foundation",
-      weakest_link_narrative: "Organizer routes funds through named partner organization.",
+      chain: {
+        structure: "individual-via-partner-org" as const,
+        partner_org_name: "Sudan Aid Foundation",
+        weakest_link_narrative: "Organizer routes funds through named partner organization.",
+      },
     },
     "composeBrief.compose": briefPayload("READY_FOR_REVIEW", 76, DEFAULT_SAFETY_CITATIONS),
   };
@@ -121,8 +128,10 @@ export function case008Responses(): Record<string, unknown> {
       coherence_summary: "Sparse narrative with no verifiable accountability chain.",
     },
     "classifyVouchingChain.classify": {
-      structure: "none" as const,
-      weakest_link_narrative: "No documentary or vouching chain documented.",
+      chain: {
+        structure: "none" as const,
+        weakest_link_narrative: "No documentary or vouching chain documented.",
+      },
     },
     "composeBrief.compose": briefPayload("READY_FOR_REVIEW", 42, DEFAULT_SAFETY_CITATIONS),
   };

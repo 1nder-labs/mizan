@@ -109,7 +109,7 @@ export function documentaryStorySignal(
 
 /** Phase 4 vouching-chain canned block with no partner path. */
 export function noVouchingChain(narrative: string) {
-  return { structure: "none" as const, weakest_link_narrative: narrative };
+  return { chain: { structure: "none" as const, weakest_link_narrative: narrative } };
 }
 
 /** REQUEST_DOCS compose payload with draft organizer message for canned tests. */

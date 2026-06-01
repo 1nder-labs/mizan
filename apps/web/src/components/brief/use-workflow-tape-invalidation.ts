@@ -56,14 +56,18 @@ export function useWorkflowTapeInvalidation(caseId: string, enabled: boolean): v
     const source = new EventSource(`/api/cases/${caseId}/stream`, { withCredentials: true });
     const handleFrame = makeFrameHandler(queryClient, caseId, source);
     /**
-     * Closing on `onerror` cancels native auto-reconnect. The server
-     * emits a `retry:` directive on transient D1 failures and at the
-     * 90s wall-clock cap; both arrive as `error` events. Without the
-     * close, the browser reconnects in tight loops after the workflow
-     * has finished — every reconnect re-replays the entire tape via
-     * `Last-Event-ID`.
+     * Only hard-close when the browser has already given up
+     * (`readyState === CLOSED`, e.g. a 403 or wrong content-type). A
+     * transient drop leaves `readyState === CONNECTING`; closing there
+     * would cancel native auto-reconnect and freeze a workflow that
+     * outlives the 90s wall-clock cap. Reconnects resume from
+     * `Last-Event-ID`, so the catch-up is a cheap tail re-poll, and
+     * `workflow.finish` already closes the source (see `makeFrameHandler`),
+     * so a finished run never reconnects.
      */
-    source.onerror = () => source.close();
+    source.onerror = () => {
+      if (source.readyState === EventSource.CLOSED) source.close();
+    };
     for (const eventName of TAPE_EVENT_TYPES) source.addEventListener(eventName, handleFrame);
     return () => {
       for (const eventName of TAPE_EVENT_TYPES) source.removeEventListener(eventName, handleFrame);

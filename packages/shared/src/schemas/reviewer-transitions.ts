@@ -5,16 +5,14 @@
  * instant UX) and server (defense-in-depth re-validation on the mutation
  * route).
  *
- * Two transitions only:
+ * Reviewer-fireable transitions:
  *   - DRAFT → QUEUED via `POST /api/cases/:id/brief` (Mode B enqueue).
- *   - SUSPENDED_HITL → ACTIONED via `POST /api/cases/:id/action` (with
- *     rationale + action_id from the action modal).
- *
- * `READY_FOR_REVIEW → ACTIONED` is intentionally absent: `apps/worker/
- * src/routes/actions.ts` only handles the `SUSPENDED_HITL → RUNNING →
- * ACTIONED` claim. Adding `READY_FOR_REVIEW` would require route
- * changes outside Phase 7.5's scope; the map updates in the same PR if
- * that lands later.
+ *   - SUSPENDED_HITL → ACTIONED via `POST /api/cases/:id/action`.
+ *   - READY_FOR_REVIEW → ACTIONED via the same action route, whose claim
+ *     accepts both `SUSPENDED_HITL` and `READY_FOR_REVIEW` as the `from`
+ *     state (see `apps/worker/src/routes/actions.ts` `transitionCase`
+ *     `from: ["SUSPENDED_HITL", "READY_FOR_REVIEW"]`). Both carry a
+ *     rationale + action_id from the action modal.
  *
  * Workflow-owned statuses (`QUEUED`, `RUNNING`) have empty arrays so
  * `canReviewerTransition` returns `false` for any move out of them —

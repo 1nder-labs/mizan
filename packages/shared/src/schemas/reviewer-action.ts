@@ -78,22 +78,6 @@ export const ReviewerActionResumeSchema = z
 export type ReviewerActionResumeData = z.infer<typeof ReviewerActionResumeSchema>;
 
 /**
- * Status reported by Mastra `WorkflowRun.resume`. Mirrors Mastra's
- * `WorkflowResult.status` discriminator exactly (`success` | `failed`
- * | `suspended` | `paused` | `tripwire`) so the action route can
- * branch on the full discriminator before deciding to respond.
- */
-export const MastraResumeStatusEnum = z.enum([
-  "success",
-  "failed",
-  "suspended",
-  "paused",
-  "tripwire",
-]);
-
-export type MastraResumeStatus = z.infer<typeof MastraResumeStatusEnum>;
-
-/**
  * POST `/api/cases/:id/action` success envelope. The route only writes
  * this body on `result.status === "success"` — non-success outcomes
  * revert the claim and return `workflow_failed`. Locking the wire

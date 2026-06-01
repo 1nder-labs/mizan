@@ -1,7 +1,7 @@
 import { createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { BriefPayloadSchema } from "@mizan/shared";
 import { awaitReviewerAction } from "../steps/awaitReviewerAction.ts";
+import { ReviewerActionStepStateSchema } from "../schemas/reviewer-action-suspend.ts";
 import { classifyCampaign } from "../steps/classifyCampaign.ts";
 import { classifyVouchingChain } from "../steps/classifyVouchingChain/index.ts";
 import { composeBrief } from "../steps/composeBrief/index.ts";
@@ -41,6 +41,11 @@ import { storyCoherence } from "../steps/storyCoherence/index.ts";
  * eval_promotions, flip case to ACTIONED, emit workflow.finish) is
  * owned by `POST /api/cases/:id/action` directly, NOT a Mastra resume.
  *
+ * The workflow `outputSchema` therefore mirrors the terminal step's
+ * `ReviewerActionStepStateSchema`, not `composeBrief`'s `BriefPayload`:
+ * the brief is an intermediate product, and the only value the workflow
+ * could ever resolve to (on a resume path) is the reviewer-action state.
+ *
  * Why no Mastra resume: `Workflow.resume()` from a different request
  * than the original `Workflow.stream()` hits Cloudflare Workers' I/O
  * isolation boundary ("Cannot perform I/O on behalf of a different
@@ -52,7 +57,7 @@ import { storyCoherence } from "../steps/storyCoherence/index.ts";
 export const briefWorkflow = createWorkflow({
   id: "brief",
   inputSchema: z.object({ caseId: z.string(), runId: z.string() }),
-  outputSchema: BriefPayloadSchema,
+  outputSchema: ReviewerActionStepStateSchema,
 })
   .then(classifyCampaign)
   .then(extractCreatorIdDoc)

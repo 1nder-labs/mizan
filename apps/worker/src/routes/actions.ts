@@ -106,8 +106,12 @@ function buildResponse(
  * Reverts a failed post-action claim back to SUSPENDED_HITL. Must never throw:
  * the caller is already handling a chain failure, and letting a revert D1 error
  * propagate would crash the request with a 500 AND leave the case stuck in
- * RUNNING. On revert failure we log loudly — the queue consumer's stale-claim
- * recovery is the backstop.
+ * RUNNING. On revert failure we log loudly. There is no automatic backstop for
+ * the action path — the queue consumer's `RUNNING_STALE_THRESHOLD_MS` sweep only
+ * fires on a queued brief message, and a reviewer action is request-driven with
+ * no such message. A double D1 fault (chain AND revert) therefore needs manual
+ * recovery; it requires two independent failures in one request, so we accept
+ * that residual risk rather than build a sweep for a path that has none.
  */
 async function revertClaim(db: Db, caseId: string, runId: string, cause: unknown): Promise<void> {
   const reason = cause instanceof Error ? cause.message : String(cause);
@@ -174,6 +178,7 @@ async function runPostActionChain(db: Db, input: PostActionInput): Promise<Brief
     caseId: input.caseId,
     runId: input.runId,
     reviewerId: input.reviewerId,
+    organizationId: input.organizationId,
     action: input.action,
     actionId: input.actionId,
   });

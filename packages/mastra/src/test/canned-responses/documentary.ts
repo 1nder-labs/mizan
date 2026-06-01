@@ -15,12 +15,14 @@ export function case001Responses(): Record<string, unknown> {
     "extractCreatorIdDoc.extract": { ...BASE_CREATOR, full_name: "Mizan Demo Patient" },
     "extractBankStatement.extract": { ...BASE_BANK, account_holder_name: "Mizan Demo Patient" },
     "extractCategoryDocs.extract": {
-      doc_kind: "medical",
-      patient_name: "Mizan Demo Patient",
-      provider_name: "Mizan Test Hospital",
-      treatment_summary: "Urgent surgery",
-      amount_claimed: "15000 USD",
-      confidence: 88,
+      doc: {
+        doc_kind: "medical",
+        patient_name: "Mizan Demo Patient",
+        provider_name: "Mizan Test Hospital",
+        treatment_summary: "Urgent surgery",
+        amount_claimed: "15000 USD",
+        confidence: 88,
+      },
     },
     "extractStoryClaims.extract": {
       claims: [
@@ -57,12 +59,14 @@ export function case002Responses(): Record<string, unknown> {
       currency: "GBP",
     },
     "extractCategoryDocs.extract": {
-      doc_kind: "school",
-      student_name: "Mizan Demo Student",
-      institution_name: "Mizan Test Academy",
-      tuition_summary: "Term fees due",
-      amount_claimed: "5000 GBP",
-      confidence: 86,
+      doc: {
+        doc_kind: "school",
+        student_name: "Mizan Demo Student",
+        institution_name: "Mizan Test Academy",
+        tuition_summary: "Term fees due",
+        amount_claimed: "5000 GBP",
+        confidence: 86,
+      },
     },
     "extractStoryClaims.extract": {
       claims: [
@@ -97,12 +101,14 @@ function case003ExtractorBlock(): Record<string, unknown> {
       currency: "PKR",
     },
     "extractCategoryDocs.extract": {
-      doc_kind: "org_registration",
-      org_name: "Mizan Demo Org",
-      registration_number: "PK-REG-001",
-      jurisdiction: "PK",
-      tax_exempt_status: null,
-      confidence: 70,
+      doc: {
+        doc_kind: "org_registration",
+        org_name: "Mizan Demo Org",
+        registration_number: "PK-REG-001",
+        jurisdiction: "PK",
+        tax_exempt_status: null,
+        confidence: 70,
+      },
     },
     "extractStoryClaims.extract": {
       claims: [
@@ -125,9 +131,11 @@ export function case003Responses(): Record<string, unknown> {
       0.62,
     ),
     "classifyVouchingChain.classify": {
-      structure: "org-direct" as const,
-      partner_org_name: "Mizan Demo Org",
-      weakest_link_narrative: "Registered org with pending tax documentation.",
+      chain: {
+        structure: "org-direct" as const,
+        partner_org_name: "Mizan Demo Org",
+        weakest_link_narrative: "Registered org with pending tax documentation.",
+      },
     },
     ...requestDocsCompose(
       55,
@@ -159,12 +167,14 @@ function case004ExtractorBlock(): Record<string, unknown> {
       confidence: 40,
     },
     "extractCategoryDocs.extract": {
-      doc_kind: "medical",
-      patient_name: "Mizan Demo Caregiver",
-      provider_name: "Mizan Jakarta Clinic",
-      treatment_summary: "Emergency transport",
-      amount_claimed: "8000000 IDR",
-      confidence: 75,
+      doc: {
+        doc_kind: "medical",
+        patient_name: "Mizan Demo Caregiver",
+        provider_name: "Mizan Jakarta Clinic",
+        treatment_summary: "Emergency transport",
+        amount_claimed: "8000000 IDR",
+        confidence: 75,
+      },
     },
     "extractStoryClaims.extract": {
       claims: [
@@ -216,12 +226,14 @@ export function case005Responses(): Record<string, unknown> {
       currency: "EGP",
     },
     "extractCategoryDocs.extract": {
-      doc_kind: "school",
-      student_name: "Mizan Demo Student",
-      institution_name: "Mizan Primary School Cairo",
-      tuition_summary: "Primary enrollment fees",
-      amount_claimed: "20000 EGP",
-      confidence: 80,
+      doc: {
+        doc_kind: "school",
+        student_name: "Mizan Demo Student",
+        institution_name: "Mizan Primary School Cairo",
+        tuition_summary: "Primary enrollment fees",
+        amount_claimed: "20000 EGP",
+        confidence: 80,
+      },
     },
     "extractStoryClaims.extract": {
       claims: [
