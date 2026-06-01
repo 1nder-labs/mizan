@@ -20,8 +20,8 @@ import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 
 const BASE = "http://localhost";
 
-/** Signs up a reviewer account (default role) and returns the session cookie. */
-async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
+/** Signs up a reviewer account and returns the session cookie, userId, and organizationId. */
+async function seedReviewer(): Promise<{ cookie: string; userId: string; organizationId: string }> {
   const email = `list-reviewer-${Date.now()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -42,7 +42,17 @@ async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
     .bind(email)
     .first<{ id: string }>();
   if (!row?.id) throw new Error("reviewer seed failed");
-  return { cookie: signIn.headers.getSetCookie().join("; "), userId: row.id };
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("reviewer org seed failed");
+  return {
+    cookie: signIn.headers.getSetCookie().join("; "),
+    userId: row.id,
+    organizationId: memberRow.organization_id,
+  };
 }
 
 /** Signs up an admin account and returns the session cookie + userId. */
@@ -56,7 +66,6 @@ async function seedAdmin(): Promise<{ cookie: string; userId: string }> {
       body: JSON.stringify({ email, password, name: "List Admin" }),
     }),
   );
-  await env.DB.prepare("UPDATE users SET role = 'admin' WHERE email = ?").bind(email).run();
   const signIn = await exports.default.fetch(
     new Request(`${BASE}/api/auth/sign-in/email`, {
       method: "POST",
@@ -78,13 +87,14 @@ async function insertCase(opts: {
   category: string;
   geography: string;
   createdBy: string;
+  organizationId: string;
   createdAt?: number;
   updatedAt?: number;
 }): Promise<void> {
   const now = Date.now();
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?)
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        status = excluded.status,
        updated_at = excluded.updated_at`,
@@ -95,6 +105,7 @@ async function insertCase(opts: {
       opts.category,
       opts.geography,
       opts.createdBy,
+      opts.organizationId,
       opts.createdAt ?? now,
       opts.updatedAt ?? now,
     )
@@ -108,6 +119,7 @@ async function insertBrief(opts: {
   runId: string;
   recommendation: string;
   verificationPath: string;
+  organizationId: string;
   composedAt?: number;
 }): Promise<void> {
   const payload = JSON.stringify({
@@ -123,11 +135,19 @@ async function insertBrief(opts: {
   });
   const now = Date.now();
   await env.DB.prepare(
-    `INSERT INTO briefs (id, case_id, run_id, recommendation, confidence, composed_at, payload_json)
-     VALUES (?, ?, ?, ?, 80, ?, ?)
+    `INSERT INTO briefs (id, case_id, run_id, recommendation, confidence, composed_at, payload_json, organization_id)
+     VALUES (?, ?, ?, ?, 80, ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`,
   )
-    .bind(opts.id, opts.caseId, opts.runId, opts.recommendation, opts.composedAt ?? now, payload)
+    .bind(
+      opts.id,
+      opts.caseId,
+      opts.runId,
+      opts.recommendation,
+      opts.composedAt ?? now,
+      payload,
+      opts.organizationId,
+    )
     .run();
 }
 
@@ -135,6 +155,7 @@ describe("GET /api/cases — queue list route", () => {
   let reviewerCookie = "";
   let adminCookie = "";
   let reviewerUserId = "";
+  let reviewerOrgId = "";
 
   const CASE_A_ID = "aa000000-0000-4000-8000-000000000001";
   const CASE_B_ID = "bb000000-0000-4000-8000-000000000002";
@@ -147,6 +168,7 @@ describe("GET /api/cases — queue list route", () => {
     const reviewer = await seedReviewer();
     reviewerCookie = reviewer.cookie;
     reviewerUserId = reviewer.userId;
+    reviewerOrgId = reviewer.organizationId;
 
     const admin = await seedAdmin();
     adminCookie = admin.cookie;
@@ -159,6 +181,7 @@ describe("GET /api/cases — queue list route", () => {
       category: "medical",
       geography: "US",
       createdBy: reviewerUserId,
+      organizationId: reviewerOrgId,
       createdAt: baseTime - 3000,
       updatedAt: baseTime - 1000,
     });
@@ -169,6 +192,7 @@ describe("GET /api/cases — queue list route", () => {
       category: "education",
       geography: "UK",
       createdBy: reviewerUserId,
+      organizationId: reviewerOrgId,
       createdAt: baseTime - 2000,
       updatedAt: baseTime - 2000,
     });
@@ -179,6 +203,7 @@ describe("GET /api/cases — queue list route", () => {
       category: "medical",
       geography: "CA",
       createdBy: reviewerUserId,
+      organizationId: reviewerOrgId,
       createdAt: baseTime - 1000,
       updatedAt: baseTime - 500,
     });
@@ -189,6 +214,7 @@ describe("GET /api/cases — queue list route", () => {
       runId: "run-aa-01",
       recommendation: "REQUEST_DOCS",
       verificationPath: "documentary",
+      organizationId: reviewerOrgId,
     });
   }, 60_000);
 
@@ -304,7 +330,7 @@ describe("GET /api/cases — queue list route", () => {
 
   it("page=1 returns data; page beyond range returns empty cases and valid total", async () => {
     const res = await exports.default.fetch(
-      new Request(`${BASE}/api/cases?page=9999`, {
+      new Request(`${BASE}/api/cases?page=100`, {
         headers: { Cookie: reviewerCookie },
       }),
     );

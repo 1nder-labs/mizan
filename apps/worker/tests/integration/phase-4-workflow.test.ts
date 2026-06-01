@@ -2,7 +2,6 @@
  * Integration test: Phase 4 community-vouching workflow paths + signals persistence.
  */
 
-import { readFileSync } from "node:fs";
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
@@ -24,6 +23,9 @@ import {
   serializeMockResponses,
 } from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
+import seedCase006Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-006.json" with { type: "json" };
+import seedCase007Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-007.json" with { type: "json" };
+import seedCase008Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-008.json" with { type: "json" };
 
 const BASE = "http://localhost";
 
@@ -82,7 +84,7 @@ function cookiesFrom(res: Response): string {
   return res.headers.getSetCookie().join("; ");
 }
 
-async function seedAdmin(): Promise<string> {
+async function seedAdmin(): Promise<{ cookie: string; userId: string; organizationId: string }> {
   const email = `phase4-admin-${Date.now()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -92,7 +94,6 @@ async function seedAdmin(): Promise<string> {
       body: JSON.stringify({ email, password, name: "Phase4 Admin" }),
     }),
   );
-  await env.DB.prepare("UPDATE users SET role = 'admin' WHERE email = ?").bind(email).run();
   const signIn = await exports.default.fetch(
     new Request(`${BASE}/api/auth/sign-in/email`, {
       method: "POST",
@@ -100,15 +101,29 @@ async function seedAdmin(): Promise<string> {
       body: JSON.stringify({ email, password }),
     }),
   );
-  return cookiesFrom(signIn);
+  const row = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
+    .bind(email)
+    .first<{ id: string }>();
+  if (!row?.id) throw new Error("phase4 admin seed failed");
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("phase4 admin org seed failed");
+  return { cookie: cookiesFrom(signIn), userId: row.id, organizationId: memberRow.organization_id };
 }
 
-function loadCommunitySeed(filename: string) {
-  const path = new URL(
-    `../../../../packages/mastra/src/seeds/community-vouching/${filename}`,
-    import.meta.url,
-  ).pathname;
-  return SeedCaseSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+const COMMUNITY_SEED_CACHE: Record<string, ReturnType<typeof SeedCaseSchema.parse>> = {
+  "case-006.json": SeedCaseSchema.parse(seedCase006Raw),
+  "case-007.json": SeedCaseSchema.parse(seedCase007Raw),
+  "case-008.json": SeedCaseSchema.parse(seedCase008Raw),
+};
+
+function loadCommunitySeed(filename: string): ReturnType<typeof SeedCaseSchema.parse> {
+  const cached = COMMUNITY_SEED_CACHE[filename];
+  if (!cached) throw new Error(`No preloaded community seed for ${filename}.`);
+  return cached;
 }
 
 async function drainSse(res: Response): Promise<string> {
@@ -145,15 +160,14 @@ const BriefRowSchema = z.object({
 describe("phase 4 community-vouching workflow", () => {
   let adminCookie = "";
   let adminUserId = "";
+  let adminOrgId = "";
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-    adminCookie = await seedAdmin();
-    const row = await env.DB.prepare(
-      "SELECT id FROM users WHERE role = 'admin' ORDER BY created_at DESC LIMIT 1",
-    ).first<{ id: string }>();
-    if (!row?.id) throw new Error("admin user missing");
-    adminUserId = row.id;
+    const admin = await seedAdmin();
+    adminCookie = admin.cookie;
+    adminUserId = admin.userId;
+    adminOrgId = admin.organizationId;
 
     for (const entry of COMMUNITY_CASES) {
       const seed = loadCommunitySeed(entry.file);
@@ -164,8 +178,8 @@ describe("phase 4 community-vouching workflow", () => {
         ...(seed.vouching_narrative ? { vouching_narrative: seed.vouching_narrative } : {}),
       };
       await env.DB.prepare(
-        `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            status = excluded.status,
            brief_partial_json = excluded.brief_partial_json,
@@ -179,6 +193,7 @@ describe("phase 4 community-vouching workflow", () => {
           seed.claimed_zakat_category,
           JSON.stringify(overlay),
           adminUserId,
+          adminOrgId,
           Date.now(),
           Date.now(),
         )
@@ -235,7 +250,7 @@ describe("phase 4 community-vouching workflow", () => {
     assertSseStream(sse);
 
     const briefRow = await env.DB.prepare(
-      "SELECT payload_json, run_id FROM briefs WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
+      "SELECT payload_json, run_id FROM briefs WHERE case_id = ? ORDER BY composed_at DESC LIMIT 1",
     )
       .bind(caseId)
       .first<{ payload_json: string; run_id: string }>();
@@ -360,7 +375,7 @@ describe("phase 4 community-vouching workflow", () => {
     await drainSse(res);
 
     const briefRow = await env.DB.prepare(
-      "SELECT run_id FROM briefs WHERE case_id = ? ORDER BY created_at DESC LIMIT 1",
+      "SELECT run_id FROM briefs WHERE case_id = ? ORDER BY composed_at DESC LIMIT 1",
     )
       .bind(target.id)
       .first<{ run_id: string }>();
@@ -377,13 +392,7 @@ describe("phase 4 community-vouching workflow", () => {
   }, 60_000);
 });
 
-/**
- * The brief route emits the AI SDK 6.x UI-message stream protocol via
- * `toAISdkStream` (see `apps/worker/src/routes/cases.ts`). The stream
- * terminates with a `finish` event whose JSON payload is appended last;
- * asserting on the terminal event catches truncated streams that an
- * `sse.length > 0` check would miss.
- */
+/** Asserts the SSE stream contains at least one data event and a terminal finish event. */
 function assertSseStream(sse: string): void {
   expect(sse.length).toBeGreaterThan(0);
   expect(sse).toMatch(/data:\s*\{/);

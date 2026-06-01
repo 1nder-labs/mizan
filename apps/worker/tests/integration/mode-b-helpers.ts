@@ -2,12 +2,16 @@
  * Shared helpers for Mode B integration tests.
  */
 
-import { readFileSync } from "node:fs";
 import { env, exports } from "cloudflare:workers";
 import { vi } from "vitest";
 import { SeedCaseSchema, type CloudflareBindings } from "@mizan/shared";
 import { isCloudflareBindings } from "@mizan/mastra/testing";
 import { makeTestMessage } from "../helpers/queue-batch.ts";
+import seedCase001Raw from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
+
+const SEED_CACHE: Record<string, ReturnType<typeof SeedCaseSchema.parse>> = {
+  "case-001.json": SeedCaseSchema.parse(seedCase001Raw),
+};
 
 const BASE = "http://localhost";
 
@@ -25,6 +29,18 @@ export function cookiesFrom(res: Response): string {
   return res.headers.getSetCookie().join("; ");
 }
 
+/**
+ * Reads the `organization_id` for a user from the `members` table.
+ * Throws if the member row is not found (indicates a seed bug).
+ */
+async function getOrganizationId(userId: string): Promise<string> {
+  const row = await env.DB.prepare("SELECT organization_id FROM members WHERE user_id = ? LIMIT 1")
+    .bind(userId)
+    .first<{ organization_id: string }>();
+  if (!row?.organization_id) throw new Error(`organization_id not found for user ${userId}`);
+  return row.organization_id;
+}
+
 export async function seedAdmin(): Promise<{ cookie: string; userId: string }> {
   const email = `mode-b-admin-${Date.now()}@test.local`;
   const password = "CorrectHorse99!!";
@@ -35,7 +51,6 @@ export async function seedAdmin(): Promise<{ cookie: string; userId: string }> {
       body: JSON.stringify({ email, password, name: "Mode B Admin" }),
     }),
   );
-  await env.DB.prepare("UPDATE users SET role = 'admin' WHERE email = ?").bind(email).run();
   const signIn = await exports.default.fetch(
     new Request(`${BASE}/api/auth/sign-in/email`, {
       method: "POST",
@@ -50,12 +65,11 @@ export async function seedAdmin(): Promise<{ cookie: string; userId: string }> {
   return { cookie: cookiesFrom(signIn), userId: row.id };
 }
 
-export function loadDocumentarySeed(filename: string) {
-  const path = new URL(
-    `../../../../packages/mastra/src/seeds/documentary/${filename}`,
-    import.meta.url,
-  ).pathname;
-  return SeedCaseSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+/** Returns the pre-parsed documentary seed for the given filename. */
+export function loadDocumentarySeed(filename: string): ReturnType<typeof SeedCaseSchema.parse> {
+  const cached = SEED_CACHE[filename];
+  if (!cached) throw new Error(`No preloaded seed for ${filename}. Add a static import.`);
+  return cached;
 }
 
 export async function insertDraftCase(
@@ -64,9 +78,10 @@ export async function insertDraftCase(
   filename = "case-001.json",
 ): Promise<void> {
   const seed = loadDocumentarySeed(filename);
+  const organizationId = await getOrganizationId(reviewerId);
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-     VALUES (?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+     VALUES (?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at`,
   )
     .bind(
@@ -80,6 +95,7 @@ export async function insertDraftCase(
         r2_keys: seed.r2_keys,
       }),
       reviewerId,
+      organizationId,
       Date.now(),
       Date.now(),
     )

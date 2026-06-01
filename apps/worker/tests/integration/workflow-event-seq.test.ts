@@ -18,6 +18,10 @@ import { emitWorkflowEvent } from "@mizan/mastra";
 async function seedCase(caseId: string, runId: string): Promise<void> {
   const now = Date.now();
   const userId = crypto.randomUUID();
+  const orgId = crypto.randomUUID();
+  await env.DB.prepare(`INSERT INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
+    .bind(orgId, "Seq Test Org", `org-${orgId}`)
+    .run();
   await env.DB.prepare(
     `INSERT INTO users (id, email, name, email_verified, created_at, updated_at)
      VALUES (?, ?, 'seed-user', 1, ?, ?)`,
@@ -25,10 +29,10 @@ async function seedCase(caseId: string, runId: string): Promise<void> {
     .bind(userId, `seed-${userId}@test.local`, now, now)
     .run();
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, created_at, updated_at)
-     VALUES (?, 'RUNNING', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?)`,
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, organization_id, created_at, updated_at)
+     VALUES (?, 'RUNNING', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?, ?)`,
   )
-    .bind(caseId, runId, userId, now, now)
+    .bind(caseId, runId, userId, orgId, now, now)
     .run();
 }
 

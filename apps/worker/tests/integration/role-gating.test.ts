@@ -36,7 +36,7 @@ async function seedAndSignIn(email: string, password: string): Promise<string> {
 
 async function setMemberRole(email: string, role: "reviewer" | "admin"): Promise<void> {
   await env.DB.prepare(
-    `UPDATE member
+    `UPDATE members
      SET role = ?
      WHERE user_id = (SELECT id FROM users WHERE email = ?)`,
   )

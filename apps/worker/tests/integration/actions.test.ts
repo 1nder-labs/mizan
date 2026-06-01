@@ -10,7 +10,7 @@ import { beforeAll, describe, expect, inject, it } from "vitest";
 
 const BASE = "http://localhost";
 
-async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
+async function seedReviewer(): Promise<{ cookie: string; userId: string; organizationId: string }> {
   const email = `actions-reviewer-${Date.now()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -31,22 +31,41 @@ async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
     .bind(email)
     .first<{ id: string }>();
   if (!row?.id) throw new Error("reviewer seed failed");
-  return { cookie: signIn.headers.getSetCookie().join("; "), userId: row.id };
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("actions reviewer org seed failed");
+  return {
+    cookie: signIn.headers.getSetCookie().join("; "),
+    userId: row.id,
+    organizationId: memberRow.organization_id,
+  };
 }
 
 async function insertCase(opts: {
   id: string;
   status: string;
   createdBy: string;
+  organizationId: string;
   currentRunId?: string | null;
 }): Promise<void> {
   const now = Date.now();
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, created_at, updated_at)
-     VALUES (?, ?, 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?)
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, organization_id, created_at, updated_at)
+     VALUES (?, ?, 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET status = excluded.status, current_run_id = excluded.current_run_id, updated_at = excluded.updated_at`,
   )
-    .bind(opts.id, opts.status, opts.currentRunId ?? null, opts.createdBy, now, now)
+    .bind(
+      opts.id,
+      opts.status,
+      opts.currentRunId ?? null,
+      opts.createdBy,
+      opts.organizationId,
+      now,
+      now,
+    )
     .run();
 }
 
@@ -87,12 +106,13 @@ describe("POST /api/cases/:id/action", () => {
   });
 
   it("returns 400 when OVERRIDE arrives with an empty rationale (server-side superRefine)", async () => {
-    const { cookie, userId } = await seedReviewer();
+    const { cookie, userId, organizationId } = await seedReviewer();
     const caseId = crypto.randomUUID();
     await insertCase({
       id: caseId,
       status: "SUSPENDED_HITL",
       createdBy: userId,
+      organizationId,
       currentRunId: crypto.randomUUID(),
     });
 
@@ -118,13 +138,14 @@ describe("POST /api/cases/:id/action", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 409 when case is not SUSPENDED_HITL (claim guard)", async () => {
-    const { cookie, userId } = await seedReviewer();
+  it("returns 409 when case is not claimable (ACTIONED — claim guard)", async () => {
+    const { cookie, userId, organizationId } = await seedReviewer();
     const caseId = crypto.randomUUID();
     await insertCase({
       id: caseId,
-      status: "READY_FOR_REVIEW",
+      status: "ACTIONED",
       createdBy: userId,
+      organizationId,
       currentRunId: crypto.randomUUID(),
     });
 
@@ -141,12 +162,13 @@ describe("POST /api/cases/:id/action", () => {
   });
 
   it("returns 409 with no_run when case has no current_run_id", async () => {
-    const { cookie, userId } = await seedReviewer();
+    const { cookie, userId, organizationId } = await seedReviewer();
     const caseId = crypto.randomUUID();
     await insertCase({
       id: caseId,
       status: "SUSPENDED_HITL",
       createdBy: userId,
+      organizationId,
       currentRunId: null,
     });
 

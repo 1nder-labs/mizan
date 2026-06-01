@@ -36,7 +36,7 @@ async function seedUser(): Promise<{ cookie: string; organizationId: string }> {
     .first<{ id: string }>();
   if (!userRow?.id) throw new Error("user seed failed");
   const memberRow = await env.DB.prepare(
-    "SELECT organization_id FROM member WHERE user_id = ? LIMIT 1",
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
   )
     .bind(userRow.id)
     .first<{ organization_id: string }>();

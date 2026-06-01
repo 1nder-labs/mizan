@@ -42,8 +42,8 @@ interface MembershipRow {
 async function loadMembership(userId: string): Promise<MembershipRow | null> {
   return env.DB.prepare(
     `SELECT m.role, m.organization_id, o.name AS organization_name
-     FROM member m
-     JOIN organization o ON o.id = m.organization_id
+     FROM members m
+     JOIN organizations o ON o.id = m.organization_id
      WHERE m.user_id = ?
      LIMIT 1`,
   )
@@ -68,7 +68,7 @@ describe("org signup hooks", () => {
     expect(membership?.organization_name.length).toBeGreaterThan(0);
 
     const orgCount = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM organization o JOIN member m ON m.organization_id = o.id WHERE m.user_id = ?",
+      "SELECT COUNT(*) AS count FROM organizations o JOIN members m ON m.organization_id = o.id WHERE m.user_id = ?",
     )
       .bind(userId)
       .first<{ count: number }>();
@@ -87,7 +87,7 @@ describe("org signup hooks", () => {
     const invitationId = crypto.randomUUID();
     const now = Date.now();
     await env.DB.prepare(
-      `INSERT INTO invitation (id, email, inviter_id, organization_id, role, status, created_at, expires_at)
+      `INSERT INTO invitations (id, email, inviter_id, organization_id, role, status, created_at, expires_at)
        VALUES (?, ?, ?, ?, 'reviewer', 'pending', ?, ?)`,
     )
       .bind(
@@ -107,13 +107,13 @@ describe("org signup hooks", () => {
     expect(inviteeMembership?.organization_id).toBe(inviterMembership.organization_id);
 
     const inviteeOrgCount = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM member WHERE user_id = ?",
+      "SELECT COUNT(*) AS count FROM members WHERE user_id = ?",
     )
       .bind(invitee.userId)
       .first<{ count: number }>();
     expect(inviteeOrgCount?.count).toBe(1);
 
-    const invitationStatus = await env.DB.prepare("SELECT status FROM invitation WHERE id = ?")
+    const invitationStatus = await env.DB.prepare("SELECT status FROM invitations WHERE id = ?")
       .bind(invitationId)
       .first<{ status: string }>();
     expect(invitationStatus?.status).toBe("accepted");

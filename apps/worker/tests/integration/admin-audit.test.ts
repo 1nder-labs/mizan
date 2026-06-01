@@ -9,7 +9,9 @@ import { beforeAll, describe, expect, inject, it } from "vitest";
 
 const BASE = "http://localhost";
 
-async function seedUser(role: "reviewer" | "admin"): Promise<{ cookie: string; userId: string }> {
+async function seedUser(
+  role: "reviewer" | "admin",
+): Promise<{ cookie: string; userId: string; organizationId: string }> {
   const email = `audit-${role}-${Date.now()}-${Math.random()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -19,7 +21,15 @@ async function seedUser(role: "reviewer" | "admin"): Promise<{ cookie: string; u
       body: JSON.stringify({ email, password, name: `Audit ${role}` }),
     }),
   );
-  await env.DB.prepare("UPDATE users SET role = ? WHERE email = ?").bind(role, email).run();
+  const row = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
+    .bind(email)
+    .first<{ id: string }>();
+  if (!row?.id) throw new Error("seed failed");
+  if (role === "reviewer") {
+    await env.DB.prepare("UPDATE members SET role = 'reviewer' WHERE user_id = ?")
+      .bind(row.id)
+      .run();
+  }
   const signIn = await exports.default.fetch(
     new Request(`${BASE}/api/auth/sign-in/email`, {
       method: "POST",
@@ -27,15 +37,22 @@ async function seedUser(role: "reviewer" | "admin"): Promise<{ cookie: string; u
       body: JSON.stringify({ email, password }),
     }),
   );
-  const row = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
-    .bind(email)
-    .first<{ id: string }>();
-  if (!row?.id) throw new Error("seed failed");
-  return { cookie: signIn.headers.getSetCookie().join("; "), userId: row.id };
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("audit org seed failed");
+  return {
+    cookie: signIn.headers.getSetCookie().join("; "),
+    userId: row.id,
+    organizationId: memberRow.organization_id,
+  };
 }
 
 async function insertCaseAndAction(
   reviewerId: string,
+  organizationId: string,
   action: string,
   rationale: string,
 ): Promise<void> {
@@ -43,14 +60,14 @@ async function insertCaseAndAction(
   const runId = crypto.randomUUID();
   const now = Date.now();
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-     VALUES (?, 'ACTIONED', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?)`,
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+     VALUES (?, 'ACTIONED', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?)`,
   )
-    .bind(caseId, reviewerId, now, now)
+    .bind(caseId, reviewerId, organizationId, now, now)
     .run();
   await env.DB.prepare(
-    `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, action_id, acted_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, action_id, organization_id, acted_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       crypto.randomUUID(),
@@ -60,6 +77,7 @@ async function insertCaseAndAction(
       action,
       rationale,
       crypto.randomUUID(),
+      organizationId,
       now,
     )
     .run();
@@ -91,9 +109,9 @@ describe("GET /api/admin/audit", () => {
   });
 
   it("returns 200 with entries + pagination meta for admin", async () => {
-    const { cookie, userId } = await seedUser("admin");
-    await insertCaseAndAction(userId, "APPROVE", "looks good");
-    await insertCaseAndAction(userId, "ESCALATE", "needs higher review");
+    const { cookie, userId, organizationId } = await seedUser("admin");
+    await insertCaseAndAction(userId, organizationId, "APPROVE", "looks good");
+    await insertCaseAndAction(userId, organizationId, "ESCALATE", "needs higher review");
 
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/admin/audit?page=1&page_size=25`, { headers: { Cookie: cookie } }),
@@ -109,8 +127,8 @@ describe("GET /api/admin/audit", () => {
   });
 
   it("honors page_size pagination", async () => {
-    const { cookie, userId } = await seedUser("admin");
-    await insertCaseAndAction(userId, "REQUEST_DOCS", "missing bank statement");
+    const { cookie, userId, organizationId } = await seedUser("admin");
+    await insertCaseAndAction(userId, organizationId, "REQUEST_DOCS", "missing bank statement");
 
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/admin/audit?page=1&page_size=1`, { headers: { Cookie: cookie } }),

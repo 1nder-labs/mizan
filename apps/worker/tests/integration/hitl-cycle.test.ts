@@ -45,7 +45,7 @@ interface SeedJson {
   };
 }
 
-async function seedAdmin(): Promise<string> {
+async function seedAdmin(): Promise<{ cookie: string; userId: string; organizationId: string }> {
   const email = `hitl-admin-${Date.now()}-${Math.random()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -55,7 +55,6 @@ async function seedAdmin(): Promise<string> {
       body: JSON.stringify({ email, password, name: "HITL Admin" }),
     }),
   );
-  await env.DB.prepare("UPDATE users SET role = 'admin' WHERE email = ?").bind(email).run();
   const signIn = await exports.default.fetch(
     new Request(`${BASE}/api/auth/sign-in/email`, {
       method: "POST",
@@ -63,14 +62,28 @@ async function seedAdmin(): Promise<string> {
       body: JSON.stringify({ email, password }),
     }),
   );
-  return signIn.headers.getSetCookie().join("; ");
+  const row = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
+    .bind(email)
+    .first<{ id: string }>();
+  if (!row?.id) throw new Error("hitl admin seed failed");
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("hitl admin org seed failed");
+  return {
+    cookie: signIn.headers.getSetCookie().join("; "),
+    userId: row.id,
+    organizationId: memberRow.organization_id,
+  };
 }
 
-async function seedCase(adminUserId: string): Promise<void> {
+async function seedCase(adminUserId: string, organizationId: string): Promise<void> {
   const seed = seedCase001 as SeedJson;
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-     VALUES (?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+     VALUES (?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET status = 'DRAFT', current_run_id = NULL, updated_at = excluded.updated_at`,
   )
     .bind(
@@ -84,6 +97,7 @@ async function seedCase(adminUserId: string): Promise<void> {
         r2_keys: seed.r2_keys,
       }),
       adminUserId,
+      organizationId,
       Date.now(),
       Date.now(),
     )
@@ -121,12 +135,9 @@ describe("HITL cycle — Mode A suspend → POST /action → ACTIONED", () => {
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-    adminCookie = await seedAdmin();
-    const adminRow = await env.DB.prepare(
-      "SELECT id FROM users WHERE role = 'admin' ORDER BY created_at DESC LIMIT 1",
-    ).first<{ id: string }>();
-    if (!adminRow?.id) throw new Error("admin seed failed");
-    await seedCase(adminRow.id);
+    const admin = await seedAdmin();
+    adminCookie = admin.cookie;
+    await seedCase(admin.userId, admin.organizationId);
   }, 60_000);
 
   it("drives suspend → action → ACTIONED with full row persistence + event tape", async () => {

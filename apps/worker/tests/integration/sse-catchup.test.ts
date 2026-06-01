@@ -11,7 +11,7 @@ import { beforeAll, describe, expect, inject, it } from "vitest";
 
 const BASE = "http://localhost";
 
-async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
+async function seedReviewer(): Promise<{ cookie: string; userId: string; organizationId: string }> {
   const email = `sse-reviewer-${Date.now()}-${Math.random()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -32,27 +32,42 @@ async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
     .bind(email)
     .first<{ id: string }>();
   if (!row?.id) throw new Error("reviewer seed failed");
-  return { cookie: signIn.headers.getSetCookie().join("; "), userId: row.id };
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("sse reviewer org seed failed");
+  return {
+    cookie: signIn.headers.getSetCookie().join("; "),
+    userId: row.id,
+    organizationId: memberRow.organization_id,
+  };
 }
 
-async function insertCase(caseId: string, runId: string, createdBy: string): Promise<void> {
+async function insertCase(
+  caseId: string,
+  runId: string,
+  createdBy: string,
+  organizationId: string,
+): Promise<void> {
   const now = Date.now();
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, created_at, updated_at)
-     VALUES (?, 'ACTIONED', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?)`,
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, organization_id, created_at, updated_at)
+     VALUES (?, 'ACTIONED', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?, ?)`,
   )
-    .bind(caseId, runId, createdBy, now, now)
+    .bind(caseId, runId, createdBy, organizationId, now, now)
     .run();
 }
 
-async function seedTape(caseId: string, runId: string): Promise<void> {
+async function seedTape(caseId: string, runId: string, organizationId: string): Promise<void> {
   const types = ["workflow.start", "step.suspend", "step.resume", "workflow.finish"] as const;
   for (let i = 0; i < types.length; i += 1) {
     await env.DB.prepare(
-      `INSERT INTO workflow_events (id, case_id, run_id, seq, event_type, step_id, payload_json, emitted_at)
-       VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)`,
+      `INSERT INTO workflow_events (id, case_id, run_id, seq, event_type, step_id, payload_json, organization_id, emitted_at)
+       VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
     )
-      .bind(crypto.randomUUID(), caseId, runId, i + 1, types[i], Date.now())
+      .bind(crypto.randomUUID(), caseId, runId, i + 1, types[i], organizationId, Date.now())
       .run();
   }
 }
@@ -96,11 +111,11 @@ describe("GET /api/cases/:id/stream", () => {
   });
 
   it("replays all events when Last-Event-ID absent and closes on workflow.finish", async () => {
-    const { cookie, userId } = await seedReviewer();
+    const { cookie, userId, organizationId } = await seedReviewer();
     const caseId = crypto.randomUUID();
     const runId = crypto.randomUUID();
-    await insertCase(caseId, runId, userId);
-    await seedTape(caseId, runId);
+    await insertCase(caseId, runId, userId, organizationId);
+    await seedTape(caseId, runId, organizationId);
 
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/cases/${caseId}/stream`, { headers: { Cookie: cookie } }),
@@ -113,11 +128,11 @@ describe("GET /api/cases/:id/stream", () => {
   });
 
   it("replays only events after Last-Event-ID", async () => {
-    const { cookie, userId } = await seedReviewer();
+    const { cookie, userId, organizationId } = await seedReviewer();
     const caseId = crypto.randomUUID();
     const runId = crypto.randomUUID();
-    await insertCase(caseId, runId, userId);
-    await seedTape(caseId, runId);
+    await insertCase(caseId, runId, userId, organizationId);
+    await seedTape(caseId, runId, organizationId);
 
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/cases/${caseId}/stream`, {
@@ -130,11 +145,11 @@ describe("GET /api/cases/:id/stream", () => {
   });
 
   it("emits zero events when Last-Event-ID equals max seq (boundary)", async () => {
-    const { cookie, userId } = await seedReviewer();
+    const { cookie, userId, organizationId } = await seedReviewer();
     const caseId = crypto.randomUUID();
     const runId = crypto.randomUUID();
-    await insertCase(caseId, runId, userId);
-    await seedTape(caseId, runId);
+    await insertCase(caseId, runId, userId, organizationId);
+    await seedTape(caseId, runId, organizationId);
 
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/cases/${caseId}/stream`, {

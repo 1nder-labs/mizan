@@ -17,8 +17,12 @@ async function seedRow(
   runId: string,
   userId: string,
   actionId: string,
-): Promise<void> {
+): Promise<string> {
   const now = Date.now();
+  const orgId = crypto.randomUUID();
+  await env.DB.prepare(`INSERT INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
+    .bind(orgId, "P2E Test Org", `org-${orgId}`)
+    .run();
   await env.DB.prepare(
     `INSERT INTO users (id, email, name, email_verified, created_at, updated_at)
      VALUES (?, ?, 'p2e-user', 1, ?, ?)`,
@@ -26,17 +30,18 @@ async function seedRow(
     .bind(userId, `p2e-${userId}@test.local`, now, now)
     .run();
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, created_at, updated_at)
-     VALUES (?, 'ACTIONED', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?)`,
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, organization_id, created_at, updated_at)
+     VALUES (?, 'ACTIONED', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?, ?)`,
   )
-    .bind(caseId, runId, userId, now, now)
+    .bind(caseId, runId, userId, orgId, now, now)
     .run();
   await env.DB.prepare(
-    `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, action_id, acted_at)
-     VALUES (?, ?, ?, ?, 'APPROVE', 'looks good', ?, ?)`,
+    `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, action_id, organization_id, acted_at)
+     VALUES (?, ?, ?, ?, 'APPROVE', 'looks good', ?, ?, ?)`,
   )
-    .bind(crypto.randomUUID(), caseId, runId, userId, actionId, now)
+    .bind(crypto.randomUUID(), caseId, runId, userId, actionId, orgId, now)
     .run();
+  return orgId;
 }
 
 describe("promoteEvalRow", () => {
@@ -78,13 +83,13 @@ describe("promoteEvalRow", () => {
     const userId = crypto.randomUUID();
     const actionA = crypto.randomUUID();
     const actionB = crypto.randomUUID();
-    await seedRow(caseId, runId, userId, actionA);
+    const orgId = await seedRow(caseId, runId, userId, actionA);
     const now = Date.now();
     await env.DB.prepare(
-      `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, action_id, acted_at)
-       VALUES (?, ?, ?, ?, 'ESCALATE', 'r2', ?, ?)`,
+      `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, action_id, organization_id, acted_at)
+       VALUES (?, ?, ?, ?, 'ESCALATE', 'r2', ?, ?, ?)`,
     )
-      .bind(crypto.randomUUID(), caseId, runId, userId, actionB, now)
+      .bind(crypto.randomUUID(), caseId, runId, userId, actionB, orgId, now)
       .run();
     const db = makeDb(env.DB);
 

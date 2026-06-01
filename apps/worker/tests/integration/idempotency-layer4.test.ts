@@ -28,7 +28,7 @@ async function seedActionCache(
 
 const BASE = "http://localhost";
 
-async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
+async function seedReviewer(): Promise<{ cookie: string; userId: string; organizationId: string }> {
   const email = `idem-reviewer-${Date.now()}-${Math.random()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -49,16 +49,30 @@ async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
     .bind(email)
     .first<{ id: string }>();
   if (!row?.id) throw new Error("reviewer seed failed");
-  return { cookie: signIn.headers.getSetCookie().join("; "), userId: row.id };
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("idem reviewer org seed failed");
+  return {
+    cookie: signIn.headers.getSetCookie().join("; "),
+    userId: row.id,
+    organizationId: memberRow.organization_id,
+  };
 }
 
-async function insertSuspendedCase(caseId: string, createdBy: string): Promise<void> {
+async function insertSuspendedCase(
+  caseId: string,
+  createdBy: string,
+  organizationId: string,
+): Promise<void> {
   const now = Date.now();
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, created_at, updated_at)
-     VALUES (?, 'SUSPENDED_HITL', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?)`,
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, current_run_id, created_by, organization_id, created_at, updated_at)
+     VALUES (?, 'SUSPENDED_HITL', 'humanitarian', 'PS', NULL, NULL, ?, ?, ?, ?, ?)`,
   )
-    .bind(caseId, crypto.randomUUID(), createdBy, now, now)
+    .bind(caseId, crypto.randomUUID(), createdBy, organizationId, now, now)
     .run();
 }
 
@@ -68,10 +82,10 @@ describe("Layer 4 action idempotency", () => {
   }, 60_000);
 
   it("pre-seeded cache short-circuits a replay with the same action_id on the same case", async () => {
-    const { cookie, userId } = await seedReviewer();
+    const { cookie, userId, organizationId } = await seedReviewer();
     const caseId = crypto.randomUUID();
     const actionId = crypto.randomUUID();
-    await insertSuspendedCase(caseId, userId);
+    await insertSuspendedCase(caseId, userId, organizationId);
 
     const cachedBody = {
       status: "success" as const,
@@ -97,10 +111,10 @@ describe("Layer 4 action idempotency", () => {
     "cache hit short-circuits — no reviewer_actions row + status unchanged",
     { timeout: 30_000 },
     async () => {
-      const { cookie, userId } = await seedReviewer();
+      const { cookie, userId, organizationId } = await seedReviewer();
       const caseId = crypto.randomUUID();
       const actionId = crypto.randomUUID();
-      await insertSuspendedCase(caseId, userId);
+      await insertSuspendedCase(caseId, userId, organizationId);
 
       await seedActionCache(userId, caseId, actionId, {
         status: "success",
@@ -132,12 +146,12 @@ describe("Layer 4 action idempotency", () => {
   );
 
   it("does NOT serve cached response when the same action_id is sent on a different case", async () => {
-    const { cookie, userId } = await seedReviewer();
+    const { cookie, userId, organizationId } = await seedReviewer();
     const actionId = crypto.randomUUID();
     const cachedCase = crypto.randomUUID();
     const otherCase = crypto.randomUUID();
-    await insertSuspendedCase(cachedCase, userId);
-    await insertSuspendedCase(otherCase, userId);
+    await insertSuspendedCase(cachedCase, userId, organizationId);
+    await insertSuspendedCase(otherCase, userId, organizationId);
 
     await seedActionCache(userId, cachedCase, actionId, {
       status: "success",
