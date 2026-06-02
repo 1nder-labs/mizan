@@ -26,6 +26,7 @@ import { z } from "zod";
 const RemoteFlagSchema = z.object({
   RUN_REMOTE_VECTORIZE: z.string().optional(),
   RUN_LANGFUSE_E2E: z.string().optional(),
+  RUN_EVAL: z.string().optional(),
 });
 
 const parsed = RemoteFlagSchema.safeParse(env);
@@ -41,3 +42,13 @@ export const RUN_REMOTE_VECTORIZE = parsed.success && parsed.data.RUN_REMOTE_VEC
  *   LANGFUSE_SECRET_KEY=… bun --filter @mizan/worker test:integration`
  */
 export const RUN_LANGFUSE_E2E = parsed.success && parsed.data.RUN_LANGFUSE_E2E === "1";
+
+/**
+ * Gate for eval tests — requires `RUN_REMOTE_INTEGRATION=1` (remote
+ * Vectorize binding) AND a live provider key (`OPENAI_API_KEY`).
+ * Local-only, manual; never in CI.
+ *
+ * Usage: `RUN_REMOTE_INTEGRATION=1 RUN_EVAL=1 OPENAI_API_KEY=<key> \
+ *   bun --filter @mizan/worker test:integration`
+ */
+export const RUN_EVAL = parsed.success && parsed.data.RUN_EVAL === "1";
