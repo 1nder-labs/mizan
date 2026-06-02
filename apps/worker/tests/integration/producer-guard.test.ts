@@ -5,21 +5,39 @@
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { Hono } from "hono";
+import { createMiddleware } from "hono/factory";
 import { beforeAll, describe, expect, it, inject } from "vitest";
 import type { CloudflareBindings } from "../../src/env.ts";
 import { producerGuard, type ProducerVariables } from "../../src/middleware/producer-guard.ts";
+import type { ViewerContext } from "@mizan/shared";
 
 const BASE = "http://localhost";
 
-function makeApp() {
-  return new Hono<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>().post(
-    "/:id/brief",
-    producerGuard("RUNNING"),
-    (c) => c.json({ runId: c.get("runId"), caseId: c.get("caseRow").id }),
+/** Injects a synthetic viewer so producerGuard can read c.var.viewer.organizationId. */
+function injectViewer(viewer: ViewerContext) {
+  return createMiddleware<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>(
+    async (c, next) => {
+      c.set("viewer", viewer);
+      await next();
+    },
   );
 }
 
-async function seedReviewerUser(): Promise<string> {
+function makeApp(viewer?: ViewerContext) {
+  const app = new Hono<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>();
+  if (viewer) {
+    app.post("/:id/brief", injectViewer(viewer), producerGuard("RUNNING"), (c) =>
+      c.json({ runId: c.get("runId"), caseId: c.get("caseRow").id }),
+    );
+  } else {
+    app.post("/:id/brief", producerGuard("RUNNING"), (c) =>
+      c.json({ runId: c.get("runId"), caseId: c.get("caseRow").id }),
+    );
+  }
+  return app;
+}
+
+async function seedReviewerUser(): Promise<{ userId: string; organizationId: string }> {
   const email = `producer-guard-${Date.now()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -33,13 +51,24 @@ async function seedReviewerUser(): Promise<string> {
     .bind(email)
     .first<{ id: string }>();
   if (!row?.id) throw new Error("reviewer user seed failed");
-  return row.id;
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("reviewer org seed failed");
+  return { userId: row.id, organizationId: memberRow.organization_id };
 }
 
-async function insertCase(id: string, status: string, reviewerId: string): Promise<void> {
+async function insertCase(
+  id: string,
+  status: string,
+  reviewerId: string,
+  organizationId: string,
+): Promise<void> {
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-     VALUES (?, ?, 'medical', 'US', 'medical', ?, ?, ?, ?)
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+     VALUES (?, ?, 'medical', 'US', 'medical', ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at`,
   )
     .bind(
@@ -55,6 +84,7 @@ async function insertCase(id: string, status: string, reviewerId: string): Promi
         },
       }),
       reviewerId,
+      organizationId,
       Date.now(),
       Date.now(),
     )
@@ -62,12 +92,16 @@ async function insertCase(id: string, status: string, reviewerId: string): Promi
 }
 
 describe("producerGuard integration", () => {
-  const app = makeApp();
+  let app: ReturnType<typeof makeApp>;
   let reviewerId = "";
+  let reviewerOrgId = "";
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-    reviewerId = await seedReviewerUser();
+    const seeded = await seedReviewerUser();
+    reviewerId = seeded.userId;
+    reviewerOrgId = seeded.organizationId;
+    app = makeApp({ userId: reviewerId, role: "admin", organizationId: reviewerOrgId });
   }, 60_000);
 
   it("returns 404 when case does not exist", async () => {
@@ -78,7 +112,7 @@ describe("producerGuard integration", () => {
 
   it("returns 200 and sets runId for DRAFT case", async () => {
     const caseId = crypto.randomUUID();
-    await insertCase(caseId, "DRAFT", reviewerId);
+    await insertCase(caseId, "DRAFT", reviewerId, reviewerOrgId);
     const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
     expect(res.status).toBe(200);
     const body: { runId?: string; caseId?: string } = await res.json();
@@ -88,7 +122,7 @@ describe("producerGuard integration", () => {
 
   it("returns 409 when case is already RUNNING", async () => {
     const caseId = crypto.randomUUID();
-    await insertCase(caseId, "RUNNING", reviewerId);
+    await insertCase(caseId, "RUNNING", reviewerId, reviewerOrgId);
     await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
       .bind(crypto.randomUUID(), caseId)
       .run();
@@ -98,7 +132,7 @@ describe("producerGuard integration", () => {
 
   it("returns 200 and grants a fresh runId when retrying a FAILED case", async () => {
     const caseId = crypto.randomUUID();
-    await insertCase(caseId, "FAILED", reviewerId);
+    await insertCase(caseId, "FAILED", reviewerId, reviewerOrgId);
     const previousRunId = crypto.randomUUID();
     await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
       .bind(previousRunId, caseId)
@@ -118,7 +152,7 @@ describe("producerGuard integration", () => {
 
   it("allows exactly one winner in a concurrent race", async () => {
     const caseId = crypto.randomUUID();
-    await insertCase(caseId, "DRAFT", reviewerId);
+    await insertCase(caseId, "DRAFT", reviewerId, reviewerOrgId);
     const [first, second] = await Promise.all([
       app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env),
       app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env),
@@ -128,14 +162,15 @@ describe("producerGuard integration", () => {
   });
 
   it("target QUEUED on DRAFT case returns 200 and sets status QUEUED", async () => {
+    const viewer = { userId: reviewerId, role: "admin" as const, organizationId: reviewerOrgId };
     const queuedApp = new Hono<{
       Bindings: CloudflareBindings;
       Variables: ProducerVariables;
-    }>().post("/:id/brief", producerGuard("QUEUED"), (c) =>
+    }>().post("/:id/brief", injectViewer(viewer), producerGuard("QUEUED"), (c) =>
       c.json({ runId: c.get("runId"), status: c.get("caseRow").status }),
     );
     const caseId = crypto.randomUUID();
-    await insertCase(caseId, "DRAFT", reviewerId);
+    await insertCase(caseId, "DRAFT", reviewerId, reviewerOrgId);
     const res = await queuedApp.fetch(
       new Request(`${BASE}/${caseId}/brief`, { method: "POST" }),
       env,
@@ -150,12 +185,15 @@ describe("producerGuard integration", () => {
   });
 
   it("target QUEUED on RUNNING case returns 202 replay", async () => {
+    const viewer = { userId: reviewerId, role: "admin" as const, organizationId: reviewerOrgId };
     const queuedApp = new Hono<{
       Bindings: CloudflareBindings;
       Variables: ProducerVariables;
-    }>().post("/:id/brief", producerGuard("QUEUED"), (c) => c.json({ ok: true }));
+    }>().post("/:id/brief", injectViewer(viewer), producerGuard("QUEUED"), (c) =>
+      c.json({ ok: true }),
+    );
     const caseId = crypto.randomUUID();
-    await insertCase(caseId, "RUNNING", reviewerId);
+    await insertCase(caseId, "RUNNING", reviewerId, reviewerOrgId);
     const inFlightRunId = crypto.randomUUID();
     await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
       .bind(inFlightRunId, caseId)
@@ -171,7 +209,7 @@ describe("producerGuard integration", () => {
 
   it("409 body for target RUNNING on in-flight case does not leak the existing runId", async () => {
     const caseId = crypto.randomUUID();
-    await insertCase(caseId, "RUNNING", reviewerId);
+    await insertCase(caseId, "RUNNING", reviewerId, reviewerOrgId);
     await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
       .bind(crypto.randomUUID(), caseId)
       .run();

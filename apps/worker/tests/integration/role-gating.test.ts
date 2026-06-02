@@ -3,13 +3,9 @@
  *
  * Verifies that:
  * 1. A reviewer cannot access admin routes (403).
- * 2. After a direct DB promotion to "admin" + fresh sign-in, the new session
- *    cookie grants access (200).
+ * 2. After a direct DB promotion to admin on the `member` row, access is granted (200).
  *
- * Note: better-auth stores the session role in KV at sign-in time and only
- * re-reads from DB on the next sign-in. A DB-only role change is NOT reflected
- * in an existing session. The test therefore signs in again after the DB update
- * to obtain a cookie that reflects the new role.
+ * Org-scoped roles are resolved from the `member` table on each request.
  */
 
 import { applyD1Migrations } from "cloudflare:test";
@@ -34,35 +30,45 @@ async function seedAndSignIn(email: string, password: string): Promise<string> {
       body: JSON.stringify({ email, password }),
     }),
   );
+  expect(signIn.status).toBe(200);
   return signIn.headers.getSetCookie().join("; ");
+}
+
+async function setMemberRole(email: string, role: "reviewer" | "admin"): Promise<void> {
+  await env.DB.prepare(
+    `UPDATE members
+     SET role = ?
+     WHERE user_id = (SELECT id FROM users WHERE email = ?)`,
+  )
+    .bind(role, email)
+    .run();
 }
 
 describe("role gating", () => {
   const email = `reviewer-${Date.now()}@test.local`;
   const password = "CorrectHorse99!!";
-  let reviewerCookie = "";
-  let adminCookie = "";
+  let sessionCookie = "";
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-    reviewerCookie = await seedAndSignIn(email, password);
-    await env.DB.prepare("UPDATE users SET role = 'admin' WHERE email = ?").bind(email).run();
-    adminCookie = await seedAndSignIn(email, password);
+    sessionCookie = await seedAndSignIn(email, password);
+    await setMemberRole(email, "reviewer");
   }, 60_000);
 
   it("reviewer cannot access /api/admin/ping (403)", async () => {
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/admin/ping`, {
-        headers: { Cookie: reviewerCookie },
+        headers: { Cookie: sessionCookie },
       }),
     );
     expect(res.status).toBe(403);
   });
 
-  it("after DB promotion to admin + fresh sign-in, /api/admin/ping returns 200", async () => {
+  it("after member promotion to admin, /api/admin/ping returns 200", async () => {
+    await setMemberRole(email, "admin");
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/admin/ping`, {
-        headers: { Cookie: adminCookie },
+        headers: { Cookie: sessionCookie },
       }),
     );
     expect(res.status).toBe(200);

@@ -18,7 +18,16 @@ import type { CloudflareBindings } from "../env.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { producerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
 import { requireRole } from "../middleware/require-role.ts";
+import { z } from "zod";
+import { zValidator } from "@hono/zod-validator";
+import { actionRoutes } from "./actions.ts";
+import { assignmentsRoutes } from "./assignments.ts";
+import { caseStreamHandler } from "./case-stream.ts";
 import { casesListRoutes } from "./cases-list.ts";
+import { documentsRoutes } from "./documents.ts";
+import { signalsRoutes } from "./signals.ts";
+
+const StreamParamsSchema = z.object({ id: z.string().uuid() });
 
 type BriefContext = Context<{
   Bindings: CloudflareBindings;
@@ -47,7 +56,7 @@ async function streamBriefResponse(
   const { run, requestContext, langfuse } = await createBriefRun(c.env, {
     caseId,
     runId,
-    reviewerId: c.var.user.id,
+    reviewerId: c.var.viewer.userId,
     category: caseRow.category,
     geography: caseRow.geography,
   });
@@ -141,7 +150,7 @@ async function enqueueBrief(c: BriefContext): Promise<Response> {
       caseId,
       runId,
       enqueuedAt: Date.now(),
-      requestedBy: c.var.user.id,
+      requestedBy: c.var.viewer.userId,
     });
     await c.env.BRIEF_QUEUE.send(message, { contentType: "json" });
   } catch (error) {
@@ -167,6 +176,11 @@ export const caseRoutes = new Hono<{
 }>()
   .use("*", requireRole(["reviewer", "admin"]))
   .route("/", casesListRoutes)
+  .route("/", actionRoutes)
+  .route("/", documentsRoutes)
+  .route("/", signalsRoutes)
+  .route("/", assignmentsRoutes)
+  .get("/:id/stream", zValidator("param", StreamParamsSchema), caseStreamHandler)
   .post(
     "/:id/brief",
     idempotencyKey,

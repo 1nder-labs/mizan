@@ -16,6 +16,7 @@ import {
   trackedMessage,
   seedCaseStatus,
 } from "./mode-b-helpers.ts";
+import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
 
 describe("Mode B consumer idempotency", () => {
   let adminUserId = "";
@@ -27,36 +28,40 @@ describe("Mode B consumer idempotency", () => {
     await putSeedAssets();
   }, 60_000);
 
-  it("runs workflow once and acks on happy path", async () => {
-    const caseId = crypto.randomUUID();
-    const runId = crypto.randomUUID();
-    await insertDraftCase(caseId, adminUserId);
-    await seedCaseStatus({ caseId, status: "QUEUED", runId });
+  it.skipIf(!RUN_REMOTE_VECTORIZE)(
+    "runs workflow once and acks on happy path",
+    async () => {
+      const caseId = crypto.randomUUID();
+      const runId = crypto.randomUUID();
+      await insertDraftCase(caseId, adminUserId);
+      await seedCaseStatus({ caseId, status: "QUEUED", runId });
 
-    env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
-    const { message, ack, retry } = trackedMessage({
-      caseId,
-      runId,
-      enqueuedAt: Date.now(),
-      requestedBy: adminUserId,
-    });
-    const ctx = createExecutionContext();
-    await handleBriefQueue(makeTestBatch([message]), getTestBindings(), ctx);
-    await waitOnExecutionContext(ctx);
+      env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
+      const { message, ack, retry } = trackedMessage({
+        caseId,
+        runId,
+        enqueuedAt: Date.now(),
+        requestedBy: adminUserId,
+      });
+      const ctx = createExecutionContext();
+      await handleBriefQueue(makeTestBatch([message]), getTestBindings(), ctx);
+      await waitOnExecutionContext(ctx);
 
-    expect(ack).toHaveBeenCalledTimes(1);
-    expect(retry).not.toHaveBeenCalled();
-    const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
-      .bind(caseId)
-      .first<{ status: string }>();
-    expect(row?.status).toBe("READY_FOR_REVIEW");
-    const signalCount = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
-    )
-      .bind(caseId, runId)
-      .first<{ count: number }>();
-    expect(signalCount?.count).toBe(3);
-  }, 60_000);
+      expect(ack).toHaveBeenCalledTimes(1);
+      expect(retry).not.toHaveBeenCalled();
+      const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+        .bind(caseId)
+        .first<{ status: string }>();
+      expect(row?.status).toBe("READY_FOR_REVIEW");
+      const signalCount = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+      )
+        .bind(caseId, runId)
+        .first<{ count: number }>();
+      expect(signalCount?.count).toBe(3);
+    },
+    60_000,
+  );
 
   it("acks duplicate delivery without re-running workflow", async () => {
     const caseId = crypto.randomUUID();
@@ -100,45 +105,49 @@ describe("Mode B consumer idempotency", () => {
     expect(signalCountAfter?.count).toBe(signalCountBefore?.count);
   }, 60_000);
 
-  it("reverts to QUEUED and retries when workflow throws, then succeeds on redelivery", async () => {
-    const caseId = crypto.randomUUID();
-    const runId = crypto.randomUUID();
-    await insertDraftCase(caseId, adminUserId);
-    await seedCaseStatus({ caseId, status: "QUEUED", runId });
+  it.skipIf(!RUN_REMOTE_VECTORIZE)(
+    "reverts to QUEUED and retries when workflow throws, then succeeds on redelivery",
+    async () => {
+      const caseId = crypto.randomUUID();
+      const runId = crypto.randomUUID();
+      await insertDraftCase(caseId, adminUserId);
+      await seedCaseStatus({ caseId, status: "QUEUED", runId });
 
-    env.MOCK_LLM_RESPONSES = "{ invalid json";
-    const fail = trackedMessage({
-      caseId,
-      runId,
-      enqueuedAt: Date.now(),
-      requestedBy: adminUserId,
-    });
-    const failCtx = createExecutionContext();
-    await handleBriefQueue(makeTestBatch([fail.message]), getTestBindings(), failCtx);
-    await waitOnExecutionContext(failCtx);
-    expect(fail.retry).toHaveBeenCalledTimes(1);
+      env.MOCK_LLM_RESPONSES = "{ invalid json";
+      const fail = trackedMessage({
+        caseId,
+        runId,
+        enqueuedAt: Date.now(),
+        requestedBy: adminUserId,
+      });
+      const failCtx = createExecutionContext();
+      await handleBriefQueue(makeTestBatch([fail.message]), getTestBindings(), failCtx);
+      await waitOnExecutionContext(failCtx);
+      expect(fail.retry).toHaveBeenCalledTimes(1);
 
-    const midRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
-      .bind(caseId)
-      .first<{ status: string }>();
-    expect(midRow?.status).toBe("QUEUED");
+      const midRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+        .bind(caseId)
+        .first<{ status: string }>();
+      expect(midRow?.status).toBe("QUEUED");
 
-    env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
-    const ok = trackedMessage({
-      caseId,
-      runId,
-      enqueuedAt: Date.now(),
-      requestedBy: adminUserId,
-    });
-    const okCtx = createExecutionContext();
-    await handleBriefQueue(makeTestBatch([ok.message]), getTestBindings(), okCtx);
-    await waitOnExecutionContext(okCtx);
-    expect(ok.ack).toHaveBeenCalledTimes(1);
-    const finalRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
-      .bind(caseId)
-      .first<{ status: string }>();
-    expect(finalRow?.status).toBe("READY_FOR_REVIEW");
-  }, 60_000);
+      env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
+      const ok = trackedMessage({
+        caseId,
+        runId,
+        enqueuedAt: Date.now(),
+        requestedBy: adminUserId,
+      });
+      const okCtx = createExecutionContext();
+      await handleBriefQueue(makeTestBatch([ok.message]), getTestBindings(), okCtx);
+      await waitOnExecutionContext(okCtx);
+      expect(ok.ack).toHaveBeenCalledTimes(1);
+      const finalRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+        .bind(caseId)
+        .first<{ status: string }>();
+      expect(finalRow?.status).toBe("READY_FOR_REVIEW");
+    },
+    60_000,
+  );
 
   it("acks malformed messages without mutating the case row", async () => {
     const caseId = crypto.randomUUID();
@@ -185,44 +194,48 @@ describe("Mode B consumer idempotency", () => {
    * The Mastra resume invariant is validated by manual smoke against
    * `wrangler dev` + remote Vectorize.
    */
-  it("reclaims a stale RUNNING row on redelivery (attempts > 1 + past stale threshold) and finishes the workflow", async () => {
-    const caseId = crypto.randomUUID();
-    const runId = crypto.randomUUID();
-    await insertDraftCase(caseId, adminUserId);
-    await seedCaseStatus({
-      caseId,
-      status: "RUNNING",
-      runId,
-      updatedAt: Date.now() - 11 * 60 * 1000,
-    });
-
-    env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
-    const { message, ack, retry } = trackedMessage(
-      {
+  it.skipIf(!RUN_REMOTE_VECTORIZE)(
+    "reclaims a stale RUNNING row on redelivery (attempts > 1 + past stale threshold) and finishes the workflow",
+    async () => {
+      const caseId = crypto.randomUUID();
+      const runId = crypto.randomUUID();
+      await insertDraftCase(caseId, adminUserId);
+      await seedCaseStatus({
         caseId,
+        status: "RUNNING",
         runId,
-        enqueuedAt: Date.now(),
-        requestedBy: adminUserId,
-      },
-      { attempts: 2 },
-    );
-    const ctx = createExecutionContext();
-    await handleBriefQueue(makeTestBatch([message]), getTestBindings(), ctx);
-    await waitOnExecutionContext(ctx);
+        updatedAt: Date.now() - 11 * 60 * 1000,
+      });
 
-    expect(ack).toHaveBeenCalledTimes(1);
-    expect(retry).not.toHaveBeenCalled();
-    const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
-      .bind(caseId)
-      .first<{ status: string }>();
-    expect(row?.status).toBe("READY_FOR_REVIEW");
-    const signalCount = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
-    )
-      .bind(caseId, runId)
-      .first<{ count: number }>();
-    expect(signalCount?.count).toBe(3);
-  }, 60_000);
+      env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
+      const { message, ack, retry } = trackedMessage(
+        {
+          caseId,
+          runId,
+          enqueuedAt: Date.now(),
+          requestedBy: adminUserId,
+        },
+        { attempts: 2 },
+      );
+      const ctx = createExecutionContext();
+      await handleBriefQueue(makeTestBatch([message]), getTestBindings(), ctx);
+      await waitOnExecutionContext(ctx);
+
+      expect(ack).toHaveBeenCalledTimes(1);
+      expect(retry).not.toHaveBeenCalled();
+      const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+        .bind(caseId)
+        .first<{ status: string }>();
+      expect(row?.status).toBe("READY_FOR_REVIEW");
+      const signalCount = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+      )
+        .bind(caseId, runId)
+        .first<{ count: number }>();
+      expect(signalCount?.count).toBe(3);
+    },
+    60_000,
+  );
 
   it("acks a concurrent first-delivery duplicate against a RUNNING row (attempts = 1) without re-running", async () => {
     const caseId = crypto.randomUUID();

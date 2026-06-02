@@ -3,13 +3,40 @@
  * runs `foldParts(parts)` on every useChat render and consumes the
  * derived `{ text, tools, steps }` tuple.
  *
- * Wire shape — pinned. `data-workflow` parts carry `{ event, step,
- * label?, durationMs?, note? }`. Earlier prototypes accepted
- * `stepId` / `kind` aliases; those were removed once the worker
- * stabilised on `event` + `step`. If you find yourself adding an
- * alias here, change the worker emitter instead.
+ * Wire shape — emitted by `@mastra/ai-sdk` `toAISdkStream(stream,
+ * { from: "workflow" })`. Two part types carry step progress:
+ *   - `data-workflow-step`: a single step update —
+ *     `data: { stepId, step: { status } }`.
+ *   - `data-workflow`: a full run snapshot —
+ *     `data: { steps: { [stepId]: { status } } }`.
+ * `status` is one of `running | success | suspended | failed`. Both are
+ * folded into the same `stepId → StepEntry` map; terminal states stick so
+ * a later snapshot cannot regress a finished step.
  */
 import type { StepEntry, StepState, ToolPart, ToolState } from "./stream-types.ts";
+
+/** Human labels for the brief workflow's steps, keyed by Mastra step id. */
+const STEP_LABELS: Readonly<Record<string, string>> = {
+  classifyCampaign: "Classifying campaign",
+  extractCreatorIdDoc: "Reading creator ID",
+  extractBankStatement: "Reading bank statement",
+  extractCategoryDocs: "Reading category documents",
+  extractStoryClaims: "Extracting story claims",
+  photoSignal: "Checking photo originality",
+  storyCoherence: "Scoring story coherence",
+  classifyVouchingChain: "Analysing vouching chain",
+  matchPolicy: "Matching policy clauses",
+  mergeSignals: "Merging trust signals",
+  computeVerificationPath: "Computing verification path",
+  forcedEscalateGate: "Escalation gate",
+  composeBrief: "Composing the brief",
+  draftOrganizerMessage: "Drafting organizer message",
+  awaitReviewerAction: "Awaiting reviewer action",
+};
+
+function stepLabel(stepId: string): string {
+  return STEP_LABELS[stepId] ?? stepId;
+}
 
 export interface FoldedStream {
   readonly text: string;
@@ -30,10 +57,6 @@ function asRecord(value: unknown): LooseRecord | null {
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function isToolState(value: unknown): value is ToolState {
@@ -87,27 +110,75 @@ function applyToolPart(map: Map<string, ToolPart>, part: PartLike): void {
   });
 }
 
-function nextStepState(event: string, previous: StepState): StepState {
-  if (event === "step.start") return "running";
-  if (event === "step.finish") return "done";
-  if (event === "step.fail") return "failed";
+/** Maps a Mastra step `status` to a UI `StepState`. Terminal states stick. */
+function statusToState(status: string | undefined, previous: StepState): StepState {
+  if (previous === "done" || previous === "failed") return previous;
+  if (status === "success") return "done";
+  if (status === "failed") return "failed";
+  if (status === "running" || status === "suspended") return "running";
   return previous;
 }
 
-function applyDataPart(map: Map<string, StepEntry>, part: PartLike): void {
-  if (part.type !== "data-workflow") return;
-  const data = asRecord(part.data) ?? {};
-  const stepId = asString(data.step);
-  const event = asString(data.event);
-  if (!stepId || !event) return;
+/**
+ * Concise, defensive summary of a step's result — the "what just happened"
+ * line shown under high-signal steps as they complete. Returns undefined when
+ * the output isn't present or doesn't match the expected shape (no throw, no
+ * noise). Extend per step as more results are worth surfacing.
+ */
+function summarizeStep(stepId: string, output: unknown): string | undefined {
+  const out = asRecord(output);
+  if (!out) return undefined;
+  if (stepId === "classifyCampaign") {
+    const classify = asRecord(out.classify);
+    if (!classify) return undefined;
+    const bits = [
+      asString(classify.category),
+      asString(classify.verification_path),
+      asString(classify.geography_tier),
+    ].filter((value): value is string => Boolean(value));
+    return bits.length > 0 ? bits.join(" · ") : undefined;
+  }
+  if (stepId === "composeBrief") {
+    const brief = asRecord(out.brief);
+    const recommendation = brief ? asString(brief.recommendation) : undefined;
+    return recommendation ? `Recommendation: ${recommendation}` : undefined;
+  }
+  return undefined;
+}
+
+function upsertStep(
+  map: Map<string, StepEntry>,
+  stepId: string,
+  status: string | undefined,
+  output: unknown,
+): void {
   const previous = map.get(stepId);
   map.set(stepId, {
     id: stepId,
-    label: asString(data.label) ?? previous?.label ?? stepId,
-    state: nextStepState(event, previous?.state ?? "pending"),
-    durationMs: asNumber(data.durationMs) ?? previous?.durationMs,
-    note: asString(data.note) ?? previous?.note,
+    label: stepLabel(stepId),
+    state: statusToState(status, previous?.state ?? "pending"),
+    detail: summarizeStep(stepId, output) ?? previous?.detail,
   });
+}
+
+/** `data-workflow-step`: a single step's status update. */
+function applyWorkflowStepPart(map: Map<string, StepEntry>, part: PartLike): void {
+  const data = asRecord(part.data) ?? {};
+  const stepId = asString(data.stepId);
+  const step = asRecord(data.step);
+  if (!stepId || !step) return;
+  upsertStep(map, stepId, asString(step.status), step.output);
+}
+
+/** `data-workflow`: a full run snapshot whose `steps` map carries every step. */
+function applyWorkflowSnapshotPart(map: Map<string, StepEntry>, part: PartLike): void {
+  const data = asRecord(part.data) ?? {};
+  const steps = asRecord(data.steps);
+  if (!steps) return;
+  for (const [stepId, raw] of Object.entries(steps)) {
+    const step = asRecord(raw);
+    if (step) upsertStep(map, stepId, asString(step.status), step.output);
+  }
 }
 
 export function foldParts(parts: readonly unknown[]): FoldedStream {
@@ -131,8 +202,12 @@ export function foldParts(parts: readonly unknown[]): FoldedStream {
       applyToolPart(tools, part);
       continue;
     }
+    if (part.type === "data-workflow-step") {
+      applyWorkflowStepPart(steps, part);
+      continue;
+    }
     if (part.type === "data-workflow") {
-      applyDataPart(steps, part);
+      applyWorkflowSnapshotPart(steps, part);
     }
   }
 

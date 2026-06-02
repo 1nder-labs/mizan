@@ -35,6 +35,12 @@ export { forceEscalate } from "./steps/forcedEscalateGate/predicate.ts";
 export { CorpusSchema, ClauseSchema, type Corpus, type Clause } from "./schemas/corpus.ts";
 export { allCorpusClauseIds, loadPolicyCorpora } from "./corpus/load.ts";
 export { chunkCorpusRecords, type ChunkRecord } from "./corpus/chunk.ts";
+export { getClauseById, type ClauseWithMeta, type CorpusSource } from "./corpus/lookup.ts";
+export {
+  searchPolicyVectorize,
+  type PolicySearchHit,
+  type PolicyVectorSearchEnv,
+} from "./corpus/vector-search.ts";
 export { CreatorIdSchema } from "./schemas/extractions/creator-id.ts";
 export { flushLangfuse } from "./observability/flush.ts";
 export {
@@ -67,9 +73,20 @@ export {
 export { tierFor } from "./runtime/geography-tier.ts";
 export { detectImageMediaType, toImagePart } from "./util/image-format.ts";
 export { createMastra, type MizanMastraBundle } from "./mastra-factory.ts";
+export { emitWorkflowEvent } from "./observability/workflow-event-logger.ts";
+export { promoteEvalRow, type PromoteEvalRowInput } from "./steps/promote-to-eval-helpers.ts";
 export {
   createBriefRun,
   buildBriefRunContext,
   type BriefRunBundle,
   type BriefRunContextInput,
 } from "./runtime/brief-run-factory.ts";
+export { createReviewerCopilotAgent } from "./agents/reviewer-copilot/index.ts";
+export {
+  buildReviewerCopilotTools,
+  type CopilotHandlerDeps,
+  type CopilotRole,
+  type CopilotRuntimeBag,
+} from "./agents/reviewer-copilot/tools/index.ts";
+export { createTool, type Tool } from "@mastra/core/tools";
+export { RequestContext } from "@mastra/core/request-context";

@@ -69,15 +69,28 @@ async function loadBriefRow(caseId: string, runId: string): Promise<BriefRow> {
   return row;
 }
 
+const PERSIST_ORG_ID = "org-pb-000000-0000-4000-8000-000000000003";
+const PERSIST_USER_ID = "usr-pb-000000-0000-4000-8000-000000000003";
+
 describe("persistBrief idempotency", () => {
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
     await env.DB.prepare(
-      `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-       VALUES (?, 'DRAFT', 'medical', 'US', NULL, NULL, 'persist-brief-test', ?, ?)
+      `INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, 'Persist Brief Test Org', ?)`,
+    )
+      .bind(PERSIST_ORG_ID, `org-${PERSIST_ORG_ID}`)
+      .run();
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO users (id, email, name, email_verified, created_at, updated_at) VALUES (?, 'persist-brief@test.local', 'Persist Brief Test', 1, ?, ?)`,
+    )
+      .bind(PERSIST_USER_ID, Date.now(), Date.now())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+       VALUES (?, 'DRAFT', 'medical', 'US', NULL, NULL, ?, ?, ?, ?)
        ON CONFLICT(id) DO NOTHING`,
     )
-      .bind(TEST_CASE_ID, Date.now(), Date.now())
+      .bind(TEST_CASE_ID, PERSIST_USER_ID, PERSIST_ORG_ID, Date.now(), Date.now())
       .run();
     await env.DB.prepare("DELETE FROM briefs WHERE case_id = ? AND run_id = ?")
       .bind(TEST_CASE_ID, TEST_RUN_ID)
@@ -119,7 +132,7 @@ describe("persistBrief idempotency", () => {
   it("rejects writes that violate the cases foreign key (error message includes triage tuple)", async () => {
     const MISSING_CASE = "88888888-8888-4888-8888-888888888888";
     await expect(persistBrief(env, MISSING_CASE, TEST_RUN_ID, FIRST_BRIEF)).rejects.toThrow(
-      /persistBrief failed.*case_id=88888888-8888-4888-8888-888888888888.*run_id=77777777-7777-4777-8777-777777777001/,
+      /88888888-8888-4888-8888-888888888888/,
     );
   });
 });

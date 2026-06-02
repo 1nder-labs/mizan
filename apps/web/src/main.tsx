@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { makeQueryClient } from "./lib/query-client.ts";
+import "./lib/pdfjs-bootstrap.ts";
 import { routeTree } from "./routeTree.gen.ts";
 import "./globals.css";
 

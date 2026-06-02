@@ -17,8 +17,8 @@ import { CaseDetailResponseSchema, CaseRowSchema } from "@mizan/shared";
 
 const BASE = "http://localhost";
 
-/** Signs up a reviewer and returns the session cookie + userId. */
-async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
+/** Signs up a reviewer and returns the session cookie, userId, and organizationId. */
+async function seedReviewer(): Promise<{ cookie: string; userId: string; organizationId: string }> {
   const email = `detail-reviewer-${Date.now()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -39,7 +39,17 @@ async function seedReviewer(): Promise<{ cookie: string; userId: string }> {
     .bind(email)
     .first<{ id: string }>();
   if (!row?.id) throw new Error("reviewer seed failed");
-  return { cookie: signIn.headers.getSetCookie().join("; "), userId: row.id };
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("reviewer org seed failed");
+  return {
+    cookie: signIn.headers.getSetCookie().join("; "),
+    userId: row.id,
+    organizationId: memberRow.organization_id,
+  };
 }
 
 /** Inserts a minimal case row into D1. */
@@ -49,16 +59,26 @@ async function insertCase(opts: {
   category: string;
   geography: string;
   createdBy: string;
+  organizationId: string;
 }): Promise<void> {
   const now = Date.now();
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?)
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        status = excluded.status,
        updated_at = excluded.updated_at`,
   )
-    .bind(opts.id, opts.status, opts.category, opts.geography, opts.createdBy, now, now)
+    .bind(
+      opts.id,
+      opts.status,
+      opts.category,
+      opts.geography,
+      opts.createdBy,
+      opts.organizationId,
+      now,
+      now,
+    )
     .run();
 }
 
@@ -69,6 +89,7 @@ async function insertBrief(opts: {
   runId: string;
   recommendation: string;
   verificationPath: string;
+  organizationId: string;
 }): Promise<void> {
   const payload = JSON.stringify({
     recommendation: opts.recommendation,
@@ -83,17 +104,18 @@ async function insertBrief(opts: {
   });
   const now = Date.now();
   await env.DB.prepare(
-    `INSERT INTO briefs (id, case_id, run_id, recommendation, confidence, composed_at, payload_json)
-     VALUES (?, ?, ?, ?, 75, ?, ?)
+    `INSERT INTO briefs (id, case_id, run_id, recommendation, confidence, composed_at, payload_json, organization_id)
+     VALUES (?, ?, ?, ?, 75, ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`,
   )
-    .bind(opts.id, opts.caseId, opts.runId, opts.recommendation, now, payload)
+    .bind(opts.id, opts.caseId, opts.runId, opts.recommendation, now, payload, opts.organizationId)
     .run();
 }
 
 describe("GET /api/cases/:id — case detail route", () => {
   let cookie = "";
   let userId = "";
+  let organizationId = "";
 
   const CASE_WITH_BRIEF_ID = "de000000-0000-4000-8000-000000000001";
   const CASE_NO_BRIEF_ID = "de000000-0000-4000-8000-000000000002";
@@ -104,6 +126,7 @@ describe("GET /api/cases/:id — case detail route", () => {
     const reviewer = await seedReviewer();
     cookie = reviewer.cookie;
     userId = reviewer.userId;
+    organizationId = reviewer.organizationId;
 
     await insertCase({
       id: CASE_WITH_BRIEF_ID,
@@ -111,6 +134,7 @@ describe("GET /api/cases/:id — case detail route", () => {
       category: "medical",
       geography: "US",
       createdBy: userId,
+      organizationId,
     });
 
     await insertCase({
@@ -119,6 +143,7 @@ describe("GET /api/cases/:id — case detail route", () => {
       category: "education",
       geography: "UK",
       createdBy: userId,
+      organizationId,
     });
 
     await insertBrief({
@@ -127,6 +152,7 @@ describe("GET /api/cases/:id — case detail route", () => {
       runId: "run-de-01",
       recommendation: "READY_FOR_REVIEW",
       verificationPath: "institutional_vouching",
+      organizationId,
     });
   }, 60_000);
 

@@ -1,17 +1,24 @@
 /**
  * Integration: `requireAdmin` redirect for non-admin sessions.
- *
- * `requireAdmin` is the loader gate for `/admin/audit`. A reviewer
- * session must throw a redirect to `/queue`; an admin session must
- * resolve to the session payload so the loader continues.
  */
 import { describe, expect, test, vi } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 import { isRedirect } from "@tanstack/react-router";
 
-const { getSessionMock } = vi.hoisted(() => ({ getSessionMock: vi.fn() }));
+const { getSessionMock, meGetMock } = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
+  meGetMock: vi.fn(),
+}));
+
 vi.mock("better-auth/react", () => ({
   createAuthClient: () => ({ getSession: getSessionMock }),
+}));
+
+vi.mock("@/lib/rpc.ts", () => ({
+  api: { me: { $get: meGetMock } },
+  apiMutate: {},
+  createApi: () => ({}),
+  createApiMutate: () => ({}),
 }));
 
 import { requireAdmin } from "../../src/lib/auth-client.ts";
@@ -20,24 +27,28 @@ function makeClient(): QueryClient {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
-interface SessionShape {
-  readonly user: { readonly role: "reviewer" | "admin" };
-}
-
-function sessionPayload(role: "reviewer" | "admin"): { data: SessionShape; error: null } {
-  return { data: { user: { role } }, error: null };
-}
-
 describe("requireAdmin loader gate", () => {
-  test("admin session resolves to the session payload", async () => {
-    getSessionMock.mockResolvedValueOnce(sessionPayload("admin"));
+  test("admin session resolves to the me payload", async () => {
+    getSessionMock.mockResolvedValueOnce({ data: { user: { id: "u1" } }, error: null });
+    meGetMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        user: { id: "u1", email: "admin@test", role: "admin", activeOrganizationId: "org-1" },
+      }),
+    });
     const qc = makeClient();
-    const session = await requireAdmin(qc);
-    expect(session.user.role).toBe("admin");
+    const me = await requireAdmin(qc);
+    expect(me.user.role).toBe("admin");
   });
 
   test("reviewer session throws redirect to /queue", async () => {
-    getSessionMock.mockResolvedValueOnce(sessionPayload("reviewer"));
+    getSessionMock.mockResolvedValueOnce({ data: { user: { id: "u2" } }, error: null });
+    meGetMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        user: { id: "u2", email: "rev@test", role: "reviewer", activeOrganizationId: "org-1" },
+      }),
+    });
     const qc = makeClient();
     let thrown: unknown;
     try {

@@ -63,4 +63,12 @@ export interface CloudflareBindings {
   /** JSON-encoded mock LLM response map for integration tests. */
   MOCK_LLM_RESPONSES?: string;
   MOCK_EMBEDDINGS?: string;
+  /** Cloudflare account ID hosting the R2 bucket — non-secret (already public in wrangler.jsonc). */
+  R2_ACCOUNT_ID?: string;
+  /** R2 bucket name; defaults to `mizan-uploads` when unset. */
+  R2_BUCKET_NAME?: string;
+  /** R2 API token access key id — Object Read Only scope on the upload bucket. SECRET. */
+  R2_ACCESS_KEY_ID?: string;
+  /** R2 API token secret access key — paired with R2_ACCESS_KEY_ID. SECRET. */
+  R2_SECRET_ACCESS_KEY?: string;
 }

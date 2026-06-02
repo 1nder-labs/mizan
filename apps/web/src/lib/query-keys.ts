@@ -3,6 +3,7 @@
  * never drift from queries (PRD §7.7.5).
  */
 import type { QueueSearch } from "@mizan/shared";
+import { ME_QUERY_KEY } from "./me-api.ts";
 import { SESSION_QUERY_KEY } from "./auth-client.ts";
 
 export const queryKeys = {
@@ -15,4 +16,12 @@ export const queryKeys = {
   audit: {
     all: ["audit"] as const,
   },
+  signals: {
+    detail: (caseId: string) => ["case-signals", caseId] as const,
+  },
+  chat: {
+    threads: () => ["chat", "threads"] as const,
+    thread: (id: string) => ["chat", "thread", id] as const,
+  },
+  me: () => ME_QUERY_KEY,
 } as const;

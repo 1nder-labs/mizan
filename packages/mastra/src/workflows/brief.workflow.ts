@@ -1,7 +1,7 @@
 import { createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { BriefPayloadSchema } from "@mizan/shared";
 import { awaitReviewerAction } from "../steps/awaitReviewerAction.ts";
+import { ReviewerActionStepStateSchema } from "../schemas/reviewer-action-suspend.ts";
 import { classifyCampaign } from "../steps/classifyCampaign.ts";
 import { classifyVouchingChain } from "../steps/classifyVouchingChain/index.ts";
 import { composeBrief } from "../steps/composeBrief/index.ts";
@@ -11,7 +11,6 @@ import { extractBankStatement } from "../steps/extractBankStatement.ts";
 import { extractCategoryDocs } from "../steps/extractCategoryDocs.ts";
 import { extractCreatorIdDoc } from "../steps/extractCreatorIdDoc.ts";
 import { extractStoryClaims } from "../steps/extractStoryClaims.ts";
-import { finalizeCaseStatus } from "../steps/finalizeCaseStatus.ts";
 import { forcedEscalateGate } from "../steps/forcedEscalateGate/index.ts";
 import { matchPolicy } from "../steps/matchPolicy/index.ts";
 import { mergeSignals } from "../steps/mergeSignals.ts";
@@ -30,18 +29,35 @@ import { storyCoherence } from "../steps/storyCoherence/index.ts";
  * `PartialBriefStateSchema` so every downstream step keeps the standard
  * step-input shape.
  *
- * Post-compose ordering is forcedEscalateGate → draftOrganizerMessage
- * → finalizeCaseStatus. The gate fires first so an OFAC + community
+ * Post-compose ordering: `forcedEscalateGate → draftOrganizerMessage →
+ * awaitReviewerAction`. The gate fires first so an OFAC + community-
  * vouching REQUEST_DOCS case is overridden to ESCALATE before the
  * draft LLM runs — `draftOrganizerMessage` then sees ESCALATE and
- * short-circuits, saving the call. Closes the wasted-call /
- * transient-divergence window Pass 8 flagged on
- * draft-before-gate ordering.
+ * short-circuits, saving a call.
+ *
+ * `awaitReviewerAction` is the TERMINAL step. It calls `step.suspend()`
+ * which closes the workflow stream cleanly with `status: "suspended"`.
+ * The post-action chain (record reviewer_actions, append to
+ * eval_promotions, flip case to ACTIONED, emit workflow.finish) is
+ * owned by `POST /api/cases/:id/action` directly, NOT a Mastra resume.
+ *
+ * The workflow `outputSchema` therefore mirrors the terminal step's
+ * `ReviewerActionStepStateSchema`, not `composeBrief`'s `BriefPayload`:
+ * the brief is an intermediate product, and the only value the workflow
+ * could ever resolve to (on a resume path) is the reviewer-action state.
+ *
+ * Why no Mastra resume: `Workflow.resume()` from a different request
+ * than the original `Workflow.stream()` hits Cloudflare Workers' I/O
+ * isolation boundary ("Cannot perform I/O on behalf of a different
+ * request"). The post-action work is three deterministic D1 writes —
+ * better expressed as direct route logic than as a workflow chain
+ * that the runtime cannot complete cross-request. See
+ * `apps/worker/src/routes/actions.ts` for the inline implementation.
  */
 export const briefWorkflow = createWorkflow({
   id: "brief",
   inputSchema: z.object({ caseId: z.string(), runId: z.string() }),
-  outputSchema: BriefPayloadSchema,
+  outputSchema: ReviewerActionStepStateSchema,
 })
   .then(classifyCampaign)
   .then(extractCreatorIdDoc)
@@ -55,6 +71,5 @@ export const briefWorkflow = createWorkflow({
   .then(composeBrief)
   .then(forcedEscalateGate)
   .then(draftOrganizerMessage)
-  .then(finalizeCaseStatus)
   .then(awaitReviewerAction)
   .commit();

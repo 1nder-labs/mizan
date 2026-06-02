@@ -9,12 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
+import { Route as SignupRouteImport } from "./routes/signup";
 import { Route as QueueRouteImport } from "./routes/queue";
 import { Route as LoginRouteImport } from "./routes/login";
 import { Route as IndexRouteImport } from "./routes/index";
+import { Route as InviteTokenRouteImport } from "./routes/invite.$token";
 import { Route as CaseCaseIdRouteImport } from "./routes/case/$caseId";
+import { Route as AdminTeamRouteImport } from "./routes/admin/team";
 import { Route as AdminAuditRouteImport } from "./routes/admin/audit";
 
+const SignupRoute = SignupRouteImport.update({
+  id: "/signup",
+  path: "/signup",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const QueueRoute = QueueRouteImport.update({
   id: "/queue",
   path: "/queue",
@@ -30,9 +38,19 @@ const IndexRoute = IndexRouteImport.update({
   path: "/",
   getParentRoute: () => rootRouteImport,
 } as any);
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: "/invite/$token",
+  path: "/invite/$token",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const CaseCaseIdRoute = CaseCaseIdRouteImport.update({
   id: "/case/$caseId",
   path: "/case/$caseId",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const AdminTeamRoute = AdminTeamRouteImport.update({
+  id: "/admin/team",
+  path: "/admin/team",
   getParentRoute: () => rootRouteImport,
 } as any);
 const AdminAuditRoute = AdminAuditRouteImport.update({
@@ -45,42 +63,86 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/login": typeof LoginRoute;
   "/queue": typeof QueueRoute;
+  "/signup": typeof SignupRoute;
   "/admin/audit": typeof AdminAuditRoute;
+  "/admin/team": typeof AdminTeamRoute;
   "/case/$caseId": typeof CaseCaseIdRoute;
+  "/invite/$token": typeof InviteTokenRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/login": typeof LoginRoute;
   "/queue": typeof QueueRoute;
+  "/signup": typeof SignupRoute;
   "/admin/audit": typeof AdminAuditRoute;
+  "/admin/team": typeof AdminTeamRoute;
   "/case/$caseId": typeof CaseCaseIdRoute;
+  "/invite/$token": typeof InviteTokenRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/login": typeof LoginRoute;
   "/queue": typeof QueueRoute;
+  "/signup": typeof SignupRoute;
   "/admin/audit": typeof AdminAuditRoute;
+  "/admin/team": typeof AdminTeamRoute;
   "/case/$caseId": typeof CaseCaseIdRoute;
+  "/invite/$token": typeof InviteTokenRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/login" | "/queue" | "/admin/audit" | "/case/$caseId";
+  fullPaths:
+    | "/"
+    | "/login"
+    | "/queue"
+    | "/signup"
+    | "/admin/audit"
+    | "/admin/team"
+    | "/case/$caseId"
+    | "/invite/$token";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/login" | "/queue" | "/admin/audit" | "/case/$caseId";
-  id: "__root__" | "/" | "/login" | "/queue" | "/admin/audit" | "/case/$caseId";
+  to:
+    | "/"
+    | "/login"
+    | "/queue"
+    | "/signup"
+    | "/admin/audit"
+    | "/admin/team"
+    | "/case/$caseId"
+    | "/invite/$token";
+  id:
+    | "__root__"
+    | "/"
+    | "/login"
+    | "/queue"
+    | "/signup"
+    | "/admin/audit"
+    | "/admin/team"
+    | "/case/$caseId"
+    | "/invite/$token";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   LoginRoute: typeof LoginRoute;
   QueueRoute: typeof QueueRoute;
+  SignupRoute: typeof SignupRoute;
   AdminAuditRoute: typeof AdminAuditRoute;
+  AdminTeamRoute: typeof AdminTeamRoute;
   CaseCaseIdRoute: typeof CaseCaseIdRoute;
+  InviteTokenRoute: typeof InviteTokenRoute;
 }
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/signup": {
+      id: "/signup";
+      path: "/signup";
+      fullPath: "/signup";
+      preLoaderRoute: typeof SignupRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/queue": {
       id: "/queue";
       path: "/queue";
@@ -102,11 +164,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof IndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/invite/$token": {
+      id: "/invite/$token";
+      path: "/invite/$token";
+      fullPath: "/invite/$token";
+      preLoaderRoute: typeof InviteTokenRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/case/$caseId": {
       id: "/case/$caseId";
       path: "/case/$caseId";
       fullPath: "/case/$caseId";
       preLoaderRoute: typeof CaseCaseIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/admin/team": {
+      id: "/admin/team";
+      path: "/admin/team";
+      fullPath: "/admin/team";
+      preLoaderRoute: typeof AdminTeamRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/admin/audit": {
@@ -123,8 +199,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   QueueRoute: QueueRoute,
+  SignupRoute: SignupRoute,
   AdminAuditRoute: AdminAuditRoute,
+  AdminTeamRoute: AdminTeamRoute,
   CaseCaseIdRoute: CaseCaseIdRoute,
+  InviteTokenRoute: InviteTokenRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

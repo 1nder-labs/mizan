@@ -69,7 +69,7 @@ export function CaseDetailPage(): React.JSX.Element {
   }
   return (
     <AuthenticatedShell context="Case detail">
-      <CaseDetail caseRow={data.case} brief={data.brief} />
+      <CaseDetail caseRow={data.case} brief={data.brief} overlay={data.overlay} />
     </AuthenticatedShell>
   );
 }

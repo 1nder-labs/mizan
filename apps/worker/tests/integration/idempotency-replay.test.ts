@@ -25,7 +25,10 @@ const EchoResponseSchema = z.object({
 
 const BASE = "http://localhost";
 
-/** Seeds an admin user: sign-up → DB promote → fresh sign-in → cookie. */
+/**
+ * Seeds an admin user: sign-up (org plugin creates admin member) → sign-in → cookie.
+ * A fresh signup is already provisioned as admin via `creatorRole: "admin"`.
+ */
 async function seedAdmin(email: string, password: string): Promise<string> {
   await exports.default.fetch(
     new Request(`${BASE}/api/auth/sign-up/email`, {
@@ -34,7 +37,6 @@ async function seedAdmin(email: string, password: string): Promise<string> {
       body: JSON.stringify({ email, password, name: "Admin Echo" }),
     }),
   );
-  await env.DB.prepare("UPDATE users SET role = 'admin' WHERE email = ?").bind(email).run();
   const signIn = await exports.default.fetch(
     new Request(`${BASE}/api/auth/sign-in/email`, {
       method: "POST",

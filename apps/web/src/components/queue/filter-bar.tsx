@@ -5,7 +5,7 @@
  * draft for ergonomics.
  */
 import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { isCaseStatus, type CaseStatus, type QueueSearch } from "@mizan/shared";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
@@ -73,10 +73,6 @@ function TextFilter({
   onCommit,
 }: TextFilterProps): React.JSX.Element {
   const [draft, setDraft] = useState(value ?? "");
-  const external = value ?? "";
-  useEffect(() => {
-    setDraft(external);
-  }, [external]);
   return (
     <form
       className="flex items-center gap-2"
@@ -118,6 +114,7 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
       <StatusTabs search={search} onSearchChange={onSearchChange} />
       <div className="flex flex-wrap items-center gap-2">
         <TextFilter
+          key={`category-${search.category ?? ""}`}
           value={search.category}
           placeholder="Filter by category"
           ariaLabel="Filter by category"
@@ -125,6 +122,7 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
           onCommit={(next) => onSearchChange({ category: next })}
         />
         <TextFilter
+          key={`geography-${search.geography ?? ""}`}
           value={search.geography}
           placeholder="Country (e.g. PS, ID)"
           ariaLabel="Filter by geography"

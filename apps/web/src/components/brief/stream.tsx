@@ -29,7 +29,7 @@ import { queryKeys } from "@/lib/query-keys.ts";
 import { foldParts, type FoldedStream } from "./stream-parts.ts";
 import { buildTransport } from "./transport.ts";
 import { useStreamOpener } from "./use-stream-opener.ts";
-import { useCasePoll } from "./use-case-poll.ts";
+import { useInflightPoll } from "./use-inflight-poll.ts";
 import { InFlightNotice } from "./inflight-notice.tsx";
 import { BriefStreamView } from "./stream-view.tsx";
 
@@ -105,7 +105,7 @@ export function BriefStream({ caseId, onStreamError }: BriefStreamProps): React.
   );
   const view = useMemo(() => foldParts(assistantParts), [assistantParts]);
   const { fatalMessage, inflight } = deriveSignals(view, error?.message ?? null, status);
-  const refreshing = useCasePoll(caseId, inflight);
+  const refreshing = useInflightPoll(caseId, inflight);
 
   return (
     <div className="space-y-4">

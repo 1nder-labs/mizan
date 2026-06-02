@@ -18,35 +18,27 @@
  */
 import { queryOptions } from "@tanstack/react-query";
 import {
+  ActionErrorBodySchema,
   CaseDetailResponseSchema,
   QueueResponseSchema,
+  ReviewerActionResponseSchema,
+  type ActionErrorCode,
   type CaseDetailResponse,
   type QueueResponse,
   type QueueSearch,
+  type ReviewerActionRequest,
+  type ReviewerActionResponse,
 } from "@mizan/shared";
-import { api } from "./rpc.ts";
+import { api, apiMutate } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
+import { assertAuthorized, ReviewerActionError } from "./api-errors.ts";
 
-export class UnauthorizedError extends Error {
-  readonly status = 401 as const;
-  constructor(message = "Session expired") {
-    super(message);
-    this.name = "UnauthorizedError";
-  }
-}
-
-export class ForbiddenError extends Error {
-  readonly status = 403 as const;
-  constructor(message = "You don't have permission to view this resource") {
-    super(message);
-    this.name = "ForbiddenError";
-  }
-}
-
-function assertAuthorized(status: number): void {
-  if (status === 401) throw new UnauthorizedError();
-  if (status === 403) throw new ForbiddenError();
-}
+export {
+  ReviewerActionError,
+  UnauthorizedError,
+  ForbiddenError,
+  assertAuthorized,
+} from "./api-errors.ts";
 
 function toQuery(search: QueueSearch): Record<string, string> {
   const query: Record<string, string> = {
@@ -56,6 +48,7 @@ function toQuery(search: QueueSearch): Record<string, string> {
   if (search.status) query.status = search.status;
   if (search.category) query.category = search.category;
   if (search.geography) query.geography = search.geography;
+  if (search.assignee) query.assignee = search.assignee;
   return query;
 }
 
@@ -89,4 +82,27 @@ export function caseDetailQueryOptions(id: string) {
     queryFn: () => fetchCase(id),
     staleTime: 5_000,
   });
+}
+
+async function readActionErrorCode(raw: unknown): Promise<ActionErrorCode | undefined> {
+  const parsed = ActionErrorBodySchema.safeParse(raw);
+  return parsed.success ? parsed.data.error : undefined;
+}
+
+export async function submitReviewerAction(
+  caseId: string,
+  body: ReviewerActionRequest,
+): Promise<ReviewerActionResponse> {
+  const res = await apiMutate.cases[":id"].action.$post({
+    param: { id: caseId },
+    json: body,
+  });
+  assertAuthorized(res.status);
+  if (!res.ok) {
+    const raw: unknown = await res.json().catch(() => null);
+    const code = await readActionErrorCode(raw);
+    throw new ReviewerActionError(code ?? "workflow_failed", res.status);
+  }
+  const json = await res.json();
+  return ReviewerActionResponseSchema.parse(json);
 }

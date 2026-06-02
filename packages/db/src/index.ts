@@ -41,4 +41,19 @@ export * from "./auth.schema.ts";
 export * from "./schemas.ts";
 export { transitionCase, type CaseTransitionInput } from "./case-transitions.ts";
 export { caseListProjection } from "./projections.ts";
-export { and, eq, inArray } from "drizzle-orm";
+export { fetchAuditPage, type AuditRow } from "./audit.ts";
+export { resolveCaseOrganizationId } from "./case-org.ts";
+export { emitLiveEvent, executeEmit, type EmitLiveEventInput } from "./emit-live-event.ts";
+export {
+  batchTransitionWithEmits,
+  buildActionEmits,
+  buildAssignmentEmits,
+  buildBriefReadyEmits,
+  buildSignalPersistedEmits,
+  buildStatusChangedEmits,
+  caseTopic,
+  emitLiveEventsBestEffort,
+  orgTopic,
+  userTopic,
+} from "./live-event-builders.ts";
+export { and, desc, eq, gt, inArray, sql } from "drizzle-orm";

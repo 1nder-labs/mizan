@@ -12,16 +12,15 @@ import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
 import { humanVerification } from "@/lib/display-labels.ts";
 
+/** Typographic placeholder for a column with no value yet (em dash). */
+const EMPTY_CELL = "—";
+
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
   day: "numeric",
   hour: "2-digit",
   minute: "2-digit",
 });
-
-function shortId(id: string): string {
-  return id.slice(0, 8);
-}
 
 function nextSort(current: QueueSort): QueueSort {
   if (current === "updated_desc") return "updated_asc";
@@ -58,7 +57,7 @@ const idColumn: ColumnDef<CaseRow> = {
   id: "id",
   header: "Case",
   cell: ({ row }) => (
-    <span className="font-mono text-xs text-foreground tabular">{shortId(row.original.id)}</span>
+    <span className="text-sm font-medium text-foreground">{row.original.title}</span>
   ),
 };
 
@@ -89,7 +88,7 @@ const recommendationColumn: ColumnDef<CaseRow> = {
     row.original.latest_brief ? (
       <RecommendationBadge recommendation={row.original.latest_brief.recommendation} />
     ) : (
-      <span className="text-xs text-muted-foreground">—</span>
+      <span className="text-xs text-muted-foreground">{EMPTY_CELL}</span>
     ),
 };
 
@@ -102,7 +101,7 @@ const verificationColumn: ColumnDef<CaseRow> = {
         {humanVerification(row.original.latest_brief.verification_path)}
       </span>
     ) : (
-      <span className="text-xs text-muted-foreground">—</span>
+      <span className="text-xs text-muted-foreground">{EMPTY_CELL}</span>
     ),
 };
 

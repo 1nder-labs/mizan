@@ -9,52 +9,52 @@ import { forcedEscalateReason } from "@mizan/mastra/testing";
  * every verification_path the gate can fire on.
  */
 describe("forcedEscalateReason", () => {
-  it("names the no-chain branch for verification_path=none", () => {
+  it("explains the no-evidence branch in plain language and names the location/tier", () => {
     const reason = forcedEscalateReason({
       verification_path: "none",
       geography_tier: "OFAC_ADJACENT",
       geography: "PS",
     });
-    expect(reason).toContain("verification_path=none");
-    expect(reason).toContain("geography_tier=OFAC_ADJACENT");
+    expect(reason).not.toContain("verification_path=");
+    expect(reason).not.toContain("geography_tier=");
+    expect(reason).toContain("no verification evidence");
     expect(reason).toContain("PS");
-    expect(reason).toContain("no documentary verification path; trust = vouching strength");
-    expect(reason).toContain("no vouching chain available");
+    expect(reason).toContain("an OFAC-adjacent jurisdiction");
   });
 
-  it("names the community-vouching branch for verification_path=community_vouching", () => {
+  it("explains the community-vouching branch in plain language", () => {
     const reason = forcedEscalateReason({
       verification_path: "community_vouching",
       geography_tier: "OFAC_ADJACENT",
       geography: "YE",
     });
-    expect(reason).toContain("verification_path=community_vouching");
-    expect(reason).toContain("geography_tier=OFAC_ADJACENT");
+    expect(reason).not.toContain("verification_path=");
+    expect(reason).toContain("community vouching");
     expect(reason).toContain("YE");
-    expect(reason).toContain("community vouching insufficient");
+    expect(reason).toContain("an OFAC-adjacent jurisdiction");
   });
 
-  it("names the institutional-vouching branch for verification_path=institutional_vouching", () => {
+  it("explains the institutional-vouching branch in plain language", () => {
     const reason = forcedEscalateReason({
       verification_path: "institutional_vouching",
       geography_tier: "OFAC",
       geography: "SD",
     });
-    expect(reason).toContain("verification_path=institutional_vouching");
-    expect(reason).toContain("geography_tier=OFAC");
+    expect(reason).not.toContain("verification_path=");
+    expect(reason).toContain("institutional vouch");
     expect(reason).toContain("SD");
-    expect(reason).toContain("institutional vouching insufficient");
+    expect(reason).toContain("an OFAC-sanctioned jurisdiction");
   });
 
-  it("names the documentary-OFAC branch for verification_path=documentary + OFAC", () => {
+  it("explains the documentary-OFAC branch in plain language", () => {
     const reason = forcedEscalateReason({
       verification_path: "documentary",
       geography_tier: "OFAC",
       geography: "SY",
     });
-    expect(reason).toContain("verification_path=documentary");
-    expect(reason).toContain("geography_tier=OFAC");
+    expect(reason).not.toContain("geography_tier=");
+    expect(reason).toContain("sanctions-list (SDN) check");
     expect(reason).toContain("SY");
-    expect(reason).toContain("manual OFAC SDN check");
+    expect(reason).toContain("an OFAC-sanctioned jurisdiction");
   });
 });

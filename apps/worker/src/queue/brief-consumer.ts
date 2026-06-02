@@ -1,6 +1,15 @@
 import type { ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
-import { createBriefRun, flushLangfuse } from "@mizan/mastra";
-import { cases, eq, makeDb, transitionCase, type Db } from "@mizan/db";
+import { createBriefRun, emitWorkflowEvent, flushLangfuse } from "@mizan/mastra";
+import {
+  batchTransitionWithEmits,
+  buildStatusChangedEmits,
+  cases,
+  eq,
+  makeDb,
+  resolveCaseOrganizationId,
+  transitionCase,
+  type Db,
+} from "@mizan/db";
 import type { Case } from "@mizan/db";
 import { BriefQueueMessageSchema, type BriefQueueMessage } from "@mizan/shared";
 import type { CloudflareBindings } from "../env.ts";
@@ -34,21 +43,51 @@ async function loadCase(db: Db, caseId: string): Promise<Case | undefined> {
  * snapshot, not the pre-claim one. Race-loser sees `undefined` and acks.
  */
 async function claimRun(db: Db, message: BriefQueueMessage): Promise<Case | undefined> {
-  return transitionCase(db, {
+  const claimed = await transitionCase(db, {
     caseId: message.caseId,
     runId: message.runId,
     from: ["QUEUED", "RUNNING"],
     to: "RUNNING",
   });
+  if (claimed) {
+    try {
+      await emitWorkflowEvent(db, {
+        caseId: message.caseId,
+        runId: message.runId,
+        eventType: "workflow.start",
+        payloadMeta: {
+          caseId: message.caseId,
+          runId: message.runId,
+        },
+      });
+    } catch (error) {
+      await revertClaim(db, message.caseId, message.runId);
+      throw error;
+    }
+  }
+  return claimed;
 }
 
+/**
+ * Reverts a failed RUNNING claim back to QUEUED and emits the status change so
+ * SSE subscribers see the case re-queue (live events are push-only — a silent
+ * revert leaves a board stuck on RUNNING). Org is resolved from the case row
+ * because the queue message carries no tenant id; `actorUserId` is null
+ * (system-driven retry compensation).
+ */
 async function revertClaim(db: Db, caseId: string, runId: string): Promise<void> {
-  await transitionCase(db, {
-    caseId,
-    runId,
-    from: "RUNNING",
-    to: "QUEUED",
-  });
+  const organizationId = await resolveCaseOrganizationId(db, caseId);
+  await batchTransitionWithEmits(
+    db,
+    { caseId, runId, from: "RUNNING", to: "QUEUED" },
+    buildStatusChangedEmits({
+      caseId,
+      organizationId,
+      fromStatus: "RUNNING",
+      toStatus: "QUEUED",
+      actorUserId: null,
+    }),
+  );
 }
 
 async function runWorkflow(

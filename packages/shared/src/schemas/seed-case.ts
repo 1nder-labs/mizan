@@ -14,6 +14,7 @@ export const SeedCaseSchema = z
   .object({
     id: z.string().uuid(),
     status: z.enum(["DRAFT", "QUEUED", "RUNNING", "READY_FOR_REVIEW"]),
+    title: z.string().min(1),
     category: z.string().min(1),
     geography: z.string().min(1),
     claimed_zakat_category: z.string().min(1),

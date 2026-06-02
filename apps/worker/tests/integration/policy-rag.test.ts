@@ -2,7 +2,6 @@
  * Integration test: policy RAG end-to-end with seeded Miniflare Vectorize.
  */
 
-import { readFileSync } from "node:fs";
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
@@ -15,6 +14,8 @@ import {
 } from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 import { embedCorpusInto } from "../../../../scripts/lib/embed-corpus-into.ts";
+import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
+import seedCase001Raw from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
 
 const BASE = "http://localhost";
 const CASE_ID = SEED_CASE_IDS[0];
@@ -38,7 +39,7 @@ function cookiesFrom(res: Response): string {
   return res.headers.getSetCookie().join("; ");
 }
 
-async function seedAdmin(): Promise<string> {
+async function seedAdmin(): Promise<{ cookie: string; userId: string; organizationId: string }> {
   const email = `policy-rag-admin-${Date.now()}@test.local`;
   const password = "CorrectHorse99!!";
   await exports.default.fetch(
@@ -48,7 +49,6 @@ async function seedAdmin(): Promise<string> {
       body: JSON.stringify({ email, password, name: "Policy RAG Admin" }),
     }),
   );
-  await env.DB.prepare("UPDATE users SET role = 'admin' WHERE email = ?").bind(email).run();
   const signIn = await exports.default.fetch(
     new Request(`${BASE}/api/auth/sign-in/email`, {
       method: "POST",
@@ -56,22 +56,24 @@ async function seedAdmin(): Promise<string> {
       body: JSON.stringify({ email, password }),
     }),
   );
-  return cookiesFrom(signIn);
+  const row = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
+    .bind(email)
+    .first<{ id: string }>();
+  if (!row?.id) throw new Error("policy-rag admin seed failed");
+  const memberRow = await env.DB.prepare(
+    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
+  )
+    .bind(row.id)
+    .first<{ organization_id: string }>();
+  if (!memberRow?.organization_id) throw new Error("policy-rag admin org seed failed");
+  return { cookie: cookiesFrom(signIn), userId: row.id, organizationId: memberRow.organization_id };
 }
 
-async function loadSeed(filename: string): Promise<SeedJson> {
-  const path = new URL(
-    `../../../../packages/mastra/src/seeds/documentary/${filename}`,
-    import.meta.url,
-  ).pathname;
-  return JSON.parse(readFileSync(path, "utf8")) as SeedJson;
-}
-
-async function seedCase001(adminUserId: string): Promise<void> {
-  const seed = await loadSeed("case-001.json");
+async function seedCase001(adminUserId: string, organizationId: string): Promise<void> {
+  const seed = seedCase001Raw as SeedJson;
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-     VALUES (?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+     VALUES (?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET brief_partial_json = excluded.brief_partial_json, updated_at = excluded.updated_at`,
   )
     .bind(
@@ -85,6 +87,7 @@ async function seedCase001(adminUserId: string): Promise<void> {
         r2_keys: seed.r2_keys,
       }),
       adminUserId,
+      organizationId,
       Date.now(),
       Date.now(),
     )
@@ -107,8 +110,7 @@ async function drainSse(res: Response): Promise<string> {
   return out;
 }
 
-const hasOpenAiKey = Boolean(env.OPENAI_API_KEY);
-const describeWithKey = hasOpenAiKey ? describe : describe.skip;
+const describeWithKey = RUN_REMOTE_VECTORIZE ? describe : describe.skip;
 
 describeWithKey("policy rag integration", () => {
   let adminCookie = "";
@@ -116,13 +118,10 @@ describeWithKey("policy rag integration", () => {
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-    adminCookie = await seedAdmin();
-    const row = await env.DB.prepare(
-      "SELECT id FROM users WHERE role = 'admin' ORDER BY created_at DESC LIMIT 1",
-    ).first<{ id: string }>();
-    if (!row?.id) throw new Error("admin seed failed");
-    adminUserId = row.id;
-    await seedCase001(adminUserId);
+    const admin = await seedAdmin();
+    adminCookie = admin.cookie;
+    adminUserId = admin.userId;
+    await seedCase001(adminUserId, admin.organizationId);
     env.MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(0));
     await embedCorpusInto(
       env.VECTORIZE,

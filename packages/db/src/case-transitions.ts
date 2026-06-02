@@ -33,6 +33,22 @@ export interface CaseTransitionInput {
  * Producer enqueue (`producerGuard`) is intentionally NOT routed
  * through this helper — it mints a fresh runId rather than matching
  * on an existing one, which is a structurally different operation.
+ *
+ * Tenant isolation: the WHERE is pinned on `(id, current_run_id, status)`
+ * and deliberately omits `organization_id`. A `current_run_id` is a
+ * server-minted UUID that is never exposed across orgs, and EVERY caller
+ * already pins the org on the surface that produced the `(caseId, runId)`
+ * pair before reaching here:
+ *   - route mutations (`actions.ts`, `cases.ts`) act on a runId minted by
+ *     an org-scoped `producerGuard` claim (`claimCaseQueued` filters
+ *     `organization_id`) or read from an org-scoped case load;
+ *   - queue/DLQ consumers act on a server-produced message, not caller input;
+ *   - workflow steps act on their own run's caseId.
+ * Adding `organization_id` here would be tautological for the consumer
+ * paths (org is derived from the case row, so the filter always matches)
+ * and redundant for the route paths (already org-scoped upstream). The
+ * invariant callers MUST uphold: never pass a `(caseId, runId)` pair that
+ * was not first verified to belong to the acting org.
  */
 export async function transitionCase(
   db: Db,

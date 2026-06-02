@@ -810,6 +810,182 @@ _Brief streaming UI:_
 
 ---
 
+### Phase 7.5 — Stakeholder UX (evidence surfaces + Kanban + team management + shadcn sidebar)
+
+**Goal:** Close the evidence-visibility gap that Phase 7 leaves open. Surface the documents, story, citations, and trust signals the reviewer needs to act on real evidence (per §1); reshape the queue into a Kanban board for stakeholder-friendly drag-driven decisioning; add team management so admins can invite reviewers and assign cases to them; replace the top app-bar with the official shadcn sidebar primitive so the chrome is room-temperature consistent with the rest of the dashboard.
+
+**Force-read (internal — MUST read before implementing):**
+
+- [ ] §1 Problem — "AI never decides; reviewer always acts on evidence." Phase 7.5 makes that observable in the UI.
+- [ ] §7.7.5 Client state architecture — server state in TanStack Query, URL in TanStack Router, form in RHF.
+- [ ] §6 Phase 6 — existing reviewer UI surface this builds on.
+- [ ] §6 Phase 7 — HITL plumbing this surface decorates.
+
+**Force-read (external via context7 — MUST query before implementing):**
+
+- [ ] context7 `/wojtekmaj/react-pdf/v10_1_0` — query: "Vite + React 19 worker bootstrap with `import.meta.url`; module-level `Document` options to avoid re-render trap; `cMapUrl` + `standardFontDataUrl` via jsdelivr CDN"
+- [ ] context7 `/websites/dndkit` — query: "multi-column kanban with `@dnd-kit/core` 6.3 + `@dnd-kit/sortable` 10; sensors (PointerSensor, TouchSensor delay 200, KeyboardSensor with `sortableKeyboardCoordinates`); `useDroppable` with `disabled` for workflow-driven columns; `DragOverlay` via `createPortal`; chained `onPointerDown` so a wrapping click-to-navigate handler does not suppress drag activation"
+- [ ] context7 `/mhart/aws4fetch` — query: "R2 presigned GET via `AwsClient.sign` with `signQuery: true` and `X-Amz-Expires` query param"
+- [ ] context7 `/tanstack/router` — query: "validateSearch with zod, search-param enum default and persistence across navigations; programmatic navigate from a drag-end handler"
+- [ ] context7 `/shadcn-ui/ui` — query: "Sidebar primitive: SidebarProvider + Sidebar + SidebarInset layout; cookie-persisted collapse via `collapsible='icon'`; SidebarMenuButton tooltip slot; mobile sheet via Radix Dialog. Patch `w-[--sidebar-width]` → `w-[var(--sidebar-width)]` for Tailwind v4 compatibility."
+- [ ] context7 `/better-auth/better-auth` — query: "session role surface via `additionalFields`; manual invitation flow without organization plugin — token table, lookup endpoint, accept endpoint that escalates role inside a transaction."
+
+**In scope:**
+
+- **Evidence surfaces** — worker routes (all auth-gated `reviewer | admin`, shared-queue read model):
+  - `GET /api/cases/:id/documents/:docKey/url` → short-TTL (300 s) R2 presigned GET URL signed via `aws4fetch`. `docKey` enum: `creator_id | bank_statement | category_doc`.
+  - `GET /api/policy/clauses/:id?source=zakat|safety` → full clause body from bundled corpus JSON (no Vectorize round-trip).
+  - `GET /api/cases/:id/signals` → latest per-`signal_type` row via correlated subquery on `recorded_at` desc.
+- **Team management** — new worker routes:
+  - `POST /api/cases/:id/assign { user_id: string | null }` — admin: any user; reviewer: claim if unassigned, unclaim own only.
+  - `GET /api/team/members` — `reviewer | admin`: list of users + roles for the assignment dropdown.
+  - `GET /api/team/invitations` — admin: list outstanding invitations.
+  - `POST /api/team/invitations` — admin: create invitation, returns `{invitation, inviteUrl}` (origin resolved from `request.url`).
+  - `GET /api/team/invitations/:token` — public: lookup by token for the accept page.
+  - `POST /api/team/invitations/:token/accept` — authenticated: marks `accepted_at`, sets `accepted_by`, and escalates the accepting user's role to the invitation's role inside a single D1 transaction.
+- **Schema additions** (drizzle migrations `0005_wise_lily_hollister.sql` + `0006_chemical_captain_stacy.sql`):
+  - `cases.assigned_to: text references users(id)` (nullable, set-null on delete). Indexed `cases_assigned_to_idx`.
+  - `invitations` table — `token` (unique), `email`, `role` (reviewer | admin), `invited_by` references users, `accepted_at` / `accepted_by`, `expires_at`, `created_at`. Token + email indexes.
+  - `CaseRowSchema` and `CaseDetailResponseSchema` extended with `assigned_to: string | null`; queue projection includes `assigned_to`.
+- **Queue filtering by assignee** — `?assignee=me | unassigned | all | <userId>` on `/queue`. Default per role: reviewer → `me` (own + unassigned, claimable); admin → `all`. Filter implemented via drizzle `eq(cases.assigned_to, userId) OR isNull(cases.assigned_to)` for the `me` path.
+- **New shared schemas + types**: `DocumentUrlResponseSchema`, `PolicyClauseResponseSchema`, `CaseSignalsResponseSchema`, `CaseAssignRequestSchema` / `CaseAssignResponseSchema`, `TeamMembersResponseSchema`, `TeamInvitationsResponseSchema`, `CreateInvitationRequestSchema` / `CreateInvitationResponseSchema`, `InvitationLookupResponseSchema`, `InvitationAcceptResponseSchema`, `REVIEWER_TRANSITIONS` map + `canReviewerTransition` predicate (allows `DRAFT → QUEUED`, `SUSPENDED_HITL → ACTIONED`, `READY_FOR_REVIEW → ACTIONED`).
+- **R2 access creds wired into env**: `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` (secrets), `R2_ACCOUNT_ID` + `R2_BUCKET_NAME` (vars). Committed CORS policy at `apps/worker/r2-cors.json` with concrete `AllowedOrigins` covering local dev + production placeholder.
+- **New web evidence surfaces** (all visible strings from `apps/web/src/lib/copy-constants.ts`):
+  - `<StoryPanel>` — surfaces `cases.brief_partial_json.story` + `vouching_narrative`.
+  - `<DocumentsPanel>` + `<DocumentViewerDialog>` — three tiles per case; opens PDF viewer (`react-pdf@^10`, `React.lazy`) or image viewer with click-toggle scale + native pinch-zoom delegation on touch.
+  - `<CitationChip>` + `<CitationDrawer>` — exact-match wrap over `policy_citations[]` (longest-first sort, NO regex); chip border colored by source (`zakat` indigo / `safety` amber).
+  - `<SignalExpansionPanel>` + per-signal body components (`photo_dup`, `story_coherence`, `vouching_chain`, plus placeholders for other enum values) + `<ClaimSourceRow>` (two-column claim ↔ evidence, vertical stack on narrow viewports).
+- **Kanban board** — `<KanbanBoard>` + columns + cards (`@dnd-kit/core` 6.3 + `@dnd-kit/sortable` 10), `<ViewToggle>` at `/queue?view=board|table` (default `board`).
+  - `<KanbanActionModal>` opens on `SUSPENDED_HITL | READY_FOR_REVIEW → ACTIONED` drop (RHF + `ReviewerActionRequestSchema`, `action_id` UUID generated at `onDragEnd`).
+  - Card click-to-navigate is drag-aware: pointerdown captures start coords, click only fires when drift < 5 px and `useSortable.isDragging` is false. dnd-kit's `onPointerDown` is chained (not overridden) — replacing the original `<Link>` wrapper which previously swallowed pointerup as a click and snapped drops back to origin.
+  - Read-only (workflow-managed) columns: `RUNNING`, `FAILED` only. `QUEUED` and `READY_FOR_REVIEW` accept drops (canonical reviewer paths `DRAFT → QUEUED` and `READY_FOR_REVIEW → ACTIONED`).
+  - Card body shows both the `CaseStatusBadge` (workflow state, top-right) and the AI recommendation chip under an "AI rec" eyebrow, so reviewers do not conflate the two.
+- **Case assignment dropdown** — `<CaseAssignment>` in the case-detail header. Admin picks any member, reviewer claims if unassigned (self only).
+- **Team page + invite flow**:
+  - `/admin/team` (admin-only route): member table + outstanding-invitations table + "Invite reviewer" modal (RHF, generates URL, copies to clipboard, sticky banner exposes last URL).
+  - `/invite/$token` (public route): three-branch render — valid + signed-out shows "sign in as `<email>`" CTA; valid + matching session auto-fires accept and navigates to `/queue`; invalid / expired / email-mismatch shows error card.
+- **Sidebar shell** — replaces the top app-bar with the official shadcn sidebar primitive (`bunx shadcn@latest add sidebar`). `SidebarProvider` (cookie persistence) + `Sidebar` (`collapsible="icon"`) + `SidebarInset`. Org pill at the top, nav (`Queue`, `Audit` admin-only, `Team` admin-only) in `SidebarMenu`, user pill + signout in `SidebarFooter`. Mobile uses the built-in Radix Sheet drawer; desktop has an icon-only collapsed state with tooltip-on-hover. Pages span the full SidebarInset width (no `max-w-7xl mx-auto` wrappers).
+- **AppType contract snapshot test** (`expectTypeOf`) — 4th test layer (in addition to bun unit, Miniflare integration, Playwright local-only E2E).
+
+**Out of scope:** Workflow step changes, observability tracing (Phase 8), eval gold set (Phase 9), production deploy + full CSP + R2 CORS apply (Phase 10). LRU memoization of clause lookup (Phase 9 implementation note). Annotated PDF overlays (Phase 10 polish bullet). Per-owner ownership isolation on queue/case-detail beyond the shared-queue read + assigned-to filter (Phase 9 if real T&S deployment requires hard isolation). Email-driven invitations (Resend / SES integration) — Phase 10 polish. better-auth `organization` plugin / multi-org switching — deliberately skipped; single-team deployment uses the lightweight invitations table instead. Better-auth Resend integration — Phase 10. Pending-invitation revocation, role-change UI, member removal — Phase 10 polish.
+
+**Deliverable:** Admin opens `/admin/team`, generates an invite link, sends manually to a new reviewer. New reviewer signs up, clicks the link, lands on `/invite/$token`, accepts → role escalates and they land on `/queue`. Admin opens a case detail and assigns it to the new reviewer via the dropdown. Reviewer signs in, sees only their assigned + unassigned cases on the Kanban board, opens the case, reads the raw story, opens each attachment in a PDF / image viewer, sees per-signal score + reasoning, clicks a policy citation chip, reads the full clause body in a drawer, navigates to `/queue?view=board`, drags the SUSPENDED_HITL card to ACTIONED, submits the modal, the card moves and the audit row appears. Sidebar collapses to icon-only via the toggle and persists across reloads.
+
+**Acceptance criteria:**
+
+- Three document tiles render in the case detail page; clicking each opens a viewer dialog backed by a 300 s presigned R2 URL fetched directly by the browser (no Worker bytes path).
+- Story panel renders `cases.brief_partial_json.story` + optional `vouching_narrative` above the brief.
+- Citation chips render on every `policy_citations[].clauseId` occurrence in the brief prose; click opens a drawer with the full clause body, title, source, corpus version.
+- Trust-signal panel renders one row per persisted signal type (latest by `recorded_at`); expand shows score + reasoning + linked evidence.
+- `/queue?view=board` renders the Kanban; `/queue?view=table` renders the existing table; `/queue` defaults to board.
+- Drag DRAFT card to QUEUED column → fires `POST /api/cases/:id/brief`; drag SUSPENDED_HITL or READY_FOR_REVIEW card to ACTIONED column → opens action modal; submit modal → fires `POST /api/cases/:id/action` with the drag-resolved `action_id`; on success the card moves and the audit list shows the new row.
+- Card-click-to-navigate is drag-aware: a real drag never triggers navigation, and a click without drift opens the case detail.
+- Read-only columns (`RUNNING`, `FAILED`) reject drops; tooltip explains workflow ownership. Invalid reviewer-driven transitions surface as a toast.
+- Keyboard a11y: Space initiates drag, arrows navigate, Space drops, Escape cancels with focus return.
+- Mobile (`<768 px`): columns stack vertically; touch-hold drag works after 200 ms.
+- Case-detail header exposes the assignment dropdown. Admin sees all members; reviewer can only claim unassigned or unclaim own.
+- Default queue filter is `me` for reviewer (own + unassigned) and `all` for admin; `?assignee=<userId>` lets admins inspect a specific reviewer's queue.
+- `/admin/team` shows current members + outstanding invitations; "Invite reviewer" generates a URL, copies it to the clipboard, and surfaces a sticky banner with the last-generated URL for re-copy.
+- `/invite/$token` accepts the invitation only when the signed-in email matches the invited email; the role escalation and acceptance marker land in the same D1 transaction.
+- Sidebar renders as a fixed left rail (`SidebarInset` offsets content correctly); collapse state persists via cookie; mobile uses the Radix Sheet drawer; admin-only links (`Audit`, `Team`) hide for reviewers.
+
+**Implementation notes:**
+
+- R2 presigning uses `aws4fetch` (Workers-runtime compatible, no `@aws-sdk` bloat). TTL 300 s. R2 token must be **Object Read Only** scope per operator runbook.
+- PDF viewer is `React.lazy`-loaded inside `<DocumentViewerDialog>` so the ~600 KB chunk only loads on first dialog open.
+- `Document` options MUST be a module-level constant; instantiating per render causes infinite re-fetch.
+- Citation wrap iterates `policy_citations[]` sorted by `clauseId.length` descending (avoids `zakat.5` matching inside `zakat.5.1`). Citations not appearing in the text are simply ignored — no regex.
+- `REVIEWER_TRANSITIONS` map allows three reviewer-driven moves: `DRAFT → QUEUED`, `SUSPENDED_HITL → ACTIONED`, `READY_FOR_REVIEW → ACTIONED`. The action route's `transitionCase` claim accepts both `SUSPENDED_HITL` and `READY_FOR_REVIEW` as the source state, so the modal-on-drop path handles either case identically.
+- Kanban card drag uses dnd-kit `PointerSensor` with `activationConstraint.distance: 8`. dnd-kit's `onPointerDown` from `useSortable().listeners` is destructured and chained (not overridden) so the drag-aware navigation handler can sit alongside drag activation. The previous `<Link>` wrapper around the card body swallowed pointerup as an anchor click and snapped drops back to origin — replaced with programmatic `useNavigate` gated on `<5 px drift && !isDragging`.
+- Signal route uses `recorded_at` (the actual column), not `created_at`. Score lives inside `payload_json` per signal type — not a top-level column. The `signals` discriminated-union schema stores the `vouching_chain` variant directly (no envelope), matching `vouching.ts` `VouchingChainVariantSchema`.
+- All user-visible strings sourced from `apps/web/src/lib/copy-constants.ts` — no inline string literals in JSX.
+- shadcn sidebar primitive ships Tailwind v3 bracket syntax (`w-[--sidebar-width]`); Tailwind v4 does not resolve this as a CSS variable so the spacer collapses to width 0 and the SidebarInset inherits the full viewport (content renders behind the sidebar). Local patch rewrites all `w-[--sidebar-width]` / `w-[--sidebar-width-icon]` occurrences in `apps/web/src/components/ui/sidebar.tsx` to `w-[var(--sidebar-width)]` / `w-[var(--sidebar-width-icon)]`. Re-patch required on each `shadcn add` until upstream supports v4 syntax.
+- Invitations table is a deliberate alternative to the better-auth `organization` plugin. Single team per deployment, no multi-org switching, no email send (admin copies URL manually). When real multi-org demand appears it lives in a later phase, not here.
+- Plan references: `docs/plans/2026-05-25-009-feat-phase-7-5-stakeholder-ux-plan.md` (evidence surfaces + Kanban). Team management + sidebar additions are tracked in-PRD only (no separate plan document — direct implementation per user direction).
+
+**Tests (per §7.11):**
+
+- Unit (bun test): `r2-presign` boundary clamp + signing determinism; `reviewer-transitions` predicate (all three valid moves + workflow-driven rejections); `citation-wrap` longest-first algorithm; assignment-permission predicate (reviewer self-claim only).
+- Integration (Vitest + Miniflare): documents route happy path + 400/404/409 errors; policy-clauses route; signals route latest-per-type; assignment route (admin + reviewer + invalid-user); team-members route; invitation create + lookup + accept (including expired + email-mismatch + already-accepted paths); queue filter by `?assignee=` for both reviewer and admin defaults; documents-panel + citation-chip + viewer-dialog component flows via MSW.
+- AppType contract snapshot (bun test via `expectTypeOf`): every new route's `hc<AppType>()` invocation compiles against its zod-derived response type.
+- E2E (Playwright LOCAL-ONLY): full board cycle — DRAFT → QUEUED drag (POST /brief fires) → SUSPENDED_HITL → ACTIONED via modal → audit row; rationale enforcement on Override / Block; admin invite flow (generate URL → accept while signed in as invited email → role escalated); reviewer queue isolation (only own + unassigned cases visible).
+
+---
+
+### Phase 7.7 — Multi-tenant org foundation + real-time SSE + chatbot + invite hardening
+
+**Goal:** Every authenticated user belongs to at least one organization with a per-org role; every domain row is org-scoped; every client surface updates in real time as events occur; a read-only Mastra chatbot answers queue/case/policy/signal/audit/brief questions with rich inline tool-call rendering; invite + signup completes in one form submission.
+
+**Force-read (internal — MUST read before implementing):**
+
+- [ ] Phase 7.5 — Stakeholder UX (the surfaces being made live)
+- [ ] §7.7.5 State map — server state in TanStack Query, URL in TanStack Router, form in RHF (chat panel + org switcher comply)
+- [ ] §7.9 Per-run SSE pattern — the existing `case-stream.ts` is the proven template the new `/api/events/stream` mirrors
+- [ ] §7.11 Test posture
+
+**Force-read (external via context7 — MUST query before implementing):**
+
+- [ ] context7 `/better-auth/better-auth` — query: "organization plugin schema, databaseHooks.user.create.after auto-create-org pattern, creatorRole, acceptInvitation API, session.activeOrganizationId, requireEmailVerification configuration"
+- [ ] context7 `/mastra-ai/mastra` — query: "createTool with zod input/output, agent.stream with runtimeContext for per-call viewer, toAISdkStream from @mastra/ai-sdk version 6"
+- [ ] context7 `/vercel/ai` — query: "AI SDK 6 useChat with DefaultChatTransport, validateUIMessages, tool-call frame rendering, createUIMessageStreamResponse"
+- [ ] context7 `/honojs/hono` — query: "streamSSE helper with Last-Event-ID header parsing and abort handling"
+
+**In scope:**
+
+- better-auth `organization()` plugin wired with `creatorRole: "admin"`, `databaseHooks.user.create.after` for auto-create-org-or-accept-invite, `databaseHooks.session.create.before` for initial activeOrg
+- All domain tables gain `organization_id`; legacy `users.role` retired; hand-rolled `invitations` table replaced
+- `requireRole` middleware reads role from `member` for `session.activeOrganizationId`; `ViewerContext = {userId, role, organizationId}` is the canonical handler input
+- `live_events` table + `emitLiveEvent` helper batchable into `db.batch([primary, emit])`; workflow-step emits use inline try/catch
+- `GET /api/events/stream?topic=...` with three topic namespaces; 90 s wall-clock cap; Last-Event-ID resume
+- `useLiveEvents(topic)` web hook with `BroadcastChannel` + `navigator.locks` connection dedupe across tabs
+- Mastra `reviewerCopilot` agent with seven read-only tools + verbatim system prompt enforcing PRD §1 advisory framing
+- `chat_threads` + `chat_messages` D1 tables (per-user, per-org)
+- `POST /api/chat` streaming + `GET/POST /api/chat/threads` + `GET /api/chat/threads/:id` (no rename, no delete)
+- ChatPanel UI as plain controlled `<aside>` + active-org switcher in left sidebar footer
+- `emailAndPassword.autoSignIn = true`; no email verification
+- Copy-link button with `execCommand` + pre-disclosure modal fallback
+
+**Out of scope:**
+
+- Mutator chatbot tools — deferred to Phase 7.8 if demand surfaces
+- DO pub/sub — Phase 10 polish
+- Chat-agent Langfuse spans — Phase 8 (sub-bullet added there)
+- Chat tool-call eval — Phase 9 (sub-bullet added there)
+- Production deploy — Phase 10
+
+**Deliverable:**
+
+Fresh signup → admin of own org → empty queue. Invited signup → reviewer in inviter org → populated queue. Drag DRAFT card in tab A → tab B (same org) sees the move in <1 s. Open chat sidebar → ask "list my open cases" → agent calls `list_cases` → inline mini-table renders.
+
+**Acceptance criteria:**
+
+- Fresh `POST /api/auth/sign-up` returns 200 with session cookie; new user has one `member` row with `role = 'admin'`; their org is auto-named after them
+- Pre-existing pending invitation: same signup endpoint instead joins inviter's org with `role = 'reviewer'`; no new org created
+- `GET /api/cases` returns rows only for `session.activeOrganizationId`
+- Drag DRAFT → QUEUED in tab A → tab B's queue board reflects the change in <1 s without manual refresh
+- Action a case in tab A → admin's audit list shows the new row in <1 s
+- Chat panel: "show my SUSPENDED_HITL cases" → tool call renders as pending → loading shimmer → done; clicking a case row navigates to detail
+- Decision-question test: "should I approve case 102?" returns the verbatim refusal string from the system prompt
+- `Cmd+Shift+K` toggles chat panel; state persists across reload
+- Multi-org user: org switcher visible in left sidebar; switching invalidates all queries + chat reloads threads
+- Copy-link button works in Chromium + Firefox + WebKit
+- All four CI gates green: `bun run lint && bun run knip && bun run typecheck && bun run test`
+
+**Implementation notes:**
+
+- D1 batch cannot span the Mastra runtime; workflow-step emits use inline `try { await executeEmit } catch { logger.error }`. Mutating Hono route emits use `db.batch([primary, emit])` for atomicity.
+- The chat panel is a plain `<aside>` controlled by `localStorage`, not a shadcn `<Sidebar side="right">` — the shadcn primitive hardcodes its cookie name + global `Cmd+B` listener.
+- Read-side validation on `chat_messages.parts_json` insulates against AI SDK 6 minor-version schema drift.
+
+**Tests (per §7.11):**
+
+- Unit (bun test): `emitLiveEvent` atomicity, `LiveEventRowSchema` parsing, Mastra tool execute paths, viewer schema strict mode
+- Integration (Vitest + Miniflare): four authorization paths on `/api/events/stream`, mutating routes emit atomically, `/api/chat` happy + cross-user 403 + cross-org 403 + abort + schema-drift, both signup hooks (fresh + invited + already-member + expired-invite), `requireRole` per-org member lookup
+- AppType contract snapshot
+- E2E (Playwright LOCAL-ONLY): signup-and-invite flow (cross-browser) + chat tool-call happy path + decision-refusal exact-string assertion
+
+---
+
 ### Phase 8 — Observability (@mastra/observability + local Langfuse)
 
 **Goal:** Every Mastra step + every LLM call shows in a local Langfuse trace tree with token + cost auto-extracted. No production dependency.
@@ -834,6 +1010,7 @@ _Brief streaming UI:_
 - Root span pattern at every endpoint that triggers LLM-bearing work: `startObservation("brief.generate", { input, asType: "span" })` wraps the Mastra run; nested AI SDK calls inherit via OTel parent context (no manual trace-id plumbing)
 - Tool-level observation: every Mastra tool with an LLM body opens its own `startObservation(toolName, { ..., asType: "tool" })` and ends with `usageDetails`; the trace tree renders `brief.generate → step → tool → llm-generation` automatically
 - `experimental_telemetry` on EVERY AI SDK call per the Phase 2 contract — verified by a CI grep gate (`grep -rL "experimental_telemetry" packages/mastra/src/steps/` should return zero matches; every step file must contain the literal)
+- `reviewerCopilot` agent traces: every `agent.stream` invocation opens a `chat.session` root span; each tool call opens a child `tool.{toolName}` span with input + output captured; trace tree filters by `metadata.viewer.organizationId` so per-org dashboards are possible without query rewrites
 - `models.json` for Langfuse self-hosted to cover the Phase 0-resolved model list (`claude-haiku-4-5`, `claude-opus-4-7`, `gpt-4o`, `gpt-4o-mini`, `anthropic/claude-3.7-sonnet` via OpenRouter); checked into `docker/langfuse-models.json` and seeded into the Langfuse project on first run
 - Local Langfuse instance accessible at `http://localhost:3010`; project + API keys pre-seeded for the demo via a one-shot init script (`scripts/seed-langfuse.ts`); credentials surface in `.dev.vars`
 
@@ -897,6 +1074,7 @@ _Brief streaming UI:_
   - `llm-judge.eval.test.ts` — LLM-as-judge spec for drafted-message specificity (judge with a DIFFERENT provider from the one under test)
   - `provider-swap.eval.test.ts` — runs gold set with each of 3 providers; asserts recommendation stability ≥95%
   - `cost-regression.test.ts` — tracks per-test-run average cost in JSON ledger; alerts on >20% delta
+- `chat-tool-call.eval.test.ts`: 12 gold queries paired with expected tool-call sequences (e.g., "show me SUSPENDED_HITL cases" → expects exactly one `list_cases({status: "SUSPENDED_HITL"})` call). LLM-as-judge for the assistant's final-text quality on the same gold set, judged with a different provider. Refusal-pattern test: "should I approve case 102?" must produce the exact refusal string from the system prompt — no LLM judge, exact substring assertion
 - `npm run eval` script (manual run, not in CI default)
 - CI runs unit + integration + contract + e2e + a 3-case smoke-eval on push (per §7.11 CI policy)
 
@@ -957,8 +1135,10 @@ _Brief streaming UI:_
 - `wrangler deploy` to `mizan.<slug>.workers.dev`
 - Demo video recorded (Loom or local) ≤5min covering: problem framing, live brief streaming, HITL suspend/resume, Langfuse trace tree, eval spec run, provider swap demonstration
 - Architecture diagram extracted from §7.5 + §7.8 Mermaid into a 1-page PDF
+- Resumable brief streaming via a Durable-Object-backed resumable-stream store: a reviewer opening (or reloading) a RUNNING case reconnects to the in-flight brief token stream instead of the current 409 + poll-until-persisted behavior. Server exposes a `GET /api/cases/:id/brief/stream` resume route reading the run's `activeStreamId`; client uses `useChat({ resume: true })`. Mastra `resumeStream` covers HITL-resume only, not stream-rejoin — the DO is the Workers-native substitute for the AI SDK resumable-stream Redis store. Until shipped, the real-time SSE event bus (Phase 7.7) surfaces step-level progress from the `workflow_events` tape.
+- Migration deploy-safety hardening before the production `wrangler deploy`: the Phase 7.7 org-foundation migrations (`0007`/`0008`) include an `organization_id ADD COLUMN NOT NULL` without a backfill default and a `users.role` DROP. These applied cleanly to empty/reset local D1 throughout Phases 0–9, but the first real production deploy must guard against non-empty-table failure: add an explicit backfill/default step (or split add-nullable → backfill → set-not-null) and confirm no production data exists for the dropped column. Verify each migration against a non-empty D1 snapshot before the deploy. (Surfaced in the PR #12 review as finding #13 — real but premature; production data does not exist until this phase.)
 
-**Out of scope:** Any new feature, any production-only concern (DO pubsub, real reverse-image-search, real KYC).
+**Out of scope:** Any new feature beyond the above, real reverse-image-search, real KYC.
 
 **Deliverable:** Deployed URL + ≤5min video + repo with companion docs + 1-page architecture PDF.
 

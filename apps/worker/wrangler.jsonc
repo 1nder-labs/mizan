@@ -46,5 +46,7 @@
   "vars": {
     "DEFAULT_LLM_PROVIDER": "anthropic",
     "LANGFUSE_HOST": "",
+    "R2_ACCOUNT_ID": "558c97456d4a969cb82bee23d2054613",
+    "R2_BUCKET_NAME": "mizan-uploads",
   },
 }

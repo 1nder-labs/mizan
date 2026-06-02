@@ -26,6 +26,7 @@ function makeRow(index: number): CaseRow {
   return {
     id: `${hex}-1111-4111-8111-111111111111`,
     status: "READY_FOR_REVIEW",
+    title: `Campaign ${index}`,
     category: "humanitarian",
     geography: "PS",
     claimed_zakat_category: null,
@@ -68,8 +69,7 @@ describe("<QueueTable /> navigation", () => {
   test("renders all 8 rows", async () => {
     await renderTable();
     for (const row of ROWS) {
-      const shortId = row.id.slice(0, 8);
-      expect(await screen.findByText(shortId)).toBeInTheDocument();
+      expect(await screen.findByText(row.title)).toBeInTheDocument();
     }
   });
 
@@ -78,7 +78,7 @@ describe("<QueueTable /> navigation", () => {
     const user = userEvent.setup();
     const targetRow = ROWS[2];
     if (!targetRow) throw new Error("fixture row missing");
-    const cell = await screen.findByText(targetRow.id.slice(0, 8));
+    const cell = await screen.findByText(targetRow.title);
     await user.click(cell);
     expect(router.state.location.pathname).toBe(`/case/${targetRow.id}`);
   });

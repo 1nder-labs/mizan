@@ -1,38 +1,23 @@
 /**
  * Dual-mode `createAuth` factory for better-auth + better-auth-cloudflare.
- *
- * **Runtime mode** (`env` present): called per-request inside the `authInit`
- * middleware so that live Cloudflare bindings (D1, KV, R2) are resolved
- * from the request's env. Workers do not expose module-level singletons for
- * bindings; per-request init is the only correct pattern (PRD §12).
- *
- * **CLI mode** (`env` absent): `export const auth = createAuth()` at the
- * bottom of this file is the entry point for `@better-auth/cli generate`.
- * The CLI needs a drizzle-adapter attached so it can introspect the schema
- * and emit migration SQL. An empty object satisfies the adapter's open
- * `DB` interface structurally — no runtime call paths exercise it, so the
- * placeholder is safe and no cast is required.
  */
 
 import type { IncomingRequestCfProperties } from "@cloudflare/workers-types";
 import { betterAuth } from "better-auth";
+import { organization } from "better-auth/plugins";
 import { withCloudflare } from "better-auth-cloudflare";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { drizzle } from "drizzle-orm/d1";
-import { schema } from "@mizan/db";
+import { makeDb, schema } from "@mizan/db";
 import type { CloudflareBindings } from "../env.ts";
+import { buildOrgDatabaseHooks } from "./org-hooks.ts";
+import { orgAccessControl, orgRoles } from "./org-access.ts";
+import type { AuthLike } from "./org-invitations.ts";
 
 const R2_MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 const ALLOWED_UPLOAD_TYPES = [".pdf", ".png", ".jpg", ".jpeg", ".webp"];
 
-/**
- * Builds the first arg to `withCloudflare`.
- *
- * In CLI mode (`env` undefined) only the geolocation/cf scaffold is returned
- * — no `d1`/`kv`/`r2` bindings exist outside a request. The CLI-mode
- * `drizzleAdapter` is attached separately via spread in `createAuth`.
- */
 function buildCloudflareOptions(
   env: CloudflareBindings | undefined,
   cf: Partial<IncomingRequestCfProperties>,
@@ -70,18 +55,8 @@ const RATE_LIMIT_OPTIONS = {
 /**
  * Creates a fully-configured better-auth instance.
  *
- * Call with `(env, cf, origin)` inside Hono request handlers.
+ * Call with `(env, cf, origin, headers)` inside Hono request handlers.
  * Call with no arguments for CLI schema-generation mode.
- *
- * The single `@ts-expect-error` below tracks an upstream typing bug in
- * `better-auth-cloudflare@0.3.0`: its plugin declares optional endpoints
- * (e.g. `endpoints.upload?: StrictEndpoint`) which is structurally
- * incompatible with `better-auth`'s `BetterAuthPlugin.endpoints?: { [key:
- * string]: Endpoint }` (no `undefined` allowed in the index signature).
- * Runtime behaviour is correct — the plugin omits the undefined key when
- * R2 is not configured; only the type narrowing fails. Revisit when
- * `better-auth-cloudflare` ships a 0.4.x with declared `Endpoint`-typed
- * endpoints (Renovate-watched).
  */
 export function createAuth(
   env?: CloudflareBindings,
@@ -92,36 +67,37 @@ export function createAuth(
     ? {}
     : { database: drizzleAdapter({}, { provider: "sqlite", usePlural: true }) };
 
-  /**
-   * `@ts-ignore` (not `@ts-expect-error`) because the type incompatibility
-   * between better-auth-cloudflare@0.3.0 plugin endpoints and
-   * better-auth@1.6.x index signatures only surfaces under the worker's
-   * WebWorker lib; from `apps/web`'s DOM lib the types align and the
-   * directive would be flagged unused. Both lib environments need this
-   * call to compile, so the unconditional ignore is correct.
-   */
   // @ts-ignore better-auth-cloudflare@0.3.0 vs better-auth@1.6.x plugin endpoint signature drift
-  return betterAuth({
+  const auth = betterAuth({
     baseURL,
-    user: {
-      additionalFields: {
-        role: {
-          type: ["reviewer", "admin"],
-          required: false,
-          defaultValue: "reviewer",
-          input: false,
-        },
-      },
-    },
     emailAndPassword: {
       enabled: true,
-      autoSignIn: false,
+      autoSignIn: true,
       minPasswordLength: 12,
       maxPasswordLength: 128,
     },
     ...withCloudflare(buildCloudflareOptions(env, cf), RATE_LIMIT_OPTIONS),
     ...cliDatabase,
+    plugins: [
+      organization({
+        ac: orgAccessControl,
+        roles: orgRoles,
+        creatorRole: "admin",
+        allowUserToCreateOrganization: true,
+        invitationExpiresIn: 48 * 60 * 60,
+      }),
+    ],
+    ...(env
+      ? {
+          databaseHooks: buildOrgDatabaseHooks(
+            () => makeDb(env.DB),
+            (): AuthLike => auth,
+          ),
+        }
+      : {}),
   });
+
+  return auth;
 }
 
 /** CLI-mode singleton — consumed by `@better-auth/cli generate` only. */

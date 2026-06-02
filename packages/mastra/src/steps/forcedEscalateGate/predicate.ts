@@ -51,32 +51,39 @@ export function forceEscalate(input: {
 }
 
 /**
- * Reviewer-facing one-liner explaining why the gate fired. Data-driven
- * lookup over (verification_path, geography_tier) keeps the wording in
- * one table — drift between `forceEscalate` and this function would
- * otherwise be invisible until a reviewer reads a stale message.
+ * Reviewer-facing explanation for why the gate fired, written in plain
+ * language for a non-technical Trust & Safety reviewer — no internal field
+ * names (`verification_path=…`, `geography_tier=…`). Data-driven lookup over
+ * `verification_path` keeps the wording in one table so it can't drift from
+ * `forceEscalate`'s decision.
  */
 const REASON_BY_PATH: Readonly<Record<VerificationPath, string>> = {
-  documentary: "documentary evidence still requires manual OFAC SDN check at full-sanctions tier",
+  documentary:
+    "This case has documentary evidence, but it's in a sanctioned jurisdiction — a reviewer still needs to run the manual sanctions-list (SDN) check the AI can't perform.",
   institutional_vouching:
-    "no documentary verification path; trust = vouching strength — institutional vouching insufficient for non-SAFE jurisdiction (partner-org corroboration is organizer-supplied)",
+    "There's no documentary evidence here. Trust rests on an institutional vouch from a partner organization, which the organizer supplied — so in a higher-risk jurisdiction a reviewer needs to confirm that vouch independently.",
   community_vouching:
-    "no documentary verification path; trust = vouching strength — community vouching insufficient for non-SAFE jurisdiction (narrative corroboration is organizer-supplied)",
-  none: "no documentary verification path; trust = vouching strength — no vouching chain available, high-risk jurisdiction",
+    "There's no documentary evidence here. Trust rests on community vouching, which the organizer supplied — so in a higher-risk jurisdiction a reviewer needs to confirm the vouching chain independently.",
+  none: "There's no verification evidence on this case at all, and it's in a higher-risk jurisdiction — it needs a human decision before anything proceeds.",
+};
+
+/** Plain-language phrasing for each geography risk tier. */
+const TIER_PHRASE: Readonly<Record<GeographyTier, string>> = {
+  SAFE: "a safe jurisdiction",
+  AT_RISK: "an at-risk jurisdiction",
+  OFAC_ADJACENT: "an OFAC-adjacent jurisdiction",
+  OFAC: "an OFAC-sanctioned jurisdiction",
 };
 
 /**
- * Builds the human-readable reason string written to
- * `brief.forced_escalate_reason`. Renders the (path, tier, geography)
- * tuple plus a path-specific explanation.
+ * Builds the human-readable reason written to `brief.forced_escalate_reason`:
+ * a path-specific explanation followed by the case location and risk tier in
+ * plain words.
  */
 export function forcedEscalateReason(input: {
   verification_path: VerificationPath;
   geography_tier: GeographyTier;
   geography: string;
 }): string {
-  return (
-    `verification_path=${input.verification_path} + geography_tier=${input.geography_tier} ` +
-    `(case in ${input.geography}: ${REASON_BY_PATH[input.verification_path]})`
-  );
+  return `${REASON_BY_PATH[input.verification_path]} Location: ${input.geography} — ${TIER_PHRASE[input.geography_tier]}.`;
 }

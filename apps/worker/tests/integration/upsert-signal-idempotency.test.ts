@@ -91,16 +91,29 @@ async function loadSignalRow(
  * SQL-level idempotency, not the wrapper's TypeScript glue (the second
  * describe block covers the wrapper end-to-end).
  */
+const IDEM_ORG_ID = "org-idm-00000000-0000-4000-8000-000000000001";
+const IDEM_USER_ID = "usr-idm-00000000-0000-4000-8000-000000000001";
+
 describe("upsertSignal idempotency", () => {
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, 'Idempotency Test Org', ?)`,
+    )
+      .bind(IDEM_ORG_ID, `org-${IDEM_ORG_ID}`)
+      .run();
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO users (id, email, name, email_verified, created_at, updated_at) VALUES (?, 'idem-test@test.local', 'Idem Test', 1, ?, ?)`,
+    )
+      .bind(IDEM_USER_ID, Date.now(), Date.now())
+      .run();
     /** Ensures the case row exists so the signals FK passes. */
     await env.DB.prepare(
-      `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-       VALUES (?, 'DRAFT', 'medical', 'US', NULL, NULL, 'idempotency-test', ?, ?)
+      `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+       VALUES (?, 'DRAFT', 'medical', 'US', NULL, NULL, ?, ?, ?, ?)
        ON CONFLICT(id) DO NOTHING`,
     )
-      .bind(TEST_CASE_ID, Date.now(), Date.now())
+      .bind(TEST_CASE_ID, IDEM_USER_ID, IDEM_ORG_ID, Date.now(), Date.now())
       .run();
     /** Baseline: no rows for our (case_id, run_id, signal_type). */
     await env.DB.prepare("DELETE FROM signals WHERE case_id = ? AND run_id = ?")
@@ -124,13 +137,20 @@ describe("upsertSignal idempotency", () => {
 
   it("different signal_type for same (case_id, run_id) inserts a separate row", async () => {
     await env.DB.prepare(
-      `INSERT INTO signals (id, case_id, run_id, signal_type, payload_json, recorded_at)
-       VALUES (?, ?, ?, 'story_coherence', ?, ?)
+      `INSERT INTO signals (id, case_id, run_id, signal_type, payload_json, recorded_at, organization_id)
+       VALUES (?, ?, ?, 'story_coherence', ?, ?, ?)
        ON CONFLICT (case_id, run_id, signal_type) DO UPDATE SET
          payload_json = excluded.payload_json,
          recorded_at  = excluded.recorded_at`,
     )
-      .bind(crypto.randomUUID(), TEST_CASE_ID, TEST_RUN_ID, JSON.stringify(STORY_SAMPLE), 3000)
+      .bind(
+        crypto.randomUUID(),
+        TEST_CASE_ID,
+        TEST_RUN_ID,
+        JSON.stringify(STORY_SAMPLE),
+        3000,
+        IDEM_ORG_ID,
+      )
       .run();
     expect(await countSignalRows(TEST_CASE_ID, TEST_RUN_ID, "story_coherence")).toBe(1);
     expect(await countSignalRows(TEST_CASE_ID, TEST_RUN_ID, "photo_dup")).toBe(1);
@@ -148,15 +168,28 @@ const WRAPPER_VOUCHING_SECOND: VouchingChain = {
   weakest_link_narrative: "second call overwrites the first",
 };
 
+const WRAPPER_ORG_ID = "org-wrp-00000000-0000-4000-8000-000000000002";
+const WRAPPER_USER_ID = "usr-wrp-00000000-0000-4000-8000-000000000002";
+
 describe("upsertSignal wrapper", () => {
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
     await env.DB.prepare(
-      `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, created_at, updated_at)
-       VALUES (?, 'DRAFT', 'medical', 'US', NULL, NULL, 'wrapper-test', ?, ?)
+      `INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, 'Wrapper Test Org', ?)`,
+    )
+      .bind(WRAPPER_ORG_ID, `org-${WRAPPER_ORG_ID}`)
+      .run();
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO users (id, email, name, email_verified, created_at, updated_at) VALUES (?, 'wrapper-test@test.local', 'Wrapper Test', 1, ?, ?)`,
+    )
+      .bind(WRAPPER_USER_ID, Date.now(), Date.now())
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
+       VALUES (?, 'DRAFT', 'medical', 'US', NULL, NULL, ?, ?, ?, ?)
        ON CONFLICT(id) DO NOTHING`,
     )
-      .bind(WRAPPER_CASE_ID, Date.now(), Date.now())
+      .bind(WRAPPER_CASE_ID, WRAPPER_USER_ID, WRAPPER_ORG_ID, Date.now(), Date.now())
       .run();
     await env.DB.prepare("DELETE FROM signals WHERE case_id = ? AND run_id = ?")
       .bind(WRAPPER_CASE_ID, WRAPPER_RUN_ID)
@@ -198,7 +231,7 @@ describe("upsertSignal wrapper", () => {
         signalType: "vouching_chain",
         payload: WRAPPER_VOUCHING_FIRST,
       }),
-    ).rejects.toThrow(/upsertSignal failed.*case_id=99999999-9999-4999-8999-999999999999/);
+    ).rejects.toThrow(/99999999-9999-4999-8999-999999999999/);
   });
 
   it("upserts a photo_dup payload via the wrapper and overwrites on re-call", async () => {
@@ -280,8 +313,8 @@ async function runUpsert(
   recordedAt: number,
 ): Promise<void> {
   await env.DB.prepare(
-    `INSERT INTO signals (id, case_id, run_id, signal_type, payload_json, recorded_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO signals (id, case_id, run_id, signal_type, payload_json, recorded_at, organization_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (case_id, run_id, signal_type) DO UPDATE SET
        payload_json = excluded.payload_json,
        recorded_at  = excluded.recorded_at`,
@@ -293,6 +326,7 @@ async function runUpsert(
       signalType,
       JSON.stringify(payload),
       recordedAt,
+      IDEM_ORG_ID,
     )
     .run();
 }

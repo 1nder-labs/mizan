@@ -16,3 +16,10 @@ export const LoginSchema = z
   .strict();
 
 export type LoginInput = z.infer<typeof LoginSchema>;
+
+/** Sign-up form extends login with display name. */
+export const SignupSchema = LoginSchema.extend({
+  name: z.string().min(1, "Name is required").max(120, "Name is too long"),
+}).strict();
+
+export type SignupInput = z.infer<typeof SignupSchema>;

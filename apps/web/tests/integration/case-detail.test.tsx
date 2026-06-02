@@ -10,7 +10,7 @@
  * `await router.load()` before mount so the first paint isn't the
  * router's empty loading shim.
  */
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -20,6 +20,11 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 import type { CaseDetailResponse, CaseRow } from "@mizan/shared";
+
+vi.mock("@/components/brief/use-workflow-tape-invalidation.ts", () => ({
+  useWorkflowTapeInvalidation: () => undefined,
+}));
+
 import { CaseDetail } from "../../src/components/case/detail.tsx";
 
 const baseCase: CaseRow = {
@@ -91,5 +96,14 @@ describe("<CaseDetail /> integration", () => {
     );
     expect(await screen.findByText(/no brief on file/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate brief/i })).toBeInTheDocument();
+  });
+
+  test("SUSPENDED_HITL renders the action panel instead of stream or empty", async () => {
+    await renderDetail(
+      <CaseDetail caseRow={{ ...baseCase, status: "SUSPENDED_HITL" }} brief={briefFixture} />,
+    );
+    expect(await screen.findByRole("button", { name: /^submit$/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(5);
+    expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
   });
 });
