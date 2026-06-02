@@ -3,8 +3,10 @@
 ## Symptom
 
 Running the **entire** worker integration suite (`bun --filter @mizan/worker test:integration`,
-36 files) intermittently fails **one** file — `tests/integration/live-events-emit.test.ts` —
-with hundreds of repeated errors:
+36 files) intermittently fails **one** file with hundreds of repeated errors. The victim file is
+**non-deterministic** — it is whichever heavy span-exercising file happens to run after ~30 files
+under heap pressure. Observed victims: `tests/integration/live-events-emit.test.ts` (first sighting)
+and `tests/integration/mode-b-dlq-failed.test.ts` (client-portal pre-PR run). The error:
 
 ```
 DataCloneError: ServiceStub serialization requires the 'experimental' compat flag.
