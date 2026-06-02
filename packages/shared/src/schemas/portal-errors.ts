@@ -8,7 +8,7 @@ import { z } from "zod";
  * units (campaign edit conflict, evidence-upload failures) as new failure
  * modes land.
  */
-export const PortalErrorCodeEnum = z.enum(["campaign_not_found"]);
+export const PortalErrorCodeEnum = z.enum(["campaign_not_found", "case_no_longer_draft"]);
 export type PortalErrorCode = z.infer<typeof PortalErrorCodeEnum>;
 
 export const PortalErrorBodySchema = z.object({ error: PortalErrorCodeEnum }).strict();

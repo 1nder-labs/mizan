@@ -247,3 +247,10 @@ export {
   type PortalErrorBody,
   type PortalErrorCode,
 } from "./schemas/portal-errors.ts";
+
+export {
+  CampaignCreateSchema,
+  CampaignMutationResponseSchema,
+  type CampaignCreate,
+  type CampaignMutationResponse,
+} from "./schemas/campaign.ts";
