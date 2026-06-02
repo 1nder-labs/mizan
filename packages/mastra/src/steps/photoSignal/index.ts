@@ -4,6 +4,7 @@ import { getEnv } from "../../runtime/context-accessors.ts";
 import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
 import { aiGenStub } from "../../tools/ai-gen-stub.ts";
 import { reverseImageStub } from "../../tools/reverse-image-stub.ts";
+import { traceTool } from "../shared/trace-tool.ts";
 import { upsertSignal } from "../shared/upsertSignal.ts";
 import { composePhotoSignalPayload } from "./helpers.ts";
 
@@ -25,17 +26,27 @@ export const photoSignal = createStep({
   id: "photoSignal",
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
-  execute: async ({ inputData, requestContext, abortSignal }) => {
+  execute: async ({ inputData, requestContext, abortSignal, tracingContext }) => {
     const env = getEnv(requestContext);
     abortSignal?.throwIfAborted();
     const caseRow = await loadCaseContext(env, inputData.caseId);
     abortSignal?.throwIfAborted();
     const salt = inputData.caseId;
+    const creatorKey = caseRow.r2_keys.creator_id;
+    const categoryKey = caseRow.r2_keys.category_doc;
     const [creatorReverse, creatorAiGen, categoryReverse, categoryAiGen] = await Promise.all([
-      reverseImageStub({ r2_key: caseRow.r2_keys.creator_id, salt }),
-      aiGenStub({ r2_key: caseRow.r2_keys.creator_id, salt }),
-      reverseImageStub({ r2_key: caseRow.r2_keys.category_doc, salt }),
-      aiGenStub({ r2_key: caseRow.r2_keys.category_doc, salt }),
+      traceTool(tracingContext, "reverseImageLookup", { r2_key: creatorKey }, () =>
+        reverseImageStub({ r2_key: creatorKey, salt }),
+      ),
+      traceTool(tracingContext, "aiGenDetection", { r2_key: creatorKey }, () =>
+        aiGenStub({ r2_key: creatorKey, salt }),
+      ),
+      traceTool(tracingContext, "reverseImageLookup", { r2_key: categoryKey }, () =>
+        reverseImageStub({ r2_key: categoryKey, salt }),
+      ),
+      traceTool(tracingContext, "aiGenDetection", { r2_key: categoryKey }, () =>
+        aiGenStub({ r2_key: categoryKey, salt }),
+      ),
     ]);
     abortSignal?.throwIfAborted();
     const payload = composePhotoSignalPayload({

@@ -176,23 +176,47 @@ function sanitizeSchemaName(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_");
 }
 
+/** Maps the AI SDK usage onto Mastra's `UsageStats` (omitting absent counts). */
+function buildUsageAttributes(usage: {
+  inputTokens?: number | undefined;
+  outputTokens?: number | undefined;
+}): { usage: { inputTokens?: number; outputTokens?: number } } {
+  return {
+    usage: {
+      ...(usage.inputTokens !== undefined ? { inputTokens: usage.inputTokens } : {}),
+      ...(usage.outputTokens !== undefined ? { outputTokens: usage.outputTokens } : {}),
+    },
+  };
+}
+
 /**
- * Runs `generateText` inside a Mastra `MODEL_GENERATION` child span so the
- * call surfaces as a Langfuse generation — with token usage (and therefore
- * USD cost, once the model is priced) — nested under the owning step. Raw
- * AI SDK calls are otherwise invisible to the native `@mastra/langfuse`
- * exporter, which only maps Mastra-emitted spans. No-ops cleanly when no
- * tracing context is present (`currentSpan` undefined → span undefined).
+ * Runs `generateText` under two nested Mastra spans:
+ *
+ *   GENERIC `<stepName>`  →  MODEL_GENERATION `<stepName>.<purpose>`
+ *
+ * The exporter hard-codes the generation's display name to `chat <model>`
+ * (`getSpanName` uses `gen_ai.operation` + the model), so the model call
+ * alone never reveals which step it belongs to. The GENERIC parent uses its
+ * `name` verbatim, so the trace tree reads `extractCreatorIdDoc → chat
+ * <model>`. The MODEL_GENERATION span still carries token usage so the
+ * generation is costed. No-ops cleanly when no tracing context is present.
  */
 async function runTracedGeneration<TOutput>(
   invocation: StructuredLlmInvocationWithMessages<TOutput>,
   generateArgs: ReturnType<typeof buildGenerateArgs<TOutput>>,
   config: ModelConfig,
 ) {
-  const span = invocation.tracingContext?.currentSpan?.createChildSpan({
+  const stepSpan = invocation.tracingContext?.currentSpan?.createChildSpan({
+    name: invocation.stepName,
+    type: SpanType.GENERIC,
+    entityName: invocation.stepName,
+    input: { system: invocation.system },
+  });
+  const genSpan = (stepSpan ?? invocation.tracingContext?.currentSpan)?.createChildSpan({
     name: `${invocation.stepName}.${callPurposeFor(invocation.modelKind)}`,
     type: SpanType.MODEL_GENERATION,
-    input: { system: invocation.system, messages: invocation.messages },
+    entityName: invocation.stepName,
+    input: { messages: invocation.messages },
     attributes: { model: config.model, provider: config.provider },
   });
   try {
@@ -201,16 +225,13 @@ async function runTracedGeneration<TOutput>(
         ? { ...generateArgs, abortSignal: invocation.abortSignal }
         : generateArgs,
     );
-    const usage = {
-      ...(result.usage?.inputTokens !== undefined ? { inputTokens: result.usage.inputTokens } : {}),
-      ...(result.usage?.outputTokens !== undefined
-        ? { outputTokens: result.usage.outputTokens }
-        : {}),
-    };
-    span?.end({ output: result.output, attributes: { usage } });
+    genSpan?.end({ output: result.output, attributes: buildUsageAttributes(result.usage) });
+    stepSpan?.end({ output: result.output });
     return result;
   } catch (cause) {
-    span?.error({ error: cause instanceof Error ? cause : new Error(String(cause)) });
+    const error = cause instanceof Error ? cause : new Error(String(cause));
+    genSpan?.error({ error });
+    stepSpan?.error({ error });
     throw cause;
   }
 }
