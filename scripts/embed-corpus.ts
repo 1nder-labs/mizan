@@ -34,7 +34,7 @@ function parseCli(argv: string[]): CliOptions {
       source = value;
     }
   }
-  return { dryRun, source };
+  return { dryRun, ...(source !== undefined ? { source } : {}) };
 }
 
 function requireRealEmbedEnvironment(dryRun: boolean): void {
@@ -133,9 +133,11 @@ async function upsertViaWrangler(ndjsonPath: string): Promise<void> {
 async function main(): Promise<void> {
   const options = parseCli(process.argv.slice(2));
   requireRealEmbedEnvironment(options.dryRun);
+  const openaiKey = process.env["OPENAI_API_KEY"];
+  const mockLlm = process.env["MOCK_LLM_RESPONSES"];
   const env = {
-    OPENAI_API_KEY: process.env["OPENAI_API_KEY"],
-    MOCK_LLM_RESPONSES: process.env["MOCK_LLM_RESPONSES"],
+    ...(openaiKey !== undefined ? { OPENAI_API_KEY: openaiKey } : {}),
+    ...(mockLlm !== undefined ? { MOCK_LLM_RESPONSES: mockLlm } : {}),
   };
   const vectors = await computeCorpusVectors(options, env);
   if (options.dryRun) {
