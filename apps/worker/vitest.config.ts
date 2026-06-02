@@ -47,6 +47,7 @@ export default defineConfig({
             miniflare: {
               bindings: {
                 MOCK_PROVIDERS_ALLOWED: "1",
+                REVIEW_ORG_ID: "review-org-fixture",
                 RUN_REMOTE_VECTORIZE: RUN_REMOTE ? "1" : "0",
                 RUN_LANGFUSE_E2E: process.env.RUN_LANGFUSE_E2E === "1" ? "1" : "0",
                 RUN_EVAL: RUN_REMOTE && process.env.RUN_EVAL === "1" ? "1" : "0",

@@ -3,6 +3,13 @@ OPENAI_API_KEY=
 OPENROUTER_API_KEY=
 BETTER_AUTH_SECRET=
 
+# Single designated review org that client self-signups join as `client`
+# members. Run `bun run seed:users` against the local worker — it prints the
+# seeded admin's org id — then paste it here and restart the worker.
+# Empty/unset makes client signup fail loud (resolveReviewOrgId throws);
+# internal + invited signups are unaffected.
+REVIEW_ORG_ID=
+
 # R2 API token — create at Cloudflare dashboard → R2 → Manage R2 API Tokens.
 # Scope MUST be "Object Read Only" on the `mizan-uploads` bucket.
 # Account ID + bucket name live in `wrangler.jsonc` `vars` (non-secret).

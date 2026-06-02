@@ -118,4 +118,30 @@ describe("org signup hooks", () => {
       .first<{ status: string }>();
     expect(invitationStatus?.status).toBe("accepted");
   });
+
+  it("explicit signupKind=internal still creates an own admin org", async () => {
+    const email = `org-internal-${Date.now()}@test.local`;
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/auth/sign-up/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password: "CorrectHorse99!!",
+          name: "Internal Kind User",
+          signupKind: "internal",
+        }),
+      }),
+    );
+    expect(res.status).toBe(200);
+
+    const userRow = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
+      .bind(email)
+      .first<{ id: string }>();
+    if (!userRow?.id) throw new Error("internal signup user row missing");
+
+    const membership = await loadMembership(userRow.id);
+    expect(membership?.role).toBe("admin");
+    expect(membership?.organization_id).toMatch(/^[a-zA-Z0-9_-]+$/);
+  });
 });

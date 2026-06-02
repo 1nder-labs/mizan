@@ -33,12 +33,18 @@ function workspaceSlug(user: { name?: string | null; email: string }): string {
  * Invited signups join the inviter's org; the invitations row is marked
  * accepted to keep it single-use (better-auth exposes no server-only accept
  * endpoint — `addMember` adds the membership and the status flip consumes the
- * invitations).
+ * invitations). Un-invited signups with `signupKind === "client"` join the
+ * single designated review org as `client` members (the portal self-signup
+ * path); every other un-invited signup creates its own admin org (the
+ * internal default, preserving the existing bootstrap). `signupKind` is a
+ * server-trusted discriminator only — the role and org are assigned per
+ * branch here, never read from the client body.
  */
 async function provisionOrgOnSignup(
-  user: { id: string; email: string; name?: string | null },
+  user: { id: string; email: string; name?: string | null; signupKind?: string | null },
   getDb: () => Db,
   getAuth: () => AuthLike,
+  getReviewOrgId: () => string,
 ): Promise<void> {
   const db = getDb();
   const api = getOrganizationInvitationApi(getAuth());
@@ -59,6 +65,12 @@ async function provisionOrgOnSignup(
       body: { userId: user.id, organizationId: pending.organizationId, role: pending.role },
     });
     await db.update(invitations).set({ status: "accepted" }).where(eq(invitations.id, pending.id));
+    return;
+  }
+  if (user.signupKind === "client") {
+    await api.addMember({
+      body: { userId: user.id, organizationId: getReviewOrgId(), role: "client" },
+    });
     return;
   }
   await api.createOrganization({
@@ -91,12 +103,20 @@ async function seedActiveOrganization(
 /**
  * better-auth database hooks for org auto-provision on signup and active-org seeding.
  */
-export function buildOrgDatabaseHooks(getDb: () => Db, getAuth: () => AuthLike) {
+export function buildOrgDatabaseHooks(
+  getDb: () => Db,
+  getAuth: () => AuthLike,
+  getReviewOrgId: () => string,
+) {
   return {
     user: {
       create: {
-        after: (user: { id: string; email: string; name?: string | null }) =>
-          provisionOrgOnSignup(user, getDb, getAuth),
+        after: (user: {
+          id: string;
+          email: string;
+          name?: string | null;
+          signupKind?: string | null;
+        }) => provisionOrgOnSignup(user, getDb, getAuth, getReviewOrgId),
       },
     },
     session: {
