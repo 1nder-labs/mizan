@@ -12,7 +12,7 @@ import { createSearchPolicyTool } from "./search-policy.ts";
 export type { CopilotHandlerDeps, CopilotRuntimeBag } from "./deps.ts";
 
 /** Copilot caller roles. Mirrors `ViewerContext.role`. */
-export type CopilotRole = "admin" | "reviewer";
+export type CopilotRole = "admin" | "reviewer" | "client";
 
 /**
  * Tool ids a non-admin reviewer is never handed. This is the model-layer

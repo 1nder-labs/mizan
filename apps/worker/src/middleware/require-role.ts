@@ -18,7 +18,7 @@ export type ViewerVariables = AuthVariables & {
 };
 
 function parseMemberRole(value: string): Role | null {
-  if (value === "reviewer" || value === "admin") return value;
+  if (value === "reviewer" || value === "admin" || value === "client") return value;
   return null;
 }
 

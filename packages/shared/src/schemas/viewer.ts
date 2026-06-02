@@ -4,7 +4,7 @@ import { z } from "zod";
 export const ViewerContextSchema = z
   .object({
     userId: z.string(),
-    role: z.enum(["reviewer", "admin"]),
+    role: z.enum(["reviewer", "admin", "client"]),
     organizationId: z.string(),
   })
   .strict();

@@ -37,7 +37,7 @@ export const members = sqliteTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    role: text("role", { enum: ["admin", "reviewer"] as const }).notNull(),
+    role: text("role", { enum: ["admin", "reviewer", "client"] as const }).notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
       .notNull(),
@@ -56,7 +56,7 @@ export const invitations = sqliteTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    role: text("role", { enum: ["admin", "reviewer"] as const })
+    role: text("role", { enum: ["admin", "reviewer", "client"] as const })
       .notNull()
       .default("reviewer"),
     status: text("status", {

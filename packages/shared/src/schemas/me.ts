@@ -7,7 +7,7 @@ export const MeResponseSchema = z
       .object({
         id: z.string(),
         email: z.string(),
-        role: z.enum(["reviewer", "admin"]),
+        role: z.enum(["reviewer", "admin", "client"]),
         activeOrganizationId: z.string().nullable(),
       })
       .strict(),

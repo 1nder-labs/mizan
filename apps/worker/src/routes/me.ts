@@ -11,6 +11,7 @@ import type { Role } from "../middleware/role-utils.ts";
 
 function parseMemberRole(value: string): Role {
   if (value === "admin") return "admin";
+  if (value === "client") return "client";
   return "reviewer";
 }
 
