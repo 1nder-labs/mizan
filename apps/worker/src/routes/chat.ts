@@ -146,5 +146,5 @@ export const chatRoutes = new Hono<{
     const db = makeDb(c.env.DB);
     const owned = await assertThreadOwner(db, body.threadId, viewer);
     if (!owned.ok) return c.json({ error: "forbidden" }, owned.status);
-    return handleChatPost(c, body, viewer, db);
+    return handleChatPost(c, body, viewer, db, c.executionCtx);
   });

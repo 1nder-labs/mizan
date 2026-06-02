@@ -100,14 +100,18 @@ async function runWorkflow(
     caseId: message.caseId,
     runId: message.runId,
     reviewerId: message.requestedBy,
+    organizationId: caseRow.organization_id,
     category: caseRow.category,
     geography: caseRow.geography,
   });
-  await run.start({
-    inputData: { caseId: message.caseId, runId: message.runId },
-    requestContext,
-  });
-  flushLangfuse(langfuse, executionCtx);
+  try {
+    await run.start({
+      inputData: { caseId: message.caseId, runId: message.runId },
+      requestContext,
+    });
+  } finally {
+    flushLangfuse(langfuse, executionCtx);
+  }
 }
 
 /**

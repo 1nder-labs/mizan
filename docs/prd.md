@@ -998,21 +998,23 @@ Fresh signup → admin of own org → empty queue. Invited signup → reviewer i
 
 **Force-read (external via context7 — MUST query before implementing):**
 
-- [ ] context7 `/mastra-ai/mastra` — query: "@mastra/observability setup; Langfuse exporter; auto-traced spans vs manual instrumentation; token + cost extraction from traces"
-- [ ] context7 `/langfuse/langfuse-docs` — query: "Self-hosted Docker compose setup for local dev; LangfuseExporter from langfuse-vercel; OpenTelemetry registerOTel pattern for Workers"
+- [ ] context7 `/mastra-ai/mastra` — query: "@mastra/observability Observability config; LangfuseExporter options; excludeSpanTypes/spanFilter to drop MODEL_CHUNK noise; agent.stream tracing + registering a standalone Agent with Mastra so its spans export; setting sessionId on telemetry for linkable runs"
+- [ ] context7 `/langfuse/langfuse-docs` — query: "self-hosted headless init LANGFUSE_INIT_ORG/PROJECT/USER env vars + public/secret key seeding; models API create custom model pricing; self-hosted v2 required env (NEXTAUTH_SECRET, SALT, ENCRYPTION_KEY, DATABASE_URL)"
 - [ ] context7 `/langfuse/langfuse-docs` — query: "trace tree filtering by session/user/tag/metadata; cost tracking per provider/model"
 
 **In scope:**
 
 - `docker/docker-compose.langfuse.yml` (Langfuse + Postgres, `name: mizan-langfuse`, containers named `mizan-langfuse` + `mizan-langfuse-db`) — already scaffolded in Phase 0, now started + connected
-- Provider factory (`packages/mastra/src/models/factory.ts`) wires `langfuse-vercel` `LangfuseExporter` into `registerOTel` (called ONCE at Worker boot via `src/instrumentation.ts`); single injection point so every model produced via `getModel` is traceable
-- `packages/mastra/src/observability/flush.ts` exports `flushLangfuse(ctx: ExecutionContext): void` that defers `langfuseSpanProcessor.forceFlush()` via `ctx.waitUntil(...)` — mandatory on Workers because the runtime exits before background flushes complete
-- Root span pattern at every endpoint that triggers LLM-bearing work: `startObservation("brief.generate", { input, asType: "span" })` wraps the Mastra run; nested AI SDK calls inherit via OTel parent context (no manual trace-id plumbing)
-- Tool-level observation: every Mastra tool with an LLM body opens its own `startObservation(toolName, { ..., asType: "tool" })` and ends with `usageDetails`; the trace tree renders `brief.generate → step → tool → llm-generation` automatically
-- `experimental_telemetry` on EVERY AI SDK call per the Phase 2 contract — verified by a CI grep gate (`grep -rL "experimental_telemetry" packages/mastra/src/steps/` should return zero matches; every step file must contain the literal)
-- `reviewerCopilot` agent traces: every `agent.stream` invocation opens a `chat.session` root span; each tool call opens a child `tool.{toolName}` span with input + output captured; trace tree filters by `metadata.viewer.organizationId` so per-org dashboards are possible without query rewrites
-- `models.json` for Langfuse self-hosted to cover the Phase 0-resolved model list (`claude-haiku-4-5`, `claude-opus-4-7`, `gpt-4o`, `gpt-4o-mini`, `anthropic/claude-3.7-sonnet` via OpenRouter); checked into `docker/langfuse-models.json` and seeded into the Langfuse project on first run
-- Local Langfuse instance accessible at `http://localhost:3010`; project + API keys pre-seeded for the demo via a one-shot init script (`scripts/seed-langfuse.ts`); credentials surface in `.dev.vars`
+- Native Mastra observability path: `@mastra/langfuse` `LangfuseExporter` wired via `Mastra({ observability: new Observability({ configs: { langfuse: { serviceName: "mizan", exporters: [langfuse], excludeSpanTypes: [SpanType.MODEL_CHUNK] } } }) })` — NO `registerOTel`, NO `instrumentation.ts`, NO `langfuse-vercel`, NO `@vercel/otel`
+- `packages/mastra/src/observability/flush.ts` exports `flushLangfuse(exporter: LangfuseExporter | null, ctx: ExecutionContext): void` that defers `exporter.flush()` via `ctx.waitUntil(...)` — mandatory on Workers because the runtime exits before background flushes complete; null-safe (returns immediately when exporter is null)
+- Every AI SDK call site uses `experimental_telemetry` via `makeTelemetry()` (Phase 2 contract); spans propagate automatically through the Mastra `Observability` integration — NO manual `startObservation`
+- Fail-closed credential gate: `buildLangfuseExporter` returns `null` when ANY of `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, or `LANGFUSE_HOST` is absent/empty — `LANGFUSE_HOST=""` is a true opt-out even with keys present (prevents PII egress to SDK-default cloud endpoint)
+- `reviewerCopilot` agent traces: the agent is registered with the Mastra `Observability` instance so its `agent.stream` calls produce a `chat.session` root trace with child `tool.{toolName}` spans; flush runs in the SSE stream's `onFinish` callback via `waitUntil` (off the response path)
+- `metadata.organizationId` (flat) on every trace for per-org dashboard filtering — NOT `metadata.viewer.organizationId` (nested)
+- HITL trace linkage via deterministic `sessionId` derived from `runId` (pure hash, no shared state) — a brief run and its reviewer-action carry the same `sessionId` so they are linkable in the Langfuse UI. NOTE: the reviewer-action resume is an inline D1 chain (not a Mastra `run.resume`), so one merged trace is not achievable; `sessionId` linkage is the primary approach
+- `docker/langfuse-models.json` + `scripts/seed-langfuse.ts` — model-pricing-only seed (Langfuse models API); project/keys come from `LANGFUSE_INIT_*` headless init vars, NOT the seed script
+- CI gate: a scope-bounded check ensures every workflow step in `packages/mastra/src/steps/**` routes through `runStructuredLlm` (which applies `experimental_telemetry`) — catches telemetry bypass at CI time
+- **PII/Phase-10 prerequisite:** brief + chat spans capture campaign PII (bank-statement text, creator/beneficiary IDs, `reviewer_email`, brief `payload_json`). Local-only Docker contains it now (data at rest in the gitignored `langfuse-db-data` volume, no retention policy); the fail-closed gate (`LANGFUSE_HOST=""` → exporter null) is the interim guard. Span input/output masking is a concrete Phase 10 in-scope bullet (see § Phase 10 — In scope, "Langfuse span input/output masking") that must land before any non-local `LANGFUSE_HOST` is configured
 
 **Out of scope:** Production Langfuse, drift alerts, cost-regression dashboard (Phase 9 owns regression), eval harness (Phase 9), polish (Phase 10).
 
@@ -1024,24 +1026,27 @@ Fresh signup → admin of own org → empty queue. Invited signup → reviewer i
 - Trigger a brief via wrangler dev → trace appears in dashboard within seconds (≤ 3s typical, ≤ 10s p95)
 - Trace tree shows: `brief.generate` root span → workflow steps (`extract*`, `matchPolicy`, `composeBrief`, `awaitReviewerAction`, `recordAction`) → tool spans (`ocr.extract-id`, `reverseImageMock.lookup`, `registryLookup.query`, etc.) → LLM generations w/ token + cost
 - Token + cost visible per generation; aggregate cost per brief computed by Langfuse (verified ±5% vs `@mizan/eval` cost ledger in Phase 9)
-- Setting `LANGFUSE_HOST=""` (empty) → telemetry no-ops cleanly; zero overhead; no errors in worker logs
-- Filtering: in Langfuse UI, filter by `tags=["mizan"]` and a specific `userId` reproduces only that reviewer's runs; filter by `metadata.caseId=<id>` returns exactly the runs for that case
-- HITL continuity: a brief that suspends + resumes produces ONE trace (not two), verified by checking the trace tree contains both pre-suspend + post-resume spans under the same root
+- Setting `LANGFUSE_HOST=""` (empty) OR any credential absent → `buildLangfuseExporter` returns null → telemetry no-ops; zero overhead; no Langfuse network calls; no errors in worker logs
+- Filtering: in Langfuse UI, filter by `tags=["mizan"]` and a specific `userId` reproduces only that reviewer's runs; filter by `metadata.caseId=<id>` returns exactly the runs for that case; filter by `metadata.organizationId=<orgId>` returns only that org's runs
+- HITL continuity: a brief that suspends + resumes carries the same deterministic `sessionId` on both the brief trace and the action path; filtering Langfuse by that `sessionId` returns the brief run (and any action observation). NOTE: the action resume is an inline D1 chain, not a Mastra `run.resume`, so a single merged trace is not achievable — `sessionId` linkage is the primary approach
 
 **Implementation notes:**
 
 - Langfuse credentials (`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`) live in `.dev.vars` (local only, never committed); in prod, set via `wrangler secret put`. Do NOT ship credentials in `wrangler.jsonc` `vars` — those are public.
-- `registerOTel({ serviceName: "mizan", traceExporter: new LangfuseExporter({ sampleRate: 1.0, environment: env.ENVIRONMENT ?? "development" }) })` called ONCE at Worker boot from `apps/worker/src/instrumentation.ts`.
-- `LANGFUSE_HOST` empty in CI → exporter's `isEnabled` short-circuits → zero overhead; CI tests verify this path by setting `LANGFUSE_HOST=""` and asserting trace tree call produces no network requests.
-- Forward `c.executionCtx` from every Hono handler that opens a root span; `flushLangfuse(c.executionCtx)` runs the flush in `waitUntil` so the response isn't blocked. Verified in integration test by measuring response latency w/ + w/o Langfuse — delta < 5ms.
-- Workers' execution-context `waitUntil` is the ONLY safe place to schedule the flush; `setTimeout` is blocked + `process.on("beforeExit")` doesn't exist on Workers.
-- `models.json` shape: `[{ "model_name": "claude-opus-4-7", "input_price": 0.000015, "output_price": 0.000075, "unit": "TOKENS", "tokenizer_id": "claude" }, ...]`. Update on every provider price change (Phase 10 ops doc).
+- **Fail-closed gate:** `buildLangfuseExporter(env)` returns `null` when ANY of `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, or `LANGFUSE_HOST` is absent/empty. `LANGFUSE_HOST=""` is a true opt-out even with keys present — this prevents PII egress to the SDK-default cloud endpoint (`https://cloud.langfuse.com`). All three credentials required → any absent → inert.
+- Native Mastra path: `new Observability({ configs: { langfuse: { serviceName: "mizan", exporters: [langfuse], excludeSpanTypes: [SpanType.MODEL_CHUNK] } } })` inside `createMastra(env)`. NO `registerOTel`, NO `instrumentation.ts`, NO `langfuse-vercel`, NO `@vercel/otel`. See Phase 2 correction note for why the native path supersedes the registerOTel approach.
+- `flushLangfuse(exporter, ctx)` (two-arg) defers `exporter.flush()` via `ctx.waitUntil(...)` — flush is null-safe (returns immediately when exporter is null). `ctx.waitUntil` is the ONLY safe place to schedule the flush on Workers; `setTimeout` is blocked + `process.on("beforeExit")` doesn't exist.
+- Every AI SDK call site uses `experimental_telemetry` via `makeTelemetry()`. The CI gate (Phase 8 scope) verifies no step in `packages/mastra/src/steps/**` makes a direct `generateText(`/`streamText(`/`generateObject(` call outside `runStructuredLlm`.
+- Project + API keys are seeded via `LANGFUSE_INIT_*` headless init env vars on Docker first boot — NOT via a script. `scripts/seed-langfuse.ts` seeds **model pricing only** (Langfuse models API).
+- `models.json` shape: `[{ "model_name": "claude-opus-4-7", "match_pattern": "...", "input_price": 0.000015, "output_price": 0.000075, "unit": "TOKENS", "tokenizer_id": "claude" }, ...]`. Update on every provider price change (Phase 10 ops doc).
+- **HITL linkage:** a brief run and its reviewer-action carry the same deterministic `sessionId` (derived from `runId` via pure hash). The reviewer-action resume is an inline D1 chain (`apps/worker/src/routes/actions.ts`), NOT a Mastra `run.resume` — `tracingOptions.traceId` has no call site on that path. `sessionId` linkage is the primary approach; one merged trace is not achievable without pushing the Langfuse client into the route handler.
+- **PII/Phase-10 prerequisite:** brief + chat spans capture campaign PII. Local-only Docker contains it now; the fail-closed gate is the interim guard. Span input/output masking is tracked as a concrete Phase 10 in-scope bullet (see § Phase 10 — In scope) and must land before any non-local `LANGFUSE_HOST` is configured.
 
 **Tests (per §7.11):**
 
-- Unit: telemetry-config helper (returns correct shape based on `LANGFUSE_HOST` presence)
-- Integration: trigger a brief → assert trace ID present in response headers (Langfuse exporter sets a trace ID); manual eyeballing of trace tree
-- E2E (Playwright): Playwright opens `http://localhost:3010` → asserts a trace exists for the most recent caseId
+- Unit: telemetry-config helper — assert fail-closed gate in both arms (keys absent → null; keys present + `LANGFUSE_HOST=""` → also null); assert `flushLangfuse(null, ctx)` performs no `waitUntil` call
+- Integration (CI-safe): with `LANGFUSE_HOST=""`, a brief (mocked LLM) + a chat POST both succeed and make zero Langfuse network calls — the always-on regression guard
+- E2E (local-only, CI-excluded): boot Langfuse stack + seed models, trigger a brief via `wrangler dev`, query `localhost:3010/api/public/traces` asserting a trace with tokens + USD cost; verify a suspend→action flow's brief and action share a `sessionId`
 
 ---
 
@@ -1136,6 +1141,7 @@ Fresh signup → admin of own org → empty queue. Invited signup → reviewer i
 - Demo video recorded (Loom or local) ≤5min covering: problem framing, live brief streaming, HITL suspend/resume, Langfuse trace tree, eval spec run, provider swap demonstration
 - Architecture diagram extracted from §7.5 + §7.8 Mermaid into a 1-page PDF
 - Resumable brief streaming via a Durable-Object-backed resumable-stream store: a reviewer opening (or reloading) a RUNNING case reconnects to the in-flight brief token stream instead of the current 409 + poll-until-persisted behavior. Server exposes a `GET /api/cases/:id/brief/stream` resume route reading the run's `activeStreamId`; client uses `useChat({ resume: true })`. Mastra `resumeStream` covers HITL-resume only, not stream-rejoin — the DO is the Workers-native substitute for the AI SDK resumable-stream Redis store. Until shipped, the real-time SSE event bus (Phase 7.7) surfaces step-level progress from the `workflow_events` tape.
+- Langfuse span input/output masking before any non-local `LANGFUSE_HOST` is configured: configure the `@mastra/langfuse` exporter (or a Mastra span processor) to strip campaign PII — bank-statement text, creator/beneficiary IDs, `reviewer_email`, and brief `payload_json` — from span `input`/`output` before egress. Phase 8 ships local-only with the fail-closed credential gate (`LANGFUSE_HOST=""` → exporter null) as the interim guard; this bullet is the prerequisite that must land before production telemetry is ever pointed at a remote endpoint. (Surfaced in the Phase 8 review.)
 - Migration deploy-safety hardening before the production `wrangler deploy`: the Phase 7.7 org-foundation migrations (`0007`/`0008`) include an `organization_id ADD COLUMN NOT NULL` without a backfill default and a `users.role` DROP. These applied cleanly to empty/reset local D1 throughout Phases 0–9, but the first real production deploy must guard against non-empty-table failure: add an explicit backfill/default step (or split add-nullable → backfill → set-not-null) and confirm no production data exists for the dropped column. Verify each migration against a non-empty D1 snapshot before the deploy. (Surfaced in the PR #12 review as finding #13 — real but premature; production data does not exist until this phase.)
 
 **Out of scope:** Any new feature beyond the above, real reverse-image-search, real KYC.

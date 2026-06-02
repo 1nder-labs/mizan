@@ -16,6 +16,7 @@ const CTX: MizanRuntimeContext = {
   runId: "run-error-wrap",
   reviewerId: null,
   sessionId: null,
+  organizationId: "test-org",
   category: "test",
   geography: "US",
   langfuseEnabled: false,

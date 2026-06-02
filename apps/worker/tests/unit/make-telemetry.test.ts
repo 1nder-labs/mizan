@@ -11,6 +11,7 @@ describe("makeTelemetry", () => {
         runId: crypto.randomUUID(),
         reviewerId: crypto.randomUUID(),
         sessionId: null,
+        organizationId: "test-org-id",
         category: "medical",
         geography: "US",
         langfuseEnabled: true,
@@ -29,5 +30,6 @@ describe("makeTelemetry", () => {
     expect(envelope.metadata.stepId).toBe("extractCreatorIdDoc");
     expect(envelope.metadata.provider).toBe("anthropic");
     expect(envelope.metadata.model).toBe("claude-haiku-4-5");
+    expect(envelope.metadata.organizationId).toBe("test-org-id");
   });
 });

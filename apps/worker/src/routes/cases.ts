@@ -57,6 +57,7 @@ async function streamBriefResponse(
     caseId,
     runId,
     reviewerId: c.var.viewer.userId,
+    organizationId: caseRow.organization_id,
     category: caseRow.category,
     geography: caseRow.geography,
   });
@@ -73,8 +74,10 @@ async function streamBriefResponse(
       execute: ({ writer }) => {
         writer.merge(aiSdkStream);
       },
+      onFinish: () => {
+        flushLangfuse(langfuse, c.executionCtx);
+      },
     });
-    flushLangfuse(langfuse, c.executionCtx);
     return createUIMessageStreamResponse({ stream: uiStream });
   } finally {
     c.req.raw.signal.removeEventListener("abort", onAbort);

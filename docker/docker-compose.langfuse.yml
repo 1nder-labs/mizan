@@ -34,9 +34,21 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@langfuse-db:5432/postgres
       NEXTAUTH_SECRET: dev-secret-not-for-production
       SALT: dev-salt-not-for-production
+      ENCRYPTION_KEY: dev-encryption-key-not-for-production
       NEXTAUTH_URL: http://localhost:3010
       TELEMETRY_ENABLED: "false"
       LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      # DEV-ONLY headless init — creates org/project/user + API keys on first boot.
+      # NEVER use these values in production.
+      LANGFUSE_INIT_ORG_ID: dev-org-mizan
+      LANGFUSE_INIT_ORG_NAME: "Mizan Dev"
+      LANGFUSE_INIT_PROJECT_ID: dev-project-mizan
+      LANGFUSE_INIT_PROJECT_NAME: "Mizan Dev"
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-lf-dev-mizan-local
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-lf-dev-mizan-local
+      LANGFUSE_INIT_USER_EMAIL: dev@mizan.local
+      LANGFUSE_INIT_USER_PASSWORD: dev-password-not-for-production
+      LANGFUSE_INIT_USER_NAME: "Mizan Dev"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/public/health"]
       interval: 5s

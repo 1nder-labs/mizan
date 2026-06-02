@@ -1,0 +1,42 @@
+[
+  {
+    "model_name": "claude-haiku-4-5",
+    "match_pattern": "claude-haiku-4-5",
+    "unit": "TOKENS",
+    "input_price": 0.0000008,
+    "output_price": 0.000004,
+    "tokenizer_id": "claude"
+  },
+  {
+    "model_name": "claude-opus-4-7",
+    "match_pattern": "claude-opus-4-7",
+    "unit": "TOKENS",
+    "input_price": 0.000015,
+    "output_price": 0.000075,
+    "tokenizer_id": "claude"
+  },
+  {
+    "model_name": "gpt-5.4-mini-2026-03-17",
+    "match_pattern": "gpt-5.4-mini-2026-03-17",
+    "unit": "TOKENS",
+    "input_price": 0.00000015,
+    "output_price": 0.0000006,
+    "tokenizer_id": "openai"
+  },
+  {
+    "model_name": "anthropic/claude-3.5-haiku",
+    "match_pattern": "anthropic/claude-3\\.5-haiku",
+    "unit": "TOKENS",
+    "input_price": 0.0000008,
+    "output_price": 0.000004,
+    "tokenizer_id": "claude"
+  },
+  {
+    "model_name": "anthropic/claude-3.5-sonnet",
+    "match_pattern": "anthropic/claude-3\\.5-sonnet",
+    "unit": "TOKENS",
+    "input_price": 0.000003,
+    "output_price": 0.000015,
+    "tokenizer_id": "claude"
+  }
+]

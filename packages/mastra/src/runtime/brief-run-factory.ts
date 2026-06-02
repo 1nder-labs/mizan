@@ -1,6 +1,7 @@
 import type { CloudflareBindings } from "@mizan/shared";
 import { createMastra, type MizanMastraBundle } from "../mastra-factory.ts";
 import { makeRuntimeContext, type MizanRuntimeContext } from "../observability/runtime-context.ts";
+import { deriveSessionId } from "../observability/trace-id.ts";
 import { MIZAN_ENV_KEY } from "./context-accessors.ts";
 
 /**
@@ -11,6 +12,7 @@ export interface BriefRunContextInput {
   readonly caseId: string;
   readonly runId: string;
   readonly reviewerId: string;
+  readonly organizationId: string;
   readonly category: string;
   readonly geography: string;
   readonly sessionId?: string | null;
@@ -28,10 +30,13 @@ export function buildBriefRunContext(
     caseId: input.caseId,
     runId: input.runId,
     reviewerId: input.reviewerId,
-    sessionId: input.sessionId ?? null,
+    sessionId: input.sessionId ?? deriveSessionId(input.runId),
+    organizationId: input.organizationId,
     category: input.category,
     geography: input.geography,
-    langfuseEnabled: Boolean(env.LANGFUSE_PUBLIC_KEY && env.LANGFUSE_SECRET_KEY),
+    langfuseEnabled: Boolean(
+      env.LANGFUSE_HOST && env.LANGFUSE_PUBLIC_KEY && env.LANGFUSE_SECRET_KEY,
+    ),
   };
 }
 

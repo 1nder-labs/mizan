@@ -48,6 +48,7 @@ export default defineConfig({
               bindings: {
                 MOCK_PROVIDERS_ALLOWED: "1",
                 RUN_REMOTE_VECTORIZE: RUN_REMOTE ? "1" : "0",
+                RUN_LANGFUSE_E2E: process.env.RUN_LANGFUSE_E2E === "1" ? "1" : "0",
               },
             },
           }),

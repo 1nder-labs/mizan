@@ -14,4 +14,11 @@ R2_SECRET_ACCESS_KEY=
 # Override with DEFAULT_LLM_PROVIDER=openai|anthropic|openrouter to force a specific one.
 # DEFAULT_LLM_PROVIDER=
 
+# Langfuse — local-only observability (Docker: localhost:3010).
+# Values must match the LANGFUSE_INIT_* keys in docker-compose.langfuse.yml.
+# Leave LANGFUSE_HOST="" (or unset) to disable — exporter returns null (fail-closed).
+LANGFUSE_HOST=http://localhost:3010
+LANGFUSE_PUBLIC_KEY=pk-lf-dev-mizan-local
+LANGFUSE_SECRET_KEY=sk-lf-dev-mizan-local
+
 # MOCK_LLM_RESPONSES={"extractCreatorIdDoc.extract":{}}

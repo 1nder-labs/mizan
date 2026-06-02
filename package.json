@@ -29,6 +29,7 @@
     "db:seed": "bun scripts/seed-users.ts",
     "db:seed:cases": "bun scripts/seed-cases.ts",
     "db:seed:r2": "bun scripts/seed-r2-fixtures.ts",
+    "seed:langfuse": "bun scripts/seed-langfuse.ts",
     "embed-corpus": "bun scripts/embed-corpus.ts",
     "auth:generate": "bun --filter @mizan/db auth:generate"
   },

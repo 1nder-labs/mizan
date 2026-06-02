@@ -6,6 +6,7 @@ export const MizanRuntimeContextSchema = z.object({
   runId: z.string(),
   reviewerId: z.string().nullable(),
   sessionId: z.string().nullable(),
+  organizationId: z.string(),
   category: z.string(),
   geography: z.string(),
   langfuseEnabled: z.boolean(),

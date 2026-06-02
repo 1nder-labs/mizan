@@ -31,6 +31,7 @@ export function makeTelemetry(input: TelemetryInput): {
       stepId: input.stepName,
       provider: input.provider,
       model: input.model,
+      organizationId: input.runtimeContext.organizationId,
     },
   };
 }
