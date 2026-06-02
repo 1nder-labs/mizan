@@ -14,11 +14,15 @@ R2_SECRET_ACCESS_KEY=
 # Override with DEFAULT_LLM_PROVIDER=openai|anthropic|openrouter to force a specific one.
 # DEFAULT_LLM_PROVIDER=
 
-# Langfuse — local-only observability (Docker: localhost:3010).
-# Values must match the LANGFUSE_INIT_* keys in docker-compose.langfuse.yml.
-# Leave LANGFUSE_HOST="" (or unset) to disable — exporter returns null (fail-closed).
-LANGFUSE_HOST=http://localhost:3010
-LANGFUSE_PUBLIC_KEY=pk-lf-dev-mizan-local
-LANGFUSE_SECRET_KEY=sk-lf-dev-mizan-local
+# Langfuse — managed cloud observability (https://cloud.langfuse.com).
+# Create a project, copy its public/secret keys, and set the region host
+# (https://us.cloud.langfuse.com or https://eu.cloud.langfuse.com).
+# Leave ALL THREE empty/unset to disable — the exporter returns null and
+# observability is silently skipped (fail-closed gate; zero overhead).
+# NOTE: spans carry campaign PII — only point a real project at REAL data
+# once Phase 10 span masking lands. Use synthetic seed data otherwise.
+LANGFUSE_HOST=
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
 
 # MOCK_LLM_RESPONSES={"extractCreatorIdDoc.extract":{}}

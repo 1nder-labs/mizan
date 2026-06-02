@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { z } from "zod";
+import { SpanType, type TracingContext } from "@mastra/core/observability";
 import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
 import { makeTelemetry } from "../../runtime/telemetry.ts";
 import type { CloudflareBindings } from "@mizan/shared";
@@ -44,6 +45,13 @@ interface BaseInvocation<TOutput> {
   readonly system: string;
   readonly abortSignal: AbortSignal | undefined;
   readonly postProcess?: (parsed: TOutput) => TOutput;
+  /**
+   * The owning step's tracing context. When present, the `generateText`
+   * call is wrapped in a `MODEL_GENERATION` child span so token usage +
+   * cost surface as a Langfuse generation nested under the step (raw AI
+   * SDK calls are otherwise invisible to Mastra's native exporter).
+   */
+  readonly tracingContext?: TracingContext | undefined;
 }
 
 /** Text-only invocation: caller passes a single user-turn string. */
@@ -102,11 +110,7 @@ export async function runStructuredLlmWithMessages<TOutput>(
   );
   const generateArgs = buildGenerateArgs(invocation, resolved.model, resolved.config);
   const result = await runWithErrorContext(invocation, resolved.config, () =>
-    generateText(
-      invocation.abortSignal
-        ? { ...generateArgs, abortSignal: invocation.abortSignal }
-        : generateArgs,
-    ),
+    runTracedGeneration(invocation, generateArgs, resolved.config),
   );
   /**
    * `result.output` is the parsed-and-validated object emitted by
@@ -170,6 +174,45 @@ function isAbortError(value: unknown): boolean {
  */
 function sanitizeSchemaName(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+/**
+ * Runs `generateText` inside a Mastra `MODEL_GENERATION` child span so the
+ * call surfaces as a Langfuse generation — with token usage (and therefore
+ * USD cost, once the model is priced) — nested under the owning step. Raw
+ * AI SDK calls are otherwise invisible to the native `@mastra/langfuse`
+ * exporter, which only maps Mastra-emitted spans. No-ops cleanly when no
+ * tracing context is present (`currentSpan` undefined → span undefined).
+ */
+async function runTracedGeneration<TOutput>(
+  invocation: StructuredLlmInvocationWithMessages<TOutput>,
+  generateArgs: ReturnType<typeof buildGenerateArgs<TOutput>>,
+  config: ModelConfig,
+) {
+  const span = invocation.tracingContext?.currentSpan?.createChildSpan({
+    name: `${invocation.stepName}.${callPurposeFor(invocation.modelKind)}`,
+    type: SpanType.MODEL_GENERATION,
+    input: { system: invocation.system, messages: invocation.messages },
+    attributes: { model: config.model, provider: config.provider },
+  });
+  try {
+    const result = await generateText(
+      invocation.abortSignal
+        ? { ...generateArgs, abortSignal: invocation.abortSignal }
+        : generateArgs,
+    );
+    const usage = {
+      ...(result.usage?.inputTokens !== undefined ? { inputTokens: result.usage.inputTokens } : {}),
+      ...(result.usage?.outputTokens !== undefined
+        ? { outputTokens: result.usage.outputTokens }
+        : {}),
+    };
+    span?.end({ output: result.output, attributes: { usage } });
+    return result;
+  } catch (cause) {
+    span?.error({ error: cause instanceof Error ? cause : new Error(String(cause)) });
+    throw cause;
+  }
 }
 
 function buildGenerateArgs<TOutput>(

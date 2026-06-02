@@ -18,7 +18,7 @@ export const composeBrief = createStep({
   id: "composeBrief",
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
-  execute: async ({ inputData, requestContext, abortSignal }) => {
+  execute: async ({ inputData, requestContext, abortSignal, tracingContext }) => {
     if (!inputData.classify) {
       throw new Error(
         `composeBrief: classify missing for case ${inputData.caseId} run ${inputData.runId} — classifyCampaign + computeVerificationPath must run first`,
@@ -33,7 +33,7 @@ export const composeBrief = createStep({
       );
     }
     const llmOutput = await runComposeBriefGeneration(
-      { env, ctx, inputData, abortSignal },
+      { env, ctx, inputData, abortSignal, tracingContext },
       policyMatches,
     );
     const composed = normalizeBrief({

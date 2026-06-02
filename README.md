@@ -104,13 +104,14 @@ documents:
 - **Renovate matched cadence** — `renovate.json` mirrors the 14-day
   bake; vulnerability fixes bypass it.
 
-`docker/docker-compose.langfuse.yml` is a **dev-only** local observability
-stack with hardcoded dev credentials (`NEXTAUTH_SECRET: dev-secret-not-for-production`,
-`SALT: dev-salt-not-for-production`). These values are intentionally labeled and
-must never be copied to any production environment. The worker's `LANGFUSE_HOST`
-is unset in production deployments through Phase 7; Phase 8 wires real Langfuse
-credentials exclusively via `wrangler secret put`, never via compose files or
-committed env vars.
+Observability is **managed Langfuse Cloud**, wired through the Vercel AI SDK's
+`experimental_telemetry` and the `@mastra/langfuse` exporter. It is **fail-closed
+and opt-in**: the exporter activates only when all three of `LANGFUSE_HOST`,
+`LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` are set — otherwise it returns
+null and tracing is silently skipped (zero overhead, no network calls). Set the
+keys in `apps/worker/.dev.vars` for local dev and via `wrangler secret put` for
+deploys; never commit them. Spans carry campaign PII, so only point a project at
+real applicant data once Phase 10 span masking lands (see `docs/prd.md` §10).
 
 The four-layer rationale lives in `docs/prd.md` §12 and the Phase 0
 brainstorm under `docs/brainstorms/`.
@@ -124,7 +125,6 @@ packages/db/   drizzle schema + migrations + drizzle-zod
 packages/mastra/    Mastra workflows + steps + tools + LLM provider factory
 packages/shared/    cross-workspace zod schemas + Hono AppType re-export
 packages/eval/      gold set + LLM-as-judge + cost ledger
-docker/        local-only observability stack (Langfuse — NOT deployed)
 docs/          prd.md (canonical) + brainstorms/ + plans/ + solutions/
 scripts/       seed-users, embed-corpus, one-off utilities
 ```

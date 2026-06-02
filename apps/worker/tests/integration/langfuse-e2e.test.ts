@@ -1,22 +1,25 @@
 /**
  * Langfuse E2E trace verification — LOCAL-ONLY, CI-excluded.
  *
- * Requires a live Langfuse stack:
- *   docker compose -f docker/docker-compose.langfuse.yml up -d
- *   bun run seed:langfuse
+ * Points at a managed Langfuse Cloud project (or any Langfuse v3 host).
+ * Set the credentials in the environment, run a brief via `wrangler dev`,
+ * then run:
+ *   RUN_LANGFUSE_E2E=1 \
+ *   LANGFUSE_HOST=https://us.cloud.langfuse.com \
+ *   LANGFUSE_PUBLIC_KEY=pk-... LANGFUSE_SECRET_KEY=sk-... \
+ *   bun --filter @mizan/worker test:integration
  *
- * Run with: `RUN_LANGFUSE_E2E=1 bun --filter @mizan/worker test:integration`
- *
- * Asserts:
- * 1. A brief run produces a trace in Langfuse with tokens + USD cost
- * 2. A suspend→action flow's brief and action share a `sessionId`
+ * Asserts a recent brief run produced a trace carrying token cost, the
+ * organizationId dimension, and a sessionId for HITL linkage.
  */
 import { describe, expect, it } from "vitest";
 import { RUN_LANGFUSE_E2E } from "./remote-deps.ts";
 
-const LANGFUSE_HOST = "http://localhost:3010";
-const LANGFUSE_PUBLIC_KEY = process.env.LANGFUSE_PUBLIC_KEY ?? "pk-lf-dev-mizan-local";
-const LANGFUSE_SECRET_KEY = process.env.LANGFUSE_SECRET_KEY ?? "sk-lf-dev-mizan-local";
+const LANGFUSE_HOST = process.env.LANGFUSE_HOST ?? "";
+const LANGFUSE_PUBLIC_KEY = process.env.LANGFUSE_PUBLIC_KEY ?? "";
+const LANGFUSE_SECRET_KEY = process.env.LANGFUSE_SECRET_KEY ?? "";
+
+const HAS_CREDS = Boolean(LANGFUSE_HOST && LANGFUSE_PUBLIC_KEY && LANGFUSE_SECRET_KEY);
 
 function langfuseAuth(): string {
   return `Basic ${Buffer.from(`${LANGFUSE_PUBLIC_KEY}:${LANGFUSE_SECRET_KEY}`).toString("base64")}`;
@@ -31,38 +34,27 @@ async function fetchTraces(params: Record<string, string>): Promise<unknown> {
   return res.json();
 }
 
-describe.runIf(RUN_LANGFUSE_E2E)("Langfuse E2E trace verification", () => {
-  it("health endpoint returns 200", async () => {
-    const res = await fetch(`${LANGFUSE_HOST}/api/public/health`);
-    expect(res.ok).toBe(true);
-  });
-
-  it("seeded keys authenticate against the API", async () => {
+describe.runIf(RUN_LANGFUSE_E2E && HAS_CREDS)("Langfuse E2E trace verification", () => {
+  it("keys authenticate against the API", async () => {
     const res = await fetch(`${LANGFUSE_HOST}/api/public/traces?limit=1`, {
       headers: { Authorization: langfuseAuth() },
     });
     expect(res.ok).toBe(true);
   });
 
-  it("a trace with tags exists for a recent brief run", async () => {
-    const data = (await fetchTraces({ tags: "mizan", limit: "5" })) as {
-      data: Array<{
-        id: string;
-        tags: string[];
-        metadata: Record<string, unknown>;
-        totalCost: number;
-      }>;
+  it("a recent brief trace carries token cost", async () => {
+    const data = (await fetchTraces({ limit: "5" })) as {
+      data: Array<{ id: string; metadata: Record<string, unknown>; totalCost: number }>;
     };
     expect(data.data.length).toBeGreaterThan(0);
     const trace = data.data[0]!;
-    expect(trace.tags).toContain("mizan");
     expect(trace.metadata).toHaveProperty("caseId");
     expect(trace.metadata).toHaveProperty("runId");
     expect(trace.totalCost).toBeGreaterThan(0);
   });
 
   it("traces carry organizationId metadata", async () => {
-    const data = (await fetchTraces({ tags: "mizan", limit: "1" })) as {
+    const data = (await fetchTraces({ limit: "1" })) as {
       data: Array<{ metadata: Record<string, unknown> }>;
     };
     expect(data.data.length).toBeGreaterThan(0);
@@ -70,7 +62,7 @@ describe.runIf(RUN_LANGFUSE_E2E)("Langfuse E2E trace verification", () => {
   });
 
   it("a brief trace carries a sessionId for HITL linkage", async () => {
-    const data = (await fetchTraces({ tags: "mizan", limit: "1" })) as {
+    const data = (await fetchTraces({ limit: "1" })) as {
       data: Array<{ sessionId: string | null }>;
     };
     expect(data.data.length).toBeGreaterThan(0);

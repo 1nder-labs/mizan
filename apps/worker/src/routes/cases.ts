@@ -53,7 +53,7 @@ async function streamBriefResponse(
   runId: string,
   caseRow: Case,
 ): Promise<Response> {
-  const { run, requestContext, langfuse } = await createBriefRun(c.env, {
+  const { run, requestContext, langfuse, tracingOptions } = await createBriefRun(c.env, {
     caseId,
     runId,
     reviewerId: c.var.viewer.userId,
@@ -68,7 +68,11 @@ async function streamBriefResponse(
   c.req.raw.signal.addEventListener("abort", onAbort);
 
   try {
-    const workflowStream = run.stream({ inputData: { caseId, runId }, requestContext });
+    const workflowStream = run.stream({
+      inputData: { caseId, runId },
+      requestContext,
+      tracingOptions,
+    });
     const aiSdkStream = toAISdkStream(workflowStream, { from: "workflow", version: "v6" });
     const uiStream = createUIMessageStream({
       execute: ({ writer }) => {

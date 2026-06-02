@@ -33,10 +33,11 @@ const parsed = RemoteFlagSchema.safeParse(env);
 export const RUN_REMOTE_VECTORIZE = parsed.success && parsed.data.RUN_REMOTE_VECTORIZE === "1";
 
 /**
- * Gate for Langfuse E2E tests — requires a live Langfuse stack
- * (`docker compose up -d`) + model seeding (`bun run seed:langfuse`).
- * Not run in CI; local-only per PRD §7.11.
+ * Gate for Langfuse E2E tests — requires a managed Langfuse Cloud project
+ * (LANGFUSE_HOST + public/secret keys in the environment). Not run in CI;
+ * local-only per PRD §7.11.
  *
- * Usage: `RUN_LANGFUSE_E2E=1 bun --filter @mizan/worker test:integration`
+ * Usage: `RUN_LANGFUSE_E2E=1 LANGFUSE_HOST=… LANGFUSE_PUBLIC_KEY=… \
+ *   LANGFUSE_SECRET_KEY=… bun --filter @mizan/worker test:integration`
  */
 export const RUN_LANGFUSE_E2E = parsed.success && parsed.data.RUN_LANGFUSE_E2E === "1";

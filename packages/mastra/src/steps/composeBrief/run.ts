@@ -6,6 +6,7 @@ import {
   type CloudflareBindings,
   type PolicyCitation,
 } from "@mizan/shared";
+import type { TracingContext } from "@mastra/core/observability";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
 import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
 import { emitLiveEventsBestEffort } from "../shared/emit-live-events.ts";
@@ -23,6 +24,7 @@ interface ComposeContext {
   readonly ctx: MizanRuntimeContext;
   readonly inputData: PartialBriefState;
   readonly abortSignal: AbortSignal | undefined;
+  readonly tracingContext?: TracingContext | undefined;
 }
 
 const COMPOSE_SYSTEM =
@@ -86,6 +88,7 @@ export async function runComposeBriefGeneration(
     system: COMPOSE_SYSTEM,
     userPayload: wrapUntrustedData(buildPromptBody(composeContext, policyMatches)),
     abortSignal: composeContext.abortSignal,
+    tracingContext: composeContext.tracingContext,
     postProcess: (parsed) => applyCitationFilter(parsed, allowedSet),
   });
 }

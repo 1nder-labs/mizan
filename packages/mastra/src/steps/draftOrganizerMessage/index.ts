@@ -19,7 +19,7 @@ export const draftOrganizerMessage = createStep({
   id: "draftOrganizerMessage",
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
-  execute: async ({ inputData, requestContext, abortSignal }) => {
+  execute: async ({ inputData, requestContext, abortSignal, tracingContext }) => {
     const decision = decideDraftAction(inputData);
     if (decision.kind === "skip") {
       return inputData;
@@ -39,6 +39,7 @@ export const draftOrganizerMessage = createStep({
       system,
       userPayload: wrapUntrustedData(userPayload),
       abortSignal,
+      tracingContext,
     });
     abortSignal?.throwIfAborted();
     const updatedBrief: BriefPayload = { ...brief, drafted_organizer_message };

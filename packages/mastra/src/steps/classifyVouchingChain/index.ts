@@ -7,6 +7,7 @@ import {
   type VouchingChainEnvelope,
 } from "@mizan/shared";
 import { createStep } from "@mastra/core/workflows";
+import type { TracingContext } from "@mastra/core/observability";
 import { loadCaseContext } from "../../runtime/case-loader.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
 import { runStructuredLlm } from "../shared/runStructuredLlm.ts";
@@ -51,13 +52,20 @@ export const classifyVouchingChain = createStep({
   id: "classifyVouchingChain",
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
-  execute: async ({ inputData, requestContext, abortSignal }) => {
+  execute: async ({ inputData, requestContext, abortSignal, tracingContext }) => {
     const env = getEnv(requestContext);
     const ctx = getCtx(requestContext);
     abortSignal?.throwIfAborted();
     const caseRow = await loadCaseContext(env, inputData.caseId);
     abortSignal?.throwIfAborted();
-    const payload = await classifyOrDefault({ env, ctx, caseRow, inputData, abortSignal });
+    const payload = await classifyOrDefault({
+      env,
+      ctx,
+      caseRow,
+      inputData,
+      abortSignal,
+      tracingContext,
+    });
     abortSignal?.throwIfAborted();
     await upsertSignal({
       env,
@@ -79,6 +87,7 @@ async function classifyOrDefault(args: {
   readonly caseRow: Awaited<ReturnType<typeof loadCaseContext>>;
   readonly inputData: PartialBriefState;
   readonly abortSignal: AbortSignal | undefined;
+  readonly tracingContext?: TracingContext | undefined;
 }): Promise<VouchingChain> {
   const narrative = (args.caseRow.vouching_narrative ?? "").trim();
   if (narrative.length < MIN_VOUCHING_NARRATIVE_CHARS) {
@@ -98,6 +107,7 @@ async function classifyOrDefault(args: {
     system: CLASSIFY_VOUCHING_SYSTEM,
     userPayload: buildVouchingPayload(args.caseRow),
     abortSignal: args.abortSignal,
+    tracingContext: args.tracingContext,
   });
   const corroborationSource = {
     story: args.caseRow.story,
