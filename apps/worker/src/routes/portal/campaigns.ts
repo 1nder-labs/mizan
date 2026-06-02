@@ -4,6 +4,7 @@ import { cases, makeDb, type Db } from "@mizan/db";
 import {
   CampaignCreateSchema,
   CampaignMutationResponseSchema,
+  CaseNotesResponseSchema,
   CaseOverlaySchema,
   EvidenceUploadResponseSchema,
   PortalErrorBodySchema,
@@ -14,6 +15,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
+import { readCaseNotes, writeCaseNote } from "../../lib/case-notes.ts";
 import type { ViewerVariables } from "../../middleware/require-role.ts";
 import { evidenceKey, readEvidenceInput } from "./evidence-upload.ts";
 import { loadOwnedCampaign } from "./ownership.ts";
@@ -53,6 +55,35 @@ function createCampaign(db: Db, viewer: ViewerContext, input: CampaignCreate) {
       organization_id: viewer.organizationId,
     })
     .returning({ id: cases.id, status: cases.status });
+}
+
+/**
+ * Best-effort client_facing note recording an evidence upload — this is what
+ * flags `clientResponded` for the reviewer (KTD-7). A note-write failure must
+ * not fail the upload (the object + overlay key are already persisted), so it
+ * is logged at this single seam rather than rethrown into a 500.
+ */
+async function attachEvidenceNote(
+  db: Db,
+  viewer: ViewerContext,
+  caseId: string,
+  docKind: string,
+): Promise<void> {
+  try {
+    await writeCaseNote(db, {
+      caseId,
+      organizationId: viewer.organizationId,
+      authorUserId: viewer.userId,
+      authorRole: "client",
+      visibility: "client_facing",
+      body: `Uploaded ${docKind.replace(/_/g, " ")}.`,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[portal] evidence note attach failed (case=${caseId} doc=${docKind}): ${reason}`,
+    );
+  }
 }
 
 /**
@@ -130,5 +161,13 @@ export const campaignRoutes = new Hono<{
         updated_at: new Date(),
       })
       .where(and(eq(cases.id, id), eq(cases.created_by, c.var.viewer.userId)));
+    await attachEvidenceNote(db, c.var.viewer, id, input.docKind);
     return c.json(EvidenceUploadResponseSchema.parse({ docKind: input.docKind, key }), 201);
+  })
+  .get("/:id/notes", zValidator("param", CampaignParamSchema), async (c) => {
+    const db = makeDb(c.env.DB);
+    const owned = await loadOwnedCampaign(db, c.var.viewer, c.req.valid("param").id);
+    if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
+    const notes = await readCaseNotes(db, c.var.viewer, owned.campaign.id);
+    return c.json(CaseNotesResponseSchema.parse({ notes }));
   });

@@ -186,6 +186,44 @@ export const reviewer_actions = sqliteTable(
   ],
 );
 
+/**
+ * Threaded notes backing all three communication channels (client portal U6):
+ * a client evidence-note, a reviewer-to-client message, and an internal
+ * reviewer-only note. `author_role` + `visibility` are the security boundary —
+ * both are derived server-side from the caller's role and the route, never
+ * from the request body. Clients read only `client_facing` notes on their own
+ * cases; reviewers/admins read all notes on org cases. Append-only (no edit /
+ * delete / threading). `case_id` is `onDelete: restrict` so a case carrying
+ * notes cannot be deleted, mirroring `reviewer_actions`.
+ */
+export const caseNotes = sqliteTable(
+  "case_notes",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    case_id: text("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "restrict" }),
+    organization_id: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "restrict" }),
+    author_user_id: text("author_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    author_role: text("author_role", { enum: ["admin", "reviewer", "client"] as const }).notNull(),
+    visibility: text("visibility", { enum: ["client_facing", "internal"] as const }).notNull(),
+    body: text("body").notNull(),
+    created_at: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("case_notes_case_visibility_idx").on(table.case_id, table.visibility, table.created_at),
+    index("case_notes_org_case_idx").on(table.organization_id, table.case_id),
+  ],
+);
+
 export const workflow_events = sqliteTable(
   "workflow_events",
   {

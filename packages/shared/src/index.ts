@@ -256,3 +256,16 @@ export {
   type CampaignMutationResponse,
   type EvidenceUploadResponse,
 } from "./schemas/campaign.ts";
+
+export {
+  CaseNoteSchema,
+  CaseNotesResponseSchema,
+  NoteAuthorRoleEnum,
+  NoteCreateSchema,
+  NoteVisibilityEnum,
+  type CaseNote,
+  type CaseNotesResponse,
+  type NoteAuthorRole,
+  type NoteCreate,
+  type NoteVisibility,
+} from "./schemas/case-note.ts";
