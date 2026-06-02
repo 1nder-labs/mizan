@@ -19,7 +19,7 @@ import { describeActionError } from "@/lib/describe-action-error.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
 
 interface ActionPanelProps {
-  readonly detail: CaseDetailResponse;
+  readonly detail: Pick<CaseDetailResponse, "case" | "brief" | "overlay">;
 }
 
 export function ActionPanel({ detail }: ActionPanelProps): React.JSX.Element {

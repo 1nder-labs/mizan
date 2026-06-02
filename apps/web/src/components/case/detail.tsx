@@ -43,6 +43,7 @@ import { CaseHeader } from "./header.tsx";
 import { CaseMetaCard } from "./meta-card.tsx";
 import { SignalExpansionPanel } from "./signal-expansion-panel.tsx";
 import { StoryPanel } from "./story-panel.tsx";
+import { ReviewerNotesPanel } from "./notes-panel.tsx";
 import { type CaseOverlay } from "@mizan/shared";
 
 type BriefSummary = CaseDetailResponse["brief"];
@@ -52,6 +53,7 @@ interface CaseDetailProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
+  readonly clientResponded: boolean;
 }
 
 const SHOW_PERSISTED_STATUSES: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
@@ -124,35 +126,29 @@ function BriefPanel({
   return <BriefEmptyState status={caseRow.status} onGenerate={onGenerate} />;
 }
 
-export function CaseDetail({ caseRow, brief, overlay }: CaseDetailProps): React.JSX.Element {
-  const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
-  /**
-   * Tape enabled on any active state (RUNNING, QUEUED, SUSPENDED_HITL) so a
-   * passive `inflight` panel will see `workflow.finish` and trigger a
-   * case-detail refetch. The tape never POSTs — it's a GET SSE that's
-   * safe to mount on every render of an active case.
-   */
-  const tapeEnabled =
-    ACTIVE_CASE_STATUSES.has(caseRow.status) || caseRow.status === HITL_SUSPENDED_STATUS;
-  useWorkflowTapeInvalidation(caseRow.id, tapeEnabled);
-  useCaseDetailLiveEvents(caseRow);
+interface DetailLayoutProps {
+  readonly caseRow: CaseRow;
+  readonly brief: BriefSummary;
+  readonly overlay: CaseOverlay | null;
+  readonly clientResponded: boolean;
+  readonly mode: BriefPanelMode;
+  readonly onGenerate: () => void;
+  readonly onStreamError: () => void;
+}
 
-  useEffect(() => {
-    dispatchPhase({ type: "case-changed" });
-  }, [caseRow.id]);
-  useEffect(() => {
-    dispatchPhase({ type: "status-changed", status: caseRow.status });
-  }, [caseRow.status]);
-
-  const mode = deriveMode(caseRow.status, brief, phase);
-
-  /**
-   * Detail layout (top to bottom on >= 768px, stacked on narrow):
-   *   StoryPanel · DocumentsPanel + MetaCard (aside) · BriefPanel · SignalExpansionPanel
-   */
+/** Pure layout shell — keeps `CaseDetail` state logic within the 50-line budget. */
+function DetailLayout({
+  caseRow,
+  brief,
+  overlay,
+  clientResponded,
+  mode,
+  onGenerate,
+  onStreamError,
+}: DetailLayoutProps): React.JSX.Element {
   return (
     <article className="w-full space-y-8 px-6 py-8">
-      <CaseHeader caseRow={caseRow} />
+      <CaseHeader caseRow={caseRow} clientResponded={clientResponded} />
       <StoryPanel overlay={overlay} />
       <section className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
         <aside className="space-y-4">
@@ -165,12 +161,45 @@ export function CaseDetail({ caseRow, brief, overlay }: CaseDetailProps): React.
             brief={brief}
             overlay={overlay}
             mode={mode}
-            onGenerate={() => dispatchPhase({ type: "user-generated" })}
-            onStreamError={() => dispatchPhase({ type: "stream-errored" })}
+            onGenerate={onGenerate}
+            onStreamError={onStreamError}
           />
           <SignalExpansionPanel caseId={caseRow.id} />
+          <ReviewerNotesPanel caseId={caseRow.id} />
         </div>
       </section>
     </article>
+  );
+}
+
+export function CaseDetail({
+  caseRow,
+  brief,
+  overlay,
+  clientResponded,
+}: CaseDetailProps): React.JSX.Element {
+  const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
+  const tapeEnabled =
+    ACTIVE_CASE_STATUSES.has(caseRow.status) || caseRow.status === HITL_SUSPENDED_STATUS;
+  useWorkflowTapeInvalidation(caseRow.id, tapeEnabled);
+  useCaseDetailLiveEvents(caseRow);
+
+  useEffect(() => {
+    dispatchPhase({ type: "case-changed" });
+  }, [caseRow.id]);
+  useEffect(() => {
+    dispatchPhase({ type: "status-changed", status: caseRow.status });
+  }, [caseRow.status]);
+
+  return (
+    <DetailLayout
+      caseRow={caseRow}
+      brief={brief}
+      overlay={overlay}
+      clientResponded={clientResponded}
+      mode={deriveMode(caseRow.status, brief, phase)}
+      onGenerate={() => dispatchPhase({ type: "user-generated" })}
+      onStreamError={() => dispatchPhase({ type: "stream-errored" })}
+    />
   );
 }

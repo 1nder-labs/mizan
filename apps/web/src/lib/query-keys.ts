@@ -12,6 +12,7 @@ export const queryKeys = {
     all: ["cases"] as const,
     list: (search: QueueSearch) => ["cases", "list", search] as const,
     detail: (id: string) => ["cases", "detail", id] as const,
+    notes: (id: string) => ["cases", "notes", id] as const,
   },
   audit: {
     all: ["audit"] as const,

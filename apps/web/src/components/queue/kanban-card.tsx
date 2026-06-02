@@ -16,8 +16,10 @@ import { useNavigate } from "@tanstack/react-router";
 import type { CaseRow } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { formatMediumDateTime } from "@/lib/format.ts";
+import { COPY } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
 
 const CLICK_DRIFT_THRESHOLD_PX = 5;
@@ -31,9 +33,22 @@ export function KanbanCardBody({ row }: { readonly row: CaseRow }): React.JSX.El
   return (
     <div className="space-y-2.5">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[15px] font-semibold leading-tight tracking-tight text-foreground">
-          {row.title}
-        </p>
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-[15px] font-semibold leading-tight tracking-tight text-foreground truncate">
+            {row.title}
+          </p>
+          {row.client_submitted ? (
+            <Badge
+              variant="outline"
+              className={cn(
+                "shrink-0 rounded-full px-1.5 py-0 text-[10px] font-medium leading-none tracking-wide",
+                "bg-status-info text-status-info-foreground border-status-info-border",
+              )}
+            >
+              {COPY.reviewerNotes.clientSubmittedShort}
+            </Badge>
+          ) : null}
+        </div>
         <CaseStatusBadge status={row.status} />
       </div>
       <p className="text-xs capitalize text-muted-foreground">

@@ -85,6 +85,8 @@ export const CaseRowSchema = z.object({
   updated_at: z.number().int(),
   latest_brief: LatestBriefProjectionSchema.nullable(),
   assigned_to: z.string().nullable(),
+  /** True when the campaign was submitted by a `client` (vs seeded) — a queue triage signal. */
+  client_submitted: z.boolean(),
 });
 export type CaseRow = z.infer<typeof CaseRowSchema>;
 

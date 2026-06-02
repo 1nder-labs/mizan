@@ -10,7 +10,10 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { CaseRow, QueueSearch, QueueSort } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
 import { humanVerification } from "@/lib/display-labels.ts";
+import { COPY } from "@/lib/copy-constants.ts";
+import { cn } from "@/lib/utils.ts";
 
 /** Typographic placeholder for a column with no value yet (em dash). */
 const EMPTY_CELL = "—";
@@ -57,7 +60,20 @@ const idColumn: ColumnDef<CaseRow> = {
   id: "id",
   header: "Case",
   cell: ({ row }) => (
-    <span className="text-sm font-medium text-foreground">{row.original.title}</span>
+    <div className="flex items-center gap-2">
+      <span className="text-sm font-medium text-foreground">{row.original.title}</span>
+      {row.original.client_submitted ? (
+        <Badge
+          variant="outline"
+          className={cn(
+            "rounded-full px-1.5 py-0 text-[10px] font-medium leading-none tracking-wide",
+            "bg-status-info text-status-info-foreground border-status-info-border",
+          )}
+        >
+          {COPY.reviewerNotes.clientSubmittedShort}
+        </Badge>
+      ) : null}
+    </div>
   ),
 };
 

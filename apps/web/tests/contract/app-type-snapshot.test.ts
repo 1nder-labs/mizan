@@ -14,9 +14,13 @@ import type { InferResponseType } from "hono/client";
 import type { AppType } from "@mizan/shared/app-type";
 import type {
   AuditListResponse,
+  CampaignMutationResponse,
   CaseDetailResponse,
+  CaseNotesResponse,
   CaseSignalsResponse,
   ChatThreadListResponse,
+  ClientCampaignsResponse,
+  ClientCaseDetail,
   DocumentUrlResponse,
   MeResponse,
   PolicyClauseResponse,
@@ -41,6 +45,11 @@ type WirePolicyClause = InferResponseType<(typeof client.policy.clauses)[":id"][
 type WireCaseSignals = InferResponseType<(typeof client.cases)[":id"]["signals"]["$get"]>;
 type WireMe = InferResponseType<typeof client.me.$get>;
 type WireChatThreads = InferResponseType<(typeof client.chat)["threads"]["$get"]>;
+type WirePortalCampaigns = InferResponseType<typeof client.portal.campaigns.$get>;
+type WirePortalCampaignDetail = InferResponseType<(typeof client.portal.campaigns)[":id"]["$get"]>;
+type WirePortalCampaignCreate = InferResponseType<typeof client.portal.campaigns.$post>;
+type WirePortalNotes = InferResponseType<(typeof client.portal.campaigns)[":id"]["notes"]["$get"]>;
+type WireReviewerNotes = InferResponseType<(typeof client.cases)[":id"]["notes"]["$get"]>;
 
 /**
  * Asserts that the wire queue-list response carries EXACTLY
@@ -88,6 +97,15 @@ const _meExact: Equal<WireMe, MeResponse> = true;
 
 const _chatThreadsExact: Equal<WireChatThreads, ChatThreadListResponse> = true;
 
+/** Client portal (U8): list, strict detail, create, and the per-campaign note thread. */
+const _portalCampaignsExact: Equal<WirePortalCampaigns, ClientCampaignsResponse> = true;
+const _portalCampaignDetailExact: Equal<WirePortalCampaignDetail, ClientCaseDetail> = true;
+const _portalCampaignCreateExact: Equal<WirePortalCampaignCreate, CampaignMutationResponse> = true;
+const _portalNotesExact: Equal<WirePortalNotes, CaseNotesResponse> = true;
+
+/** Reviewer-side note thread (U6): same wire shape as the portal thread. */
+const _reviewerNotesExact: Equal<WireReviewerNotes, CaseNotesResponse> = true;
+
 describe("AppType contract snapshot", () => {
   test("queue-list wire type matches QueueResponse exactly", () => {
     expect(_queueListExact).toBe(true);
@@ -123,5 +141,25 @@ describe("AppType contract snapshot", () => {
 
   test("chat thread list wire type matches ChatThreadListResponse exactly", () => {
     expect(_chatThreadsExact).toBe(true);
+  });
+
+  test("portal campaigns list wire type matches ClientCampaignsResponse exactly", () => {
+    expect(_portalCampaignsExact).toBe(true);
+  });
+
+  test("portal campaign detail wire type matches ClientCaseDetail exactly", () => {
+    expect(_portalCampaignDetailExact).toBe(true);
+  });
+
+  test("portal campaign create wire type matches CampaignMutationResponse exactly", () => {
+    expect(_portalCampaignCreateExact).toBe(true);
+  });
+
+  test("portal notes wire type matches CaseNotesResponse exactly", () => {
+    expect(_portalNotesExact).toBe(true);
+  });
+
+  test("reviewer notes wire type matches CaseNotesResponse exactly", () => {
+    expect(_reviewerNotesExact).toBe(true);
   });
 });

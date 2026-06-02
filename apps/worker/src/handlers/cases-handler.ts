@@ -2,7 +2,13 @@
  * Shared case read helpers for HTTP routes and Mastra chat tools.
  */
 import { and, asc, count, desc, eq, isNull, or, sql, type SQL } from "drizzle-orm";
-import { briefs as briefsTable, caseListProjection, cases as casesTable, type Db } from "@mizan/db";
+import {
+  briefs as briefsTable,
+  caseListProjection,
+  cases as casesTable,
+  members,
+  type Db,
+} from "@mizan/db";
 import {
   CaseDetailResponseSchema,
   CaseOverlaySchema,
@@ -16,6 +22,7 @@ import {
   type QueueSearch,
   type ViewerContext,
 } from "@mizan/shared";
+import { clientResponded } from "../lib/case-notes.ts";
 
 export class NotFoundError extends Error {
   constructor(message: string) {
@@ -37,7 +44,11 @@ interface PublicCaseColumns {
 }
 
 /** Maps shared public case columns + a resolved brief to the wire `CaseRow`. */
-function mapCaseRow(row: PublicCaseColumns, latestBrief: LatestBriefProjection | null): CaseRow {
+function mapCaseRow(
+  row: PublicCaseColumns,
+  latestBrief: LatestBriefProjection | null,
+  clientSubmitted: boolean,
+): CaseRow {
   return {
     id: row.id,
     status: row.status,
@@ -49,7 +60,16 @@ function mapCaseRow(row: PublicCaseColumns, latestBrief: LatestBriefProjection |
     updated_at: row.updated_at.getTime(),
     latest_brief: latestBrief,
     assigned_to: row.assigned_to,
+    client_submitted: clientSubmitted,
   };
+}
+
+/**
+ * SQL expression returning 1 when the case creator is a `client` member of the
+ * org, else 0. Used as a queue triage signal without exposing `created_by`.
+ */
+function clientSubmittedExpr() {
+  return sql<number>`(CASE WHEN (SELECT ${members.role} FROM ${members} WHERE ${members.userId} = ${casesTable.created_by} AND ${members.organizationId} = ${casesTable.organization_id}) = 'client' THEN 1 ELSE 0 END)`;
 }
 
 function resolveAssigneeFilter(search: QueueSearch, viewer: ViewerContext): SQL | undefined {
@@ -143,7 +163,7 @@ export async function listCasesForViewer(
 
   const [rows, totalRows] = await Promise.all([
     db
-      .select({ ...projection, ...briefCols })
+      .select({ ...projection, ...briefCols, clientSubmitted: clientSubmittedExpr() })
       .from(casesTable)
       .where(where)
       .orderBy(orderBy)
@@ -156,7 +176,11 @@ export async function listCasesForViewer(
   const total = totalRows[0]?.value ?? 0;
   return {
     cases: rows.map((row) =>
-      mapCaseRow(row, resolveLatestBrief(row.latestRecommendation, row.latestVerificationPath)),
+      mapCaseRow(
+        row,
+        resolveLatestBrief(row.latestRecommendation, row.latestVerificationPath),
+        row.clientSubmitted === 1,
+      ),
     ),
     page: input.page,
     pageSize: QUEUE_PAGE_SIZE,
@@ -170,7 +194,11 @@ export async function fetchCaseDetail(
   viewer: ViewerContext,
   db: Db,
 ): Promise<CaseDetailResponse | null> {
-  const projection = { ...caseListProjection(), brief_partial_json: casesTable.brief_partial_json };
+  const projection = {
+    ...caseListProjection(),
+    brief_partial_json: casesTable.brief_partial_json,
+    clientSubmitted: clientSubmittedExpr(),
+  };
   const row = await db
     .select(projection)
     .from(casesTable)
@@ -183,8 +211,9 @@ export async function fetchCaseDetail(
     ? resolveLatestBrief(brief.recommendation, brief.payload_json?.verification_path ?? null)
     : null;
 
+  const responded = await clientResponded(db, caseId);
   const draft = {
-    case: mapCaseRow(row, latestBrief),
+    case: mapCaseRow(row, latestBrief, row.clientSubmitted === 1),
     brief: brief
       ? {
           recommendation: brief.recommendation,
@@ -194,6 +223,7 @@ export async function fetchCaseDetail(
         }
       : null,
     overlay: resolveOverlay(row.brief_partial_json),
+    client_responded: responded,
   };
 
   const parsed = CaseDetailResponseSchema.safeParse(draft);
@@ -202,6 +232,7 @@ export async function fetchCaseDetail(
     case: draft.case,
     brief: null,
     overlay: draft.overlay,
+    client_responded: responded,
   });
   return caseOnly.success ? caseOnly.data : null;
 }

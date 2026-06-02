@@ -27,6 +27,12 @@ export const CaseDetailResponseSchema = z.object({
   case: CaseRowSchema,
   brief: BriefSummarySchema.nullable(),
   overlay: CaseOverlaySchema.nullable(),
+  /**
+   * True when a client has posted a client-facing note newer than the latest
+   * reviewer action on a non-terminal case — the "client responded" badge
+   * (KTD-5). Derived server-side; not persisted.
+   */
+  client_responded: z.boolean(),
 });
 
 export type CaseDetailResponse = z.infer<typeof CaseDetailResponseSchema>;
