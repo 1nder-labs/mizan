@@ -224,4 +224,20 @@ describe("GET /api/cases/:id/documents/:docKey — document URL + raw routes", (
     const body = DocumentUrlResponseSchema.parse(await res.json());
     expect(body.docKey).toBe(VALID_DOC_KEY_2);
   });
+
+  it("returns 404 for a viewer from another org (cross-org isolation)", async () => {
+    const outsider = await seedUser();
+    const urlRes = await exports.default.fetch(
+      new Request(`${BASE}/api/cases/${CASE_WITH_OVERLAY_ID}/documents/${VALID_DOC_KEY}/url`, {
+        headers: { Cookie: outsider.cookie },
+      }),
+    );
+    expect(urlRes.status).toBe(404);
+    const rawRes = await exports.default.fetch(
+      new Request(`${BASE}/api/cases/${CASE_WITH_OVERLAY_ID}/documents/${VALID_DOC_KEY}/raw`, {
+        headers: { Cookie: outsider.cookie },
+      }),
+    );
+    expect(rawRes.status).toBe(404);
+  });
 });
