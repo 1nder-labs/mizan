@@ -2,6 +2,6 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["src/**/*.eval.ts"],
+    include: ["src/**/*.eval.ts", "src/**/*.test.ts"],
   },
 });
