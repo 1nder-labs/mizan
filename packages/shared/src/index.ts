@@ -276,6 +276,7 @@ export {
   ClientCampaignsResponseSchema,
   ClientCampaignSummarySchema,
   ClientCaseDetailSchema,
+  type ClientCampaignsResponse,
   type ClientCampaignSummary,
   type ClientCaseDetail,
 } from "./schemas/client-case-detail.ts";

@@ -23,5 +23,10 @@ export const queryKeys = {
     threads: () => ["chat", "threads"] as const,
     thread: (id: string) => ["chat", "thread", id] as const,
   },
+  portal: {
+    campaigns: () => ["portal", "campaigns"] as const,
+    campaign: (id: string) => ["portal", "campaign", id] as const,
+    notes: (id: string) => ["portal", "campaign", id, "notes"] as const,
+  },
   me: () => ME_QUERY_KEY,
 } as const;

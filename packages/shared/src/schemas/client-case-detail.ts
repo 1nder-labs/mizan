@@ -30,6 +30,7 @@ export type ClientCampaignSummary = z.infer<typeof ClientCampaignSummarySchema>;
 export const ClientCampaignsResponseSchema = z
   .object({ campaigns: z.array(ClientCampaignSummarySchema) })
   .strict();
+export type ClientCampaignsResponse = z.infer<typeof ClientCampaignsResponseSchema>;
 
 /**
  * Strict client-facing campaign detail. `.strict()` is the structural PII guard:
@@ -42,8 +43,10 @@ export const ClientCaseDetailSchema = z
     status: ClientStatusEnum,
     category: z.string(),
     geography: z.string(),
+    claimedZakatCategory: z.string().nullable(),
     story: z.string(),
     organizerName: z.string(),
+    vouchingNarrative: z.string().nullable(),
     createdAt: z.number(),
     updatedAt: z.number(),
     evidence: z.array(ClientEvidenceItemSchema),

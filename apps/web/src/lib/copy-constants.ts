@@ -8,7 +8,7 @@
  * Existing surfaces (Phase 4–7) keep their own copy locally for now;
  * a future pass may consolidate but is out of Phase 7.5's scope.
  */
-import type { CaseStatus } from "@mizan/shared";
+import type { CaseStatus, ClientStatus, DocumentKey } from "@mizan/shared";
 
 export const COPY = {
   documents: {
@@ -135,6 +135,62 @@ export const COPY = {
     revealUrlConfirm: "Show URL",
     copyManuallyHint: "Copy manually from the field below.",
   },
+  portal: {
+    brand: "Mizan",
+    signupTitle: "Create your campaign account",
+    signupSubtitle: "Submit your fundraising campaign for review.",
+    signupName: "Full name",
+    signupEmail: "Email",
+    signupPassword: "Password",
+    signupSubmit: "Create account",
+    signupPending: "Creating account…",
+    signupError: "Could not create your account. Please try again.",
+    signupHaveAccount: "Already have an account?",
+    signupLogin: "Sign in",
+    listTitle: "My campaigns",
+    listSubtitle: "Track each campaign through review.",
+    listEmptyTitle: "No campaigns yet",
+    listEmptyBody: "Start a campaign to submit it for review.",
+    listNew: "Start a campaign",
+    listColumnCampaign: "Campaign",
+    listColumnStatus: "Status",
+    listColumnUpdated: "Updated",
+    listLoadError: "Could not load your campaigns.",
+    signOut: "Sign out",
+    intakeTitle: "Start a campaign",
+    intakeSubtitle: "Tell us about your campaign. You can add documents next.",
+    intakeStory: "Campaign story",
+    intakeStoryPlaceholder: "Describe what you are raising funds for…",
+    intakeOrganizer: "Organizer name",
+    intakeCategory: "Category",
+    intakeGeography: "Country or region",
+    intakeZakat: "Zakat category (optional)",
+    intakeVouching: "Community vouching (optional)",
+    intakeSubmit: "Create campaign",
+    intakePending: "Saving…",
+    intakeCancel: "Cancel",
+    intakeError: "Could not save your campaign. Check the fields and try again.",
+    detailBack: "Back to my campaigns",
+    detailLoadError: "Could not load this campaign.",
+    detailEvidenceTitle: "Documents",
+    detailEvidenceSubtitle: "Upload the three documents the reviewer needs.",
+    detailNotesTitle: "Messages",
+    detailNotesEmpty: "No messages yet.",
+    detailAskTitle: "The reviewer needs more from you",
+    evidenceUploaded: "Uploaded",
+    evidenceMissing: "Not uploaded",
+    evidenceUpload: "Upload",
+    evidenceReplace: "Replace",
+    evidencePending: "Uploading…",
+    evidenceHint: "PDF or image, up to 25 MB.",
+    evidenceError: "Upload failed. Use a PDF or image under 25 MB.",
+    noteFromYou: "You",
+    noteFromReviewer: "Reviewer",
+    editButton: "Edit details",
+    editTitle: "Edit campaign",
+    editSubmit: "Save changes",
+    editConflict: "This campaign is under review and can no longer be edited.",
+  },
 } as const;
 
 const STATUS_DISPLAY: Readonly<Record<CaseStatus, string>> = {
@@ -150,4 +206,29 @@ const STATUS_DISPLAY: Readonly<Record<CaseStatus, string>> = {
 /** Returns the stakeholder-facing display label for a CaseStatus. */
 export function statusDisplay(status: CaseStatus): string {
   return STATUS_DISPLAY[status];
+}
+
+const CLIENT_STATUS_DISPLAY: Readonly<Record<ClientStatus, string>> = {
+  submitted: "Submitted",
+  under_review: "Under review",
+  needs_evidence: "Needs more evidence",
+  approved: "Approved",
+  under_further_review: "Under further review",
+  not_approved: "Not approved",
+};
+
+/** Returns the friendly, client-facing label for a ClientStatus. */
+export function clientStatusDisplay(status: ClientStatus): string {
+  return CLIENT_STATUS_DISPLAY[status];
+}
+
+const DOC_KIND_DISPLAY: Readonly<Record<DocumentKey, string>> = {
+  creator_id: "Creator ID",
+  bank_statement: "Bank statement",
+  category_doc: "Category document",
+};
+
+/** Returns the client-facing label for one of the three core evidence docs. */
+export function docKindDisplay(docKind: DocumentKey): string {
+  return DOC_KIND_DISPLAY[docKind];
 }

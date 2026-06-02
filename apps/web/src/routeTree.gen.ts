@@ -11,12 +11,16 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as SignupRouteImport } from "./routes/signup";
 import { Route as QueueRouteImport } from "./routes/queue";
+import { Route as PortalSignupRouteImport } from "./routes/portal-signup";
 import { Route as LoginRouteImport } from "./routes/login";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as InviteTokenRouteImport } from "./routes/invite.$token";
 import { Route as CaseCaseIdRouteImport } from "./routes/case/$caseId";
 import { Route as AdminTeamRouteImport } from "./routes/admin/team";
 import { Route as AdminAuditRouteImport } from "./routes/admin/audit";
+import { Route as PortalCampaignsIndexRouteImport } from "./routes/portal/campaigns/index";
+import { Route as PortalCampaignsNewRouteImport } from "./routes/portal/campaigns/new";
+import { Route as PortalCampaignsCampaignIdRouteImport } from "./routes/portal/campaigns/$campaignId";
 
 const SignupRoute = SignupRouteImport.update({
   id: "/signup",
@@ -26,6 +30,11 @@ const SignupRoute = SignupRouteImport.update({
 const QueueRoute = QueueRouteImport.update({
   id: "/queue",
   path: "/queue",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PortalSignupRoute = PortalSignupRouteImport.update({
+  id: "/portal-signup",
+  path: "/portal-signup",
   getParentRoute: () => rootRouteImport,
 } as any);
 const LoginRoute = LoginRouteImport.update({
@@ -58,80 +67,123 @@ const AdminAuditRoute = AdminAuditRouteImport.update({
   path: "/admin/audit",
   getParentRoute: () => rootRouteImport,
 } as any);
+const PortalCampaignsIndexRoute = PortalCampaignsIndexRouteImport.update({
+  id: "/portal/campaigns/",
+  path: "/portal/campaigns/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PortalCampaignsNewRoute = PortalCampaignsNewRouteImport.update({
+  id: "/portal/campaigns/new",
+  path: "/portal/campaigns/new",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const PortalCampaignsCampaignIdRoute = PortalCampaignsCampaignIdRouteImport.update({
+  id: "/portal/campaigns/$campaignId",
+  path: "/portal/campaigns/$campaignId",
+  getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/login": typeof LoginRoute;
+  "/portal-signup": typeof PortalSignupRoute;
   "/queue": typeof QueueRoute;
   "/signup": typeof SignupRoute;
   "/admin/audit": typeof AdminAuditRoute;
   "/admin/team": typeof AdminTeamRoute;
   "/case/$caseId": typeof CaseCaseIdRoute;
   "/invite/$token": typeof InviteTokenRoute;
+  "/portal/campaigns/$campaignId": typeof PortalCampaignsCampaignIdRoute;
+  "/portal/campaigns/new": typeof PortalCampaignsNewRoute;
+  "/portal/campaigns/": typeof PortalCampaignsIndexRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/login": typeof LoginRoute;
+  "/portal-signup": typeof PortalSignupRoute;
   "/queue": typeof QueueRoute;
   "/signup": typeof SignupRoute;
   "/admin/audit": typeof AdminAuditRoute;
   "/admin/team": typeof AdminTeamRoute;
   "/case/$caseId": typeof CaseCaseIdRoute;
   "/invite/$token": typeof InviteTokenRoute;
+  "/portal/campaigns/$campaignId": typeof PortalCampaignsCampaignIdRoute;
+  "/portal/campaigns/new": typeof PortalCampaignsNewRoute;
+  "/portal/campaigns": typeof PortalCampaignsIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/login": typeof LoginRoute;
+  "/portal-signup": typeof PortalSignupRoute;
   "/queue": typeof QueueRoute;
   "/signup": typeof SignupRoute;
   "/admin/audit": typeof AdminAuditRoute;
   "/admin/team": typeof AdminTeamRoute;
   "/case/$caseId": typeof CaseCaseIdRoute;
   "/invite/$token": typeof InviteTokenRoute;
+  "/portal/campaigns/$campaignId": typeof PortalCampaignsCampaignIdRoute;
+  "/portal/campaigns/new": typeof PortalCampaignsNewRoute;
+  "/portal/campaigns/": typeof PortalCampaignsIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
     | "/login"
+    | "/portal-signup"
     | "/queue"
     | "/signup"
     | "/admin/audit"
     | "/admin/team"
     | "/case/$caseId"
-    | "/invite/$token";
+    | "/invite/$token"
+    | "/portal/campaigns/$campaignId"
+    | "/portal/campaigns/new"
+    | "/portal/campaigns/";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
     | "/login"
+    | "/portal-signup"
     | "/queue"
     | "/signup"
     | "/admin/audit"
     | "/admin/team"
     | "/case/$caseId"
-    | "/invite/$token";
+    | "/invite/$token"
+    | "/portal/campaigns/$campaignId"
+    | "/portal/campaigns/new"
+    | "/portal/campaigns";
   id:
     | "__root__"
     | "/"
     | "/login"
+    | "/portal-signup"
     | "/queue"
     | "/signup"
     | "/admin/audit"
     | "/admin/team"
     | "/case/$caseId"
-    | "/invite/$token";
+    | "/invite/$token"
+    | "/portal/campaigns/$campaignId"
+    | "/portal/campaigns/new"
+    | "/portal/campaigns/";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   LoginRoute: typeof LoginRoute;
+  PortalSignupRoute: typeof PortalSignupRoute;
   QueueRoute: typeof QueueRoute;
   SignupRoute: typeof SignupRoute;
   AdminAuditRoute: typeof AdminAuditRoute;
   AdminTeamRoute: typeof AdminTeamRoute;
   CaseCaseIdRoute: typeof CaseCaseIdRoute;
   InviteTokenRoute: typeof InviteTokenRoute;
+  PortalCampaignsCampaignIdRoute: typeof PortalCampaignsCampaignIdRoute;
+  PortalCampaignsNewRoute: typeof PortalCampaignsNewRoute;
+  PortalCampaignsIndexRoute: typeof PortalCampaignsIndexRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -148,6 +200,13 @@ declare module "@tanstack/react-router" {
       path: "/queue";
       fullPath: "/queue";
       preLoaderRoute: typeof QueueRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/portal-signup": {
+      id: "/portal-signup";
+      path: "/portal-signup";
+      fullPath: "/portal-signup";
+      preLoaderRoute: typeof PortalSignupRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/login": {
@@ -192,18 +251,43 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AdminAuditRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/portal/campaigns/": {
+      id: "/portal/campaigns/";
+      path: "/portal/campaigns";
+      fullPath: "/portal/campaigns/";
+      preLoaderRoute: typeof PortalCampaignsIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/portal/campaigns/new": {
+      id: "/portal/campaigns/new";
+      path: "/portal/campaigns/new";
+      fullPath: "/portal/campaigns/new";
+      preLoaderRoute: typeof PortalCampaignsNewRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/portal/campaigns/$campaignId": {
+      id: "/portal/campaigns/$campaignId";
+      path: "/portal/campaigns/$campaignId";
+      fullPath: "/portal/campaigns/$campaignId";
+      preLoaderRoute: typeof PortalCampaignsCampaignIdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  PortalSignupRoute: PortalSignupRoute,
   QueueRoute: QueueRoute,
   SignupRoute: SignupRoute,
   AdminAuditRoute: AdminAuditRoute,
   AdminTeamRoute: AdminTeamRoute,
   CaseCaseIdRoute: CaseCaseIdRoute,
   InviteTokenRoute: InviteTokenRoute,
+  PortalCampaignsCampaignIdRoute: PortalCampaignsCampaignIdRoute,
+  PortalCampaignsNewRoute: PortalCampaignsNewRoute,
+  PortalCampaignsIndexRoute: PortalCampaignsIndexRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

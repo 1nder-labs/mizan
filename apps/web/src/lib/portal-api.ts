@@ -1,0 +1,111 @@
+/**
+ * Query-options factories + mutations for the client portal. Mirrors
+ * `cases-api.ts`: each read shares one queryFn/queryKey pair so the route
+ * loader prefetch and the component subscriber hit the same cache entry, and
+ * every response runs `assertAuthorized` (401 → /login, 403 → in-place error)
+ * before the shared-schema parse.
+ */
+import { queryOptions } from "@tanstack/react-query";
+import {
+  CampaignMutationResponseSchema,
+  CaseNotesResponseSchema,
+  ClientCampaignsResponseSchema,
+  ClientCaseDetailSchema,
+  EvidenceUploadResponseSchema,
+  type CampaignCreate,
+  type CampaignMutationResponse,
+  type CaseNotesResponse,
+  type ClientCampaignsResponse,
+  type ClientCaseDetail,
+  type DocumentKey,
+  type EvidenceUploadResponse,
+} from "@mizan/shared";
+import { api, apiMutate } from "./rpc.ts";
+import { queryKeys } from "./query-keys.ts";
+import { assertAuthorized } from "./api-errors.ts";
+
+async function fetchCampaigns(): Promise<ClientCampaignsResponse> {
+  const res = await api.portal.campaigns.$get();
+  assertAuthorized(res.status);
+  if (!res.ok) throw new Error(`campaigns list failed: ${res.status}`);
+  return ClientCampaignsResponseSchema.parse(await res.json());
+}
+
+export function clientCampaignsQueryOptions() {
+  return queryOptions<ClientCampaignsResponse>({
+    queryKey: queryKeys.portal.campaigns(),
+    queryFn: fetchCampaigns,
+    staleTime: 15_000,
+  });
+}
+
+async function fetchCampaign(id: string): Promise<ClientCaseDetail> {
+  const res = await api.portal.campaigns[":id"].$get({ param: { id } });
+  assertAuthorized(res.status);
+  if (!res.ok) throw new Error(`campaign fetch failed: ${res.status}`);
+  return ClientCaseDetailSchema.parse(await res.json());
+}
+
+export function clientCampaignQueryOptions(id: string) {
+  return queryOptions<ClientCaseDetail>({
+    queryKey: queryKeys.portal.campaign(id),
+    queryFn: () => fetchCampaign(id),
+    staleTime: 5_000,
+  });
+}
+
+async function fetchNotes(id: string): Promise<CaseNotesResponse> {
+  const res = await api.portal.campaigns[":id"].notes.$get({ param: { id } });
+  assertAuthorized(res.status);
+  if (!res.ok) throw new Error(`notes fetch failed: ${res.status}`);
+  return CaseNotesResponseSchema.parse(await res.json());
+}
+
+export function clientCampaignNotesQueryOptions(id: string) {
+  return queryOptions<CaseNotesResponse>({
+    queryKey: queryKeys.portal.notes(id),
+    queryFn: () => fetchNotes(id),
+    staleTime: 5_000,
+  });
+}
+
+export async function createCampaign(body: CampaignCreate): Promise<CampaignMutationResponse> {
+  const res = await apiMutate.portal.campaigns.$post({ json: body });
+  assertAuthorized(res.status);
+  if (!res.ok) throw new Error(`campaign create failed: ${res.status}`);
+  return CampaignMutationResponseSchema.parse(await res.json());
+}
+
+export async function editCampaign(
+  id: string,
+  body: CampaignCreate,
+): Promise<CampaignMutationResponse> {
+  const res = await apiMutate.portal.campaigns[":id"].$patch({ param: { id }, json: body });
+  assertAuthorized(res.status);
+  if (!res.ok) throw new Error(`campaign edit failed: ${res.status}`);
+  return CampaignMutationResponseSchema.parse(await res.json());
+}
+
+/**
+ * Evidence upload is multipart — the worker route reads it with `parseBody`,
+ * not a typed form validator, so the Hono RPC client cannot type it. This is
+ * the one direct `fetch` in the portal API layer; same-origin cookie auth
+ * applies just like the RPC clients.
+ */
+export async function uploadEvidence(
+  id: string,
+  docKind: DocumentKey,
+  file: File,
+): Promise<EvidenceUploadResponse> {
+  const form = new FormData();
+  form.append("docKind", docKind);
+  form.append("file", file);
+  const res = await fetch(`/api/portal/campaigns/${id}/evidence`, {
+    method: "POST",
+    body: form,
+    credentials: "include",
+  });
+  assertAuthorized(res.status);
+  if (!res.ok) throw new Error(`evidence upload failed: ${res.status}`);
+  return EvidenceUploadResponseSchema.parse(await res.json());
+}

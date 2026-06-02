@@ -1,0 +1,32 @@
+/**
+ * Lightweight shell for the client portal. Renders a top header with the
+ * brand name and a sign-out button, then a centred main content area.
+ * Does not use the reviewer `AuthenticatedShell` (sidebar + org switcher)
+ * because clients have no sidebar navigation.
+ */
+import { Loader2 } from "lucide-react";
+import { COPY } from "@/lib/copy-constants.ts";
+import { useSignOut } from "@/hooks/use-sign-out.ts";
+import { Button } from "@/components/ui/button.tsx";
+
+interface PortalShellProps {
+  readonly children: React.ReactNode;
+}
+
+export function PortalShell({ children }: PortalShellProps): React.JSX.Element {
+  const { signOut, signingOut } = useSignOut();
+  return (
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="border-b border-border/60 px-6 py-3">
+        <div className="mx-auto flex max-w-4xl items-center justify-between">
+          <span className="text-sm font-semibold tracking-tight">{COPY.portal.brand}</span>
+          <Button variant="ghost" size="sm" onClick={signOut} disabled={signingOut}>
+            {signingOut ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : null}
+            {COPY.portal.signOut}
+          </Button>
+        </div>
+      </header>
+      <main className="mx-auto max-w-4xl w-full px-6 py-8">{children}</main>
+    </div>
+  );
+}
