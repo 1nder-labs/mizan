@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DocumentKeyEnum } from "./document-url.ts";
 import { CaseStatusEnum } from "./queue-search.ts";
 
 /**
@@ -33,3 +34,13 @@ export const CampaignMutationResponseSchema = z
   .object({ id: z.string(), status: CaseStatusEnum })
   .strict();
 export type CampaignMutationResponse = z.infer<typeof CampaignMutationResponseSchema>;
+
+/**
+ * Returned by an evidence upload. `docKind` is one of the three core docs;
+ * `key` is the server-derived R2 object key (`<caseId>/<docKind>`) now recorded
+ * in the overlay `r2_keys`. The client never supplies the key.
+ */
+export const EvidenceUploadResponseSchema = z
+  .object({ docKind: DocumentKeyEnum, key: z.string() })
+  .strict();
+export type EvidenceUploadResponse = z.infer<typeof EvidenceUploadResponseSchema>;

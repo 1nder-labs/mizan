@@ -1,10 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { cases, makeDb, type Db } from "@mizan/db";
 import {
   CampaignCreateSchema,
   CampaignMutationResponseSchema,
   CaseOverlaySchema,
+  EvidenceUploadResponseSchema,
   PortalErrorBodySchema,
   type CampaignCreate,
   type CaseOverlay,
@@ -14,6 +15,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
 import type { ViewerVariables } from "../../middleware/require-role.ts";
+import { evidenceKey, readEvidenceInput } from "./evidence-upload.ts";
 import { loadOwnedCampaign } from "./ownership.ts";
 
 const EMPTY_R2_KEYS = { creator_id: "", bank_statement: "", category_doc: "" } as const;
@@ -109,4 +111,24 @@ export const campaignRoutes = new Hono<{
         return c.json(PortalErrorBodySchema.parse({ error: "case_no_longer_draft" }), 409);
       return c.json(CampaignMutationResponseSchema.parse(updated[0]), 200);
     },
-  );
+  )
+  .post("/:id/evidence", zValidator("param", CampaignParamSchema), async (c) => {
+    const db = makeDb(c.env.DB);
+    const { id } = c.req.valid("param");
+    const owned = await loadOwnedCampaign(db, c.var.viewer, id);
+    if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
+    const input = readEvidenceInput(await c.req.parseBody());
+    if (!input.ok) return c.json(PortalErrorBodySchema.parse({ error: "invalid_evidence" }), 400);
+    const key = evidenceKey(id, input.docKind);
+    await c.env.R2_BUCKET.put(key, await input.file.arrayBuffer(), {
+      httpMetadata: { contentType: input.file.type },
+    });
+    await db
+      .update(cases)
+      .set({
+        brief_partial_json: sql`json_set(${cases.brief_partial_json}, ${`$.r2_keys.${input.docKind}`}, ${key})`,
+        updated_at: new Date(),
+      })
+      .where(and(eq(cases.id, id), eq(cases.created_by, c.var.viewer.userId)));
+    return c.json(EvidenceUploadResponseSchema.parse({ docKind: input.docKind, key }), 201);
+  });

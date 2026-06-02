@@ -251,6 +251,8 @@ export {
 export {
   CampaignCreateSchema,
   CampaignMutationResponseSchema,
+  EvidenceUploadResponseSchema,
   type CampaignCreate,
   type CampaignMutationResponse,
+  type EvidenceUploadResponse,
 } from "./schemas/campaign.ts";
