@@ -31,7 +31,7 @@ export async function cacheActionResponse(
 }
 
 /** Returns a cached response when the same reviewer replays the action_id on the same case. */
-export async function readCachedActionResponse(
+async function readCachedActionResponse(
   kv: KVNamespace,
   userId: string,
   caseId: string,

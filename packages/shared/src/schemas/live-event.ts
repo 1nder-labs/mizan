@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CaseStatusEnum } from "./queue-search.ts";
+import { ReviewerActionEnum } from "./reviewer-action.ts";
 
 export const LiveEventTopicSchema = z.string().min(1);
 
@@ -57,7 +58,7 @@ const CaseActionedPayloadSchema = z
   .object({
     event_type: z.literal("case.actioned"),
     case_id: z.string(),
-    action: z.string(),
+    action: ReviewerActionEnum,
     reviewer_id: z.string(),
   })
   .strict();
