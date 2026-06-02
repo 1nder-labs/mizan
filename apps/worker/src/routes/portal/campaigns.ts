@@ -6,6 +6,7 @@ import {
   CampaignMutationResponseSchema,
   CaseNotesResponseSchema,
   CaseOverlaySchema,
+  ClientCampaignsResponseSchema,
   EvidenceUploadResponseSchema,
   PortalErrorBodySchema,
   type CampaignCreate,
@@ -16,6 +17,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
 import { readCaseNotes, writeCaseNote } from "../../lib/case-notes.ts";
+import { buildClientCaseDetail, listClientCampaigns } from "../../lib/client-views.ts";
 import type { ViewerVariables } from "../../middleware/require-role.ts";
 import { evidenceKey, readEvidenceInput } from "./evidence-upload.ts";
 import { loadOwnedCampaign } from "./ownership.ts";
@@ -104,10 +106,15 @@ export const campaignRoutes = new Hono<{
     const [created] = await createCampaign(makeDb(c.env.DB), c.var.viewer, c.req.valid("json"));
     return c.json(CampaignMutationResponseSchema.parse(created), 201);
   })
+  .get("/", async (c) => {
+    const campaigns = await listClientCampaigns(makeDb(c.env.DB), c.var.viewer);
+    return c.json(ClientCampaignsResponseSchema.parse({ campaigns }));
+  })
   .get("/:id", zValidator("param", CampaignParamSchema), async (c) => {
-    const owned = await loadOwnedCampaign(makeDb(c.env.DB), c.var.viewer, c.req.valid("param").id);
+    const db = makeDb(c.env.DB);
+    const owned = await loadOwnedCampaign(db, c.var.viewer, c.req.valid("param").id);
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
-    return c.json({ id: owned.campaign.id });
+    return c.json(await buildClientCaseDetail(db, c.var.viewer, owned.campaign));
   })
   .patch(
     "/:id",

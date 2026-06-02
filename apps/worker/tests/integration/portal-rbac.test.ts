@@ -14,6 +14,7 @@
  */
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
+import { ClientCaseDetailSchema } from "@mizan/shared";
 import { beforeAll, describe, expect, it, inject } from "vitest";
 
 const BASE = "http://localhost";
@@ -161,7 +162,9 @@ describe("portal RBAC", () => {
   it("lets a client read their own campaign (200)", async () => {
     const res = await getCampaign(caseA, clientACookie);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ id: caseA });
+    const detail = ClientCaseDetailSchema.parse(await res.json());
+    expect(detail.id).toBe(caseA);
+    expect(detail.status).toBe("submitted");
   });
 
   it("hides a sibling client's campaign as 404 (no existence leak)", async () => {

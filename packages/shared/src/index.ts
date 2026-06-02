@@ -269,3 +269,13 @@ export {
   type NoteCreate,
   type NoteVisibility,
 } from "./schemas/case-note.ts";
+
+export { ClientStatusEnum, toClientStatus, type ClientStatus } from "./schemas/client-status.ts";
+
+export {
+  ClientCampaignsResponseSchema,
+  ClientCampaignSummarySchema,
+  ClientCaseDetailSchema,
+  type ClientCampaignSummary,
+  type ClientCaseDetail,
+} from "./schemas/client-case-detail.ts";
