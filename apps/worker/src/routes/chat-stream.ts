@@ -115,6 +115,7 @@ export async function handleChatPost(
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     console.error(`[chat] stream failed (thread=${body.threadId}): ${reason}`);
+    flushLangfuse(langfuse, executionCtx);
     return c.json({ error: "chat_stream_failed" }, 500);
   }
 }

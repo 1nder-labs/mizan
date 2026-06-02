@@ -1,6 +1,26 @@
 import { describe, expect, it } from "bun:test";
-import { buildLangfuseExporter, flushLangfuse, deriveSessionId } from "@mizan/mastra";
+import {
+  buildBriefRunContext,
+  buildLangfuseExporter,
+  flushLangfuse,
+  deriveSessionId,
+} from "@mizan/mastra";
 import { makeStubBindings } from "@mizan/shared/testing";
+
+const BRIEF_INPUT = {
+  caseId: "case-1",
+  runId: "run-1",
+  reviewerId: "reviewer-1",
+  organizationId: "org-1",
+  category: "medical",
+  geography: "US",
+} as const;
+
+const ALL_CREDS = {
+  LANGFUSE_HOST: "http://localhost:3010",
+  LANGFUSE_PUBLIC_KEY: "pk-lf-test",
+  LANGFUSE_SECRET_KEY: "sk-lf-test",
+} as const;
 
 describe("buildLangfuseExporter fail-closed gate", () => {
   it("returns null when all credentials are absent", () => {
@@ -38,6 +58,41 @@ describe("buildLangfuseExporter fail-closed gate", () => {
     });
     const exporter = buildLangfuseExporter(env);
     expect(exporter).not.toBeNull();
+  });
+});
+
+describe("buildBriefRunContext", () => {
+  it("derives langfuseEnabled=true only when all three credentials are present", () => {
+    const ctx = buildBriefRunContext(makeStubBindings(ALL_CREDS), BRIEF_INPUT);
+    expect(ctx.langfuseEnabled).toBe(true);
+  });
+
+  it("derives langfuseEnabled=false when LANGFUSE_HOST is empty (keys present)", () => {
+    const env = makeStubBindings({ ...ALL_CREDS, LANGFUSE_HOST: "" });
+    expect(buildBriefRunContext(env, BRIEF_INPUT).langfuseEnabled).toBe(false);
+  });
+
+  it("derives langfuseEnabled=false when a key is empty (host present)", () => {
+    const env = makeStubBindings({ ...ALL_CREDS, LANGFUSE_SECRET_KEY: "" });
+    expect(buildBriefRunContext(env, BRIEF_INPUT).langfuseEnabled).toBe(false);
+  });
+
+  it("defaults sessionId to deriveSessionId(runId) when none is supplied", () => {
+    const ctx = buildBriefRunContext(makeStubBindings(ALL_CREDS), BRIEF_INPUT);
+    expect(ctx.sessionId).toBe(deriveSessionId(BRIEF_INPUT.runId));
+  });
+
+  it("passes an explicit sessionId through unchanged", () => {
+    const ctx = buildBriefRunContext(makeStubBindings(ALL_CREDS), {
+      ...BRIEF_INPUT,
+      sessionId: "explicit-session",
+    });
+    expect(ctx.sessionId).toBe("explicit-session");
+  });
+
+  it("threads organizationId into the runtime context", () => {
+    const ctx = buildBriefRunContext(makeStubBindings(ALL_CREDS), BRIEF_INPUT);
+    expect(ctx.organizationId).toBe("org-1");
   });
 });
 
