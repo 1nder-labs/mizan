@@ -1,5 +1,6 @@
 import { createStep } from "@mastra/core/workflows";
 import type { VectorizeIndex } from "@cloudflare/workers-types";
+import { traceTool } from "../shared/trace-tool.ts";
 import { loadCaseContext } from "../../runtime/case-loader.ts";
 import { getEnv } from "../../runtime/context-accessors.ts";
 import { resolveQueryEmbedding } from "../../runtime/model-resolver.ts";
@@ -51,13 +52,20 @@ export const matchPolicy = createStep({
   id: "matchPolicy",
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
-  execute: async ({ inputData, requestContext, abortSignal }) => {
+  execute: async ({ inputData, requestContext, abortSignal, tracingContext }) => {
     const env = getEnv(requestContext);
     const caseRow = await loadCaseContext(env, inputData.caseId);
     const query = buildPolicyQuery(caseRow, inputData);
     const source = resolvePolicySource(caseRow.claimed_zakat_category);
-    const embedding = await resolveQueryEmbedding(env, query, { abortSignal });
-    const policy_matches = await queryVectorize(env.VECTORIZE, embedding, source, inputData.caseId);
+    const embedding = await traceTool(tracingContext, "policyEmbedding", { source }, () =>
+      resolveQueryEmbedding(env, query, { abortSignal }),
+    );
+    const policy_matches = await traceTool(
+      tracingContext,
+      "vectorizePolicySearch",
+      { source },
+      () => queryVectorize(env.VECTORIZE, embedding, source, inputData.caseId),
+    );
     return { ...inputData, policy_matches };
   },
 });

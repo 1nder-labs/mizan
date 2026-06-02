@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { z } from "zod";
+import { SpanType, type TracingContext } from "@mastra/core/observability";
 import { resolveLanguageModel } from "../../runtime/model-resolver.ts";
 import { makeTelemetry } from "../../runtime/telemetry.ts";
 import type { CloudflareBindings } from "@mizan/shared";
@@ -44,6 +45,13 @@ interface BaseInvocation<TOutput> {
   readonly system: string;
   readonly abortSignal: AbortSignal | undefined;
   readonly postProcess?: (parsed: TOutput) => TOutput;
+  /**
+   * The owning step's tracing context. When present, the `generateText`
+   * call is wrapped in a `MODEL_GENERATION` child span so token usage +
+   * cost surface as a Langfuse generation nested under the step (raw AI
+   * SDK calls are otherwise invisible to Mastra's native exporter).
+   */
+  readonly tracingContext?: TracingContext | undefined;
 }
 
 /** Text-only invocation: caller passes a single user-turn string. */
@@ -102,11 +110,7 @@ export async function runStructuredLlmWithMessages<TOutput>(
   );
   const generateArgs = buildGenerateArgs(invocation, resolved.model, resolved.config);
   const result = await runWithErrorContext(invocation, resolved.config, () =>
-    generateText(
-      invocation.abortSignal
-        ? { ...generateArgs, abortSignal: invocation.abortSignal }
-        : generateArgs,
-    ),
+    runTracedGeneration(invocation, generateArgs, resolved.config),
   );
   /**
    * `result.output` is the parsed-and-validated object emitted by
@@ -170,6 +174,66 @@ function isAbortError(value: unknown): boolean {
  */
 function sanitizeSchemaName(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+/** Maps the AI SDK usage onto Mastra's `UsageStats` (omitting absent counts). */
+function buildUsageAttributes(usage: {
+  inputTokens?: number | undefined;
+  outputTokens?: number | undefined;
+}): { usage: { inputTokens?: number; outputTokens?: number } } {
+  return {
+    usage: {
+      ...(usage.inputTokens !== undefined ? { inputTokens: usage.inputTokens } : {}),
+      ...(usage.outputTokens !== undefined ? { outputTokens: usage.outputTokens } : {}),
+    },
+  };
+}
+
+/**
+ * Runs `generateText` under two nested Mastra spans:
+ *
+ *   GENERIC `<stepName>`  →  MODEL_GENERATION `<stepName>.<purpose>`
+ *
+ * The exporter hard-codes the generation's display name to `chat <model>`
+ * (`getSpanName` uses `gen_ai.operation` + the model), so the model call
+ * alone never reveals which step it belongs to. The GENERIC parent uses its
+ * `name` verbatim, so the trace tree reads `extractCreatorIdDoc → chat
+ * <model>`. The MODEL_GENERATION span still carries token usage so the
+ * generation is costed. No-ops cleanly when no tracing context is present.
+ */
+async function runTracedGeneration<TOutput>(
+  invocation: StructuredLlmInvocationWithMessages<TOutput>,
+  generateArgs: ReturnType<typeof buildGenerateArgs<TOutput>>,
+  config: ModelConfig,
+) {
+  const stepSpan = invocation.tracingContext?.currentSpan?.createChildSpan({
+    name: invocation.stepName,
+    type: SpanType.GENERIC,
+    entityName: invocation.stepName,
+    input: { system: invocation.system },
+  });
+  const genSpan = (stepSpan ?? invocation.tracingContext?.currentSpan)?.createChildSpan({
+    name: `${invocation.stepName}.${callPurposeFor(invocation.modelKind)}`,
+    type: SpanType.MODEL_GENERATION,
+    entityName: invocation.stepName,
+    input: { messages: invocation.messages },
+    attributes: { model: config.model, provider: config.provider },
+  });
+  try {
+    const result = await generateText(
+      invocation.abortSignal
+        ? { ...generateArgs, abortSignal: invocation.abortSignal }
+        : generateArgs,
+    );
+    genSpan?.end({ output: result.output, attributes: buildUsageAttributes(result.usage) });
+    stepSpan?.end({ output: result.output });
+    return result;
+  } catch (cause) {
+    const error = cause instanceof Error ? cause : new Error(String(cause));
+    genSpan?.error({ error });
+    stepSpan?.error({ error });
+    throw cause;
+  }
 }
 
 function buildGenerateArgs<TOutput>(

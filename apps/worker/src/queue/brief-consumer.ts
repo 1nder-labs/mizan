@@ -96,18 +96,23 @@ async function runWorkflow(
   message: BriefQueueMessage,
   caseRow: Case,
 ): Promise<void> {
-  const { run, requestContext, langfuse } = await createBriefRun(env, {
+  const { run, requestContext, langfuse, tracingOptions } = await createBriefRun(env, {
     caseId: message.caseId,
     runId: message.runId,
     reviewerId: message.requestedBy,
+    organizationId: caseRow.organization_id,
     category: caseRow.category,
     geography: caseRow.geography,
   });
-  await run.start({
-    inputData: { caseId: message.caseId, runId: message.runId },
-    requestContext,
-  });
-  flushLangfuse(langfuse, executionCtx);
+  try {
+    await run.start({
+      inputData: { caseId: message.caseId, runId: message.runId },
+      requestContext,
+      tracingOptions,
+    });
+  } finally {
+    flushLangfuse(langfuse, executionCtx);
+  }
 }
 
 /**

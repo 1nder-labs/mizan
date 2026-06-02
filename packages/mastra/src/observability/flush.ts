@@ -13,5 +13,10 @@ import type { LangfuseExporter } from "@mastra/langfuse";
 
 export function flushLangfuse(exporter: LangfuseExporter | null, ctx: ExecutionContext): void {
   if (!exporter) return;
-  ctx.waitUntil(exporter.flush());
+  ctx.waitUntil(
+    exporter.flush().catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`[langfuse] flush failed: ${reason}`);
+    }),
+  );
 }

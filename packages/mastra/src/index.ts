@@ -43,6 +43,7 @@ export {
 } from "./corpus/vector-search.ts";
 export { CreatorIdSchema } from "./schemas/extractions/creator-id.ts";
 export { flushLangfuse } from "./observability/flush.ts";
+export { deriveSessionId } from "./observability/trace-id.ts";
 export {
   makeRuntimeContext,
   MIZAN_CTX_KEY,
@@ -73,6 +74,7 @@ export {
 export { tierFor } from "./runtime/geography-tier.ts";
 export { detectImageMediaType, toImagePart } from "./util/image-format.ts";
 export { createMastra, type MizanMastraBundle } from "./mastra-factory.ts";
+export { LangfuseExporter, buildLangfuseExporter } from "./observability/langfuse.ts";
 export { emitWorkflowEvent } from "./observability/workflow-event-logger.ts";
 export { promoteEvalRow, type PromoteEvalRowInput } from "./steps/promote-to-eval-helpers.ts";
 export {

@@ -46,7 +46,7 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
     id: def.name,
     inputSchema: PartialBriefStateSchema,
     outputSchema: PartialBriefStateSchema,
-    execute: async ({ inputData, requestContext, abortSignal }) => {
+    execute: async ({ inputData, requestContext, abortSignal, tracingContext }) => {
       const env = getEnv(requestContext);
       const ctx = getCtx(requestContext);
       abortSignal?.throwIfAborted();
@@ -63,6 +63,7 @@ export function makeExtractor<TOutput>(def: ExtractorDef<TOutput>) {
         system: prompt.system,
         messages: prompt.messages,
         abortSignal,
+        tracingContext,
       });
       abortSignal?.throwIfAborted();
       return def.mergeInto(inputData, extracted);

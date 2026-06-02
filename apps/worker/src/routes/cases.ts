@@ -53,10 +53,11 @@ async function streamBriefResponse(
   runId: string,
   caseRow: Case,
 ): Promise<Response> {
-  const { run, requestContext, langfuse } = await createBriefRun(c.env, {
+  const { run, requestContext, langfuse, tracingOptions } = await createBriefRun(c.env, {
     caseId,
     runId,
     reviewerId: c.var.viewer.userId,
+    organizationId: caseRow.organization_id,
     category: caseRow.category,
     geography: caseRow.geography,
   });
@@ -67,14 +68,20 @@ async function streamBriefResponse(
   c.req.raw.signal.addEventListener("abort", onAbort);
 
   try {
-    const workflowStream = run.stream({ inputData: { caseId, runId }, requestContext });
+    const workflowStream = run.stream({
+      inputData: { caseId, runId },
+      requestContext,
+      tracingOptions,
+    });
     const aiSdkStream = toAISdkStream(workflowStream, { from: "workflow", version: "v6" });
     const uiStream = createUIMessageStream({
       execute: ({ writer }) => {
         writer.merge(aiSdkStream);
       },
+      onFinish: () => {
+        flushLangfuse(langfuse, c.executionCtx);
+      },
     });
-    flushLangfuse(langfuse, c.executionCtx);
     return createUIMessageStreamResponse({ stream: uiStream });
   } finally {
     c.req.raw.signal.removeEventListener("abort", onAbort);

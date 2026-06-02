@@ -1,4 +1,6 @@
 import { Mastra } from "@mastra/core";
+import { SpanType } from "@mastra/core/observability";
+import type { Agent } from "@mastra/core/agent";
 import { D1Store } from "@mastra/cloudflare-d1";
 import { Observability } from "@mastra/observability";
 import type { CloudflareBindings } from "@mizan/shared";
@@ -8,6 +10,10 @@ import { briefWorkflow } from "./workflows/brief.workflow.ts";
 export interface MizanMastraBundle {
   readonly mastra: Mastra;
   readonly langfuse: LangfuseExporter | null;
+}
+
+interface CreateMastraOptions {
+  readonly agents?: Record<string, Agent>;
 }
 
 /**
@@ -20,7 +26,10 @@ export interface MizanMastraBundle {
  * `langfuse` exporter is the same instance Mastra is observing through, so
  * the route handler passes it directly to `flushLangfuse(...)`.
  */
-export function createMastra(env: CloudflareBindings): MizanMastraBundle {
+export function createMastra(
+  env: CloudflareBindings,
+  options?: CreateMastraOptions,
+): MizanMastraBundle {
   const langfuse = buildLangfuseExporter(env);
   const observability = langfuse
     ? new Observability({
@@ -28,6 +37,7 @@ export function createMastra(env: CloudflareBindings): MizanMastraBundle {
           langfuse: {
             serviceName: "mizan",
             exporters: [langfuse],
+            excludeSpanTypes: [SpanType.MODEL_CHUNK],
           },
         },
       })
@@ -35,6 +45,7 @@ export function createMastra(env: CloudflareBindings): MizanMastraBundle {
   const mastra = new Mastra({
     storage: new D1Store({ id: "mizan-mastra", binding: env.DB }),
     workflows: { brief: briefWorkflow },
+    ...(options?.agents ? { agents: options.agents } : {}),
     ...(observability ? { observability } : {}),
   });
   return { mastra, langfuse };

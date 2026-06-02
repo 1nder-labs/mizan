@@ -75,7 +75,7 @@ export function makeLlmSignalStep<TWire, TPayload = TWire>(def: LlmSignalStepDef
     id: def.id,
     inputSchema: PartialBriefStateSchema,
     outputSchema: PartialBriefStateSchema,
-    execute: async ({ inputData, requestContext, abortSignal }) => {
+    execute: async ({ inputData, requestContext, abortSignal, tracingContext }) => {
       const env = getEnv(requestContext);
       const ctx = getCtx(requestContext);
       abortSignal?.throwIfAborted();
@@ -91,6 +91,7 @@ export function makeLlmSignalStep<TWire, TPayload = TWire>(def: LlmSignalStepDef
         system: def.system,
         userPayload: def.buildUserPayload({ caseRow, inputData }),
         abortSignal,
+        tracingContext,
       });
       abortSignal?.throwIfAborted();
       const payload = def.postProcess({ raw, caseRow, inputData });

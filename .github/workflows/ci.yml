@@ -75,6 +75,27 @@ jobs:
             exit 1
           fi
 
+      - name: Enforce telemetry chokepoint on workflow steps (Phase 8)
+        run: |
+          set -euo pipefail
+          # 1. runStructuredLlm must contain experimental_telemetry (the single chokepoint)
+          if ! grep -q "experimental_telemetry" packages/mastra/src/steps/shared/runStructuredLlm.ts; then
+            echo "ci: runStructuredLlm.ts missing experimental_telemetry — telemetry chokepoint broken"
+            exit 1
+          fi
+          # 2. No step file may call generateText/streamText/generateObject directly (call-form match)
+          direct_calls=$(grep -rnE '(generateText|streamText|generateObject)\(' \
+            packages/mastra/src/steps/ \
+            --include='*.ts' \
+            | grep -v 'runStructuredLlm.ts' \
+            | grep -v '\.test\.' \
+            || true)
+          if [ -n "$direct_calls" ]; then
+            echo "ci: direct LLM call detected outside the telemetry chokepoint:"
+            echo "$direct_calls"
+            exit 1
+          fi
+
       - name: Run web integration tests (vitest + MSW + RTL)
         run: bun --filter @mizan/web test:integration
 

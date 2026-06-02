@@ -7,10 +7,11 @@
  * route, which was the correct shape for raw AI-SDK apps but bypassed
  * Mastra's workflow-aware span propagation.
  *
- * Activates only when BOTH `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`
- * are present in the environment — local dev without Langfuse credentials
- * runs with observability inert (the exporter array stays empty and Mastra
- * skips the OTel registration step entirely).
+ * **Fail-closed gate:** activates only when ALL THREE of `LANGFUSE_HOST`
+ * (non-empty), `LANGFUSE_PUBLIC_KEY`, and `LANGFUSE_SECRET_KEY` are
+ * present. Without the `LANGFUSE_HOST` check, keys present + empty host
+ * would produce a live exporter whose `baseUrl` falls back to the SDK
+ * default `https://cloud.langfuse.com`, shipping PII to the public cloud.
  */
 
 import { LangfuseExporter } from "@mastra/langfuse";
@@ -20,12 +21,13 @@ import type { CloudflareBindings } from "@mizan/shared";
 export function buildLangfuseExporter(env: CloudflareBindings): LangfuseExporter | null {
   const publicKey = env.LANGFUSE_PUBLIC_KEY;
   const secretKey = env.LANGFUSE_SECRET_KEY;
-  if (!publicKey || !secretKey) return null;
+  const host = env.LANGFUSE_HOST;
+  if (!publicKey || !secretKey || !host) return null;
   return new LangfuseExporter({
     publicKey,
     secretKey,
+    baseUrl: host,
     environment: "development",
-    ...(env.LANGFUSE_HOST ? { baseUrl: env.LANGFUSE_HOST } : {}),
   });
 }
 

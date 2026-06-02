@@ -1,8 +1,21 @@
 import { toAISdkStream } from "@mastra/ai-sdk";
-import { createReviewerCopilotAgent, RequestContext } from "@mizan/mastra";
+import {
+  createReviewerCopilotAgent,
+  createMastra,
+  flushLangfuse,
+  type CopilotRole,
+  RequestContext,
+} from "@mizan/mastra";
+import type { LangfuseExporter } from "@mizan/mastra";
 import { eq, chat_messages, chat_threads, type Db } from "@mizan/db";
 import type { ViewerContext } from "@mizan/shared";
-import { createUIMessageStream, createUIMessageStreamResponse, validateUIMessages } from "ai";
+import {
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  validateUIMessages,
+  type UIMessage,
+} from "ai";
+import type { ExecutionContext } from "@cloudflare/workers-types";
 import type { Context } from "hono";
 import type { CloudflareBindings } from "../env.ts";
 import { buildCopilotTools } from "../agents/copilot-tools.ts";
@@ -41,16 +54,49 @@ async function persistLatestUserMessage(
   return validated;
 }
 
+function registerCopilotAgent(env: CloudflareBindings, viewerRole: CopilotRole) {
+  const tools = buildCopilotTools(env, viewerRole);
+  const copilotAgent = createReviewerCopilotAgent(env, tools);
+  return createMastra(env, { agents: { reviewerCopilot: copilotAgent } });
+}
+
+function buildOnFinishHandler(
+  db: Db,
+  threadId: string,
+  langfuse: LangfuseExporter | null,
+  executionCtx: ExecutionContext,
+) {
+  return async ({ responseMessage }: { responseMessage: UIMessage }) => {
+    try {
+      await db.insert(chat_messages).values({
+        thread_id: threadId,
+        role: "assistant",
+        parts_json: responseMessage.parts,
+        created_at: new Date(),
+      });
+      await db
+        .update(chat_threads)
+        .set({ updated_at: new Date() })
+        .where(eq(chat_threads.id, threadId));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.error(`[chat] onFinish persist failed (thread=${threadId}): ${reason}`);
+    }
+    flushLangfuse(langfuse, executionCtx);
+  };
+}
+
 /** Handles `POST /api/chat` streaming for an owned thread. */
 export async function handleChatPost(
   c: Context<{ Bindings: CloudflareBindings; Variables: ViewerVariables }>,
   body: ChatPostBody,
   viewer: ViewerContext,
   db: Db,
+  executionCtx: ExecutionContext,
 ): Promise<Response> {
   const validated = await persistLatestUserMessage(db, body.threadId, body.messages);
-  const tools = buildCopilotTools(c.env, viewer.role);
-  const agent = createReviewerCopilotAgent(c.env, tools);
+  const { mastra, langfuse } = registerCopilotAgent(c.env, viewer.role);
+  const agent = mastra.getAgent("reviewerCopilot");
   const requestContext = buildChatRequestContext(viewer, db, body.context);
 
   try {
@@ -63,28 +109,13 @@ export async function handleChatPost(
       execute: ({ writer }) => {
         writer.merge(aiSdkStream);
       },
-      onFinish: async ({ responseMessage }) => {
-        try {
-          await db.insert(chat_messages).values({
-            thread_id: body.threadId,
-            role: "assistant",
-            parts_json: responseMessage.parts,
-            created_at: new Date(),
-          });
-          await db
-            .update(chat_threads)
-            .set({ updated_at: new Date() })
-            .where(eq(chat_threads.id, body.threadId));
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          console.error(`[chat] onFinish persist failed (thread=${body.threadId}): ${reason}`);
-        }
-      },
+      onFinish: buildOnFinishHandler(db, body.threadId, langfuse, executionCtx),
     });
     return createUIMessageStreamResponse({ stream: uiStream });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     console.error(`[chat] stream failed (thread=${body.threadId}): ${reason}`);
+    flushLangfuse(langfuse, executionCtx);
     return c.json({ error: "chat_stream_failed" }, 500);
   }
 }
