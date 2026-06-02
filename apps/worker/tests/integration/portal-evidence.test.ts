@@ -17,10 +17,8 @@ import {
   EvidenceUploadResponseSchema,
 } from "@mizan/shared";
 import { beforeAll, describe, expect, it, inject } from "vitest";
+import { BASE, seedReviewOrgWithAdmin, signUp } from "./portal-helpers.ts";
 
-const BASE = "http://localhost";
-const PW = "CorrectHorse99!!";
-const REVIEW_ORG_ID = "review-org-fixture";
 const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 
 const VALID_BODY = {
@@ -31,47 +29,6 @@ const VALID_BODY = {
 };
 
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
-
-function cookiesFrom(res: Response): string {
-  return res.headers.getSetCookie().join("; ");
-}
-
-async function signUp(
-  rawEmail: string,
-  name: string,
-  signupKind?: "client",
-): Promise<{ userId: string; cookie: string }> {
-  const email = rawEmail.toLowerCase();
-  const body = signupKind
-    ? { email, password: PW, name, signupKind }
-    : { email, password: PW, name };
-  const res = await exports.default.fetch(
-    new Request(`${BASE}/api/auth/sign-up/email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  );
-  expect(res.status).toBe(200);
-  const row = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
-    .bind(email)
-    .first<{ id: string }>();
-  if (!row?.id) throw new Error("signup row missing");
-  return { userId: row.id, cookie: cookiesFrom(res) };
-}
-
-async function seedReviewOrgWithAdmin(adminUserId: string): Promise<void> {
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO organizations (id, name, slug, created_at) VALUES (?, ?, ?, ?)",
-  )
-    .bind(REVIEW_ORG_ID, "Mizan Review Org", "mizan-review-org", Date.now())
-    .run();
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO members (id, user_id, organization_id, role, created_at) VALUES (?, ?, ?, 'admin', ?)",
-  )
-    .bind(crypto.randomUUID(), adminUserId, REVIEW_ORG_ID, Date.now())
-    .run();
-}
 
 async function createCampaign(cookie: string): Promise<string> {
   const res = await exports.default.fetch(

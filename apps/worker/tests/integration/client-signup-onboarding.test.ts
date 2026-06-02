@@ -11,52 +11,13 @@
  * `vitest.config.ts`. Run via `bun --filter @mizan/worker test:integration`.
  */
 import { applyD1Migrations } from "cloudflare:test";
-import { env, exports } from "cloudflare:workers";
+import { env } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-
-const BASE = "http://localhost";
-const PASSWORD = "CorrectHorse99!!";
-const REVIEW_ORG_ID = "review-org-fixture";
+import { REVIEW_ORG_ID, seedReviewOrgWithAdmin, signUp } from "./portal-helpers.ts";
 
 interface MembershipRow {
   role: string;
   organization_id: string;
-}
-
-async function signUp(
-  email: string,
-  name: string,
-  signupKind?: "client" | "internal",
-): Promise<string> {
-  const body = signupKind
-    ? { email, password: PASSWORD, name, signupKind }
-    : { email, password: PASSWORD, name };
-  const res = await exports.default.fetch(
-    new Request(`${BASE}/api/auth/sign-up/email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  );
-  expect(res.status).toBe(200);
-  const userRow = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
-    .bind(email)
-    .first<{ id: string }>();
-  if (!userRow?.id) throw new Error("signup user row missing");
-  return userRow.id;
-}
-
-async function seedReviewOrgWithAdmin(adminUserId: string): Promise<void> {
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO organizations (id, name, slug, created_at) VALUES (?, ?, ?, ?)",
-  )
-    .bind(REVIEW_ORG_ID, "Mizan Review Org", "mizan-review-org", Date.now())
-    .run();
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO members (id, user_id, organization_id, role, created_at) VALUES (?, ?, ?, 'admin', ?)",
-  )
-    .bind(crypto.randomUUID(), adminUserId, REVIEW_ORG_ID, Date.now())
-    .run();
 }
 
 async function loadMemberships(userId: string): Promise<MembershipRow[]> {
@@ -69,12 +30,19 @@ async function loadMemberships(userId: string): Promise<MembershipRow[]> {
 describe("client signup onboarding", () => {
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-    const adminId = await signUp(`review-admin-${Date.now()}@test.local`, "Review Admin");
+    const { userId: adminId } = await signUp(
+      `review-admin-${Date.now()}@test.local`,
+      "Review Admin",
+    );
     await seedReviewOrgWithAdmin(adminId);
   }, 60_000);
 
   it("routes a client signup into the review org as a client member, no own org", async () => {
-    const clientId = await signUp(`client-${Date.now()}@test.local`, "Client User", "client");
+    const { userId: clientId } = await signUp(
+      `client-${Date.now()}@test.local`,
+      "Client User",
+      "client",
+    );
 
     const memberships = await loadMemberships(clientId);
     expect(memberships).toHaveLength(1);

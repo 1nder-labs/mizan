@@ -5,56 +5,12 @@
  * Run via `bun --filter @mizan/worker test:integration`.
  */
 import { applyD1Migrations } from "cloudflare:test";
-import { env, exports } from "cloudflare:workers";
+import { env } from "cloudflare:workers";
 import { makeDb } from "@mizan/db";
 import { CaseNotesResponseSchema } from "@mizan/shared";
 import { beforeAll, describe, expect, it, inject } from "vitest";
 import { clientResponded } from "../../src/lib/case-notes.ts";
-
-const BASE = "http://localhost";
-const PW = "CorrectHorse99!!";
-const REVIEW_ORG_ID = "review-org-fixture";
-
-function cookiesFrom(res: Response): string {
-  return res.headers.getSetCookie().join("; ");
-}
-
-async function signUp(
-  rawEmail: string,
-  name: string,
-  signupKind?: "client",
-): Promise<{ userId: string; cookie: string }> {
-  const email = rawEmail.toLowerCase();
-  const body = signupKind
-    ? { email, password: PW, name, signupKind }
-    : { email, password: PW, name };
-  const res = await exports.default.fetch(
-    new Request(`${BASE}/api/auth/sign-up/email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  );
-  expect(res.status).toBe(200);
-  const row = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
-    .bind(email)
-    .first<{ id: string }>();
-  if (!row?.id) throw new Error("signup row missing");
-  return { userId: row.id, cookie: cookiesFrom(res) };
-}
-
-async function seedReviewOrgWithAdmin(adminUserId: string, orgId = REVIEW_ORG_ID): Promise<void> {
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO organizations (id, name, slug, created_at) VALUES (?, ?, ?, ?)",
-  )
-    .bind(orgId, `Org ${orgId}`, orgId, Date.now())
-    .run();
-  await env.DB.prepare(
-    "INSERT OR IGNORE INTO members (id, user_id, organization_id, role, created_at) VALUES (?, ?, ?, 'admin', ?)",
-  )
-    .bind(crypto.randomUUID(), adminUserId, orgId, Date.now())
-    .run();
-}
+import { BASE, REVIEW_ORG_ID, seedReviewOrgWithAdmin, send, signUp } from "./portal-helpers.ts";
 
 async function inviteReviewerInto(orgId: string, inviterId: string) {
   const email = `cn-reviewer-${Date.now()}@test.local`;
@@ -117,18 +73,6 @@ async function insertAction(caseId: string, reviewerId: string, actedAt: number)
       REVIEW_ORG_ID,
     )
     .run();
-}
-
-function send(method: string, url: string, cookie: string, body?: unknown): Promise<Response> {
-  const headers: Record<string, string> = { Cookie: cookie };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
-  return exports.default.fetch(
-    new Request(url, {
-      method,
-      headers,
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    }),
-  );
 }
 
 describe("case notes", () => {
