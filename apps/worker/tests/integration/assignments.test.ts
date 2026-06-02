@@ -258,4 +258,44 @@ describe("POST /api/cases/:id/assign", () => {
     const loserBody = CaseAssignErrorBodySchema.parse(await loser.json());
     expect(loserBody.error).toBe("assignment_conflict");
   }, 30_000);
+
+  it("reviewer unassigning another member's case → 403 self_assign_only", async () => {
+    const reviewer = await signUpUser("reviewer-unassign-other");
+    await demoteToReviewer(reviewer.userId);
+    const holder = await signUpUser("other-holder-unassign");
+    await addMemberToOrg(holder.userId, reviewer.organizationId);
+
+    const caseId = crypto.randomUUID();
+    await insertCase({
+      id: caseId,
+      createdBy: reviewer.userId,
+      organizationId: reviewer.organizationId,
+      assignedTo: holder.userId,
+    });
+
+    const res = await exports.default.fetch(postAssign(caseId, reviewer.cookie, null));
+    expect(res.status).toBe(403);
+    const body = CaseAssignErrorBodySchema.parse(await res.json());
+    expect(body.error).toBe("self_assign_only");
+  }, 30_000);
+
+  it("reviewer assigning an unassigned case to a third party → 403 self_assign_only", async () => {
+    const reviewer = await signUpUser("reviewer-assign-other");
+    await demoteToReviewer(reviewer.userId);
+    const third = await signUpUser("third-party-assign");
+    await addMemberToOrg(third.userId, reviewer.organizationId);
+
+    const caseId = crypto.randomUUID();
+    await insertCase({
+      id: caseId,
+      createdBy: reviewer.userId,
+      organizationId: reviewer.organizationId,
+      assignedTo: null,
+    });
+
+    const res = await exports.default.fetch(postAssign(caseId, reviewer.cookie, third.userId));
+    expect(res.status).toBe(403);
+    const body = CaseAssignErrorBodySchema.parse(await res.json());
+    expect(body.error).toBe("self_assign_only");
+  }, 30_000);
 });
