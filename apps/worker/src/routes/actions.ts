@@ -120,10 +120,16 @@ function buildResponse(
  * recovery; it requires two independent failures in one request, so we accept
  * that residual risk rather than build a sweep for a path that has none.
  */
-async function revertClaim(db: Db, caseId: string, runId: string, cause: unknown): Promise<void> {
+async function revertClaim(
+  db: Db,
+  caseId: string,
+  runId: string,
+  organizationId: string,
+  cause: unknown,
+): Promise<void> {
   const reason = cause instanceof Error ? cause.message : String(cause);
   try {
-    const reverted = await revertActionClaim(db, caseId, runId);
+    const reverted = await revertActionClaim(db, caseId, runId, organizationId);
     if (!reverted) {
       console.error(
         `[action] revertClaim no-op — case ${caseId} run ${runId} already off RUNNING (cause=${reason})`,
@@ -236,7 +242,7 @@ async function commitAction(
       actionId: body.action_id,
     });
   } catch (error) {
-    await revertClaim(db, caseId, runId, error);
+    await revertClaim(db, caseId, runId, c.var.viewer.organizationId, error);
     return { ok: false, code: "workflow_failed" };
   }
   const response = buildResponse(brief, body);

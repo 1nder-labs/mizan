@@ -1,4 +1,9 @@
-import { batchTransitionWithEmits, buildActionEmits, transitionCase, type Db } from "@mizan/db";
+import {
+  batchTransitionWithEmits,
+  buildActionEmits,
+  buildStatusChangedEmits,
+  type Db,
+} from "@mizan/db";
 import type { ReviewerAction } from "@mizan/shared";
 
 interface FinalizeActionInput {
@@ -41,13 +46,29 @@ export async function finalizeActionWithLiveEvents(
   }
 }
 
-/** Reverts a failed post-action chain back to SUSPENDED_HITL. */
-export async function revertActionClaim(db: Db, caseId: string, runId: string): Promise<boolean> {
-  const reverted = await transitionCase(db, {
-    caseId,
-    runId,
-    from: "RUNNING",
-    to: "SUSPENDED_HITL",
-  });
+/**
+ * Reverts a failed post-action chain back to SUSPENDED_HITL and emits the
+ * status change so SSE subscribers see the case leave RUNNING — without this,
+ * a board watching the case stays stuck on RUNNING (live events are push-only,
+ * no background poll). `actorUserId` is null: the revert is system-driven
+ * compensation, not a reviewer action.
+ */
+export async function revertActionClaim(
+  db: Db,
+  caseId: string,
+  runId: string,
+  organizationId: string,
+): Promise<boolean> {
+  const reverted = await batchTransitionWithEmits(
+    db,
+    { caseId, runId, from: "RUNNING", to: "SUSPENDED_HITL" },
+    buildStatusChangedEmits({
+      caseId,
+      organizationId,
+      fromStatus: "RUNNING",
+      toStatus: "SUSPENDED_HITL",
+      actorUserId: null,
+    }),
+  );
   return Boolean(reverted);
 }

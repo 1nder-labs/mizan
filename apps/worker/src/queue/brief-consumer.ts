@@ -1,6 +1,15 @@
 import type { ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
 import { createBriefRun, emitWorkflowEvent, flushLangfuse } from "@mizan/mastra";
-import { cases, eq, makeDb, transitionCase, type Db } from "@mizan/db";
+import {
+  batchTransitionWithEmits,
+  buildStatusChangedEmits,
+  cases,
+  eq,
+  makeDb,
+  resolveCaseOrganizationId,
+  transitionCase,
+  type Db,
+} from "@mizan/db";
 import type { Case } from "@mizan/db";
 import { BriefQueueMessageSchema, type BriefQueueMessage } from "@mizan/shared";
 import type { CloudflareBindings } from "../env.ts";
@@ -59,13 +68,26 @@ async function claimRun(db: Db, message: BriefQueueMessage): Promise<Case | unde
   return claimed;
 }
 
+/**
+ * Reverts a failed RUNNING claim back to QUEUED and emits the status change so
+ * SSE subscribers see the case re-queue (live events are push-only — a silent
+ * revert leaves a board stuck on RUNNING). Org is resolved from the case row
+ * because the queue message carries no tenant id; `actorUserId` is null
+ * (system-driven retry compensation).
+ */
 async function revertClaim(db: Db, caseId: string, runId: string): Promise<void> {
-  await transitionCase(db, {
-    caseId,
-    runId,
-    from: "RUNNING",
-    to: "QUEUED",
-  });
+  const organizationId = await resolveCaseOrganizationId(db, caseId);
+  await batchTransitionWithEmits(
+    db,
+    { caseId, runId, from: "RUNNING", to: "QUEUED" },
+    buildStatusChangedEmits({
+      caseId,
+      organizationId,
+      fromStatus: "RUNNING",
+      toStatus: "QUEUED",
+      actorUserId: null,
+    }),
+  );
 }
 
 async function runWorkflow(

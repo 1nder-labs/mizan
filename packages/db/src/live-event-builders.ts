@@ -156,13 +156,35 @@ export function buildActionEmits(input: ActionEmitInput): EmitLiveEventInput[] {
 }
 
 /**
- * Atomically transitions a case and emits live events in one D1 batch.
+ * Fires live-event emits as one best-effort batch. Live events are
+ * observability — a failed append must never roll back or 500 a committed
+ * case transition (see the `actions.ts` post-action chain). Logs loudly on
+ * failure; callers do not branch on the outcome.
+ */
+export async function emitLiveEventsBestEffort(
+  db: Db,
+  emits: readonly EmitLiveEventInput[],
+): Promise<void> {
+  if (emits.length === 0) return;
+  try {
+    const [first, ...rest] = emits.map((emit) => emitLiveEvent(db, emit));
+    if (first) await db.batch([first, ...rest]);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[live-events] best-effort emit failed (${emits.length} events): ${reason}`);
+  }
+}
+
+/**
+ * Transitions a case and emits live events ONLY when the guarded update
+ * matched.
  *
- * The update uses `.returning()` so the matched row comes back from the same
- * atomic batch — not a follow-up `SELECT`. A post-batch re-read could observe
- * a status another writer set (false negative → spurious revert) or miss the
- * row entirely; the RETURNING result is exactly "did THIS guarded update
- * apply", which is the signal callers need. Empty result → no transition.
+ * The update uses `.returning()` so the matched row is the signal — not a
+ * follow-up `SELECT` (which could observe another writer's status, a false
+ * negative). A race-lost / stale call matches no row → returns `undefined`
+ * and emits nothing, so subscribers never see a spurious transition for a
+ * no-op update. On a real transition the emits fire best-effort AFTER the
+ * commit: they are observability, not part of the transition's atomicity.
  */
 export async function batchTransitionWithEmits(
   db: Db,
@@ -175,7 +197,7 @@ export async function batchTransitionWithEmits(
   emits: readonly EmitLiveEventInput[],
 ): Promise<Case | undefined> {
   const sources = Array.isArray(transition.from) ? [...transition.from] : [transition.from];
-  const updateStmt = db
+  const updated = await db
     .update(cases)
     .set({ status: transition.to, updated_at: new Date() })
     .where(
@@ -186,9 +208,10 @@ export async function batchTransitionWithEmits(
       ),
     )
     .returning();
-  const emitStmts = emits.map((emit) => emitLiveEvent(db, emit));
-  const [updatedRows] = await db.batch([updateStmt, ...emitStmts]);
-  return updatedRows[0];
+  const row = updated[0];
+  if (!row) return undefined;
+  await emitLiveEventsBestEffort(db, emits);
+  return row;
 }
 
 interface SignalPersistedInput {

@@ -1,7 +1,7 @@
 import {
   buildStatusChangedEmits,
   cases,
-  emitLiveEvent,
+  emitLiveEventsBestEffort,
   eq,
   inArray,
   and,
@@ -56,28 +56,29 @@ async function claimCaseQueued(
   actorUserId: string,
   sources: readonly Case["status"][],
 ): Promise<Case | undefined> {
-  const emits = buildStatusChangedEmits({
-    caseId,
-    organizationId,
-    fromStatus,
-    toStatus: "QUEUED",
-    actorUserId,
-  });
-  await db.batch([
-    db
-      .update(cases)
-      .set({ status: "QUEUED", current_run_id: runId, updated_at: new Date() })
-      .where(
-        and(
-          eq(cases.id, caseId),
-          eq(cases.organization_id, organizationId),
-          inArray(cases.status, [...sources]),
-        ),
+  const updated = await db
+    .update(cases)
+    .set({ status: "QUEUED", current_run_id: runId, updated_at: new Date() })
+    .where(
+      and(
+        eq(cases.id, caseId),
+        eq(cases.organization_id, organizationId),
+        inArray(cases.status, [...sources]),
       ),
-    ...emits.map((emit) => emitLiveEvent(db, emit)),
-  ]);
-  const row = await db.select().from(cases).where(eq(cases.id, caseId)).get();
-  if (!row || row.status !== "QUEUED" || row.current_run_id !== runId) return undefined;
+    )
+    .returning();
+  const row = updated[0];
+  if (!row) return undefined;
+  await emitLiveEventsBestEffort(
+    db,
+    buildStatusChangedEmits({
+      caseId,
+      organizationId,
+      fromStatus,
+      toStatus: "QUEUED",
+      actorUserId,
+    }),
+  );
   return row;
 }
 
@@ -96,27 +97,28 @@ async function claimCaseRunning(
     readonly actorUserId: string;
   },
 ): Promise<Case | undefined> {
-  const emits = buildStatusChangedEmits({
-    caseId,
-    organizationId: emitContext.organizationId,
-    fromStatus: emitContext.fromStatus,
-    toStatus: target,
-    actorUserId: emitContext.actorUserId,
-  });
-  await db.batch([
-    db
-      .update(cases)
-      .set({ status: target, current_run_id: runId, updated_at: new Date() })
-      .where(
-        and(
-          eq(cases.id, caseId),
-          eq(cases.organization_id, emitContext.organizationId),
-          inArray(cases.status, [...sources]),
-        ),
+  const updated = await db
+    .update(cases)
+    .set({ status: target, current_run_id: runId, updated_at: new Date() })
+    .where(
+      and(
+        eq(cases.id, caseId),
+        eq(cases.organization_id, emitContext.organizationId),
+        inArray(cases.status, [...sources]),
       ),
-    ...emits.map((emit) => emitLiveEvent(db, emit)),
-  ]);
-  const row = await db.select().from(cases).where(eq(cases.id, caseId)).get();
-  if (!row || row.status !== target || row.current_run_id !== runId) return undefined;
+    )
+    .returning();
+  const row = updated[0];
+  if (!row) return undefined;
+  await emitLiveEventsBestEffort(
+    db,
+    buildStatusChangedEmits({
+      caseId,
+      organizationId: emitContext.organizationId,
+      fromStatus: emitContext.fromStatus,
+      toStatus: target,
+      actorUserId: emitContext.actorUserId,
+    }),
+  );
   return row;
 }
