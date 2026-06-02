@@ -11,9 +11,12 @@
 
 import { Hono } from "hono";
 import type { AuthVariables } from "../middleware/auth-init.ts";
+import { nativeOrgGuard } from "../middleware/native-org-guard.ts";
 import type { CloudflareBindings } from "../env.ts";
 
 export const authRoutes = new Hono<{
   Bindings: CloudflareBindings;
   Variables: AuthVariables;
-}>().all("*", (c) => c.var.auth.handler(c.req.raw));
+}>()
+  .use("*", nativeOrgGuard)
+  .all("*", (c) => c.var.auth.handler(c.req.raw));

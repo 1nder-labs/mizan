@@ -1,7 +1,7 @@
 /**
  * Read helpers for signals, policy, team, and audit surfaces.
  */
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { fetchAuditPage, members, signals as signalsTable, users, type Db } from "@mizan/db";
 import { getClauseById } from "@mizan/mastra";
 import type { AuditListSearch, PolicyClauseSource, ViewerContext } from "@mizan/shared";
@@ -64,6 +64,14 @@ export function getPolicyClause(clauseId: string, source: PolicyClauseSource) {
 }
 
 /** Lists members of the viewer's active organization. */
+/**
+ * Lists the reviewer team for the viewer's org. `client`-role members are
+ * excluded: in the shared-review-org model external campaign creators are
+ * members of the same org, but they are not part of the staff team, and their
+ * emails/names are PII that must not surface in the reviewer-facing team-
+ * management view. Clients are surfaced to reviewers only as campaign creators
+ * inside the portal-bridged case flow, never as "team".
+ */
 export async function listTeamMembers(viewer: ViewerContext, db: Db) {
   const rows = await db
     .select({
@@ -75,7 +83,7 @@ export async function listTeamMembers(viewer: ViewerContext, db: Db) {
     })
     .from(members)
     .innerJoin(users, eq(users.id, members.userId))
-    .where(eq(members.organizationId, viewer.organizationId))
+    .where(and(eq(members.organizationId, viewer.organizationId), ne(members.role, "client")))
     .orderBy(desc(members.createdAt))
     .all();
   return rows.map((row) => ({
