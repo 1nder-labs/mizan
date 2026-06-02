@@ -51,5 +51,3 @@ export async function revertActionClaim(db: Db, caseId: string, runId: string): 
   });
   return Boolean(reverted);
 }
-
-export type { FinalizeActionInput };

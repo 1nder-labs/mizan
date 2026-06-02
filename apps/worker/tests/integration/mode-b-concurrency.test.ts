@@ -16,8 +16,9 @@ import {
   trackedMessage,
   seedCaseStatus,
 } from "./mode-b-helpers.ts";
+import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
 
-describe("Mode B consumer concurrency", () => {
+describe.skipIf(!RUN_REMOTE_VECTORIZE)("Mode B consumer concurrency", () => {
   let adminUserId = "";
 
   beforeAll(async () => {

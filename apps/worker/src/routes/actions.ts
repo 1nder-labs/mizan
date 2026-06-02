@@ -80,6 +80,7 @@ async function loadLatestBrief(
   db: Db,
   caseId: string,
   organizationId: string,
+  runId: string,
 ): Promise<{ recommendation: Recommendation; payload: BriefPayload } | null> {
   const row = await db
     .select({
@@ -87,7 +88,13 @@ async function loadLatestBrief(
       payload_json: briefs.payload_json,
     })
     .from(briefs)
-    .where(and(eq(briefs.case_id, caseId), eq(briefs.organization_id, organizationId)))
+    .where(
+      and(
+        eq(briefs.case_id, caseId),
+        eq(briefs.organization_id, organizationId),
+        eq(briefs.run_id, runId),
+      ),
+    )
     .orderBy(desc(briefs.composed_at))
     .limit(1)
     .get();
@@ -145,7 +152,7 @@ interface PostActionInput {
 }
 
 async function runPostActionChain(db: Db, input: PostActionInput): Promise<BriefPayload> {
-  const brief = await loadLatestBrief(db, input.caseId, input.organizationId);
+  const brief = await loadLatestBrief(db, input.caseId, input.organizationId, input.runId);
   if (!brief) {
     throw new Error(`action: brief row missing for case ${input.caseId} run ${input.runId}`);
   }
@@ -164,6 +171,7 @@ async function runPostActionChain(db: Db, input: PostActionInput): Promise<Brief
   await emitWorkflowEvent(db, {
     caseId: input.caseId,
     runId: input.runId,
+    organizationId: input.organizationId,
     eventType: "step.resume",
     stepId: "recordAction",
   });
@@ -182,12 +190,31 @@ async function runPostActionChain(db: Db, input: PostActionInput): Promise<Brief
     action: input.action,
     actionId: input.actionId,
   });
-  await emitWorkflowEvent(db, {
-    caseId: input.caseId,
-    runId: input.runId,
-    eventType: "workflow.finish",
-  });
+  await emitTerminalEventBestEffort(db, input);
   return brief.payload;
+}
+
+/**
+ * Appends the terminal `workflow.finish` tape row AFTER the case is already
+ * flipped to ACTIONED. A failure here must not propagate: the action is
+ * committed, so throwing would trigger a no-op revert (the case is no longer
+ * RUNNING) and surface a misleading 500 for work that actually succeeded. The
+ * tape row is observability, not the source of truth — log loudly and return.
+ */
+async function emitTerminalEventBestEffort(db: Db, input: PostActionInput): Promise<void> {
+  try {
+    await emitWorkflowEvent(db, {
+      caseId: input.caseId,
+      runId: input.runId,
+      organizationId: input.organizationId,
+      eventType: "workflow.finish",
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[action] workflow.finish tape append failed post-commit (case=${input.caseId} run=${input.runId}): ${reason}`,
+    );
+  }
 }
 
 async function commitAction(

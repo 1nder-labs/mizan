@@ -118,7 +118,7 @@ const publicInvitations = new Hono<{ Bindings: CloudflareBindings; Variables: Au
   .post("/invitations/:token/accept", zValidator("param", TokenParamSchema), async (c) => {
     const { token } = c.req.valid("param");
     const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
-    if (!session) return c.json(teamError("forbidden"), 401);
+    if (!session) return c.json(teamError("unauthorized"), 401);
     const orgApi = getOrganizationInvitationApi(c.var.auth);
     const invitationRaw = await orgApi.getInvitation({
       query: { id: token },

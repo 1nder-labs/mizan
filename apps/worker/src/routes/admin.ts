@@ -3,7 +3,7 @@
  *
  * All routes in this sub-router are protected by `requireRole("admin")`.
  * The `ViewerVariables` type (which extends `AuthVariables`) ensures that
- * both `c.var.auth` (set by the global `authInit`) and `c.var.user`
+ * both `c.var.auth` (set by the global `authInit`) and `c.var.viewer`
  * (set by `requireRole`) are fully typed on every handler below.
  *
  * Middleware order on `POST /echo`:

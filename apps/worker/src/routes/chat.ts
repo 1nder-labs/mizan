@@ -29,6 +29,8 @@ const ChatPostSchema = z
 
 export type ChatPostBody = z.infer<typeof ChatPostSchema>;
 
+const ThreadIdParamSchema = z.object({ id: z.string().uuid() });
+
 const ThreadCreateSchema = z.object({ title: z.string().optional() });
 
 const ThreadsQuerySchema = z.object({
@@ -113,9 +115,8 @@ export const chatRoutes = new Hono<{
     if (!inserted) return c.json({ error: "create_failed" }, 500);
     return c.json(ChatThreadCreatedResponseSchema.parse({ id: inserted.id }), 201);
   })
-  .get("/threads/:id", async (c) => {
-    const threadId = c.req.param("id");
-    if (!threadId) return c.json({ error: "missing_id" }, 400);
+  .get("/threads/:id", zValidator("param", ThreadIdParamSchema), async (c) => {
+    const { id: threadId } = c.req.valid("param");
     const viewer = extractViewer(c);
     const db = makeDb(c.env.DB);
     const owned = await assertThreadOwner(db, threadId, viewer);

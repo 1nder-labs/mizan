@@ -4,13 +4,19 @@ import { defineConfig } from "vitest/config";
 /**
  * Integration project only — unit tests run on bun test (see apps/worker/package.json).
  *
- * `remoteBindings: false` keeps the pool fully local — no proxy-worker subprocess
- * spawns for bindings flagged `"remote": true` in wrangler.jsonc. The remote-proxy
- * subprocess (full wrangler `startWorker({ dev: { remote: "minimal" } })` +
- * websocket handshake) exhausts the host Node heap before any test code runs.
- * Only `VECTORIZE` has `"remote": true`; under `false` the binding becomes a
- * local Miniflare stub. Tests requiring real Vectorize must mock at the call
- * boundary.
+ * `remoteBindings` defaults to `false` — the pool stays fully local with no
+ * proxy-worker subprocess for bindings flagged `"remote": true` in wrangler.jsonc.
+ * The remote-proxy subprocess (full wrangler `startWorker({ dev: { remote:
+ * "minimal" } })` + websocket handshake) exhausts the host Node heap before any
+ * test code runs. Only `VECTORIZE` has `"remote": true`; under `false` it becomes
+ * a local Miniflare stub that throws on `.query`.
+ *
+ * `RUN_REMOTE_INTEGRATION=1` is the single opt-in for the full-workflow tests
+ * (those whose `matchPolicy` step queries Vectorize). It couples `remoteBindings`
+ * to `true` AND mirrors itself into the `RUN_REMOTE_VECTORIZE` binding the
+ * `remote-deps.ts` gate reads — so the per-test skip can never drift from the
+ * binding mode. Unset (the default), those tests skip and the suite is green
+ * locally without faking; set (on a host with enough heap), they run for real.
  *
  * The miniflare `assets` block is intentionally omitted — wrangler.jsonc already
  * declares `assets.directory: "../web/dist"`. The previous override pointed the
@@ -28,17 +34,20 @@ import { defineConfig } from "vitest/config";
  * malformed `@fs/...` URL it cannot resolve. The repo's `bunfig.toml` declares
  * `linker = "hoisted"` for this reason.
  */
+const RUN_REMOTE = process.env.RUN_REMOTE_INTEGRATION === "1";
+
 export default defineConfig({
   test: {
     projects: [
       {
         plugins: [
           cloudflareTest({
-            remoteBindings: false,
+            remoteBindings: RUN_REMOTE,
             wrangler: { configPath: "./wrangler.jsonc" },
             miniflare: {
               bindings: {
                 MOCK_PROVIDERS_ALLOWED: "1",
+                RUN_REMOTE_VECTORIZE: RUN_REMOTE ? "1" : "0",
               },
             },
           }),

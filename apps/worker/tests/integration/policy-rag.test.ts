@@ -14,6 +14,7 @@ import {
 } from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 import { embedCorpusInto } from "../../../../scripts/lib/embed-corpus-into.ts";
+import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
 import seedCase001Raw from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
 
 const BASE = "http://localhost";
@@ -109,8 +110,7 @@ async function drainSse(res: Response): Promise<string> {
   return out;
 }
 
-const hasOpenAiKey = Boolean(env.OPENAI_API_KEY);
-const describeWithKey = hasOpenAiKey ? describe : describe.skip;
+const describeWithKey = RUN_REMOTE_VECTORIZE ? describe : describe.skip;
 
 describeWithKey("policy rag integration", () => {
   let adminCookie = "";

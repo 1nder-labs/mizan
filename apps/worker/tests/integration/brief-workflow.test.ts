@@ -12,6 +12,7 @@ import {
   serializeMockResponses,
 } from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
+import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
 import seedCase001 from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
 import seedCase002 from "../../../../packages/mastra/src/seeds/documentary/case-002.json" with { type: "json" };
 import seedCase003 from "../../../../packages/mastra/src/seeds/documentary/case-003.json" with { type: "json" };
@@ -143,7 +144,9 @@ describe("brief workflow integration", () => {
     await seedCases(adminUserId, adminOrgId);
   }, 60_000);
 
-  it.each(SEED_CASE_IDS.slice(0, 5).map((id, index) => [id, index] as const))(
+  it
+    .skipIf(!RUN_REMOTE_VECTORIZE)
+    .each(SEED_CASE_IDS.slice(0, 5).map((id, index) => [id, index] as const))(
     "case %s completes workflow and persists brief",
     async (caseId, index) => {
       env.MOCK_LLM_RESPONSES = serializeMockResponses(responsesForCaseIndex(index));

@@ -38,6 +38,7 @@ export const COPY = {
   },
   signals: {
     panelTitle: "Trust signals",
+    loadingLabel: "Loading signals…",
     notYetRun: "Signal not yet run",
     photoDupLabel: "Photo originality",
     storyCoherenceLabel: "Story coherence",

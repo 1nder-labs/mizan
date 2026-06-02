@@ -7,7 +7,7 @@ export function createListSignalsTool(deps: CopilotHandlerDeps) {
   return createTool({
     id: "list_signals",
     description:
-      "List trust signals extracted for one case by its case id. Returns rows with signal_type, score, and payload. Use to understand a case's evidence flags.",
+      "List trust signals extracted for one case by its case id. Returns rows with signal_type, payload_json (the signal's score and details live inside payload_json), recorded_at, and run_id. Use to understand a case's evidence flags.",
     inputSchema: z.object({ caseId: z.string().uuid() }),
     outputSchema: z.object({ signals: z.array(z.record(z.string(), z.unknown())) }),
     execute: async (inputData, context) => {

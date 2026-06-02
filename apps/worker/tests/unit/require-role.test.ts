@@ -48,7 +48,7 @@ describe("requireRole middleware", () => {
     const res = await app.fetch(new Request("http://localhost/probe"));
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body).toEqual({ error: "Unauthorized" });
+    expect(body).toEqual({ error: "unauthorized" });
   });
 
   it("returns 403 when the session has no active organization", async () => {

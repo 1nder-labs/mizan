@@ -34,7 +34,7 @@ export function requireRole(
   return createMiddleware<{ Bindings: CloudflareBindings; Variables: ViewerVariables }>(
     async (c, next) => {
       const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
-      if (!session) return c.json({ error: "Unauthorized" }, 401);
+      if (!session) return c.json({ error: "unauthorized" }, 401);
 
       const activeOrgId = readActiveOrganizationId(session.session);
       if (!activeOrgId) {
@@ -53,7 +53,7 @@ export function requireRole(
       }
 
       const role = parseMemberRole(membership.role);
-      if (!role || roles.indexOf(role) === -1) {
+      if (!role || !roles.includes(role)) {
         return c.json({ error: "forbidden" }, 403);
       }
 

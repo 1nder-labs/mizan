@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import type { CaseStatus, LiveEventPayload } from "@mizan/shared";
+import type { CaseStatus, LiveEventPayload, ReviewerAction } from "@mizan/shared";
 import { emitLiveEvent, type EmitLiveEventInput } from "./emit-live-event.ts";
 import { cases } from "./schema.ts";
 import type { Case } from "./schemas.ts";
@@ -119,7 +119,7 @@ interface ActionEmitInput {
   readonly organizationId: string;
   readonly actionId: string;
   readonly reviewerId: string;
-  readonly action: string;
+  readonly action: ReviewerAction;
 }
 
 /**
@@ -157,6 +157,12 @@ export function buildActionEmits(input: ActionEmitInput): EmitLiveEventInput[] {
 
 /**
  * Atomically transitions a case and emits live events in one D1 batch.
+ *
+ * The update uses `.returning()` so the matched row comes back from the same
+ * atomic batch — not a follow-up `SELECT`. A post-batch re-read could observe
+ * a status another writer set (false negative → spurious revert) or miss the
+ * row entirely; the RETURNING result is exactly "did THIS guarded update
+ * apply", which is the signal callers need. Empty result → no transition.
  */
 export async function batchTransitionWithEmits(
   db: Db,
@@ -178,11 +184,11 @@ export async function batchTransitionWithEmits(
         eq(cases.current_run_id, transition.runId),
         inArray(cases.status, sources),
       ),
-    );
+    )
+    .returning();
   const emitStmts = emits.map((emit) => emitLiveEvent(db, emit));
-  await db.batch([updateStmt, ...emitStmts]);
-  const row = await db.select().from(cases).where(eq(cases.id, transition.caseId)).get();
-  return row?.status === transition.to ? row : undefined;
+  const [updatedRows] = await db.batch([updateStmt, ...emitStmts]);
+  return updatedRows[0];
 }
 
 interface SignalPersistedInput {

@@ -14,8 +14,10 @@ export const ActionErrorCodeEnum = z.enum([
 
 export type ActionErrorCode = z.infer<typeof ActionErrorCodeEnum>;
 
-export const ActionErrorBodySchema = z.object({
-  error: ActionErrorCodeEnum,
-});
+export const ActionErrorBodySchema = z
+  .object({
+    error: ActionErrorCodeEnum,
+  })
+  .strict();
 
 export type ActionErrorBody = z.infer<typeof ActionErrorBodySchema>;

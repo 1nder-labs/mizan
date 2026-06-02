@@ -23,6 +23,7 @@ import {
   serializeMockResponses,
 } from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
+import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
 import seedCase006Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-006.json" with { type: "json" };
 import seedCase007Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-007.json" with { type: "json" };
 import seedCase008Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-008.json" with { type: "json" };
@@ -205,7 +206,7 @@ describe("phase 4 community-vouching workflow", () => {
     }
   }, 60_000);
 
-  it.each(COMMUNITY_CASES.map((entry) => [entry.id, entry] as const))(
+  it.skipIf(!RUN_REMOTE_VECTORIZE).each(COMMUNITY_CASES.map((entry) => [entry.id, entry] as const))(
     "case %s routes correctly with three signal rows",
     async (caseId, entry) => {
       try {
@@ -346,50 +347,49 @@ describe("phase 4 community-vouching workflow", () => {
   });
 
   /*
-   * PR test plan item 6: re-trigger the same case after a successful
-   * run. Each workflow invocation gets its own `run_id`, so the
-   * idempotency contract under test is per-run: every signal upsert
-   * inside one run must produce exactly one row for that
-   * (case_id, run_id, signal_type) triple. A regression that wrote two
-   * signal rows per run (e.g., a step that called `upsertSignal` twice
-   * without conflict resolution) would land COUNT=6 here instead of
-   * COUNT=3, which the unique-index from migration 0002 actually
-   * blocks at the SQL layer — making this test a belt-and-braces guard
-   * that wires the contract end-to-end through the live workflow.
+   * PR test plan item 6: re-trigger after a successful run. Each run
+   * gets its own `run_id`; the per-run contract is exactly one signal
+   * row per (case_id, run_id, signal_type). A double-write regression
+   * would land COUNT=6 not COUNT=3 — which migration 0002's unique
+   * index blocks at the SQL layer, so this guards it end-to-end.
    */
-  it("re-triggering case-006 produces a fresh run with exactly 3 signal rows", async () => {
-    const target = COMMUNITY_CASES[0];
-    if (!target) throw new Error("expected case-006 in COMMUNITY_CASES[0]");
-    env.MOCK_LLM_RESPONSES = serializeMockResponses(target.responses());
-    const res = await exports.default.fetch(
-      new Request(`${BASE}/api/cases/${target.id}/brief`, {
-        method: "POST",
-        headers: {
-          Cookie: adminCookie,
-          Accept: "text/event-stream",
-          "Idempotency-Key": crypto.randomUUID(),
-        },
-      }),
-    );
-    expect(res.status).toBe(200);
-    await drainSse(res);
+  it.skipIf(!RUN_REMOTE_VECTORIZE)(
+    "re-triggering case-006 produces a fresh run with exactly 3 signal rows",
+    async () => {
+      const target = COMMUNITY_CASES[0];
+      if (!target) throw new Error("expected case-006 in COMMUNITY_CASES[0]");
+      env.MOCK_LLM_RESPONSES = serializeMockResponses(target.responses());
+      const res = await exports.default.fetch(
+        new Request(`${BASE}/api/cases/${target.id}/brief`, {
+          method: "POST",
+          headers: {
+            Cookie: adminCookie,
+            Accept: "text/event-stream",
+            "Idempotency-Key": crypto.randomUUID(),
+          },
+        }),
+      );
+      expect(res.status).toBe(200);
+      await drainSse(res);
 
-    const briefRow = await env.DB.prepare(
-      "SELECT run_id FROM briefs WHERE case_id = ? ORDER BY composed_at DESC LIMIT 1",
-    )
-      .bind(target.id)
-      .first<{ run_id: string }>();
-    if (!briefRow) throw new Error("brief row missing after re-trigger");
+      const briefRow = await env.DB.prepare(
+        "SELECT run_id FROM briefs WHERE case_id = ? ORDER BY composed_at DESC LIMIT 1",
+      )
+        .bind(target.id)
+        .first<{ run_id: string }>();
+      if (!briefRow) throw new Error("brief row missing after re-trigger");
 
-    const signalRows = await env.DB.prepare(
-      "SELECT signal_type FROM signals WHERE case_id = ? AND run_id = ?",
-    )
-      .bind(target.id, briefRow.run_id)
-      .all<{ signal_type: string }>();
-    expect(signalRows.results).toHaveLength(3);
-    const types = signalRows.results.map((row) => row.signal_type).sort();
-    expect(types).toEqual(["photo_dup", "story_coherence", "vouching_chain"]);
-  }, 60_000);
+      const signalRows = await env.DB.prepare(
+        "SELECT signal_type FROM signals WHERE case_id = ? AND run_id = ?",
+      )
+        .bind(target.id, briefRow.run_id)
+        .all<{ signal_type: string }>();
+      expect(signalRows.results).toHaveLength(3);
+      const types = signalRows.results.map((row) => row.signal_type).sort();
+      expect(types).toEqual(["photo_dup", "story_coherence", "vouching_chain"]);
+    },
+    60_000,
+  );
 });
 
 /** Asserts the SSE stream contains at least one data event and a terminal finish event. */

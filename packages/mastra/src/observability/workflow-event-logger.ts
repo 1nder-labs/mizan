@@ -7,6 +7,12 @@ export interface EmitWorkflowEventInput {
   readonly eventType: WorkflowEventType;
   readonly stepId?: string;
   readonly payloadMeta?: WorkflowEventPayloadMeta;
+  /**
+   * Org the case belongs to. Pass it when the caller already holds it (the
+   * action route does) to skip the per-call `resolveCaseOrganizationId`
+   * SELECT; omitted callers fall back to resolving it from the case row.
+   */
+  readonly organizationId?: string;
 }
 
 /**
@@ -17,7 +23,8 @@ export async function emitWorkflowEvent(
   db: Db,
   input: EmitWorkflowEventInput,
 ): Promise<{ seq: number }> {
-  const organizationId = await resolveCaseOrganizationId(db, input.caseId);
+  const organizationId =
+    input.organizationId ?? (await resolveCaseOrganizationId(db, input.caseId));
   const inserted = await db
     .insert(workflow_events)
     .values({

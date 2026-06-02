@@ -47,7 +47,7 @@ export async function claimProducerCase(
   return { runId, row };
 }
 
-export async function claimCaseQueued(
+async function claimCaseQueued(
   db: Db,
   caseId: string,
   runId: string,
@@ -84,7 +84,7 @@ export async function claimCaseQueued(
 /**
  * Atomically claims a case for Mode A streaming with live-event fan-out.
  */
-export async function claimCaseRunning(
+async function claimCaseRunning(
   db: Db,
   caseId: string,
   runId: string,

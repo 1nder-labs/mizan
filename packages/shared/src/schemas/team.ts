@@ -85,6 +85,7 @@ export const TeamErrorCodeEnum = z.enum([
   "invitation_expired",
   "invitation_already_accepted",
   "email_mismatch",
+  "unauthorized",
   "forbidden",
   "duplicate_email",
   "user_not_found",

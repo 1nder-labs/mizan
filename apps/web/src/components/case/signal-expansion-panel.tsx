@@ -151,7 +151,7 @@ export function SignalExpansionPanel({ caseId }: SignalExpansionPanelProps): Rea
         {query.isPending ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />
-            {COPY.documents.loadingLabel}
+            {COPY.signals.loadingLabel}
           </div>
         ) : null}
         {SIGNAL_ROWS.map((row) => (
