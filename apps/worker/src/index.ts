@@ -26,6 +26,7 @@ import { chatRoutes } from "./routes/chat.ts";
 import { eventsStreamRoutes } from "./routes/events-stream.ts";
 import { meRoutes } from "./routes/me.ts";
 import { policyClauseRoutes } from "./routes/policy-clauses.ts";
+import { portalRoutes } from "./routes/portal/router.ts";
 import { teamRoutes } from "./routes/team.ts";
 
 const apiApp = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables }>()
@@ -34,6 +35,7 @@ const apiApp = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables
   .route("/me", meRoutes)
   .route("/admin", adminRoutes)
   .route("/cases", caseRoutes)
+  .route("/portal", portalRoutes)
   .route("/policy", policyClauseRoutes)
   .route("/team", teamRoutes)
   .route("/events", eventsStreamRoutes)

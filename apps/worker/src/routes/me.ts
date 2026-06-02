@@ -6,13 +6,19 @@ import { MeResponseSchema } from "@mizan/shared";
 import { Hono } from "hono";
 import type { AuthVariables } from "../middleware/auth-init.ts";
 import type { CloudflareBindings } from "../env.ts";
-import { readActiveOrganizationId } from "../auth/session-utils.ts";
+import { resolveActiveOrgId } from "../auth/active-org.ts";
 import type { Role } from "../middleware/role-utils.ts";
 
+/**
+ * Maps a stored member role to the wire `Role`. An unrecognized value falls
+ * back to `client` — the least-privileged role — so a mislabeled membership
+ * can never be silently upgraded into reviewer/admin access via `/api/me`.
+ */
 function parseMemberRole(value: string): Role {
   if (value === "admin") return "admin";
   if (value === "client") return "client";
-  return "reviewer";
+  if (value === "reviewer") return "reviewer";
+  return "client";
 }
 
 export const meRoutes = new Hono<{
@@ -22,8 +28,8 @@ export const meRoutes = new Hono<{
   const session = await c.var.auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) return c.json({ error: "unauthorized" }, 401);
 
-  const activeOrgId = readActiveOrganizationId(session.session);
-  let role: Role = "reviewer";
+  const activeOrgId = await resolveActiveOrgId(c.env, c.var.auth, c.req.raw.headers, session);
+  let role: Role = "client";
   if (activeOrgId) {
     const db = makeDb(c.env.DB);
     const membership = await db

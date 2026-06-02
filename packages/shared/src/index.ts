@@ -240,3 +240,10 @@ export {
   type BriefSummary,
   type CaseDetailResponse,
 } from "./schemas/case-detail.ts";
+
+export {
+  PortalErrorBodySchema,
+  PortalErrorCodeEnum,
+  type PortalErrorBody,
+  type PortalErrorCode,
+} from "./schemas/portal-errors.ts";
