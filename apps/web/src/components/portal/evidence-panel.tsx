@@ -35,17 +35,17 @@ function useEvidenceUpload(campaignId: string, docKind: DocumentKey) {
       toast.error(COPY.portal.evidenceError);
     },
   });
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
+  function onFileSelected(e: React.ChangeEvent<HTMLInputElement>): void {
     const file = e.target.files?.[0];
     if (!file) return;
     mutation.mutate(file);
     if (inputRef.current) inputRef.current.value = "";
   }
-  return { inputRef, handleChange, pending: mutation.isPending };
+  return { inputRef, onFileSelected, pending: mutation.isPending };
 }
 
 function EvidenceRow({ campaignId, docKind, uploaded }: EvidenceRowProps): React.JSX.Element {
-  const { inputRef, handleChange, pending } = useEvidenceUpload(campaignId, docKind);
+  const { inputRef, onFileSelected, pending } = useEvidenceUpload(campaignId, docKind);
 
   return (
     <div className="flex items-center justify-between gap-4 py-3 border-b border-border/40 last:border-b-0">
@@ -60,7 +60,7 @@ function EvidenceRow({ campaignId, docKind, uploaded }: EvidenceRowProps): React
         type="file"
         accept="application/pdf,image/png,image/jpeg,image/webp"
         className="hidden"
-        onChange={handleChange}
+        onChange={onFileSelected}
         aria-label={docKindDisplay(docKind)}
       />
       <Button

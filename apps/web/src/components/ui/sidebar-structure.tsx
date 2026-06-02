@@ -37,6 +37,9 @@ function SidebarStatic({ className, children, ref, ...props }: React.ComponentPr
   );
 }
 
+/** Fixed CSS-var style for the mobile sheet; hoisted to avoid per-render object creation. */
+const MOBILE_STYLE: SidebarCSSVars = { "--sidebar-width": SIDEBAR_WIDTH_MOBILE };
+
 /** The mobile sheet variant of the sidebar. */
 function SidebarMobile({
   side = "left",
@@ -50,14 +53,13 @@ function SidebarMobile({
   openMobile: boolean;
   setOpenMobile: (open: boolean) => void;
 } & Omit<React.ComponentProps<"div">, "children">) {
-  const mobileStyle: SidebarCSSVars = { "--sidebar-width": SIDEBAR_WIDTH_MOBILE };
   return (
     <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
       <SheetContent
         data-sidebar="sidebar"
         data-mobile="true"
         className="w-[var(--sidebar-width)] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
-        style={mobileStyle}
+        style={MOBILE_STYLE}
         side={side}
       >
         <SheetHeader className="sr-only">

@@ -39,7 +39,7 @@ export function ChatComposer({
 }): React.JSX.Element {
   const canSend = !streaming && value.trim().length > 0;
   return (
-    <div className="border-t border-border/60 px-3 py-3">
+    <div className="border-t border-border/60 p-3">
       <div className="flex items-end gap-2 rounded-2xl border border-border/70 bg-card px-2.5 py-1.5 shadow-elev-1 transition-shadow focus-within:border-border focus-within:shadow-elev-2">
         <Textarea
           value={value}

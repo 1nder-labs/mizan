@@ -157,17 +157,18 @@ interface NotesLayoutProps {
 
 function NotesLayout({ caseId, notes }: NotesLayoutProps): React.JSX.Element {
   const queryClient = useQueryClient();
-  const invalidateNotes = (): void => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.cases.notes(caseId) });
-  };
   const messageMutation = useMutation({
     mutationFn: (body: string) => postClientMessage(caseId, body),
-    onSuccess: invalidateNotes,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cases.notes(caseId) });
+    },
     onError: () => toast.error(COPY.reviewerNotes.composeError),
   });
   const internalMutation = useMutation({
     mutationFn: (body: string) => postInternalNote(caseId, body),
-    onSuccess: invalidateNotes,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cases.notes(caseId) });
+    },
     onError: () => toast.error(COPY.reviewerNotes.composeError),
   });
   const clientFacing = notes.filter((n) => n.visibility === "client_facing");

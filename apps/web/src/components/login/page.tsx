@@ -34,11 +34,13 @@ export function LoginPage(): React.JSX.Element {
   const navigate = useNavigate();
 
   async function handleAuthenticated(): Promise<void> {
-    await queryClient.invalidateQueries({
-      queryKey: [...SESSION_QUERY_KEY],
-      refetchType: "all",
-    });
-    await queryClient.invalidateQueries({ queryKey: queryKeys.me() });
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: [...SESSION_QUERY_KEY],
+        refetchType: "all",
+      }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.me() }),
+    ]);
     const me = await queryClient.ensureQueryData(meQueryOptions());
     if (me.user.role === "client") {
       await navigate({ to: "/portal/campaigns" });

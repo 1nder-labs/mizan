@@ -47,8 +47,8 @@ function OrganizerAskCard({
         <p className="text-sm">{ask.message}</p>
         {ask.missingItems.length > 0 ? (
           <ul className="list-disc pl-4 space-y-1">
-            {ask.missingItems.map((item, idx) => (
-              <li key={idx} className="text-sm text-muted-foreground">
+            {ask.missingItems.map((item) => (
+              <li key={item} className="text-sm text-muted-foreground">
                 {item}
               </li>
             ))}

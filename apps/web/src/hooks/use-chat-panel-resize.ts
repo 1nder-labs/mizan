@@ -65,7 +65,7 @@ export interface ChatPanelResize {
  * and is keyboard-adjustable (←/→, with shift for a larger step).
  */
 export function useChatPanelResize(): ChatPanelResize {
-  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const [width, setWidth] = useState(loadWidth);
   const widthRef = useRef(width);
   const dragCleanupRef = useRef<(() => void) | null>(null);
 
@@ -74,7 +74,6 @@ export function useChatPanelResize(): ChatPanelResize {
   }, [width]);
 
   useEffect(() => {
-    setWidth(loadWidth());
     return () => {
       dragCleanupRef.current?.();
       dragCleanupRef.current = null;

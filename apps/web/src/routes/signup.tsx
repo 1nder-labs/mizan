@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/card.tsx";
 
 const SignupSearchSchema = z.object({
-  email: z.string().email().optional(),
+  email: z.email().optional(),
 });
 
 export const Route = createFileRoute("/signup")({

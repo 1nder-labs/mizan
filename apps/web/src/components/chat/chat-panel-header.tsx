@@ -43,7 +43,7 @@ export function ChatPanelHeader({
   readonly onClose: () => void;
 }): React.JSX.Element {
   return (
-    <header className="flex items-center gap-1 border-b border-border/60 px-2 py-2">
+    <header className="flex items-center gap-1 border-b border-border/60 p-2">
       <HeaderIconButton
         label={COPY.chat.toggleThreads}
         pressed={historyOpen}
