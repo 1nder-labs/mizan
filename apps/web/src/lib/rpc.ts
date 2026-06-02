@@ -47,3 +47,14 @@ export function createApiMutate(options: RpcFactoryOptions = {}): ReturnType<typ
 
 export const api = createApi();
 export const apiMutate = createApiMutate();
+
+/**
+ * Raw multipart POST for the one path the typed client can't express: the
+ * worker reads evidence uploads with `parseBody` (untyped multipart), so
+ * `hc<AppType>` cannot infer the request body. Kept here so `lib/rpc.ts`
+ * stays the single module that issues `fetch`. `path` is `/api`-relative
+ * (matching the RPC clients); same-origin cookie auth applies.
+ */
+export function postMultipart(path: string, form: FormData): Promise<Response> {
+  return fetch(`${BASE_URL}${path}`, { method: "POST", body: form, credentials: "include" });
+}

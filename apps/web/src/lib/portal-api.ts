@@ -20,7 +20,7 @@ import {
   type DocumentKey,
   type EvidenceUploadResponse,
 } from "@mizan/shared";
-import { api, apiMutate } from "./rpc.ts";
+import { api, apiMutate, postMultipart } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
 import { assertAuthorized } from "./api-errors.ts";
 
@@ -88,9 +88,9 @@ export async function editCampaign(
 
 /**
  * Evidence upload is multipart — the worker route reads it with `parseBody`,
- * not a typed form validator, so the Hono RPC client cannot type it. This is
- * the one direct `fetch` in the portal API layer; same-origin cookie auth
- * applies just like the RPC clients.
+ * not a typed form validator, so the Hono RPC client cannot type it. The raw
+ * request goes through `postMultipart` so `lib/rpc.ts` stays the only module
+ * that issues `fetch`; this layer keeps the FormData shape + response parse.
  */
 export async function uploadEvidence(
   id: string,
@@ -100,11 +100,7 @@ export async function uploadEvidence(
   const form = new FormData();
   form.append("docKind", docKind);
   form.append("file", file);
-  const res = await fetch(`/api/portal/campaigns/${id}/evidence`, {
-    method: "POST",
-    body: form,
-    credentials: "include",
-  });
+  const res = await postMultipart(`/portal/campaigns/${id}/evidence`, form);
   assertAuthorized(res.status);
   if (!res.ok) throw new Error(`evidence upload failed: ${res.status}`);
   return EvidenceUploadResponseSchema.parse(await res.json());
