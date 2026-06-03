@@ -121,6 +121,37 @@ describe("portal campaigns", () => {
     const row = await caseRow(id);
     const overlay = CaseOverlaySchema.parse(JSON.parse(row?.brief_partial_json ?? "null"));
     expect(overlay.story).toBe("Updated: wells now planned across three districts.");
+    expect(overlay.vouching_narrative).toBe(VALID_BODY.vouching_narrative);
+    expect(overlay.r2_keys).toEqual(keys);
+  });
+
+  it("clears vouching_narrative on edit (json_remove) while preserving evidence", async () => {
+    const id = await createCampaign(clientACookie);
+    const keys = { creator_id: `${id}/creator_id`, bank_statement: "", category_doc: "" };
+    await env.DB.prepare("UPDATE cases SET brief_partial_json = ? WHERE id = ?")
+      .bind(
+        JSON.stringify({
+          story: VALID_BODY.story,
+          organizer_name: VALID_BODY.organizer_name,
+          vouching_narrative: "old vouch",
+          r2_keys: keys,
+        }),
+        id,
+      )
+      .run();
+
+    const res = await send("PATCH", `${CAMPAIGNS_URL}/${id}`, clientACookie, {
+      story: "Cleared the vouching narrative.",
+      organizer_name: VALID_BODY.organizer_name,
+      category: VALID_BODY.category,
+      geography: VALID_BODY.geography,
+    });
+    expect(res.status).toBe(200);
+
+    const row = await caseRow(id);
+    const overlay = CaseOverlaySchema.parse(JSON.parse(row?.brief_partial_json ?? "null"));
+    expect(overlay.story).toBe("Cleared the vouching narrative.");
+    expect(overlay.vouching_narrative).toBeUndefined();
     expect(overlay.r2_keys).toEqual(keys);
   });
 

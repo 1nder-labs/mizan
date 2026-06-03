@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql, type SQL } from "drizzle-orm";
 import { cases, makeDb, type Db } from "@mizan/db";
 import {
   CampaignCreateSchema,
@@ -39,10 +39,19 @@ function buildOverlay(input: CampaignCreate, r2_keys: CaseOverlay["r2_keys"]): C
   });
 }
 
-/** Preserves evidence keys across an edit; defaults to empty if absent/invalid. */
-function existingR2Keys(overlay: CaseOverlay | null): CaseOverlay["r2_keys"] {
-  const parsed = overlay ? CaseOverlaySchema.safeParse(overlay) : null;
-  return parsed?.success ? parsed.data.r2_keys : { ...EMPTY_R2_KEYS };
+/**
+ * Overlay update for an edit: `json_set` the intake fields on the CURRENT stored
+ * overlay so a concurrent evidence upload's `r2_keys` are never clobbered by a
+ * stale app-side snapshot (the prior full-overlay rewrite did exactly that).
+ * `vouching_narrative` is REMOVED when cleared — the overlay schema is
+ * `.optional()`, not nullable, so a stored `null` would fail re-parse on read —
+ * and set otherwise.
+ */
+function editOverlay(input: CampaignCreate): SQL {
+  const intake = sql`json_set(${cases.brief_partial_json}, '$.story', ${input.story}, '$.organizer_name', ${input.organizer_name})`;
+  return input.vouching_narrative === undefined
+    ? sql`json_remove(${intake}, '$.vouching_narrative')`
+    : sql`json_set(${intake}, '$.vouching_narrative', ${input.vouching_narrative})`;
 }
 
 function createCampaign(db: Db, viewer: ViewerContext, input: CampaignCreate) {
@@ -137,10 +146,7 @@ export const campaignRoutes = new Hono<{
           category: input.category,
           geography: input.geography,
           claimed_zakat_category: input.claimed_zakat_category ?? null,
-          brief_partial_json: buildOverlay(
-            input,
-            existingR2Keys(owned.campaign.brief_partial_json),
-          ),
+          brief_partial_json: editOverlay(input),
           updated_at: new Date(),
         })
         .where(
@@ -163,7 +169,10 @@ export const campaignRoutes = new Hono<{
     if (clientStatus === "approved" || clientStatus === "not_approved") {
       return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
     }
-    const input = await readEvidenceInput(await c.req.parseBody());
+    const body = await c.req.parseBody().catch(() => null);
+    if (body === null)
+      return c.json(PortalErrorBodySchema.parse({ error: "invalid_evidence" }), 400);
+    const input = await readEvidenceInput(body);
     if (!input.ok) return c.json(PortalErrorBodySchema.parse({ error: "invalid_evidence" }), 400);
     const key = await storeEvidence(c.env, db, viewer, id, input);
     await attachEvidenceNote(db, viewer, id, input.docKind);

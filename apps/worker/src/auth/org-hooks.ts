@@ -121,18 +121,35 @@ export function buildOrgDatabaseHooks(
   return {
     user: {
       create: {
-        after: (user: {
+        after: async (user: {
           id: string;
           email: string;
           name?: string | null;
           signupKind?: string | null;
-        }) => provisionOrgOnSignup(user, getDb, getAuth, getReviewOrgId),
+        }) => {
+          try {
+            await provisionOrgOnSignup(user, getDb, getAuth, getReviewOrgId);
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.error(
+              `[signup] org provisioning failed for user ${user.id} (${user.email}): ${reason}`,
+            );
+            throw error;
+          }
+        },
       },
     },
     session: {
       create: {
-        before: (session: { userId: string; activeOrganizationId?: string | null }) =>
-          seedActiveOrganization(session, getDb),
+        before: async (session: { userId: string; activeOrganizationId?: string | null }) => {
+          try {
+            return await seedActiveOrganization(session, getDb);
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.error(`[signup] active-org seed failed for user ${session.userId}: ${reason}`);
+            return { data: session };
+          }
+        },
       },
     },
   };

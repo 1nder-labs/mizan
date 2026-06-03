@@ -14,7 +14,7 @@ import {
   type ReviewerAction,
   type ViewerContext,
 } from "@mizan/shared";
-import { readCaseNotes } from "./case-notes.ts";
+import { latestReviewerAction, readCaseNotes } from "./case-notes.ts";
 
 type OwnedCampaign = typeof cases.$inferSelect;
 
@@ -22,18 +22,6 @@ function parseAction(raw: string | null): ReviewerAction | null {
   if (raw === null) return null;
   const parsed = ReviewerActionEnum.safeParse(raw);
   return parsed.success ? parsed.data : null;
-}
-
-/** Latest reviewer action on a case, or null when none has been recorded. */
-async function fetchLatestAction(db: Db, caseId: string): Promise<ReviewerAction | null> {
-  const row = await db
-    .select({ action: reviewer_actions.action })
-    .from(reviewer_actions)
-    .where(eq(reviewer_actions.case_id, caseId))
-    .orderBy(desc(reviewer_actions.acted_at))
-    .limit(1)
-    .get();
-  return row ? parseAction(row.action) : null;
 }
 
 /** The latest brief's drafted organizer ask, when one has been composed. */
@@ -107,7 +95,7 @@ export async function buildClientCaseDetail(
   campaign: OwnedCampaign,
 ): Promise<ClientCaseDetail> {
   const status = ClientStatusEnum.parse(
-    toClientStatus(campaign.status, await fetchLatestAction(db, campaign.id)),
+    toClientStatus(campaign.status, (await latestReviewerAction(db, campaign.id))?.action ?? null),
   );
   const overlay = CaseOverlaySchema.safeParse(campaign.brief_partial_json);
   const overlayData = overlay.success ? overlay.data : null;

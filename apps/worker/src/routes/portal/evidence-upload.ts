@@ -21,8 +21,6 @@ const MAGIC_SIGNATURES: ReadonlyArray<{
   { mime: "image/webp", bytes: [0x57, 0x45, 0x42, 0x50], offset: 8 },
 ];
 
-type BodyValue = string | File | (string | File)[];
-
 export type EvidenceInput =
   | {
       readonly ok: true;
@@ -51,7 +49,7 @@ function sniffMime(head: Uint8Array): string | null {
  * (missing/array file, unknown kind, empty/oversize file, bytes matching no
  * allowed type) collapses to a single `ok: false`, surfaced by the route as 400.
  */
-export async function readEvidenceInput(form: Record<string, BodyValue>): Promise<EvidenceInput> {
+export async function readEvidenceInput(form: Record<string, unknown>): Promise<EvidenceInput> {
   const file = form["file"];
   const docKindRaw = form["docKind"];
   if (!(file instanceof File) || typeof docKindRaw !== "string") return { ok: false };

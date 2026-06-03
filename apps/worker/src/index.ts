@@ -29,6 +29,8 @@ import { policyClauseRoutes } from "./routes/policy-clauses.ts";
 import { portalRoutes } from "./routes/portal/router.ts";
 import { teamRoutes } from "./routes/team.ts";
 
+const INTERNAL_ERROR_BODY = { error: "internal_error" } as const;
+
 const apiApp = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables }>()
   .use("*", authInit)
   .route("/auth", authRoutes)
@@ -39,7 +41,11 @@ const apiApp = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables
   .route("/policy", policyClauseRoutes)
   .route("/team", teamRoutes)
   .route("/events", eventsStreamRoutes)
-  .route("/chat", chatRoutes);
+  .route("/chat", chatRoutes)
+  .onError((err, c) => {
+    console.error(`[api] unhandled ${c.req.method} ${c.req.path}: ${err.message}`, err.stack);
+    return c.json(INTERNAL_ERROR_BODY, 500);
+  });
 
 const app = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables }>()
   .get("/health", (c) => c.json({ status: "ok" }))

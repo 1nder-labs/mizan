@@ -226,4 +226,16 @@ describe("portal evidence upload", () => {
     );
     expect(res.status).toBe(201);
   });
+
+  it("returns 400 (not 500) when the evidence body is not valid multipart", async () => {
+    const id = await createCampaign(clientACookie);
+    const res = await exports.default.fetch(
+      new Request(`${CAMPAIGNS_URL}/${id}/evidence`, {
+        method: "POST",
+        headers: { Cookie: clientACookie, "Content-Type": "multipart/form-data" },
+        body: "not a valid multipart payload",
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
 });
