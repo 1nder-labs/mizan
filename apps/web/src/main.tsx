@@ -2,6 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { makeQueryClient } from "./lib/query-client.ts";
+import { RouteErrorState } from "./components/route-error.tsx";
+import { RouteNotFound } from "./components/route-not-found.tsx";
 import "./lib/pdfjs-bootstrap.ts";
 import { routeTree } from "./routeTree.gen.ts";
 import "./globals.css";
@@ -29,6 +31,8 @@ const router = createRouter({
   defaultPreload: "intent",
   defaultPreloadStaleTime: 0,
   scrollRestoration: true,
+  defaultErrorComponent: RouteErrorState,
+  defaultNotFoundComponent: RouteNotFound,
 });
 
 navigateToLogin = () => {

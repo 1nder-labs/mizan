@@ -16,6 +16,7 @@ import {
   type CampaignMutationResponse,
 } from "@mizan/shared";
 import { createCampaign, editCampaign } from "@/lib/portal-api.ts";
+import { ApiError } from "@/lib/api-errors.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
@@ -39,7 +40,7 @@ interface IntakeFormProps {
   readonly onCancel?: () => void;
 }
 
-const CONFLICT_CODE = "409";
+const CONFLICT_CODE = "case_no_longer_draft";
 
 function StoryField({ form }: { readonly form: UseFormReturn<CampaignCreate> }): React.JSX.Element {
   return (
@@ -218,7 +219,7 @@ function useIntakeMutation(
       await onDone(result.id);
     },
     onError: (err: Error) => {
-      if (err.message.includes(CONFLICT_CODE)) setConflictError(true);
+      if (err instanceof ApiError && err.code === CONFLICT_CODE) setConflictError(true);
     },
   });
 }

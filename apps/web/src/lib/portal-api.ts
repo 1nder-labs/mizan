@@ -22,12 +22,12 @@ import {
 } from "@mizan/shared";
 import { api, apiMutate, postMultipart } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
-import { assertAuthorized } from "./api-errors.ts";
+import { apiError, assertAuthorized } from "./api-errors.ts";
 
 async function fetchCampaigns(): Promise<ClientCampaignsResponse> {
   const res = await api.portal.campaigns.$get();
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`campaigns list failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   return ClientCampaignsResponseSchema.parse(await res.json());
 }
 
@@ -42,7 +42,7 @@ export function clientCampaignsQueryOptions() {
 async function fetchCampaign(id: string): Promise<ClientCaseDetail> {
   const res = await api.portal.campaigns[":id"].$get({ param: { id } });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`campaign fetch failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   return ClientCaseDetailSchema.parse(await res.json());
 }
 
@@ -57,7 +57,7 @@ export function clientCampaignQueryOptions(id: string) {
 async function fetchNotes(id: string): Promise<CaseNotesResponse> {
   const res = await api.portal.campaigns[":id"].notes.$get({ param: { id } });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`notes fetch failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   return CaseNotesResponseSchema.parse(await res.json());
 }
 
@@ -72,7 +72,7 @@ export function clientCampaignNotesQueryOptions(id: string) {
 export async function createCampaign(body: CampaignCreate): Promise<CampaignMutationResponse> {
   const res = await apiMutate.portal.campaigns.$post({ json: body });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`campaign create failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   return CampaignMutationResponseSchema.parse(await res.json());
 }
 
@@ -82,7 +82,7 @@ export async function editCampaign(
 ): Promise<CampaignMutationResponse> {
   const res = await apiMutate.portal.campaigns[":id"].$patch({ param: { id }, json: body });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`campaign edit failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   return CampaignMutationResponseSchema.parse(await res.json());
 }
 
@@ -102,6 +102,6 @@ export async function uploadEvidence(
   form.append("file", file);
   const res = await postMultipart(`/portal/campaigns/${id}/evidence`, form);
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`evidence upload failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   return EvidenceUploadResponseSchema.parse(await res.json());
 }

@@ -32,8 +32,8 @@ function useEvidenceUpload(campaignId: string, docKind: DocumentKey) {
       await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaign(campaignId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.portal.notes(campaignId) });
     },
-    onError: () => {
-      toast.error(COPY.portal.evidenceError);
+    onError: (error: Error) => {
+      toast.error(error.message || COPY.portal.evidenceError);
     },
   });
   function onFileSelected(e: React.ChangeEvent<HTMLInputElement>): void {

@@ -11,6 +11,38 @@
 import type { CaseStatus, ClientStatus, DocumentKey } from "@mizan/shared";
 
 export const COPY = {
+  error: {
+    title: "Something went wrong",
+    body: "We hit an unexpected error loading this page. Try again, or head back to the start.",
+    retry: "Try again",
+    home: "Back to start",
+    notFound: "We couldn't find that page.",
+  },
+  /**
+   * Server error code -> user-facing message. The single source consumed by
+   * `errorMessage()` in `api-errors.ts`; every API failure resolves through here
+   * so the same code shows the same message everywhere. `fallback` covers any
+   * code without an explicit entry.
+   */
+  apiError: {
+    campaign_not_found: "We couldn't find that campaign.",
+    case_no_longer_draft: "This campaign is under review and can no longer be edited.",
+    case_decided: "This campaign has been decided and can no longer be changed.",
+    invalid_evidence: "That file couldn't be accepted — use a PDF or image under 25 MB.",
+    unauthorized: "Your session has expired. Please sign in again.",
+    forbidden: "You don't have access to that.",
+    no_active_org_membership: "Your account isn't set up for this workspace yet.",
+    not_found: "We couldn't find what you were looking for.",
+    no_run: "This case has no active run to action.",
+    not_suspended_or_claimed: "Another reviewer is already actioning this case.",
+    workflow_failed: "The action couldn't be completed. Please try again.",
+    duplicate_email: "That email already has an account.",
+    invitation_not_found: "That invitation no longer exists.",
+    invitation_expired: "That invitation has expired.",
+    internal_error: "Something went wrong on our end. Please try again.",
+    unknown: "Something went wrong. Please try again.",
+    fallback: "Something went wrong. Please try again.",
+  },
   documents: {
     panelTitle: "Documents",
     panelEmpty: "Not available yet — case still in draft",

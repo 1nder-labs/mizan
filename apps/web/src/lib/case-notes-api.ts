@@ -11,12 +11,12 @@ import { queryOptions } from "@tanstack/react-query";
 import { CaseNotesResponseSchema, type CaseNotesResponse } from "@mizan/shared";
 import { api, apiMutate } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
-import { assertAuthorized } from "./api-errors.ts";
+import { apiError, assertAuthorized } from "./api-errors.ts";
 
 async function fetchCaseNotes(caseId: string): Promise<CaseNotesResponse> {
   const res = await api.cases[":id"].notes.$get({ param: { id: caseId } });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`case notes fetch failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   return CaseNotesResponseSchema.parse(await res.json());
 }
 
@@ -34,7 +34,7 @@ export async function postClientMessage(caseId: string, body: string): Promise<v
     json: { body },
   });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`post client message failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
 }
 
 export async function postInternalNote(caseId: string, body: string): Promise<void> {
@@ -43,5 +43,5 @@ export async function postInternalNote(caseId: string, body: string): Promise<vo
     json: { body },
   });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`post internal note failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
 }

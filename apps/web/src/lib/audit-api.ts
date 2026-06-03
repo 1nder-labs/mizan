@@ -5,7 +5,7 @@ import { queryOptions } from "@tanstack/react-query";
 import { AuditListResponseSchema, type AuditListSearch } from "@mizan/shared";
 import { api } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
-import { assertAuthorized } from "./cases-api.ts";
+import { apiError, assertAuthorized } from "./cases-api.ts";
 
 async function fetchAuditList(search: AuditListSearch) {
   const res = await api.admin.audit.$get({
@@ -15,7 +15,7 @@ async function fetchAuditList(search: AuditListSearch) {
     },
   });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`audit list failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   const json = await res.json();
   return AuditListResponseSchema.parse(json);
 }

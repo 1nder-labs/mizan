@@ -162,14 +162,14 @@ function NotesLayout({ caseId, notes }: NotesLayoutProps): React.JSX.Element {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cases.notes(caseId) });
     },
-    onError: () => toast.error(COPY.reviewerNotes.composeError),
+    onError: (error: Error) => toast.error(error.message || COPY.reviewerNotes.composeError),
   });
   const internalMutation = useMutation({
     mutationFn: (body: string) => postInternalNote(caseId, body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cases.notes(caseId) });
     },
-    onError: () => toast.error(COPY.reviewerNotes.composeError),
+    onError: (error: Error) => toast.error(error.message || COPY.reviewerNotes.composeError),
   });
   const clientFacing = notes.filter((n) => n.visibility === "client_facing");
   const internal = notes.filter((n) => n.visibility === "internal");
