@@ -1,6 +1,9 @@
 /**
  * Integration: case notes — three channels, visibility scoping, and the
- * status-guarded `clientResponded` signal (U6).
+ * action-type-guarded `clientResponded` signal (U6): it fires only when the
+ * reviewer's LATEST action was REQUEST_DOCS and a newer client note exists,
+ * which is why every "true" case sits on an ACTIONED row (reviewer actions are
+ * terminal) — the previous status gate made this headline case impossible.
  *
  * Run via `bun --filter @mizan/worker test:integration`.
  */
@@ -58,16 +61,22 @@ async function insertNote(opts: {
     .run();
 }
 
-async function insertAction(caseId: string, reviewerId: string, actedAt: number): Promise<void> {
+async function insertAction(
+  caseId: string,
+  reviewerId: string,
+  actedAt: number,
+  action = "REQUEST_DOCS",
+): Promise<void> {
   await env.DB.prepare(
     `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, acted_at, action_id, organization_id)
-     VALUES (?, ?, ?, ?, 'APPROVE', 'ok', ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, 'ok', ?, ?, ?)`,
   )
     .bind(
       crypto.randomUUID(),
       caseId,
       crypto.randomUUID(),
       reviewerId,
+      action,
       actedAt,
       crypto.randomUUID(),
       REVIEW_ORG_ID,
@@ -98,21 +107,9 @@ describe("case notes", () => {
     reviewerCookie = reviewer.cookie;
   }, 60_000);
 
-  it("clientResponded true: client note on a brand-new case (no action, epoch-0)", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID);
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 100,
-    });
-    expect(await clientResponded(db, id)).toBe(true);
-  });
-
-  it("clientResponded true: client note newer than the latest action", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID);
-    await insertAction(id, reviewerId, 100);
+  it("true: a client response newer than REQUEST_DOCS — even though the case is ACTIONED", async () => {
+    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
+    await insertAction(id, reviewerId, 100, "REQUEST_DOCS");
     await insertNote({
       caseId: id,
       authorUserId: clientAId,
@@ -123,7 +120,7 @@ describe("case notes", () => {
     expect(await clientResponded(db, id)).toBe(true);
   });
 
-  it("clientResponded false: action newer than the client note", async () => {
+  it("false: no reviewer action yet — an intake upload is not a 'response'", async () => {
     const id = await insertCase(clientAId, REVIEW_ORG_ID);
     await insertNote({
       caseId: id,
@@ -132,12 +129,24 @@ describe("case notes", () => {
       visibility: "client_facing",
       createdAt: 100,
     });
-    await insertAction(id, reviewerId, 200);
     expect(await clientResponded(db, id)).toBe(false);
   });
 
-  it("clientResponded false: exact tie uses strict greater-than", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID);
+  it("false: the latest action is a decision (APPROVE), not a doc request", async () => {
+    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
+    await insertAction(id, reviewerId, 100, "APPROVE");
+    await insertNote({
+      caseId: id,
+      authorUserId: clientAId,
+      authorRole: "client",
+      visibility: "client_facing",
+      createdAt: 200,
+    });
+    expect(await clientResponded(db, id)).toBe(false);
+  });
+
+  it("false: REQUEST_DOCS is newer than the client note", async () => {
+    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
     await insertNote({
       caseId: id,
       authorUserId: clientAId,
@@ -145,12 +154,26 @@ describe("case notes", () => {
       visibility: "client_facing",
       createdAt: 100,
     });
-    await insertAction(id, reviewerId, 100);
+    await insertAction(id, reviewerId, 200, "REQUEST_DOCS");
     expect(await clientResponded(db, id)).toBe(false);
   });
 
-  it("clientResponded false: a reviewer client_facing message is not a client response", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID);
+  it("false: an exact tie uses strict greater-than", async () => {
+    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
+    await insertAction(id, reviewerId, 100, "REQUEST_DOCS");
+    await insertNote({
+      caseId: id,
+      authorUserId: clientAId,
+      authorRole: "client",
+      visibility: "client_facing",
+      createdAt: 100,
+    });
+    expect(await clientResponded(db, id)).toBe(false);
+  });
+
+  it("false: a reviewer's client_facing message does not count as a client response", async () => {
+    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
+    await insertAction(id, reviewerId, 100, "REQUEST_DOCS");
     await insertNote({
       caseId: id,
       authorUserId: reviewerId,
@@ -161,16 +184,27 @@ describe("case notes", () => {
     expect(await clientResponded(db, id)).toBe(false);
   });
 
-  it("clientResponded false: terminal case regardless of note recency", async () => {
+  it("re-brief loop: a second REQUEST_DOCS re-arms until a newer client response", async () => {
     const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
+    await insertAction(id, reviewerId, 100, "REQUEST_DOCS");
     await insertNote({
       caseId: id,
       authorUserId: clientAId,
       authorRole: "client",
       visibility: "client_facing",
-      createdAt: 999,
+      createdAt: 200,
     });
+    expect(await clientResponded(db, id)).toBe(true);
+    await insertAction(id, reviewerId, 300, "REQUEST_DOCS");
     expect(await clientResponded(db, id)).toBe(false);
+    await insertNote({
+      caseId: id,
+      authorUserId: clientAId,
+      authorRole: "client",
+      visibility: "client_facing",
+      createdAt: 400,
+    });
+    expect(await clientResponded(db, id)).toBe(true);
   });
 
   it("scopes note visibility: reviewer sees all, client sees only client_facing", async () => {

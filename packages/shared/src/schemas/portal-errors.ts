@@ -11,6 +11,7 @@ import { z } from "zod";
 export const PortalErrorCodeEnum = z.enum([
   "campaign_not_found",
   "case_no_longer_draft",
+  "case_decided",
   "invalid_evidence",
 ]);
 export type PortalErrorCode = z.infer<typeof PortalErrorCodeEnum>;

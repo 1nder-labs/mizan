@@ -4,8 +4,11 @@
  * Proves: a core doc lands in R2 under the server-derived key `<caseId>/<docKind>`
  * and its key is recorded in the overlay (which still parses); re-upload
  * replaces the same key; wrong-MIME and oversize uploads are rejected 400; a
- * docKind outside the three core kinds is rejected so no key can escape the
- * `<caseId>/` prefix; uploading to a sibling's campaign is 404.
+ * file whose bytes don't match its claimed MIME (a spoofed PDF) is rejected by
+ * the magic-byte sniff; a docKind outside the three core kinds is rejected so no
+ * key can escape the `<caseId>/` prefix; uploading to a sibling's campaign is
+ * 404; a decided (APPROVE/BLOCK) case rejects uploads 409 while a REQUEST_DOCS
+ * case still accepts the client's response.
  *
  * Run via `bun --filter @mizan/worker test:integration`.
  */
@@ -15,9 +18,10 @@ import {
   CampaignMutationResponseSchema,
   CaseOverlaySchema,
   EvidenceUploadResponseSchema,
+  PortalErrorBodySchema,
 } from "@mizan/shared";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import { BASE, seedReviewOrgWithAdmin, signUp } from "./portal-helpers.ts";
+import { BASE, REVIEW_ORG_ID, seedReviewOrgWithAdmin, signUp } from "./portal-helpers.ts";
 
 const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 
@@ -67,13 +71,33 @@ async function overlayOf(id: string) {
   return CaseOverlaySchema.parse(JSON.parse(row?.brief_partial_json ?? "null"));
 }
 
+async function insertAction(caseId: string, reviewerId: string, action: string): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, acted_at, action_id, organization_id)
+     VALUES (?, ?, ?, ?, ?, 'ok', ?, ?, ?)`,
+  )
+    .bind(
+      crypto.randomUUID(),
+      caseId,
+      crypto.randomUUID(),
+      reviewerId,
+      action,
+      Date.now(),
+      crypto.randomUUID(),
+      REVIEW_ORG_ID,
+    )
+    .run();
+}
+
 describe("portal evidence upload", () => {
   let clientACookie = "";
   let clientBCookie = "";
+  let reviewAdminId = "";
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
     const reviewAdmin = await signUp(`pe-admin-${Date.now()}@test.local`, "Review Admin");
+    reviewAdminId = reviewAdmin.userId;
     await seedReviewOrgWithAdmin(reviewAdmin.userId);
     clientACookie = (await signUp(`pe-clienta-${Date.now()}@test.local`, "Client A", "client"))
       .cookie;
@@ -164,5 +188,42 @@ describe("portal evidence upload", () => {
       new File([PDF_BYTES], "x.pdf", { type: "application/pdf" }),
     );
     expect(res.status).toBe(404);
+  });
+
+  it("rejects a file whose bytes don't match its claimed MIME (spoofed PDF, 400)", async () => {
+    const id = await createCampaign(clientACookie);
+    const html = new TextEncoder().encode("<!DOCTYPE html><script>alert(1)</script>");
+    const res = await uploadEvidence(
+      id,
+      clientACookie,
+      "creator_id",
+      new File([html], "evil.pdf", { type: "application/pdf" }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("blocks an upload to a decided (APPROVE) case with 409 case_decided", async () => {
+    const id = await createCampaign(clientACookie);
+    await insertAction(id, reviewAdminId, "APPROVE");
+    const res = await uploadEvidence(
+      id,
+      clientACookie,
+      "creator_id",
+      new File([PDF_BYTES], "id.pdf", { type: "application/pdf" }),
+    );
+    expect(res.status).toBe(409);
+    expect(PortalErrorBodySchema.parse(await res.json()).error).toBe("case_decided");
+  });
+
+  it("still allows an upload responding to a REQUEST_DOCS (the doc-request flow)", async () => {
+    const id = await createCampaign(clientACookie);
+    await insertAction(id, reviewAdminId, "REQUEST_DOCS");
+    const res = await uploadEvidence(
+      id,
+      clientACookie,
+      "creator_id",
+      new File([PDF_BYTES], "id.pdf", { type: "application/pdf" }),
+    );
+    expect(res.status).toBe(201);
   });
 });

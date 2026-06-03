@@ -31,15 +31,17 @@ async function isClientMember(
  * through `/api/portal/*` and need no org endpoint over HTTP (the active-org
  * backfill calls the server API, not this route), so the entire
  * `/organization/*` surface is denied to them — robust against endpoints added
- * by future better-auth versions. Non-`client` callers and every non-org auth
- * route (sign-in/out, session) pass through untouched, the latter with zero
- * added work via the path short-circuit.
+ * by future better-auth versions, and matched case-insensitively so a
+ * `/Organization/` variant can't slip past the marker (defense-in-depth; the
+ * underlying better-auth router is the primary defense). Non-`client` callers
+ * and every non-org auth route (sign-in/out, session) pass through untouched,
+ * the latter with zero added work via the path short-circuit.
  */
 export const nativeOrgGuard = createMiddleware<{
   Bindings: CloudflareBindings;
   Variables: AuthVariables;
 }>(async (c, next) => {
-  if (!c.req.path.includes(ORG_ENDPOINT_MARKER)) {
+  if (!c.req.path.toLowerCase().includes(ORG_ENDPOINT_MARKER)) {
     await next();
     return;
   }

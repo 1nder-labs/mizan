@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { cases, makeDb, type Db } from "@mizan/db";
 import {
   CampaignCreateSchema,
@@ -9,6 +9,7 @@ import {
   ClientCampaignsResponseSchema,
   EvidenceUploadResponseSchema,
   PortalErrorBodySchema,
+  toClientStatus,
   type CampaignCreate,
   type CaseOverlay,
   type ViewerContext,
@@ -16,10 +17,11 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
-import { readCaseNotes, writeCaseNote } from "../../lib/case-notes.ts";
+import { latestReviewerAction, readCaseNotes, writeCaseNote } from "../../lib/case-notes.ts";
 import { buildClientCaseDetail, listClientCampaigns } from "../../lib/client-views.ts";
 import type { ViewerVariables } from "../../middleware/require-role.ts";
-import { evidenceKey, readEvidenceInput } from "./evidence-upload.ts";
+import { readEvidenceInput } from "./evidence-upload.ts";
+import { storeEvidence } from "./evidence-store.ts";
 import { loadOwnedCampaign } from "./ownership.ts";
 
 const EMPTY_R2_KEYS = { creator_id: "", bank_statement: "", category_doc: "" } as const;
@@ -153,22 +155,18 @@ export const campaignRoutes = new Hono<{
   .post("/:id/evidence", zValidator("param", CampaignParamSchema), async (c) => {
     const db = makeDb(c.env.DB);
     const { id } = c.req.valid("param");
-    const owned = await loadOwnedCampaign(db, c.var.viewer, id);
+    const viewer = c.var.viewer;
+    const owned = await loadOwnedCampaign(db, viewer, id);
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
-    const input = readEvidenceInput(await c.req.parseBody());
+    const latest = await latestReviewerAction(db, id);
+    const clientStatus = toClientStatus(owned.campaign.status, latest?.action ?? null);
+    if (clientStatus === "approved" || clientStatus === "not_approved") {
+      return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
+    }
+    const input = await readEvidenceInput(await c.req.parseBody());
     if (!input.ok) return c.json(PortalErrorBodySchema.parse({ error: "invalid_evidence" }), 400);
-    const key = evidenceKey(id, input.docKind);
-    await c.env.R2_BUCKET.put(key, await input.file.arrayBuffer(), {
-      httpMetadata: { contentType: input.file.type },
-    });
-    await db
-      .update(cases)
-      .set({
-        brief_partial_json: sql`json_set(${cases.brief_partial_json}, ${`$.r2_keys.${input.docKind}`}, ${key})`,
-        updated_at: new Date(),
-      })
-      .where(and(eq(cases.id, id), eq(cases.created_by, c.var.viewer.userId)));
-    await attachEvidenceNote(db, c.var.viewer, id, input.docKind);
+    const key = await storeEvidence(c.env, db, viewer, id, input);
+    await attachEvidenceNote(db, viewer, id, input.docKind);
     return c.json(EvidenceUploadResponseSchema.parse({ docKind: input.docKind, key }), 201);
   })
   .get("/:id/notes", zValidator("param", CampaignParamSchema), async (c) => {

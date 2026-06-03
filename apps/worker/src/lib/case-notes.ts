@@ -1,14 +1,12 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { caseNotes, cases, reviewer_actions, type Db } from "@mizan/db";
 import {
-  TERMINAL_CASE_STATUSES,
   type CaseNote,
   type NoteAuthorRole,
   type NoteVisibility,
+  type ReviewerAction,
   type ViewerContext,
 } from "@mizan/shared";
-
-const TERMINAL_STATUS_SET = new Set<string>(TERMINAL_CASE_STATUSES);
 
 interface NoteWrite {
   readonly caseId: string;
@@ -73,29 +71,51 @@ export async function readCaseNotes(
 }
 
 /**
- * KTD-5: a non-terminal case needs reviewer attention when a CLIENT-authored
- * `client_facing` note is newer than the latest reviewer action. No reviewer
- * action yet is treated as epoch-0, so a note on a brand-new case counts; a
- * strict `>` makes an exact tie false. The note subquery filters
- * `author_role = 'client'` so a reviewer's own `client_facing` message can
- * never falsely flag the case as client-responded.
+ * The case's most recent reviewer action (by `acted_at`), or null when none.
+ * Shared by `clientResponded` and the portal evidence gate so both read the
+ * same "what did the reviewer last decide" signal in one place.
+ */
+export async function latestReviewerAction(
+  db: Db,
+  caseId: string,
+): Promise<{ action: ReviewerAction; actedAtMs: number } | null> {
+  const row = await db
+    .select({ action: reviewer_actions.action, actedAt: reviewer_actions.acted_at })
+    .from(reviewer_actions)
+    .where(eq(reviewer_actions.case_id, caseId))
+    .orderBy(desc(reviewer_actions.acted_at))
+    .limit(1)
+    .get();
+  return row ? { action: row.action, actedAtMs: row.actedAt.getTime() } : null;
+}
+
+/**
+ * KTD-5: a case needs reviewer attention when the reviewer's LATEST action was
+ * REQUEST_DOCS and the client has since added a `client_facing` note newer than
+ * that action. Reviewer actions are terminal (every action, REQUEST_DOCS
+ * included, flips the case to ACTIONED), so the signal keys off the action TYPE
+ * — a case-status gate would treat every doc-request response as "closed" and
+ * never fire. The strict `>` re-arms per request: a second REQUEST_DOCS resets
+ * the bar until a newer client note arrives, so the re-brief loop never
+ * double-flags. The note subquery filters `author_role = 'client'` so a
+ * reviewer's own `client_facing` message can never self-flag the case.
  */
 export async function clientResponded(db: Db, caseId: string): Promise<boolean> {
-  const row = await db
-    .select({
-      status: cases.status,
-      noteMax: sql<
-        number | null
-      >`(SELECT MAX(${caseNotes.created_at}) FROM ${caseNotes} WHERE ${caseNotes.case_id} = ${caseId} AND ${caseNotes.author_role} = 'client' AND ${caseNotes.visibility} = 'client_facing')`,
-      actionMax: sql<number>`COALESCE((SELECT MAX(${reviewer_actions.acted_at}) FROM ${reviewer_actions} WHERE ${reviewer_actions.case_id} = ${caseId}), 0)`,
-    })
-    .from(cases)
-    .where(eq(cases.id, caseId))
+  const latest = await latestReviewerAction(db, caseId);
+  if (!latest || latest.action !== "REQUEST_DOCS") return false;
+  const noteRow = await db
+    .select({ max: sql<number | null>`MAX(${caseNotes.created_at})` })
+    .from(caseNotes)
+    .where(
+      and(
+        eq(caseNotes.case_id, caseId),
+        eq(caseNotes.author_role, "client"),
+        eq(caseNotes.visibility, "client_facing"),
+      ),
+    )
     .get();
-  if (!row) return false;
-  if (TERMINAL_STATUS_SET.has(row.status)) return false;
-  if (row.noteMax === null) return false;
-  return row.noteMax > row.actionMax;
+  const noteMax = noteRow?.max ?? null;
+  return noteMax !== null && noteMax > latest.actedAtMs;
 }
 
 /** True when the case exists within the given org — the reviewer cross-org write guard. */

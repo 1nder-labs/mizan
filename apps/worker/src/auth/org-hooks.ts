@@ -36,9 +36,19 @@ function workspaceSlug(user: { name?: string | null; email: string }): string {
  * invitations). Un-invited signups with `signupKind === "client"` join the
  * single designated review org as `client` members (the portal self-signup
  * path); every other un-invited signup creates its own admin org (the
- * internal default, preserving the existing bootstrap). `signupKind` is a
- * server-trusted discriminator only — the role and org are assigned per
- * branch here, never read from the client body.
+ * internal default, preserving the existing bootstrap).
+ *
+ * `signupKind` IS a client-supplied field (better-auth `input: true`, set by
+ * the portal signup form) — but it is NOT privilege-bearing. It only routes
+ * between joining the single review org as `client` (the lowest role) and
+ * creating one's OWN fresh, empty admin org (the pre-portal default; signup has
+ * always done `createOrganization`, the portal merely narrowed it). It can
+ * never place a user in an EXISTING org or grant a role in one: that path is
+ * gated solely on a matching `invitations` row (a server-side DB lookup), not
+ * on `signupKind`. A forged value therefore yields at most an isolated empty
+ * workspace, never review-org or cross-tenant reach. The role + org assigned
+ * per branch here are the security boundary; `signupKind` only selects which
+ * self-signup shape runs.
  */
 async function provisionOrgOnSignup(
   user: { id: string; email: string; name?: string | null; signupKind?: string | null },

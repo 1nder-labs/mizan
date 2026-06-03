@@ -5,7 +5,9 @@
  * the sign-up request reaches `databaseHooks.user.create.after` and routes the
  * user into the single designated review org (`REVIEW_ORG_ID`) as a `client`
  * member — never their own admin org. The review org is seeded with an admin
- * member first (mirrors dev; avoids `addMember` against an owner-less org).
+ * member first (mirrors dev; avoids `addMember` against an owner-less org). Also
+ * covers the invited branch: a pending invitation routes the signup into the
+ * inviter's org with the invited role and is consumed (marked accepted).
  *
  * Vitest + Miniflare. `REVIEW_ORG_ID` is bound to `review-org-fixture` in
  * `vitest.config.ts`. Run via `bun --filter @mizan/worker test:integration`.
@@ -28,12 +30,12 @@ async function loadMemberships(userId: string): Promise<MembershipRow[]> {
 }
 
 describe("client signup onboarding", () => {
+  let adminId = "";
+
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-    const { userId: adminId } = await signUp(
-      `review-admin-${Date.now()}@test.local`,
-      "Review Admin",
-    );
+    const admin = await signUp(`review-admin-${Date.now()}@test.local`, "Review Admin");
+    adminId = admin.userId;
     await seedReviewOrgWithAdmin(adminId);
   }, 60_000);
 
@@ -66,5 +68,29 @@ describe("client signup onboarding", () => {
       .bind(REVIEW_ORG_ID)
       .first<{ count: number }>();
     expect(adminCount?.count).toBeGreaterThanOrEqual(1);
+  });
+
+  it("invited signup joins the inviter's org with the invited role and consumes the invitation", async () => {
+    const email = `invited-reviewer-${Date.now()}@test.local`;
+    const now = Date.now();
+    const invitationId = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO invitations (id, email, inviter_id, organization_id, role, status, created_at, expires_at)
+       VALUES (?, ?, ?, ?, 'reviewer', 'pending', ?, ?)`,
+    )
+      .bind(invitationId, email.toLowerCase(), adminId, REVIEW_ORG_ID, now, now + 48 * 3600 * 1000)
+      .run();
+
+    const { userId } = await signUp(email, "Invited Reviewer");
+
+    const memberships = await loadMemberships(userId);
+    expect(memberships).toHaveLength(1);
+    expect(memberships[0]?.role).toBe("reviewer");
+    expect(memberships[0]?.organization_id).toBe(REVIEW_ORG_ID);
+
+    const invitation = await env.DB.prepare("SELECT status FROM invitations WHERE id = ?")
+      .bind(invitationId)
+      .first<{ status: string }>();
+    expect(invitation?.status).toBe("accepted");
   });
 });
