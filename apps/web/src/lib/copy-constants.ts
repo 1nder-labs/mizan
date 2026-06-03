@@ -200,6 +200,7 @@ export const COPY = {
     evidenceReplace: "Replace",
     evidencePending: "Uploading…",
     evidenceHint: "PDF or image, up to 25 MB.",
+    evidenceDecided: "This campaign has been decided — documents can no longer be changed.",
     evidenceError: "Upload failed. Use a PDF or image under 25 MB.",
     noteFromYou: "You",
     noteFromReviewer: "Reviewer",

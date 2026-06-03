@@ -20,6 +20,7 @@ interface EvidenceRowProps {
   readonly campaignId: string;
   readonly docKind: DocumentKey;
   readonly uploaded: boolean;
+  readonly readOnly: boolean;
 }
 
 function useEvidenceUpload(campaignId: string, docKind: DocumentKey) {
@@ -44,7 +45,12 @@ function useEvidenceUpload(campaignId: string, docKind: DocumentKey) {
   return { inputRef, onFileSelected, pending: mutation.isPending };
 }
 
-function EvidenceRow({ campaignId, docKind, uploaded }: EvidenceRowProps): React.JSX.Element {
+function EvidenceRow({
+  campaignId,
+  docKind,
+  uploaded,
+  readOnly,
+}: EvidenceRowProps): React.JSX.Element {
   const { inputRef, onFileSelected, pending } = useEvidenceUpload(campaignId, docKind);
 
   return (
@@ -55,32 +61,36 @@ function EvidenceRow({ campaignId, docKind, uploaded }: EvidenceRowProps): React
           {uploaded ? COPY.portal.evidenceUploaded : COPY.portal.evidenceMissing}
         </p>
       </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="application/pdf,image/png,image/jpeg,image/webp"
-        className="hidden"
-        onChange={onFileSelected}
-        aria-label={docKindDisplay(docKind)}
-      />
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={pending}
-        onClick={() => inputRef.current?.click()}
-      >
-        {pending ? (
-          <>
-            <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-            {COPY.portal.evidencePending}
-          </>
-        ) : uploaded ? (
-          COPY.portal.evidenceReplace
-        ) : (
-          COPY.portal.evidenceUpload
-        )}
-      </Button>
+      {readOnly ? null : (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf,image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={onFileSelected}
+            aria-label={docKindDisplay(docKind)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() => inputRef.current?.click()}
+          >
+            {pending ? (
+              <>
+                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                {COPY.portal.evidencePending}
+              </>
+            ) : uploaded ? (
+              COPY.portal.evidenceReplace
+            ) : (
+              COPY.portal.evidenceUpload
+            )}
+          </Button>
+        </>
+      )}
     </div>
   );
 }
@@ -88,9 +98,14 @@ function EvidenceRow({ campaignId, docKind, uploaded }: EvidenceRowProps): React
 interface EvidencePanelProps {
   readonly campaignId: string;
   readonly evidence: ClientCaseDetail["evidence"];
+  readonly readOnly?: boolean;
 }
 
-export function EvidencePanel({ campaignId, evidence }: EvidencePanelProps): React.JSX.Element {
+export function EvidencePanel({
+  campaignId,
+  evidence,
+  readOnly = false,
+}: EvidencePanelProps): React.JSX.Element {
   const uploadedMap: Partial<Record<DocumentKey, boolean>> = {};
   for (const item of evidence) {
     uploadedMap[item.docKind] = item.uploaded;
@@ -98,7 +113,9 @@ export function EvidencePanel({ campaignId, evidence }: EvidencePanelProps): Rea
 
   return (
     <div>
-      <p className="mt-1 text-xs text-muted-foreground">{COPY.portal.evidenceHint}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {readOnly ? COPY.portal.evidenceDecided : COPY.portal.evidenceHint}
+      </p>
       <div className="mt-3">
         {DocumentKeyEnum.options.map((docKind) => (
           <EvidenceRow
@@ -106,6 +123,7 @@ export function EvidencePanel({ campaignId, evidence }: EvidencePanelProps): Rea
             campaignId={campaignId}
             docKind={docKind}
             uploaded={uploadedMap[docKind] ?? false}
+            readOnly={readOnly}
           />
         ))}
       </div>

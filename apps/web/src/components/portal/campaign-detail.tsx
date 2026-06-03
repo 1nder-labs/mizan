@@ -104,6 +104,7 @@ function buildInitial(detail: ClientCaseDetail): Partial<CampaignCreate> {
 
 function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JSX.Element {
   const [editing, setEditing] = useState(false);
+  const evidenceReadOnly = detail.status === "approved" || detail.status === "not_approved";
 
   function handleEditDone(): void {
     setEditing(false);
@@ -129,7 +130,11 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
       <section>
         <h2 className="mb-1 text-base font-semibold">{COPY.portal.detailEvidenceTitle}</h2>
         <p className="text-sm text-muted-foreground">{COPY.portal.detailEvidenceSubtitle}</p>
-        <EvidencePanel campaignId={detail.id} evidence={detail.evidence} />
+        <EvidencePanel
+          campaignId={detail.id}
+          evidence={detail.evidence}
+          readOnly={evidenceReadOnly}
+        />
       </section>
       <Separator />
       <section>
