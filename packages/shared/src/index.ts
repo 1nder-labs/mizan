@@ -207,6 +207,7 @@ export {
 export { SeedCaseSchema, type SeedCase } from "./schemas/seed-case.ts";
 
 export { ViewerContextSchema, type ViewerContext } from "./schemas/viewer.ts";
+export { RoleEnum, ROLE_VALUES, type Role } from "./schemas/role.ts";
 export { MeResponseSchema, type MeResponse } from "./schemas/me.ts";
 
 export {

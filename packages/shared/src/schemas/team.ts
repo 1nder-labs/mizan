@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { RoleEnum } from "./role.ts";
 
 /** Shared contracts for the team-management surface — Phase 7.6 U4. */
 
-export const TeamRoleEnum = z.enum(["reviewer", "admin", "client"]);
+export const TeamRoleEnum = RoleEnum;
 export type TeamRole = z.infer<typeof TeamRoleEnum>;
 
 export const TeamMemberSchema = z
