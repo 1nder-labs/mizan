@@ -83,11 +83,33 @@ function CampaignsSkeletons(): React.JSX.Element {
 }
 
 function CampaignsEmpty(): React.JSX.Element {
+  const steps = [
+    COPY.portal.listEmptyStep1,
+    COPY.portal.listEmptyStep2,
+    COPY.portal.listEmptyStep3,
+  ];
   return (
     <Card>
-      <CardContent className="py-16 text-center">
-        <p className="text-base font-medium">{COPY.portal.listEmptyTitle}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{COPY.portal.listEmptyBody}</p>
+      <CardContent className="py-12">
+        <div className="mx-auto max-w-md text-center">
+          <p className="text-base font-medium">{COPY.portal.listEmptyTitle}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{COPY.portal.listEmptyBody}</p>
+        </div>
+        <div className="mx-auto mt-8 max-w-md">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {COPY.portal.listEmptyStepsTitle}
+          </p>
+          <ol className="mt-3 space-y-3">
+            {steps.map((step, i) => (
+              <li key={step} className="flex items-start gap-3">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular">
+                  {i + 1}
+                </span>
+                <span className="text-sm text-muted-foreground">{step}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
       </CardContent>
     </Card>
   );

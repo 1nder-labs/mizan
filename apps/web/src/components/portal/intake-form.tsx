@@ -152,7 +152,12 @@ function ZakatField({ control }: FieldProps): React.JSX.Element {
       name="claimed_zakat_category"
       render={({ field, fieldState }) => (
         <FormItem>
-          <FormLabel>{COPY.portal.intakeZakat}</FormLabel>
+          <FormLabel className="flex items-center gap-2">
+            {COPY.portal.intakeZakat}
+            <span className="text-xs font-normal text-muted-foreground">
+              {COPY.portal.fieldOptional}
+            </span>
+          </FormLabel>
           <Select
             value={field.value ?? ""}
             onValueChange={(v) => field.onChange(v === ZAKAT_NONE ? undefined : v)}
@@ -186,7 +191,12 @@ function VouchingField({ control }: FieldProps): React.JSX.Element {
       name="vouching_narrative"
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{COPY.portal.intakeVouching}</FormLabel>
+          <FormLabel className="flex items-center gap-2">
+            {COPY.portal.intakeVouching}
+            <span className="text-xs font-normal text-muted-foreground">
+              {COPY.portal.fieldOptional}
+            </span>
+          </FormLabel>
           <FormControl>
             <Textarea
               rows={3}

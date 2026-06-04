@@ -14,12 +14,13 @@
  * session ensures the re-fetch completes even when no observer exists.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
 import { SESSION_QUERY_KEY } from "@/lib/auth-client.ts";
 import { meQueryOptions } from "@/lib/me-api.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
+import { COPY } from "@/lib/copy-constants.ts";
 import { LoginForm } from "@/components/login/form.tsx";
 import {
   Card,
@@ -65,6 +66,15 @@ export function LoginPage(): React.JSX.Element {
             <LoginForm onAuthenticated={handleAuthenticated} />
           </CardContent>
         </Card>
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          {COPY.portal.loginClientPrompt}{" "}
+          <Link
+            to="/portal-signup"
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {COPY.portal.loginClientLink}
+          </Link>
+        </p>
       </div>
     </main>
   );

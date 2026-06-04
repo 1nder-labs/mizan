@@ -154,6 +154,29 @@ function DraftActions({ campaignId }: { readonly campaignId: string }): React.JS
   );
 }
 
+function EvidenceSection({
+  detail,
+  readOnly,
+}: {
+  readonly detail: ClientCaseDetail;
+  readonly readOnly: boolean;
+}): React.JSX.Element {
+  const incomplete = detail.status === "submitted" && !detail.evidence.every((e) => e.uploaded);
+  return (
+    <section>
+      <h2 className="mb-1 text-base font-semibold">{COPY.portal.detailEvidenceTitle}</h2>
+      <p className="text-sm text-muted-foreground">{COPY.portal.detailEvidenceSubtitle}</p>
+      {incomplete ? (
+        <Alert className="mt-3 border-status-warning-border bg-status-warning/40">
+          <AlertTitle>{COPY.portal.detailEvidenceIncompleteTitle}</AlertTitle>
+          <AlertDescription>{COPY.portal.detailEvidenceIncompleteBody}</AlertDescription>
+        </Alert>
+      ) : null}
+      <EvidencePanel campaignId={detail.id} evidence={detail.evidence} readOnly={readOnly} />
+    </section>
+  );
+}
+
 function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JSX.Element {
   const [editing, setEditing] = useState(false);
   const evidenceReadOnly = detail.status === "approved" || detail.status === "not_approved";
@@ -180,15 +203,7 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
       ) : null}
       {detail.organizerAsk ? <OrganizerAskCard ask={detail.organizerAsk} /> : null}
       <Separator />
-      <section>
-        <h2 className="mb-1 text-base font-semibold">{COPY.portal.detailEvidenceTitle}</h2>
-        <p className="text-sm text-muted-foreground">{COPY.portal.detailEvidenceSubtitle}</p>
-        <EvidencePanel
-          campaignId={detail.id}
-          evidence={detail.evidence}
-          readOnly={evidenceReadOnly}
-        />
-      </section>
+      <EvidenceSection detail={detail} readOnly={evidenceReadOnly} />
       <Separator />
       <section>
         <h2 className="mb-4 text-base font-semibold">{COPY.portal.detailNotesTitle}</h2>

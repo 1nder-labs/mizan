@@ -196,10 +196,17 @@ export const COPY = {
     signupError: "Could not create your account. Please try again.",
     signupHaveAccount: "Already have an account?",
     signupLogin: "Sign in",
+    signupStepsTitle: "What happens next",
+    loginClientPrompt: "Submitting a campaign?",
+    loginClientLink: "Create a campaign account",
     listTitle: "My campaigns",
     listSubtitle: "Track each campaign through review.",
     listEmptyTitle: "No campaigns yet",
     listEmptyBody: "Start a campaign to submit it for review.",
+    listEmptyStepsTitle: "How review works",
+    listEmptyStep1: "Tell us about your campaign and who it helps.",
+    listEmptyStep2: "Upload the three documents your reviewer needs.",
+    listEmptyStep3: "Submit, then track review status and reply to messages here.",
     listNew: "Start a campaign",
     listColumnCampaign: "Campaign",
     listColumnStatus: "Status",
@@ -228,7 +235,8 @@ export const COPY = {
     intakeZakatHelp: "Which of the eight Zakat-eligible categories applies, if any.",
     intakeVouching: "Community vouching",
     intakeVouchingPlaceholder: "Anyone local who can vouch for this campaign…",
-    intakeVouchingHelp: "Optional. A local reference strengthens the review.",
+    intakeVouchingHelp: "A local reference strengthens the review.",
+    fieldOptional: "Optional",
     intakeDocsTitle: "Documents come next",
     intakeDocsBody:
       "After you create the campaign, you'll upload the three required documents — organizer ID, bank statement, and a category document — on its page.",
@@ -254,6 +262,10 @@ export const COPY = {
     evidenceHint: "PDF or image, up to 25 MB.",
     evidenceDecided: "This campaign has been decided — documents can no longer be changed.",
     evidenceError: "Upload failed. Use a PDF or image under 25 MB.",
+    evidenceRequired: "Required",
+    detailEvidenceIncompleteTitle: "Documents still needed",
+    detailEvidenceIncompleteBody:
+      "Your campaign is submitted, but some required documents are missing. Upload them below so your reviewer can continue.",
     noteFromYou: "You",
     noteFromReviewer: "Reviewer",
     editButton: "Edit details",
@@ -311,4 +323,21 @@ const DOC_KIND_DISPLAY: Readonly<Record<DocumentKey, string>> = {
 /** Returns the client-facing label for one of the three core evidence docs. */
 export function docKindDisplay(docKind: DocumentKey): string {
   return DOC_KIND_DISPLAY[docKind];
+}
+
+const DOC_KIND_WHY: Readonly<Record<DocumentKey, string>> = {
+  creator_id: "Confirms who is organizing this campaign.",
+  bank_statement: "Shows funds will reach the right account.",
+  category_doc: "Backs up the specific need you're raising for.",
+};
+
+/** A one-line reason each core evidence doc is needed, shown under its row. */
+export function docKindWhy(docKind: DocumentKey): string {
+  return DOC_KIND_WHY[docKind];
+}
+
+/** Completeness label for the evidence panel, e.g. "2 of 3 documents uploaded". */
+export function evidenceProgress(uploaded: number, total: number): string {
+  if (uploaded >= total) return `All ${total} documents uploaded`;
+  return `${uploaded} of ${total} documents uploaded`;
 }

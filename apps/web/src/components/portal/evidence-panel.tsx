@@ -1,19 +1,21 @@
 /**
- * Evidence upload panel. For each of the three required documents, shows
- * the upload state and a file input button. Each document row manages its
- * own `useMutation` so pending state is localised per-doc (not a shared
- * single-mutation with docKind tracking). The hidden input is reset after
- * upload so re-selecting the same file re-fires `onChange`.
+ * Evidence upload panel. Shows a completeness header and, for each of the three
+ * required documents, why it's needed, its upload state, and an upload control.
+ * Each row manages its own `useMutation` so pending state is localised per-doc.
+ * The hidden input is reset after upload so re-selecting the same file re-fires
+ * `onChange`. Upload buttons carry a per-document accessible name so keyboard +
+ * screen-reader users know which document each control targets.
  */
 import { useRef } from "react";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { DocumentKeyEnum, type DocumentKey } from "@mizan/shared";
 import type { ClientCaseDetail } from "@mizan/shared";
 import { uploadEvidence } from "@/lib/portal-api.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
-import { COPY, docKindDisplay } from "@/lib/copy-constants.ts";
+import { COPY, docKindDisplay, docKindWhy, evidenceProgress } from "@/lib/copy-constants.ts";
+import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 
 interface EvidenceRowProps {
@@ -45,51 +47,90 @@ function useEvidenceUpload(campaignId: string, docKind: DocumentKey) {
   return { inputRef, onFileSelected, pending: mutation.isPending };
 }
 
+function DocStatusIcon({ uploaded }: { readonly uploaded: boolean }): React.JSX.Element {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full",
+        uploaded
+          ? "bg-status-success text-status-success-foreground"
+          : "border border-dashed border-status-neutral-border",
+      )}
+    >
+      {uploaded ? <Check className="size-3" /> : null}
+    </span>
+  );
+}
+
+function UploadControl({
+  campaignId,
+  docKind,
+  uploaded,
+}: {
+  readonly campaignId: string;
+  readonly docKind: DocumentKey;
+  readonly uploaded: boolean;
+}): React.JSX.Element {
+  const { inputRef, onFileSelected, pending } = useEvidenceUpload(campaignId, docKind);
+  const verb = uploaded ? COPY.portal.evidenceReplace : COPY.portal.evidenceUpload;
+  const accessibleName = `${verb} ${docKindDisplay(docKind)}`;
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf,image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={onFileSelected}
+        aria-label={accessibleName}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={pending}
+        aria-label={accessibleName}
+        onClick={() => inputRef.current?.click()}
+      >
+        {pending ? (
+          <>
+            <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+            {COPY.portal.evidencePending}
+          </>
+        ) : (
+          verb
+        )}
+      </Button>
+    </>
+  );
+}
+
 function EvidenceRow({
   campaignId,
   docKind,
   uploaded,
   readOnly,
 }: EvidenceRowProps): React.JSX.Element {
-  const { inputRef, onFileSelected, pending } = useEvidenceUpload(campaignId, docKind);
-
   return (
-    <div className="flex items-center justify-between gap-4 py-3 border-b border-border/40 last:border-b-0">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium">{docKindDisplay(docKind)}</p>
-        <p className="text-xs text-muted-foreground">
-          {uploaded ? COPY.portal.evidenceUploaded : COPY.portal.evidenceMissing}
-        </p>
+    <div className="flex items-center justify-between gap-4 px-4 py-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <DocStatusIcon uploaded={uploaded} />
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{docKindDisplay(docKind)}</p>
+          <p className="text-xs text-muted-foreground">{docKindWhy(docKind)}</p>
+          <p
+            className={cn(
+              "mt-0.5 text-xs font-medium",
+              uploaded ? "text-status-success-foreground" : "text-muted-foreground",
+            )}
+          >
+            {uploaded ? COPY.portal.evidenceUploaded : COPY.portal.evidenceRequired}
+          </p>
+        </div>
       </div>
       {readOnly ? null : (
-        <>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="application/pdf,image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={onFileSelected}
-            aria-label={docKindDisplay(docKind)}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={() => inputRef.current?.click()}
-          >
-            {pending ? (
-              <>
-                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                {COPY.portal.evidencePending}
-              </>
-            ) : uploaded ? (
-              COPY.portal.evidenceReplace
-            ) : (
-              COPY.portal.evidenceUpload
-            )}
-          </Button>
-        </>
+        <UploadControl campaignId={campaignId} docKind={docKind} uploaded={uploaded} />
       )}
     </div>
   );
@@ -110,13 +151,19 @@ export function EvidencePanel({
   for (const item of evidence) {
     uploadedMap[item.docKind] = item.uploaded;
   }
+  const uploadedCount = DocumentKeyEnum.options.filter((k) => uploadedMap[k]).length;
 
   return (
-    <div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {readOnly ? COPY.portal.evidenceDecided : COPY.portal.evidenceHint}
-      </p>
-      <div className="mt-3">
+    <div className="mt-3 overflow-hidden rounded-lg border">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b bg-muted/30 px-4 py-2.5">
+        <p className="text-sm font-medium">
+          {evidenceProgress(uploadedCount, DocumentKeyEnum.options.length)}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {readOnly ? COPY.portal.evidenceDecided : COPY.portal.evidenceHint}
+        </p>
+      </div>
+      <div className="divide-y">
         {DocumentKeyEnum.options.map((docKind) => (
           <EvidenceRow
             key={docKind}
