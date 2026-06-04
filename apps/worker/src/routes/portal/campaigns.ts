@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, sql, type SQL } from "drizzle-orm";
+import { and, eq, isNull, sql, type SQL } from "drizzle-orm";
 import { cases, makeDb, type Db } from "@mizan/db";
 import {
   CampaignCreateSchema,
@@ -22,6 +22,7 @@ import { buildClientCaseDetail, listClientCampaigns } from "../../lib/client-vie
 import type { ViewerVariables } from "../../middleware/require-role.ts";
 import { readEvidenceInput } from "./evidence-upload.ts";
 import { storeEvidence } from "./evidence-store.ts";
+import { deleteDraftCampaign } from "./delete-campaign.ts";
 import { loadOwnedCampaign } from "./ownership.ts";
 
 const EMPTY_R2_KEYS = { creator_id: "", bank_statement: "", category_doc: "" } as const;
@@ -150,7 +151,12 @@ export const campaignRoutes = new Hono<{
           updated_at: new Date(),
         })
         .where(
-          and(eq(cases.id, id), eq(cases.created_by, viewer.userId), eq(cases.status, "DRAFT")),
+          and(
+            eq(cases.id, id),
+            eq(cases.created_by, viewer.userId),
+            eq(cases.status, "DRAFT"),
+            isNull(cases.submitted_at),
+          ),
         )
         .returning({ id: cases.id, status: cases.status });
       if (updated.length === 0)
@@ -165,7 +171,11 @@ export const campaignRoutes = new Hono<{
     const owned = await loadOwnedCampaign(db, viewer, id);
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
     const latest = await latestReviewerAction(db, id);
-    const clientStatus = toClientStatus(owned.campaign.status, latest?.action ?? null);
+    const clientStatus = toClientStatus(
+      owned.campaign.status,
+      latest?.action ?? null,
+      owned.campaign.submitted_at !== null,
+    );
     if (clientStatus === "approved" || clientStatus === "not_approved") {
       return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
     }
@@ -184,4 +194,32 @@ export const campaignRoutes = new Hono<{
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
     const notes = await readCaseNotes(db, c.var.viewer, owned.campaign.id);
     return c.json(CaseNotesResponseSchema.parse({ notes }));
+  })
+  .post("/:id/submit", zValidator("param", CampaignParamSchema), async (c) => {
+    const db = makeDb(c.env.DB);
+    const { id } = c.req.valid("param");
+    const viewer = c.var.viewer;
+    const owned = await loadOwnedCampaign(db, viewer, id);
+    if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
+    if (owned.campaign.submitted_at === null) {
+      await db
+        .update(cases)
+        .set({ submitted_at: new Date(), updated_at: new Date() })
+        .where(
+          and(eq(cases.id, id), eq(cases.created_by, viewer.userId), isNull(cases.submitted_at)),
+        )
+        .run();
+    }
+    return c.json(CampaignMutationResponseSchema.parse({ id, status: owned.campaign.status }), 200);
+  })
+  .delete("/:id", zValidator("param", CampaignParamSchema), async (c) => {
+    const db = makeDb(c.env.DB);
+    const { id } = c.req.valid("param");
+    const viewer = c.var.viewer;
+    const owned = await loadOwnedCampaign(db, viewer, id);
+    if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
+    if (owned.campaign.submitted_at !== null)
+      return c.json(PortalErrorBodySchema.parse({ error: "case_already_submitted" }), 409);
+    await deleteDraftCampaign(c.env, db, viewer, id);
+    return c.body(null, 204);
   });

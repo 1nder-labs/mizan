@@ -85,6 +85,7 @@ function resolveAssigneeFilter(search: QueueSearch, viewer: ViewerContext): SQL 
 
 function buildFilters(search: QueueSearch, viewer: ViewerContext): SQL {
   const filters: SQL[] = [eq(casesTable.organization_id, viewer.organizationId)];
+  filters.push(sql`NOT (${clientSubmittedExpr()} = 1 AND ${casesTable.submitted_at} IS NULL)`);
   if (search.status) filters.push(eq(casesTable.status, search.status));
   if (search.category) filters.push(eq(casesTable.category, search.category));
   if (search.geography) filters.push(eq(casesTable.geography, search.geography));

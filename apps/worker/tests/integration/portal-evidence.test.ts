@@ -21,7 +21,13 @@ import {
   PortalErrorBodySchema,
 } from "@mizan/shared";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import { BASE, REVIEW_ORG_ID, seedReviewOrgWithAdmin, signUp } from "./portal-helpers.ts";
+import {
+  BASE,
+  REVIEW_ORG_ID,
+  seedReviewOrgWithAdmin,
+  signUp,
+  submitCampaign,
+} from "./portal-helpers.ts";
 
 const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 
@@ -204,6 +210,7 @@ describe("portal evidence upload", () => {
 
   it("blocks an upload to a decided (APPROVE) case with 409 case_decided", async () => {
     const id = await createCampaign(clientACookie);
+    await submitCampaign(id, clientACookie);
     await insertAction(id, reviewAdminId, "APPROVE");
     const res = await uploadEvidence(
       id,

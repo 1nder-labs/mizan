@@ -120,7 +120,7 @@ describe("portal RBAC", () => {
     expect(res.status).toBe(200);
     const detail = ClientCaseDetailSchema.parse(await res.json());
     expect(detail.id).toBe(caseA);
-    expect(detail.status).toBe("submitted");
+    expect(detail.status).toBe("draft");
   });
 
   it("hides a sibling client's campaign as 404 (no existence leak)", async () => {

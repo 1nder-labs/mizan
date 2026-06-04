@@ -4,6 +4,7 @@ import type { ReviewerAction } from "./reviewer-action.ts";
 
 /** Friendly, internals-free campaign status shown to a client. */
 export const ClientStatusEnum = z.enum([
+  "draft",
   "submitted",
   "under_review",
   "needs_evidence",
@@ -14,9 +15,11 @@ export const ClientStatusEnum = z.enum([
 export type ClientStatus = z.infer<typeof ClientStatusEnum>;
 
 /**
- * Maps an internal `cases.status` + the latest reviewer action onto exactly one
- * client status. Total over every (status × action) pair. Precedence:
+ * Maps an internal `cases.status` + the latest reviewer action + whether the
+ * client has submitted the campaign onto exactly one client status. Total over
+ * every (submitted × status × action) combination. Precedence:
  *
+ *   !submitted        → draft               (unsubmitted client draft; reviewers can't see it yet)
  *   FAILED            → under_review        (infra failure is never shown; ops monitors FAILED)
  *   * + REQUEST_DOCS  → needs_evidence      (latest REQUEST_DOCS takes precedence over the status)
  *   * + APPROVE       → approved
@@ -28,7 +31,9 @@ export type ClientStatus = z.infer<typeof ClientStatusEnum>;
 export function toClientStatus(
   caseStatus: CaseStatus,
   latestAction: ReviewerAction | null,
+  submitted: boolean,
 ): ClientStatus {
+  if (!submitted) return "draft";
   if (caseStatus === "FAILED") return "under_review";
   if (latestAction === "REQUEST_DOCS") return "needs_evidence";
   if (latestAction === "APPROVE") return "approved";

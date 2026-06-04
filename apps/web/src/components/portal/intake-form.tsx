@@ -7,20 +7,16 @@
  * (`case_no_longer_draft`) surfaces as a top-level alert.
  */
 import { useState } from "react";
-import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FileText, Loader2 } from "lucide-react";
-import { useForm, type Control, type DefaultValues } from "react-hook-form";
+import { useForm, type Control } from "react-hook-form";
 import {
   CAMPAIGN_CATEGORY_OPTIONS,
   CampaignCreateSchema,
   ZAKAT_CATEGORY_OPTIONS,
   type CampaignCreate,
-  type CampaignMutationResponse,
 } from "@mizan/shared";
-import { createCampaign, editCampaign } from "@/lib/portal-api.ts";
-import { ApiError } from "@/lib/api-errors.ts";
-import { queryKeys } from "@/lib/query-keys.ts";
+import { readCampaignDraft } from "@/lib/campaign-draft.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -43,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select.tsx";
 import { CountryCombobox } from "./country-combobox.tsx";
+import { buildDefaultValues, useDraftPersistence, useIntakeMutation } from "./intake-form-state.ts";
 
 interface IntakeFormProps {
   readonly mode: "create" | "edit";
@@ -50,11 +47,11 @@ interface IntakeFormProps {
   readonly initial?: Partial<CampaignCreate>;
   readonly onDone: (id: string) => void | Promise<void>;
   readonly onCancel?: () => void;
+  readonly persistKey?: string;
 }
 
 type FieldProps = { readonly control: Control<CampaignCreate> };
 
-const CONFLICT_CODE = "case_no_longer_draft";
 const ZAKAT_NONE = "none";
 
 function StoryField({ control }: FieldProps): React.JSX.Element {
@@ -266,46 +263,6 @@ function SubmitRow({
   );
 }
 
-function buildDefaultValues(
-  initial: Partial<CampaignCreate> | undefined,
-): DefaultValues<CampaignCreate> {
-  return {
-    story: initial?.story ?? "",
-    organizer_name: initial?.organizer_name ?? "",
-    geography: initial?.geography ?? "",
-    ...(initial?.category ? { category: initial.category } : {}),
-    ...(initial?.claimed_zakat_category
-      ? { claimed_zakat_category: initial.claimed_zakat_category }
-      : {}),
-    ...(initial?.vouching_narrative ? { vouching_narrative: initial.vouching_narrative } : {}),
-  };
-}
-
-function useIntakeMutation(
-  mode: "create" | "edit",
-  campaignId: string | undefined,
-  onDone: (id: string) => void | Promise<void>,
-  setConflictError: (v: boolean) => void,
-): UseMutationResult<CampaignMutationResponse, Error, CampaignCreate> {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (values: CampaignCreate) => {
-      if (mode === "edit" && campaignId) return editCampaign(campaignId, values);
-      return createCampaign(values);
-    },
-    onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaigns() });
-      if (mode === "edit" && campaignId) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaign(campaignId) });
-      }
-      await onDone(result.id);
-    },
-    onError: (err: Error) => {
-      if (err instanceof ApiError && err.code === CONFLICT_CODE) setConflictError(true);
-    },
-  });
-}
-
 function IntakeAlerts({
   conflict,
   error,
@@ -365,14 +322,17 @@ export function IntakeForm({
   initial,
   onDone,
   onCancel,
+  persistKey,
 }: IntakeFormProps): React.JSX.Element {
   const [conflictError, setConflictError] = useState(false);
-  const mutation = useIntakeMutation(mode, campaignId, onDone, setConflictError);
+  const [restored] = useState(() => (persistKey ? readCampaignDraft(persistKey) : undefined));
+  const mutation = useIntakeMutation(mode, campaignId, onDone, setConflictError, persistKey);
   const form = useForm<CampaignCreate>({
     resolver: zodResolver(CampaignCreateSchema),
-    defaultValues: buildDefaultValues(initial),
+    defaultValues: buildDefaultValues(restored ?? initial),
     mode: "onTouched",
   });
+  useDraftPersistence(form, persistKey);
 
   function onSubmit(values: CampaignCreate): void {
     setConflictError(false);

@@ -17,7 +17,13 @@ import {
   type ClientCaseDetail,
 } from "@mizan/shared";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import { BASE, REVIEW_ORG_ID, seedReviewOrgWithAdmin, signUp } from "./portal-helpers.ts";
+import {
+  BASE,
+  REVIEW_ORG_ID,
+  seedReviewOrgWithAdmin,
+  signUp,
+  submitCampaign,
+} from "./portal-helpers.ts";
 
 const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 
@@ -37,7 +43,9 @@ async function createCampaign(cookie: string): Promise<string> {
     }),
   );
   expect(res.status).toBe(201);
-  return CampaignMutationResponseSchema.parse(await res.json()).id;
+  const id = CampaignMutationResponseSchema.parse(await res.json()).id;
+  await submitCampaign(id, cookie);
+  return id;
 }
 
 function getJson(url: string, cookie: string): Promise<Response> {

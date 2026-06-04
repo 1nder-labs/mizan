@@ -260,6 +260,15 @@ export const COPY = {
     editTitle: "Edit campaign",
     editSubmit: "Save changes",
     editConflict: "This campaign is under review and can no longer be edited.",
+    draftBannerTitle: "This campaign is a draft",
+    draftBannerBody: "Finish the details, add your documents, then submit it for review.",
+    draftSubmit: "Submit for review",
+    draftSubmitting: "Submitting…",
+    draftSubmitError: "Could not submit your campaign. Please try again.",
+    draftDelete: "Delete draft",
+    draftDeleting: "Deleting…",
+    draftDeleteConfirm: "Delete this draft? This can't be undone.",
+    draftDeleteError: "Could not delete this draft. Please try again.",
   },
 } as const;
 
@@ -279,6 +288,7 @@ export function statusDisplay(status: CaseStatus): string {
 }
 
 const CLIENT_STATUS_DISPLAY: Readonly<Record<ClientStatus, string>> = {
+  draft: "Draft",
   submitted: "Submitted",
   under_review: "Under review",
   needs_evidence: "Needs more evidence",

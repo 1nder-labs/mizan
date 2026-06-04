@@ -26,7 +26,7 @@ function PortalNewCampaignPage(): React.JSX.Element {
         <h1 className="text-2xl font-semibold tracking-tight">{COPY.portal.intakeTitle}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{COPY.portal.intakeSubtitle}</p>
       </header>
-      <IntakeForm mode="create" onDone={handleDone} />
+      <IntakeForm mode="create" onDone={handleDone} persistKey="new-campaign" />
     </PortalShell>
   );
 }

@@ -73,6 +73,12 @@ export async function seedReviewOrgWithAdmin(
     .run();
 }
 
+/** Submits a portal draft for review (`POST /:id/submit`) and asserts 200. */
+export async function submitCampaign(id: string, cookie: string): Promise<void> {
+  const res = await send("POST", `${BASE}/api/portal/campaigns/${id}/submit`, cookie);
+  expect(res.status).toBe(200);
+}
+
 /**
  * Performs a JSON (or body-less) fetch through the worker under test.
  * Sets `Content-Type: application/json` only when a body is supplied.

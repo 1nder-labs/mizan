@@ -9,6 +9,11 @@ import { clientStatusDisplay } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
 
 const STATUS_VARIANT: Record<ClientStatus, { readonly container: string; readonly dot: string }> = {
+  draft: {
+    container:
+      "bg-status-neutral/50 text-status-neutral-foreground border-dashed border-status-neutral-border",
+    dot: "bg-status-neutral-foreground/40",
+  },
   submitted: {
     container: "bg-status-neutral text-status-neutral-foreground border-status-neutral-border",
     dot: "bg-status-neutral-foreground/60",

@@ -59,6 +59,7 @@ export async function listClientCampaigns(
       category: cases.category,
       geography: cases.geography,
       status: cases.status,
+      submittedAt: cases.submitted_at,
       createdAt: cases.created_at,
       updatedAt: cases.updated_at,
       latestAction: sql<
@@ -76,7 +77,7 @@ export async function listClientCampaigns(
     title: r.title,
     category: r.category,
     geography: r.geography,
-    status: toClientStatus(r.status, parseAction(r.latestAction)),
+    status: toClientStatus(r.status, parseAction(r.latestAction), r.submittedAt !== null),
     createdAt: r.createdAt.getTime(),
     updatedAt: r.updatedAt.getTime(),
   }));
@@ -95,7 +96,11 @@ export async function buildClientCaseDetail(
   campaign: OwnedCampaign,
 ): Promise<ClientCaseDetail> {
   const status = ClientStatusEnum.parse(
-    toClientStatus(campaign.status, (await latestReviewerAction(db, campaign.id))?.action ?? null),
+    toClientStatus(
+      campaign.status,
+      (await latestReviewerAction(db, campaign.id))?.action ?? null,
+      campaign.submitted_at !== null,
+    ),
   );
   const overlay = CaseOverlaySchema.safeParse(campaign.brief_partial_json);
   const overlayData = overlay.success ? overlay.data : null;

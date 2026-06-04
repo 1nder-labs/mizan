@@ -5,11 +5,13 @@
  * inline edit form toggles when the campaign is still in submitted state.
  */
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getRouteApi, Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { CampaignCategoryEnum, ZakatCategoryEnum } from "@mizan/shared";
 import type { ClientCaseDetail, CampaignCreate } from "@mizan/shared";
-import { clientCampaignQueryOptions } from "@/lib/portal-api.ts";
+import { clientCampaignQueryOptions, deleteCampaign, submitCampaign } from "@/lib/portal-api.ts";
+import { queryKeys } from "@/lib/query-keys.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { PortalShell } from "@/components/portal/portal-shell.tsx";
 import { ClientStatusBadge } from "@/components/portal/client-status-badge.tsx";
@@ -83,7 +85,7 @@ function DetailHeader({
           <ClientStatusBadge status={detail.status} />
         </div>
       </div>
-      {detail.status === "submitted" ? (
+      {detail.status === "submitted" || detail.status === "draft" ? (
         <Button variant="outline" size="sm" onClick={onEditToggle} disabled={editing}>
           {COPY.portal.editButton}
         </Button>
@@ -107,6 +109,51 @@ function buildInitial(detail: ClientCaseDetail): Partial<CampaignCreate> {
   };
 }
 
+function useDraftActions(campaignId: string) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const submit = useMutation({
+    mutationFn: () => submitCampaign(campaignId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaign(campaignId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaigns() });
+    },
+    onError: (e: Error) => toast.error(e.message || COPY.portal.draftSubmitError),
+  });
+  const remove = useMutation({
+    mutationFn: () => deleteCampaign(campaignId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaigns() });
+      await navigate({ to: "/portal/campaigns" });
+    },
+    onError: (e: Error) => toast.error(e.message || COPY.portal.draftDeleteError),
+  });
+  return { submit, remove };
+}
+
+function DraftActions({ campaignId }: { readonly campaignId: string }): React.JSX.Element {
+  const { submit, remove } = useDraftActions(campaignId);
+  function onDelete(): void {
+    if (window.confirm(COPY.portal.draftDeleteConfirm)) remove.mutate();
+  }
+  return (
+    <Alert>
+      <AlertTitle>{COPY.portal.draftBannerTitle}</AlertTitle>
+      <AlertDescription className="space-y-3">
+        <p className="text-sm">{COPY.portal.draftBannerBody}</p>
+        <div className="flex flex-wrap gap-3">
+          <Button size="sm" onClick={() => submit.mutate()} disabled={submit.isPending}>
+            {submit.isPending ? COPY.portal.draftSubmitting : COPY.portal.draftSubmit}
+          </Button>
+          <Button size="sm" variant="outline" onClick={onDelete} disabled={remove.isPending}>
+            {remove.isPending ? COPY.portal.draftDeleting : COPY.portal.draftDelete}
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JSX.Element {
   const [editing, setEditing] = useState(false);
   const evidenceReadOnly = detail.status === "approved" || detail.status === "not_approved";
@@ -118,6 +165,7 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
   return (
     <div className="space-y-8">
       <DetailHeader detail={detail} editing={editing} onEditToggle={() => setEditing(true)} />
+      {detail.status === "draft" ? <DraftActions campaignId={detail.id} /> : null}
       {editing ? (
         <section>
           <h2 className="mb-4 text-base font-semibold">{COPY.portal.editTitle}</h2>

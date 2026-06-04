@@ -86,6 +86,21 @@ export async function editCampaign(
   return CampaignMutationResponseSchema.parse(await res.json());
 }
 
+/** Submits a draft for review (`POST /:id/submit`). Idempotent: a re-submit is a 200 no-op. */
+export async function submitCampaign(id: string): Promise<CampaignMutationResponse> {
+  const res = await apiMutate.portal.campaigns[":id"].submit.$post({ param: { id } });
+  assertAuthorized(res.status);
+  if (!res.ok) throw await apiError(res);
+  return CampaignMutationResponseSchema.parse(await res.json());
+}
+
+/** Hard-deletes an unsubmitted draft (`DELETE /:id`). 409 once submitted. */
+export async function deleteCampaign(id: string): Promise<void> {
+  const res = await apiMutate.portal.campaigns[":id"].$delete({ param: { id } });
+  assertAuthorized(res.status);
+  if (!res.ok) throw await apiError(res);
+}
+
 /**
  * Evidence upload is multipart — the worker route reads it with `parseBody`,
  * not a typed form validator, so the Hono RPC client cannot type it. The raw

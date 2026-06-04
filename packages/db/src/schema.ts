@@ -72,6 +72,13 @@ export const cases = sqliteTable(
     updated_at: integer("updated_at", { mode: "timestamp_ms" })
       .notNull()
       .$defaultFn(() => new Date()),
+    /**
+     * Set when a client submits a portal draft for review. NULL marks an
+     * unsubmitted client draft — editable + deletable by its owner and hidden
+     * from the reviewer queue until submitted. Always NULL for seed/reviewer-
+     * created cases (their creator is not a `client`, so the queue shows them).
+     */
+    submitted_at: integer("submitted_at", { mode: "timestamp_ms" }),
     created_by: text("created_by")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),

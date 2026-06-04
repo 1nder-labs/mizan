@@ -24,6 +24,7 @@ describe("matchPolicy helpers", () => {
         organization_id: "org-test-001",
         created_at: new Date(),
         updated_at: new Date(),
+        submitted_at: null,
         story: "Urgent surgery",
         organizer_name: "Organizer",
         r2_keys: { creator_id: "a", bank_statement: "b", category_doc: "c" },
