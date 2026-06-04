@@ -15,6 +15,7 @@ import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { CloudflareBindings } from "../env.ts";
+import { failCaseToFailed } from "../lib/fail-case.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { producerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
 import { requireRole } from "../middleware/require-role.ts";
@@ -46,6 +47,22 @@ type BriefContext = Context<{
 function wantsEventStream(c: BriefContext): boolean {
   const accept = c.req.header("Accept") ?? "";
   return accept.includes("text/event-stream");
+}
+
+/**
+ * Flips the case to FAILED when a brief SSE stream finishes without the
+ * workflow having advanced the row off RUNNING. The workflow self-transitions
+ * to READY_FOR_REVIEW / SUSPENDED_HITL on success, so the guarded transition
+ * is a no-op there; only a genuinely stuck run — a step threw mid-stream, which
+ * the workflow stream serialises as a silent `{ status: "failed" }` with no
+ * error text — is failed + emitted. Without this the row sticks in RUNNING,
+ * which `producerGuard("RUNNING")` rejects as a retry source, so the reviewer
+ * could never re-brief and the case would be bricked. Aborts are skipped: the
+ * client-disconnect path owns the revert to DRAFT.
+ */
+function failBriefRunIfStuck(c: BriefContext, caseId: string, runId: string): void {
+  if (c.req.raw.signal.aborted) return;
+  c.executionCtx.waitUntil(failCaseToFailed(makeDb(c.env.DB), caseId, runId));
 }
 
 async function streamBriefResponse(
@@ -81,6 +98,7 @@ async function streamBriefResponse(
       },
       onFinish: () => {
         flushLangfuse(langfuse, c.executionCtx);
+        failBriefRunIfStuck(c, caseId, runId);
       },
     });
     return createUIMessageStreamResponse({ stream: uiStream });

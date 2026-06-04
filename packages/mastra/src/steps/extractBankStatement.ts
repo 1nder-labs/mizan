@@ -1,5 +1,6 @@
 import { makeExtractor } from "./shared/makeExtractor.ts";
 import { BankStatementSchema } from "../schemas/extractions/bank-statement.ts";
+import { toDocumentPart } from "../util/image-format.ts";
 
 export const extractBankStatement = makeExtractor({
   name: "extractBankStatement",
@@ -16,7 +17,7 @@ export const extractBankStatement = makeExtractor({
           role: "user",
           content: [
             { type: "text", text: "Extract account holder and balance fields." },
-            { type: "image", image: bytes, mediaType: "image/png" },
+            toDocumentPart(bytes),
           ],
         },
       ],

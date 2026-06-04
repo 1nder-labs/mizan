@@ -7,7 +7,7 @@ import { makeTelemetry } from "../../runtime/telemetry.ts";
 import type { CloudflareBindings } from "@mizan/shared";
 import type { ModelConfig, ModelKind } from "../../models/factory.ts";
 import type { MizanRuntimeContext } from "../../observability/runtime-context.ts";
-import { toImagePart } from "../../util/image-format.ts";
+import { toFilePart, toImagePart } from "../../util/image-format.ts";
 
 const MAX_RETRIES = 2;
 
@@ -32,6 +32,7 @@ export interface StructuredLlmMessage {
   readonly content: ReadonlyArray<
     | { readonly type: "text"; readonly text: string }
     | { readonly type: "image"; readonly image: Uint8Array; readonly mediaType?: string }
+    | { readonly type: "file"; readonly data: Uint8Array; readonly mediaType: string }
   >;
 }
 
@@ -108,10 +109,10 @@ export async function runStructuredLlmWithMessages<TOutput>(
   const resolved = await runWithErrorContext(invocation, null, () =>
     Promise.resolve(resolveLanguageModel({ env: invocation.env, kind: invocation.modelKind })),
   );
-  const generateArgs = buildGenerateArgs(invocation, resolved.model, resolved.config);
-  const result = await runWithErrorContext(invocation, resolved.config, () =>
-    runTracedGeneration(invocation, generateArgs, resolved.config),
-  );
+  const result = await runWithErrorContext(invocation, resolved.config, () => {
+    const generateArgs = buildGenerateArgs(invocation, resolved.model, resolved.config);
+    return runTracedGeneration(invocation, generateArgs, resolved.config);
+  });
   /**
    * `result.output` is the parsed-and-validated object emitted by
    * `Output.object`. The SDK throws `NoObjectGeneratedError` on parse /
@@ -129,14 +130,19 @@ export async function runStructuredLlmWithMessages<TOutput>(
 }
 
 /**
- * Wraps the `generateText` call (and the post-parse) so any SDK,
- * provider, or schema error surfaces with the step + schema + provider
- * tuple in its message. Raw SDK errors are otherwise opaque on-call
- * ("AI_APICallError: 500", "ZodError: [...]") and forced operators to
- * grep correlation IDs to find which step / model tripped. Mirrors the
- * contextual wrapping `upsertSignal` and `persistBrief` apply to D1
- * errors. `AbortError` and `DOMException(name="AbortError")` pass
- * through unchanged so cancel semantics are preserved.
+ * Wraps the `generateText` call, the message-part construction, AND the
+ * post-parse so any SDK, provider, schema, or document-encoding error
+ * surfaces with the step + schema + provider tuple in its message. The
+ * tuple is also written to `console.error` before the rethrow: a
+ * mid-stream step failure is serialised by the workflow stream as a bare
+ * `{ status: "failed" }` with no error text, so without this log the
+ * cause is invisible to both the reviewer and on-call — the log makes it
+ * one `tail` away. Raw SDK errors are otherwise opaque ("AI_APICallError:
+ * 500", "ZodError: [...]") and forced operators to grep correlation IDs
+ * to find which step / model tripped. Mirrors the contextual wrapping
+ * `upsertSignal` and `persistBrief` apply to D1 errors. `AbortError` and
+ * `DOMException(name="AbortError")` pass through unchanged so cancel
+ * semantics are preserved.
  */
 async function runWithErrorContext<TOutput, TResult>(
   invocation: StructuredLlmInvocationWithMessages<TOutput>,
@@ -151,12 +157,11 @@ async function runWithErrorContext<TOutput, TResult>(
     }
     const providerLabel = config?.provider ?? "unresolved";
     const modelLabel = config?.model ?? "unresolved";
-    throw new Error(
-      `runStructuredLlm failed (step=${invocation.stepName} schema=${invocation.schemaName} provider=${providerLabel} model=${modelLabel}): ${
-        cause instanceof Error ? cause.message : String(cause)
-      }`,
-      { cause },
-    );
+    const message = `runStructuredLlm failed (step=${invocation.stepName} schema=${invocation.schemaName} provider=${providerLabel} model=${modelLabel}): ${
+      cause instanceof Error ? cause.message : String(cause)
+    }`;
+    console.error(message, cause instanceof Error ? (cause.stack ?? cause.message) : cause);
+    throw new Error(message, { cause });
   }
 }
 
@@ -250,11 +255,11 @@ function buildGenerateArgs<TOutput>(
     system: invocation.system,
     messages: invocation.messages.map((message) => ({
       role: message.role,
-      content: message.content.map((part) =>
-        part.type === "text"
-          ? { type: "text" as const, text: part.text }
-          : toImagePart(part.image, invocation.stepName),
-      ),
+      content: message.content.map((part) => {
+        if (part.type === "text") return { type: "text" as const, text: part.text };
+        if (part.type === "file") return toFilePart(part.data, part.mediaType);
+        return toImagePart(part.image, invocation.stepName);
+      }),
     })),
     maxRetries: MAX_RETRIES,
     experimental_telemetry: makeTelemetry({

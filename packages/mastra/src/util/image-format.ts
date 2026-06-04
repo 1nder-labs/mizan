@@ -54,6 +54,14 @@ export function detectImageMediaType(bytes: Uint8Array): string | null {
   return null;
 }
 
+const PDF_MEDIA_TYPE = "application/pdf";
+const PDF_MAGIC: ReadonlyArray<number> = [0x25, 0x50, 0x44, 0x46];
+
+/** True when the payload begins with the `%PDF` magic marker. */
+export function isPdf(bytes: Uint8Array): boolean {
+  return matchesHeader(bytes, PDF_MAGIC);
+}
+
 /**
  * Encodes raw bytes as a `data:<mediaType>;base64,<payload>` URL.
  * Workers don't expose Node's `Buffer`, so we chunk the Uint8Array
@@ -87,4 +95,34 @@ export function toImagePart(
     );
   }
   return { type: "image", image: bytesToDataUrl(bytes, mediaType) };
+}
+
+/**
+ * Builds the AI SDK 6 `FilePart` for a binary document payload as a
+ * `data:` URL. The OpenAI Responses API rejects a raw `Uint8Array` file
+ * payload the same way it rejects raw image bytes (see module docstring),
+ * so documents are encoded as data URLs for cross-provider parity.
+ */
+export function toFilePart(
+  bytes: Uint8Array,
+  mediaType: string,
+): { readonly type: "file"; readonly data: string; readonly mediaType: string } {
+  return { type: "file", data: bytesToDataUrl(bytes, mediaType), mediaType };
+}
+
+/**
+ * Routes a raw evidence payload to the correct multimodal message part:
+ * a PDF (sniffed by its `%PDF` magic bytes, never a declared content
+ * type — declared types lie) becomes a `file` part the model reads as a
+ * document; anything else is treated as a raster image and validated
+ * downstream by `toImagePart`. The single chokepoint every R2-doc→LLM
+ * call site shares, so image-only and PDF evidence both extract.
+ */
+export function toDocumentPart(
+  bytes: Uint8Array,
+):
+  | { readonly type: "image"; readonly image: Uint8Array }
+  | { readonly type: "file"; readonly data: Uint8Array; readonly mediaType: string } {
+  if (isPdf(bytes)) return { type: "file", data: bytes, mediaType: PDF_MEDIA_TYPE };
+  return { type: "image", image: bytes };
 }

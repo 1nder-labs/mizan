@@ -1,5 +1,6 @@
 import { makeExtractor } from "./shared/makeExtractor.ts";
 import { CategoryDocsSchema } from "../schemas/extractions/category-docs.ts";
+import { toDocumentPart } from "../util/image-format.ts";
 
 export const extractCategoryDocs = makeExtractor({
   name: "extractCategoryDocs",
@@ -17,7 +18,7 @@ export const extractCategoryDocs = makeExtractor({
           role: "user",
           content: [
             { type: "text", text: `Category: ${category}. Extract supporting evidence.` },
-            { type: "image", image: bytes, mediaType: "image/png" },
+            toDocumentPart(bytes),
           ],
         },
       ],
