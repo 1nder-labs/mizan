@@ -28,7 +28,7 @@ const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 const VALID_BODY = {
   story: "Funding clean-water wells for rural villages this season.",
   organizer_name: "Ahmad Hassan",
-  category: "water",
+  category: "food_security",
   geography: "KE",
 };
 

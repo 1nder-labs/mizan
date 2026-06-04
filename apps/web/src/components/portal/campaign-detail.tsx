@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, Link } from "@tanstack/react-router";
+import { CampaignCategoryEnum, ZakatCategoryEnum } from "@mizan/shared";
 import type { ClientCaseDetail, CampaignCreate } from "@mizan/shared";
 import { clientCampaignQueryOptions } from "@/lib/portal-api.ts";
 import { COPY } from "@/lib/copy-constants.ts";
@@ -92,12 +93,16 @@ function DetailHeader({
 }
 
 function buildInitial(detail: ClientCaseDetail): Partial<CampaignCreate> {
+  const category = CampaignCategoryEnum.safeParse(detail.category);
+  const zakat = detail.claimedZakatCategory
+    ? ZakatCategoryEnum.safeParse(detail.claimedZakatCategory)
+    : undefined;
   return {
     story: detail.story,
     organizer_name: detail.organizerName,
-    category: detail.category,
     geography: detail.geography,
-    ...(detail.claimedZakatCategory ? { claimed_zakat_category: detail.claimedZakatCategory } : {}),
+    ...(category.success ? { category: category.data } : {}),
+    ...(zakat?.success ? { claimed_zakat_category: zakat.data } : {}),
     ...(detail.vouchingNarrative ? { vouching_narrative: detail.vouchingNarrative } : {}),
   };
 }

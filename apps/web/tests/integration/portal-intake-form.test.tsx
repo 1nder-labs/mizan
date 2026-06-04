@@ -5,12 +5,18 @@
  * QueryClient backs the form's mutation.
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { render, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const { createMock, editMock } = vi.hoisted(() => ({ createMock: vi.fn(), editMock: vi.fn() }));
 vi.mock("@/lib/portal-api.ts", () => ({ createCampaign: createMock, editCampaign: editMock }));
+vi.mock("@/hooks/use-countries.ts", () => ({
+  useCountries: () => [
+    { code: "KE", name: "Kenya", flag: "" },
+    { code: "US", name: "United States", flag: "" },
+  ],
+}));
 
 import { IntakeForm } from "../../src/components/portal/intake-form.tsx";
 
@@ -49,11 +55,19 @@ describe("<IntakeForm /> (create)", () => {
 
     await user.type(ui.getByLabelText(/campaign story/i), "Clean-water wells for the village.");
     await user.type(ui.getByLabelText(/organizer name/i), "Ahmad Hassan");
-    await user.type(ui.getByLabelText("Category"), "water");
-    await user.type(ui.getByLabelText(/country or region/i), "KE");
+
+    await user.click(ui.getByLabelText("Category"));
+    await user.click(await screen.findByRole("option", { name: "Food & water" }));
+
+    await user.click(ui.getByLabelText("Country"));
+    await user.click(await screen.findByRole("option", { name: "Kenya" }));
+
     await user.click(ui.getByRole("button", { name: /create campaign/i }));
 
     await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
     expect(onDone).toHaveBeenCalledWith("campaign-1");
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ category: "food_security", geography: "KE" }),
+    );
   });
 });

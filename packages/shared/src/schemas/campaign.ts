@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { DocumentKeyEnum } from "./document-url.ts";
 import { CaseStatusEnum } from "./queue-search.ts";
+import { CampaignCategoryEnum, ZakatCategoryEnum } from "./campaign-taxonomy.ts";
+import { COUNTRY_CODE_SET } from "../data/countries.ts";
 
 /**
  * Client-portal campaign intake contracts (U4). A campaign is a `cases` row:
@@ -15,15 +17,16 @@ import { CaseStatusEnum } from "./queue-search.ts";
  */
 const STORY_MAX = 5000;
 const NAME_MAX = 200;
-const FIELD_MAX = 120;
 
 export const CampaignCreateSchema = z
   .object({
     story: z.string().min(1).max(STORY_MAX),
     organizer_name: z.string().min(1).max(NAME_MAX),
-    category: z.string().min(1).max(FIELD_MAX),
-    geography: z.string().min(1).max(FIELD_MAX),
-    claimed_zakat_category: z.string().min(1).max(FIELD_MAX).optional(),
+    category: CampaignCategoryEnum,
+    geography: z
+      .string()
+      .refine((code) => COUNTRY_CODE_SET.has(code), { message: "Select a country from the list" }),
+    claimed_zakat_category: ZakatCategoryEnum.optional(),
     vouching_narrative: z.string().min(1).max(STORY_MAX).optional(),
   })
   .strict();

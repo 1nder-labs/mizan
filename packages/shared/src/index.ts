@@ -257,6 +257,16 @@ export {
   type CampaignMutationResponse,
   type EvidenceUploadResponse,
 } from "./schemas/campaign.ts";
+export {
+  CAMPAIGN_CATEGORY_OPTIONS,
+  CampaignCategoryEnum,
+  ZAKAT_CATEGORY_OPTIONS,
+  ZakatCategoryEnum,
+  type CampaignCategory,
+  type TaxonomyOption,
+  type ZakatCategory,
+} from "./schemas/campaign-taxonomy.ts";
+export { COUNTRIES, COUNTRY_CODE_SET, countryFlag, type Country } from "./data/countries.ts";
 
 export {
   CaseNoteSchema,

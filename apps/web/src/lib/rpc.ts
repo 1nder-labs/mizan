@@ -58,3 +58,12 @@ export const apiMutate = createApiMutate();
 export function postMultipart(path: string, form: FormData): Promise<Response> {
   return fetch(`${BASE_URL}${path}`, { method: "POST", body: form, credentials: "include" });
 }
+
+/**
+ * Plain GET for an absolute third-party URL (the open-source country API).
+ * Kept here so `lib/rpc.ts` stays the single module that issues `fetch`; no
+ * credentials are sent (external origin). Callers parse + validate the body.
+ */
+export function externalGet(url: string): Promise<Response> {
+  return fetch(url);
+}

@@ -20,7 +20,7 @@ const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 const VALID_BODY = {
   story: "We are raising funds to build clean-water wells in rural villages.",
   organizer_name: "Ahmad Hassan",
-  category: "water",
+  category: "food_security",
   geography: "KE",
   claimed_zakat_category: "fi_sabilillah",
   vouching_narrative: "Vouched for by the local masjid committee.",
@@ -88,7 +88,7 @@ describe("portal campaigns", () => {
   it("rejects a create missing a required field (400)", async () => {
     const res = await send("POST", CAMPAIGNS_URL, clientACookie, {
       organizer_name: "No Story",
-      category: "water",
+      category: "food_security",
       geography: "KE",
     });
     expect(res.status).toBe(400);

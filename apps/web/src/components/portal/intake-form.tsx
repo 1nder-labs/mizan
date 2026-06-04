@@ -1,17 +1,20 @@
 /**
  * Campaign intake form — create or edit mode. RHF + zodResolver over
- * `CampaignCreateSchema`. In create mode calls `createCampaign`; in edit
- * mode calls `editCampaign`. On success invalidates the portal query cache
- * and calls `onDone(id)`. A 409 (case_no_longer_draft) surfaces as a
- * top-level alert, mirroring the server's `case_no_longer_draft` error code.
+ * `CampaignCreateSchema`. Category + Zakat category are dropdowns from the
+ * centralized `@mizan/shared` taxonomy; country is a searchable combobox — so
+ * a client picks from a closed list and the server rejects off-list values.
+ * Fields are grouped into labelled sections with help text. A 409
+ * (`case_no_longer_draft`) surfaces as a top-level alert.
  */
 import { useState } from "react";
-import { useQueryClient, useMutation, type UseMutationResult } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
-import { useForm, type UseFormReturn } from "react-hook-form";
+import { FileText, Loader2 } from "lucide-react";
+import { useForm, type Control, type DefaultValues } from "react-hook-form";
 import {
+  CAMPAIGN_CATEGORY_OPTIONS,
   CampaignCreateSchema,
+  ZAKAT_CATEGORY_OPTIONS,
   type CampaignCreate,
   type CampaignMutationResponse,
 } from "@mizan/shared";
@@ -24,6 +27,7 @@ import { Button } from "@/components/ui/button.tsx";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -31,6 +35,14 @@ import {
 } from "@/components/ui/form.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Textarea } from "@/components/ui/textarea.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx";
+import { CountryCombobox } from "./country-combobox.tsx";
 
 interface IntakeFormProps {
   readonly mode: "create" | "edit";
@@ -40,12 +52,15 @@ interface IntakeFormProps {
   readonly onCancel?: () => void;
 }
 
-const CONFLICT_CODE = "case_no_longer_draft";
+type FieldProps = { readonly control: Control<CampaignCreate> };
 
-function StoryField({ form }: { readonly form: UseFormReturn<CampaignCreate> }): React.JSX.Element {
+const CONFLICT_CODE = "case_no_longer_draft";
+const ZAKAT_NONE = "none";
+
+function StoryField({ control }: FieldProps): React.JSX.Element {
   return (
     <FormField
-      control={form.control}
+      control={control}
       name="story"
       render={({ field }) => (
         <FormItem>
@@ -53,6 +68,7 @@ function StoryField({ form }: { readonly form: UseFormReturn<CampaignCreate> }):
           <FormControl>
             <Textarea rows={5} placeholder={COPY.portal.intakeStoryPlaceholder} {...field} />
           </FormControl>
+          <FormDescription>{COPY.portal.intakeStoryHelp}</FormDescription>
           <FormMessage />
         </FormItem>
       )}
@@ -60,99 +76,161 @@ function StoryField({ form }: { readonly form: UseFormReturn<CampaignCreate> }):
   );
 }
 
-function OrganizerCategoryFields({
-  form,
-}: {
-  readonly form: UseFormReturn<CampaignCreate>;
-}): React.JSX.Element {
+function OrganizerField({ control }: FieldProps): React.JSX.Element {
   return (
-    <>
-      <FormField
-        control={form.control}
-        name="organizer_name"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{COPY.portal.intakeOrganizer}</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="category"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{COPY.portal.intakeCategory}</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="geography"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{COPY.portal.intakeGeography}</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-    </>
+    <FormField
+      control={control}
+      name="organizer_name"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{COPY.portal.intakeOrganizer}</FormLabel>
+          <FormControl>
+            <Input placeholder={COPY.portal.intakeOrganizerPlaceholder} {...field} />
+          </FormControl>
+          <FormDescription>{COPY.portal.intakeOrganizerHelp}</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
   );
 }
 
-function OptionalFields({
-  form,
+function CategoryField({ control }: FieldProps): React.JSX.Element {
+  return (
+    <FormField
+      control={control}
+      name="category"
+      render={({ field, fieldState }) => (
+        <FormItem>
+          <FormLabel>{COPY.portal.intakeCategory}</FormLabel>
+          <Select value={field.value ?? ""} onValueChange={field.onChange}>
+            <FormControl>
+              <SelectTrigger aria-invalid={!!fieldState.error}>
+                <SelectValue placeholder={COPY.portal.intakeCategoryPlaceholder} />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {CAMPAIGN_CATEGORY_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormDescription>{COPY.portal.intakeCategoryHelp}</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+function GeographyField({ control }: FieldProps): React.JSX.Element {
+  return (
+    <FormField
+      control={control}
+      name="geography"
+      render={({ field, fieldState }) => (
+        <FormItem>
+          <FormLabel>{COPY.portal.intakeGeography}</FormLabel>
+          <FormControl>
+            <CountryCombobox
+              value={field.value}
+              onChange={field.onChange}
+              invalid={!!fieldState.error}
+            />
+          </FormControl>
+          <FormDescription>{COPY.portal.intakeGeographyHelp}</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+function ZakatField({ control }: FieldProps): React.JSX.Element {
+  return (
+    <FormField
+      control={control}
+      name="claimed_zakat_category"
+      render={({ field, fieldState }) => (
+        <FormItem>
+          <FormLabel>{COPY.portal.intakeZakat}</FormLabel>
+          <Select
+            value={field.value ?? ""}
+            onValueChange={(v) => field.onChange(v === ZAKAT_NONE ? undefined : v)}
+          >
+            <FormControl>
+              <SelectTrigger aria-invalid={!!fieldState.error}>
+                <SelectValue placeholder={COPY.portal.intakeZakatPlaceholder} />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              <SelectItem value={ZAKAT_NONE}>{COPY.portal.intakeZakatNone}</SelectItem>
+              {ZAKAT_CATEGORY_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormDescription>{COPY.portal.intakeZakatHelp}</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+function VouchingField({ control }: FieldProps): React.JSX.Element {
+  return (
+    <FormField
+      control={control}
+      name="vouching_narrative"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{COPY.portal.intakeVouching}</FormLabel>
+          <FormControl>
+            <Textarea
+              rows={3}
+              placeholder={COPY.portal.intakeVouchingPlaceholder}
+              {...field}
+              value={field.value ?? ""}
+              onChange={(e) => field.onChange(e.target.value || undefined)}
+            />
+          </FormControl>
+          <FormDescription>{COPY.portal.intakeVouchingHelp}</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+function FormSection({
+  title,
+  children,
 }: {
-  readonly form: UseFormReturn<CampaignCreate>;
+  readonly title: string;
+  readonly children: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <>
-      <FormField
-        control={form.control}
-        name="claimed_zakat_category"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{COPY.portal.intakeZakat}</FormLabel>
-            <FormControl>
-              <Input
-                {...field}
-                value={field.value ?? ""}
-                onChange={(e) => field.onChange(e.target.value || undefined)}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="vouching_narrative"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{COPY.portal.intakeVouching}</FormLabel>
-            <FormControl>
-              <Textarea
-                rows={3}
-                {...field}
-                value={field.value ?? ""}
-                onChange={(e) => field.onChange(e.target.value || undefined)}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-    </>
+    <section className="space-y-4">
+      <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function DocsCallout(): React.JSX.Element {
+  return (
+    <div className="flex gap-3 rounded-lg border bg-muted/40 p-4">
+      <FileText className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+      <div className="space-y-1">
+        <p className="text-sm font-medium">{COPY.portal.intakeDocsTitle}</p>
+        <p className="text-sm text-muted-foreground">{COPY.portal.intakeDocsBody}</p>
+      </div>
+    </div>
   );
 }
 
@@ -188,14 +266,18 @@ function SubmitRow({
   );
 }
 
-function buildDefaultValues(initial: Partial<CampaignCreate> | undefined): CampaignCreate {
+function buildDefaultValues(
+  initial: Partial<CampaignCreate> | undefined,
+): DefaultValues<CampaignCreate> {
   return {
     story: initial?.story ?? "",
     organizer_name: initial?.organizer_name ?? "",
-    category: initial?.category ?? "",
     geography: initial?.geography ?? "",
-    claimed_zakat_category: initial?.claimed_zakat_category ?? undefined,
-    vouching_narrative: initial?.vouching_narrative ?? undefined,
+    ...(initial?.category ? { category: initial.category } : {}),
+    ...(initial?.claimed_zakat_category
+      ? { claimed_zakat_category: initial.claimed_zakat_category }
+      : {}),
+    ...(initial?.vouching_narrative ? { vouching_narrative: initial.vouching_narrative } : {}),
   };
 }
 
@@ -224,6 +306,59 @@ function useIntakeMutation(
   });
 }
 
+function IntakeAlerts({
+  conflict,
+  error,
+}: {
+  readonly conflict: boolean;
+  readonly error: Error | null;
+}): React.JSX.Element | null {
+  if (conflict) {
+    return (
+      <Alert variant="destructive" className="mb-4">
+        <AlertTitle>{COPY.portal.editConflict}</AlertTitle>
+      </Alert>
+    );
+  }
+  if (error) {
+    return (
+      <Alert variant="destructive" className="mb-4">
+        <AlertTitle>{COPY.portal.intakeError}</AlertTitle>
+        <AlertDescription>{error.message}</AlertDescription>
+      </Alert>
+    );
+  }
+  return null;
+}
+
+function IntakeFields({
+  control,
+  mode,
+}: {
+  readonly control: Control<CampaignCreate>;
+  readonly mode: "create" | "edit";
+}): React.JSX.Element {
+  return (
+    <>
+      <FormSection title={COPY.portal.intakeSectionAbout}>
+        <StoryField control={control} />
+        <OrganizerField control={control} />
+      </FormSection>
+      <FormSection title={COPY.portal.intakeSectionClassify}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <CategoryField control={control} />
+          <GeographyField control={control} />
+        </div>
+        <ZakatField control={control} />
+      </FormSection>
+      <FormSection title={COPY.portal.intakeSectionCommunity}>
+        <VouchingField control={control} />
+      </FormSection>
+      {mode === "create" ? <DocsCallout /> : null}
+    </>
+  );
+}
+
 export function IntakeForm({
   mode,
   campaignId,
@@ -246,22 +381,13 @@ export function IntakeForm({
 
   return (
     <>
-      {conflictError ? (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTitle>{COPY.portal.editConflict}</AlertTitle>
-        </Alert>
-      ) : null}
-      {mutation.isError && !conflictError ? (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTitle>{COPY.portal.intakeError}</AlertTitle>
-          <AlertDescription>{mutation.error.message}</AlertDescription>
-        </Alert>
-      ) : null}
+      <IntakeAlerts
+        conflict={conflictError}
+        error={mutation.isError && !conflictError ? mutation.error : null}
+      />
       <Form {...form}>
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
-          <StoryField form={form} />
-          <OrganizerCategoryFields form={form} />
-          <OptionalFields form={form} />
+        <form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+          <IntakeFields control={form.control} mode={mode} />
           <SubmitRow
             isPending={mutation.isPending}
             isEdit={mode === "edit"}
