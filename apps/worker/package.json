@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tests/tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "1.6.9",
+    "@better-auth/drizzle-adapter": "1.6.11",
     "@hono/zod-validator": "0.7.6",
     "@mastra/ai-sdk": "1.4.1",
     "@mastra/core": "1.32.1",
@@ -24,7 +24,7 @@
     "@mizan/mastra": "workspace:*",
     "ai": "6.0.175",
     "aws4fetch": "1.0.20",
-    "better-auth": "1.6.9",
+    "better-auth": "1.6.11",
     "better-auth-cloudflare": "0.3.0",
     "drizzle-orm": "0.45.2",
     "hono": "4.12.18",
