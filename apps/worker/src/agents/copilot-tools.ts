@@ -5,6 +5,7 @@ import {
   listCasesForViewer,
   loadBrief,
   NotFoundError,
+  resolveCaseIdByTitle,
 } from "../handlers/cases-handler.ts";
 import {
   getPolicyClause,
@@ -26,6 +27,7 @@ export function buildCopilotTools(env: CloudflareBindings, role: CopilotRole) {
       parseRuntime: parseCopilotRuntime,
       listCasesForViewer,
       fetchCaseDetail,
+      resolveCaseIdByTitle,
       loadBrief,
       listSignalsForCase,
       getPolicyClause,

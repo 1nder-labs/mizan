@@ -60,6 +60,16 @@ export interface CopilotTeamMember {
   readonly createdAt: number;
 }
 
+/**
+ * Result of resolving a case by exact title for the copilot get_case tool.
+ * `ambiguous` carries the duplicate-title count so the tool can ask the reviewer
+ * to disambiguate.
+ */
+export type CopilotTitleResolution =
+  | { readonly status: "found"; readonly caseId: string }
+  | { readonly status: "none" }
+  | { readonly status: "ambiguous"; readonly count: number };
+
 /** Injectable read handlers and runtime parser for reviewer copilot tools. */
 export interface CopilotHandlerDeps {
   readonly parseRuntime: (requestContext: RequestContext | undefined) => CopilotRuntimeBag;
@@ -73,6 +83,11 @@ export interface CopilotHandlerDeps {
     viewer: ViewerContext,
     db: Db,
   ) => Promise<CaseDetailResponse | null>;
+  readonly resolveCaseIdByTitle: (
+    title: string,
+    viewer: ViewerContext,
+    db: Db,
+  ) => Promise<CopilotTitleResolution>;
   readonly loadBrief: (caseId: string, viewer: ViewerContext, db: Db) => Promise<CopilotBriefRow>;
   readonly listSignalsForCase: (
     caseId: string,

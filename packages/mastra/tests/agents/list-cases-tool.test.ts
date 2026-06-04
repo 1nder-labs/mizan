@@ -22,6 +22,7 @@ function buildDeps(
     },
     listCasesForViewer,
     fetchCaseDetail: async () => null,
+    resolveCaseIdByTitle: async () => ({ status: "none" }),
     loadBrief: async () => {
       throw new Error("not used");
     },
@@ -50,6 +51,25 @@ describe("list_cases copilot tool", () => {
     const result = await tool.execute?.({ assignee: "me" }, { requestContext });
     expect(capturedViewer).toEqual(VIEWER);
     expect(result).toEqual({ cases: [{ id: "case-1" }], truncated: false });
+  });
+
+  it("passes the title filter through to listCasesForViewer", async () => {
+    let capturedTitle: string | undefined;
+    const deps = buildDeps(async (input) => {
+      capturedTitle = input.title;
+      return {
+        cases: [{ id: "case-1", title: "Hira Welfare Trust" }],
+        page: 1,
+        pageSize: 50,
+        total: 1,
+      };
+    });
+    const tool = createListCasesTool(deps);
+    const requestContext = new RequestContext();
+    requestContext.set("viewer", VIEWER);
+    requestContext.set("db", stubDb);
+    await tool.execute?.({ title: "hira" }, { requestContext });
+    expect(capturedTitle).toBe("hira");
   });
 
   it("marks truncated when total exceeds page rows", async () => {

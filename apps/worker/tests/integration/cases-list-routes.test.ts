@@ -15,141 +15,13 @@
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
+import { makeDb } from "@mizan/db";
 import { QueueResponseSchema } from "@mizan/shared";
+import { resolveCaseIdByTitle } from "../../src/handlers/cases-handler.ts";
+import { insertBrief, insertCase, seedAdmin, seedReviewer } from "./cases-test-helpers.ts";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 
 const BASE = "http://localhost";
-
-/** Signs up a reviewer account and returns the session cookie, userId, and organizationId. */
-async function seedReviewer(): Promise<{ cookie: string; userId: string; organizationId: string }> {
-  const email = `list-reviewer-${Date.now()}@test.local`;
-  const password = "CorrectHorse99!!";
-  await exports.default.fetch(
-    new Request(`${BASE}/api/auth/sign-up/email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name: "List Reviewer" }),
-    }),
-  );
-  const signIn = await exports.default.fetch(
-    new Request(`${BASE}/api/auth/sign-in/email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    }),
-  );
-  const row = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
-    .bind(email)
-    .first<{ id: string }>();
-  if (!row?.id) throw new Error("reviewer seed failed");
-  const memberRow = await env.DB.prepare(
-    "SELECT organization_id FROM members WHERE user_id = ? LIMIT 1",
-  )
-    .bind(row.id)
-    .first<{ organization_id: string }>();
-  if (!memberRow?.organization_id) throw new Error("reviewer org seed failed");
-  return {
-    cookie: signIn.headers.getSetCookie().join("; "),
-    userId: row.id,
-    organizationId: memberRow.organization_id,
-  };
-}
-
-/** Signs up an admin account and returns the session cookie + userId. */
-async function seedAdmin(): Promise<{ cookie: string; userId: string }> {
-  const email = `list-admin-${Date.now()}@test.local`;
-  const password = "CorrectHorse99!!";
-  await exports.default.fetch(
-    new Request(`${BASE}/api/auth/sign-up/email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name: "List Admin" }),
-    }),
-  );
-  const signIn = await exports.default.fetch(
-    new Request(`${BASE}/api/auth/sign-in/email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    }),
-  );
-  const row = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
-    .bind(email)
-    .first<{ id: string }>();
-  if (!row?.id) throw new Error("admin seed failed");
-  return { cookie: signIn.headers.getSetCookie().join("; "), userId: row.id };
-}
-
-/** Inserts a case row directly into D1. */
-async function insertCase(opts: {
-  id: string;
-  status: string;
-  category: string;
-  geography: string;
-  createdBy: string;
-  organizationId: string;
-  createdAt?: number;
-  updatedAt?: number;
-}): Promise<void> {
-  const now = Date.now();
-  await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       status = excluded.status,
-       updated_at = excluded.updated_at`,
-  )
-    .bind(
-      opts.id,
-      opts.status,
-      opts.category,
-      opts.geography,
-      opts.createdBy,
-      opts.organizationId,
-      opts.createdAt ?? now,
-      opts.updatedAt ?? now,
-    )
-    .run();
-}
-
-/** Inserts a brief row for a case, using a minimal valid payload_json. */
-async function insertBrief(opts: {
-  id: string;
-  caseId: string;
-  runId: string;
-  recommendation: string;
-  verificationPath: string;
-  organizationId: string;
-  composedAt?: number;
-}): Promise<void> {
-  const payload = JSON.stringify({
-    recommendation: opts.recommendation,
-    verification_path: opts.verificationPath,
-    geography_tier: "SAFE",
-    policy_grounded: true,
-    missing_docs: [],
-    reviewer_questions: [],
-    extracted_claims: "Test claims.",
-    confidence: 80,
-    policy_citations: [],
-  });
-  const now = Date.now();
-  await env.DB.prepare(
-    `INSERT INTO briefs (id, case_id, run_id, recommendation, confidence, composed_at, payload_json, organization_id)
-     VALUES (?, ?, ?, ?, 80, ?, ?, ?)
-     ON CONFLICT(id) DO NOTHING`,
-  )
-    .bind(
-      opts.id,
-      opts.caseId,
-      opts.runId,
-      opts.recommendation,
-      opts.composedAt ?? now,
-      payload,
-      opts.organizationId,
-    )
-    .run();
-}
 
 describe("GET /api/cases — queue list route", () => {
   let reviewerCookie = "";
@@ -161,6 +33,9 @@ describe("GET /api/cases — queue list route", () => {
   const CASE_B_ID = "bb000000-0000-4000-8000-000000000002";
   const CASE_C_ID = "cc000000-0000-4000-8000-000000000003";
   const BRIEF_A_ID = "ab000000-0000-4000-8000-000000000001";
+  const HIRA_ID = "dd000000-0000-4000-8000-000000000004";
+  const DUP1_ID = "ee000000-0000-4000-8000-000000000005";
+  const DUP2_ID = "ff000000-0000-4000-8000-000000000006";
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
@@ -214,6 +89,34 @@ describe("GET /api/cases — queue list route", () => {
       runId: "run-aa-01",
       recommendation: "REQUEST_DOCS",
       verificationPath: "documentary",
+      organizationId: reviewerOrgId,
+    });
+
+    await insertCase({
+      id: HIRA_ID,
+      status: "SUSPENDED_HITL",
+      title: "Hira Welfare Trust",
+      category: "education",
+      geography: "PK",
+      createdBy: reviewerUserId,
+      organizationId: reviewerOrgId,
+    });
+    await insertCase({
+      id: DUP1_ID,
+      status: "SUSPENDED_HITL",
+      title: "Duplicate Title Co",
+      category: "relief",
+      geography: "SD",
+      createdBy: reviewerUserId,
+      organizationId: reviewerOrgId,
+    });
+    await insertCase({
+      id: DUP2_ID,
+      status: "SUSPENDED_HITL",
+      title: "Duplicate Title Co",
+      category: "relief",
+      geography: "SD",
+      createdBy: reviewerUserId,
       organizationId: reviewerOrgId,
     });
   }, 60_000);
@@ -377,8 +280,47 @@ describe("GET /api/cases — queue list route", () => {
     expect(caseB?.latest_brief).toBeNull();
   });
 
+  it("?title=hira fuzzy-matches the campaign title, case-insensitively", async () => {
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/cases?title=hira`, {
+        headers: { Cookie: reviewerCookie },
+      }),
+    );
+    const body = QueueResponseSchema.parse(await res.json());
+    expect(body.total).toBe(1);
+    expect(body.cases[0]?.id).toBe(HIRA_ID);
+    expect(body.cases[0]?.title).toBe("Hira Welfare Trust");
+  });
+
   it("assets binding is available (smoke)", () => {
     expect(env.R2_BUCKET).toBeDefined();
     void MINIMAL_PNG_BYTES;
+  });
+
+  describe("resolveCaseIdByTitle", () => {
+    function viewer() {
+      return { userId: reviewerUserId, role: "reviewer" as const, organizationId: reviewerOrgId };
+    }
+
+    it("resolves an exact title to its case id", async () => {
+      const result = await resolveCaseIdByTitle("Hira Welfare Trust", viewer(), makeDb(env.DB));
+      expect(result).toEqual({ status: "found", caseId: HIRA_ID });
+    });
+
+    it("matches the exact title case-insensitively", async () => {
+      const result = await resolveCaseIdByTitle("hira WELFARE trust", viewer(), makeDb(env.DB));
+      expect(result).toEqual({ status: "found", caseId: HIRA_ID });
+    });
+
+    it("returns none when no case has that exact title", async () => {
+      const result = await resolveCaseIdByTitle("Hira", viewer(), makeDb(env.DB));
+      expect(result).toEqual({ status: "none" });
+    });
+
+    it("returns ambiguous when more than one case shares the title", async () => {
+      const result = await resolveCaseIdByTitle("Duplicate Title Co", viewer(), makeDb(env.DB));
+      expect(result.status).toBe("ambiguous");
+      if (result.status === "ambiguous") expect(result.count).toBeGreaterThanOrEqual(2);
+    });
   });
 });

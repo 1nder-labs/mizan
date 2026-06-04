@@ -83,10 +83,28 @@ function resolveAssigneeFilter(search: QueueSearch, viewer: ViewerContext): SQL 
   return eq(casesTable.assigned_to, effective);
 }
 
+/**
+ * Escapes the LIKE metacharacters (`%`, `_`, `\`) in a user-supplied term so a
+ * title filter matches the term literally rather than as a wildcard pattern.
+ * Paired with `ESCAPE '\'` on the LIKE clause.
+ */
+function escapeLike(term: string): string {
+  return term.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+/**
+ * Case-insensitive substring match on `cases.title`. SQLite's LIKE is
+ * case-insensitive for ASCII, which covers the campaign titles in use.
+ */
+function titleLikeFilter(term: string): SQL {
+  return sql`${casesTable.title} LIKE ${`%${escapeLike(term)}%`} ESCAPE '\\'`;
+}
+
 function buildFilters(search: QueueSearch, viewer: ViewerContext): SQL {
   const filters: SQL[] = [eq(casesTable.organization_id, viewer.organizationId)];
   filters.push(sql`NOT (${clientSubmittedExpr()} = 1 AND ${casesTable.submitted_at} IS NULL)`);
   if (search.status) filters.push(eq(casesTable.status, search.status));
+  if (search.title) filters.push(titleLikeFilter(search.title));
   if (search.category) filters.push(eq(casesTable.category, search.category));
   if (search.geography) filters.push(eq(casesTable.geography, search.geography));
   const assignee = resolveAssigneeFilter(search, viewer);
@@ -187,6 +205,44 @@ export async function listCasesForViewer(
     pageSize: QUEUE_PAGE_SIZE,
     total,
   };
+}
+
+/**
+ * Result of resolving a case by its exact title. `ambiguous` carries the match
+ * count so the caller can tell the reviewer to disambiguate by id.
+ */
+export type TitleResolution =
+  | { readonly status: "found"; readonly caseId: string }
+  | { readonly status: "none" }
+  | { readonly status: "ambiguous"; readonly count: number };
+
+/**
+ * Resolves an exact, case-insensitive title to a single org-scoped case id.
+ * Exact (not fuzzy) so `get_case` by title returns one unambiguous case; the
+ * fuzzy listing path is `listCasesForViewer` with `search.title`. Selects two
+ * rows so a duplicate title surfaces as `ambiguous` rather than silently
+ * picking one.
+ */
+export async function resolveCaseIdByTitle(
+  title: string,
+  viewer: ViewerContext,
+  db: Db,
+): Promise<TitleResolution> {
+  const rows = await db
+    .select({ id: casesTable.id })
+    .from(casesTable)
+    .where(
+      and(
+        eq(casesTable.organization_id, viewer.organizationId),
+        sql`LOWER(${casesTable.title}) = LOWER(${title})`,
+      ),
+    )
+    .limit(2)
+    .all();
+  const [first, second] = rows;
+  if (!first) return { status: "none" };
+  if (second) return { status: "ambiguous", count: rows.length };
+  return { status: "found", caseId: first.id };
 }
 
 /** Loads one org-scoped case detail payload. */

@@ -12,8 +12,9 @@ const listCasesOutput = z.object({
 export function createListCasesTool(deps: CopilotHandlerDeps) {
   return createTool({
     id: "list_cases",
-    description: `List cases visible to the current viewer in their active organization. Accepts optional filters: status (one of DRAFT/QUEUED/RUNNING/SUSPENDED_HITL/READY_FOR_REVIEW/ACTIONED/FAILED), assignee (a user id, or the string 'me' for the current viewer, or 'unassigned'), category, geography. Returns up to ${QUEUE_PAGE_SIZE} cases; the response includes a 'truncated' boolean indicating whether more cases match the filter. Use for overview queries.`,
+    description: `List cases visible to the current viewer in their active organization. Accepts optional filters: title (a fuzzy, case-insensitive substring of the campaign title — use this to find a case by name, e.g. title:"hira"), status (one of DRAFT/QUEUED/RUNNING/SUSPENDED_HITL/READY_FOR_REVIEW/ACTIONED/FAILED), assignee (a user id, or the string 'me' for the current viewer, or 'unassigned'), category, geography. Returns up to ${QUEUE_PAGE_SIZE} cases; the response includes a 'truncated' boolean indicating whether more cases match the filter. Use for overview queries and for resolving a campaign name to a case before calling get_case.`,
     inputSchema: z.object({
+      title: z.string().optional(),
       status: CaseStatusEnum.optional(),
       assignee: z.string().optional(),
       category: z.string().optional(),
@@ -26,6 +27,7 @@ export function createListCasesTool(deps: CopilotHandlerDeps) {
         page: 1,
         sort: "updated_desc",
         view: "list",
+        title: inputData.title,
         status: inputData.status,
         category: inputData.category,
         geography: inputData.geography,

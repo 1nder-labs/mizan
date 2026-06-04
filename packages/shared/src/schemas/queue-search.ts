@@ -50,6 +50,7 @@ export type QueueAssigneeFilter = z.infer<typeof QueueAssigneeFilterEnum>;
 export const QueueSearchSchema = z
   .object({
     status: CaseStatusEnum.optional().catch(undefined),
+    title: z.string().min(1).max(120).optional().catch(undefined),
     category: z.string().min(1).max(64).optional().catch(undefined),
     geography: z.string().min(1).max(64).optional().catch(undefined),
     page: z.coerce.number().int().positive().max(1000).default(1).catch(1),
