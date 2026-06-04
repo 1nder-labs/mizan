@@ -119,6 +119,7 @@ function ActiveDialog({
       title={label}
       description={description}
       fileName={deriveFileName(docKey)}
+      contentType={query.data?.contentType ?? null}
     />
   );
 }

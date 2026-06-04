@@ -8,7 +8,7 @@
 import { useId, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { UserPlus } from "lucide-react";
-import { sessionQueryOptions } from "@/lib/auth-client.ts";
+import { meQueryOptions } from "@/lib/me-api.ts";
 import { useTeamMembers } from "@/hooks/use-team.ts";
 import { useAssignCase } from "@/hooks/use-assign-case.ts";
 import { cn } from "@/lib/utils.ts";
@@ -64,8 +64,8 @@ export function CaseAssignment({
   caseId,
 }: CaseAssignmentProps): React.JSX.Element {
   const selectId = useId();
-  const session = useQuery(sessionQueryOptions());
-  const viewer = session.data?.user;
+  const me = useQuery(meQueryOptions());
+  const viewer = me.data?.user;
   const members = useTeamMembers();
   const mutation = useAssignCase();
   const memberList = useMemo(() => members.data?.members ?? [], [members.data]);

@@ -109,6 +109,7 @@ async function presignedUrlResponse(
   c: DocContext,
   objectKey: string,
   docKey: DocumentKey,
+  contentType: string,
   creds: NonNullable<ReturnType<typeof readR2Creds>>,
 ): Promise<Response> {
   try {
@@ -124,6 +125,7 @@ async function presignedUrlResponse(
       url: signed.url,
       expiresInSeconds: PRESIGN_TTL_SECONDS,
       docKey,
+      contentType,
     });
     return c.json(body);
   } catch (error) {
@@ -141,8 +143,10 @@ export const documentsRoutes = new Hono<{
     const { id, docKey } = c.req.valid("param");
     const resolved = await resolveDocObjectKey(c, id, docKey);
     if (!resolved.ok) return c.json(docErrorBody(resolved.code), resolved.status);
+    const head = await c.env.R2_BUCKET.head(resolved.objectKey);
+    const contentType = head?.httpMetadata?.contentType ?? "application/octet-stream";
     const creds = readR2Creds(c.env);
-    if (creds) return presignedUrlResponse(c, resolved.objectKey, docKey, creds);
+    if (creds) return presignedUrlResponse(c, resolved.objectKey, docKey, contentType, creds);
     /**
      * No presign creds → local Miniflare dev. There is no R2 presign endpoint
      * locally, so hand back a same-origin raw-serve path the Worker streams
@@ -152,6 +156,7 @@ export const documentsRoutes = new Hono<{
       url: `/api/cases/${id}/documents/${docKey}/raw`,
       expiresInSeconds: PRESIGN_TTL_SECONDS,
       docKey,
+      contentType,
     });
     return c.json(body);
   })

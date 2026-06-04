@@ -13,7 +13,7 @@
  * me entry from a prior session would misroute. `refetchType: 'all'` on
  * session ensures the re-fetch completes even when no observer exists.
  */
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
@@ -30,26 +30,30 @@ import {
   CardTitle,
 } from "@/components/ui/card.tsx";
 
+/**
+ * Resolves the post-login destination by role. Removes (not just invalidates)
+ * the cached `me` first: after signing in as a different role, `ensureQueryData`
+ * would otherwise resolve with the stale prior `me` (invalidation alone doesn't
+ * refetch an observer-less query), routing e.g. an admin to the client portal.
+ * Removing forces a fresh fetch under the new session cookie.
+ */
+async function navigateByRole(
+  queryClient: QueryClient,
+  navigate: ReturnType<typeof useNavigate>,
+): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: [...SESSION_QUERY_KEY], refetchType: "all" });
+  queryClient.removeQueries({ queryKey: queryKeys.me() });
+  const me = await queryClient.ensureQueryData(meQueryOptions());
+  if (me.user.role === "client") {
+    await navigate({ to: "/portal/campaigns" });
+    return;
+  }
+  await navigate({ to: "/queue", search: DEFAULT_QUEUE_SEARCH });
+}
+
 export function LoginPage(): React.JSX.Element {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-
-  async function handleAuthenticated(): Promise<void> {
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: [...SESSION_QUERY_KEY],
-        refetchType: "all",
-      }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.me() }),
-    ]);
-    const me = await queryClient.ensureQueryData(meQueryOptions());
-    if (me.user.role === "client") {
-      await navigate({ to: "/portal/campaigns" });
-      return;
-    }
-    await navigate({ to: "/queue", search: DEFAULT_QUEUE_SEARCH });
-  }
-
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6 py-12">
       <div className="w-full max-w-sm">
@@ -63,7 +67,7 @@ export function LoginPage(): React.JSX.Element {
             <CardDescription>Trust &amp; Safety / Zakat review surface.</CardDescription>
           </CardHeader>
           <CardContent>
-            <LoginForm onAuthenticated={handleAuthenticated} />
+            <LoginForm onAuthenticated={() => navigateByRole(queryClient, navigate)} />
           </CardContent>
         </Card>
         <p className="mt-6 text-center text-sm text-muted-foreground">

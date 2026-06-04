@@ -30,16 +30,19 @@ interface DocumentViewerDialogProps {
   readonly title: string;
   readonly description: string;
   readonly fileName: string;
+  readonly contentType: string | null;
 }
 
 function ViewerBody({
   url,
   fileName,
   title,
+  contentType,
 }: {
   readonly url: string | null;
   readonly fileName: string;
   readonly title: string;
+  readonly contentType: string | null;
 }): React.JSX.Element {
   if (!url) {
     return (
@@ -48,7 +51,7 @@ function ViewerBody({
       </div>
     );
   }
-  const kind = classifyDocumentKind(url);
+  const kind = classifyDocumentKind(contentType);
   if (kind === "pdf") {
     return (
       <Suspense
@@ -72,10 +75,11 @@ export function DocumentViewerDialog({
   title,
   description,
   fileName,
+  contentType,
 }: DocumentViewerDialogProps): React.JSX.Element {
   const body = useMemo(
-    () => <ViewerBody url={url} fileName={fileName} title={title} />,
-    [url, fileName, title],
+    () => <ViewerBody url={url} fileName={fileName} title={title} contentType={contentType} />,
+    [url, fileName, title, contentType],
   );
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
