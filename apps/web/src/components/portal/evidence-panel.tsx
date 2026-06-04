@@ -75,15 +75,23 @@ function UploadControl({
   const { inputRef, onFileSelected, pending } = useEvidenceUpload(campaignId, docKind);
   const verb = uploaded ? COPY.portal.evidenceReplace : COPY.portal.evidenceUpload;
   const accessibleName = `${verb} ${docKindDisplay(docKind)}`;
+  /**
+   * The button drives a sibling file input via `.click()`. The input is
+   * `sr-only` (rendered but visually hidden), NOT `hidden`/`display:none` —
+   * Safari refuses to open the picker for a programmatic `.click()` on a
+   * `display:none` input. `tabIndex={-1}` + `aria-hidden` keep the button the
+   * sole control (which carries the per-document accessible name).
+   */
   return (
     <>
       <input
         ref={inputRef}
         type="file"
         accept="application/pdf,image/png,image/jpeg,image/webp"
-        className="hidden"
+        tabIndex={-1}
+        aria-hidden
+        className="sr-only"
         onChange={onFileSelected}
-        aria-label={accessibleName}
       />
       <Button
         type="button"
