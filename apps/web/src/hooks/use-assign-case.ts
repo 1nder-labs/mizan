@@ -57,7 +57,7 @@ export function useAssignCase() {
     onSuccess: (_data, input) => {
       toast.success(input.userId ? "Case assigned" : "Case unassigned");
       void queryClient.invalidateQueries({ queryKey: queryKeys.cases.detail(input.caseId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.cases.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cases.lists });
     },
     onError: (error) => {
       toast.error(error.message);

@@ -53,7 +53,7 @@ export function dispatchLiveEvent(queryClient: QueryClient, event: LiveEventRow)
     case "case.unassigned":
     case "case.brief_ready":
     case "case.actioned":
-      coalesceInvalidate(queryClient, queryKeys.cases.all);
+      coalesceInvalidate(queryClient, queryKeys.cases.lists);
       if (caseId) coalesceInvalidate(queryClient, queryKeys.cases.detail(caseId));
       return;
     case "audit.new":
