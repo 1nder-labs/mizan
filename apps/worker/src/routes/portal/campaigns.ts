@@ -8,6 +8,7 @@ import {
   CaseOverlaySchema,
   ClientCampaignsResponseSchema,
   EvidenceUploadResponseSchema,
+  NoteCreateSchema,
   PortalErrorBodySchema,
   toClientStatus,
   type CampaignCreate,
@@ -101,6 +102,22 @@ async function attachEvidenceNote(
 }
 
 /**
+ * Whether a final reviewer decision (approve/block) has landed. Once a case is
+ * decided the client can no longer add evidence OR messages — both write paths
+ * share this gate so the 409 boundary matches the friendly status the UI shows.
+ */
+async function isCampaignDecided(
+  db: Db,
+  caseId: string,
+  status: Parameters<typeof toClientStatus>[0],
+  submitted: boolean,
+): Promise<boolean> {
+  const latest = await latestReviewerAction(db, caseId);
+  const clientStatus = toClientStatus(status, latest?.action ?? null, submitted);
+  return clientStatus === "approved" || clientStatus === "not_approved";
+}
+
+/**
  * Client campaign intake (`/api/portal/campaigns`). Create lands a DRAFT case
  * in the review org owned by the client; edit re-submits the intake fields but
  * only while the case is still DRAFT. The edit is a single conditional UPDATE
@@ -170,15 +187,8 @@ export const campaignRoutes = new Hono<{
     const viewer = c.var.viewer;
     const owned = await loadOwnedCampaign(db, viewer, id);
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
-    const latest = await latestReviewerAction(db, id);
-    const clientStatus = toClientStatus(
-      owned.campaign.status,
-      latest?.action ?? null,
-      owned.campaign.submitted_at !== null,
-    );
-    if (clientStatus === "approved" || clientStatus === "not_approved") {
+    if (await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null))
       return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
-    }
     const body = await c.req.parseBody().catch(() => null);
     if (body === null)
       return c.json(PortalErrorBodySchema.parse({ error: "invalid_evidence" }), 400);
@@ -195,6 +205,30 @@ export const campaignRoutes = new Hono<{
     const notes = await readCaseNotes(db, c.var.viewer, owned.campaign.id);
     return c.json(CaseNotesResponseSchema.parse({ notes }));
   })
+  .post(
+    "/:id/notes",
+    zValidator("param", CampaignParamSchema),
+    zValidator("json", NoteCreateSchema),
+    async (c) => {
+      const db = makeDb(c.env.DB);
+      const { id } = c.req.valid("param");
+      const viewer = c.var.viewer;
+      const owned = await loadOwnedCampaign(db, viewer, id);
+      if (!owned.ok)
+        return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
+      if (await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null))
+        return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
+      await writeCaseNote(db, {
+        caseId: id,
+        organizationId: viewer.organizationId,
+        authorUserId: viewer.userId,
+        authorRole: "client",
+        visibility: "client_facing",
+        body: c.req.valid("json").body,
+      });
+      return c.json({ ok: true }, 201);
+    },
+  )
   .post("/:id/submit", zValidator("param", CampaignParamSchema), async (c) => {
     const db = makeDb(c.env.DB);
     const { id } = c.req.valid("param");

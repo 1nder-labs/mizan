@@ -18,6 +18,7 @@ import { ClientStatusBadge } from "@/components/portal/client-status-badge.tsx";
 import { IntakeForm } from "@/components/portal/intake-form.tsx";
 import { EvidencePanel } from "@/components/portal/evidence-panel.tsx";
 import { NoteThread } from "@/components/portal/note-thread.tsx";
+import { ClientNoteComposer } from "@/components/portal/note-composer.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -205,9 +206,14 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
       <Separator />
       <EvidenceSection detail={detail} readOnly={evidenceReadOnly} />
       <Separator />
-      <section>
-        <h2 className="mb-4 text-base font-semibold">{COPY.portal.detailNotesTitle}</h2>
+      <section className="space-y-4">
+        <h2 className="text-base font-semibold">{COPY.portal.detailNotesTitle}</h2>
         <NoteThread campaignId={detail.id} />
+        {detail.status === "approved" || detail.status === "not_approved" ? (
+          <p className="text-sm text-muted-foreground">{COPY.portal.noteComposeDecided}</p>
+        ) : (
+          <ClientNoteComposer campaignId={detail.id} />
+        )}
       </section>
     </div>
   );
