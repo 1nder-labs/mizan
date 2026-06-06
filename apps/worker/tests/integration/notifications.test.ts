@@ -17,11 +17,13 @@ import {
   markNotificationRead,
   notifyCaseClient,
   notifyCaseReviewer,
+  notifyInternalNote,
 } from "../../src/lib/notifications.ts";
 import { REVIEW_ORG_ID } from "./portal-helpers.ts";
 
 const CLIENT_ID = "notif-client";
 const REVIEWER_ID = "notif-reviewer";
+const ADMIN_ID = "notif-admin";
 
 function viewer(userId: string): ViewerContext {
   return {
@@ -48,6 +50,14 @@ async function seedOrg(): Promise<void> {
     .run();
 }
 
+async function seedMember(userId: string, role: string): Promise<void> {
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO members (id, user_id, organization_id, role, created_at) VALUES (?, ?, ?, ?, ?)`,
+  )
+    .bind(crypto.randomUUID(), userId, REVIEW_ORG_ID, role, Date.now())
+    .run();
+}
+
 async function insertCase(assignedTo: string | null): Promise<string> {
   const id = crypto.randomUUID();
   await env.DB.prepare(
@@ -67,6 +77,9 @@ describe("notifications targeting + lifecycle", () => {
     await seedOrg();
     await seedUser(CLIENT_ID);
     await seedUser(REVIEWER_ID);
+    await seedUser(ADMIN_ID);
+    await seedMember(ADMIN_ID, "admin");
+    await seedMember(REVIEWER_ID, "reviewer");
   });
 
   it("notifies the client and never the actor (reviewer)", async () => {
@@ -89,6 +102,18 @@ describe("notifications targeting + lifecycle", () => {
     const rev = await listNotifications(db, viewer(REVIEWER_ID));
     expect(rev.notifications.some((n) => n.caseId === assigned)).toBe(true);
     expect(rev.notifications.some((n) => n.caseId === unassigned)).toBe(false);
+  });
+
+  it("relays an internal note to admins + assigned reviewer, never the author or client", async () => {
+    const db = makeDb(env.DB);
+    const caseId = await insertCase(REVIEWER_ID);
+    await notifyInternalNote(db, caseId, viewer(REVIEWER_ID), "internal only");
+    const admin = await listNotifications(db, viewer(ADMIN_ID));
+    expect(admin.notifications.some((n) => n.caseId === caseId)).toBe(true);
+    const author = await listNotifications(db, viewer(REVIEWER_ID));
+    expect(author.notifications.some((n) => n.caseId === caseId)).toBe(false);
+    const client = await listNotifications(db, viewer(CLIENT_ID));
+    expect(client.notifications.some((n) => n.caseId === caseId)).toBe(false);
   });
 
   it("mark-read clears unread", async () => {

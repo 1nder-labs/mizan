@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { cases, notifications, executeEmit, type Db } from "@mizan/db";
+import { cases, members, notifications, executeEmit, type Db } from "@mizan/db";
 import type { Notification, NotificationType, ViewerContext } from "@mizan/shared";
 
 const LIST_LIMIT = 50;
@@ -66,6 +66,48 @@ export async function notifyCaseClient(
     caseId,
     ...notice,
   });
+}
+
+async function orgAdminIds(db: Db, organizationId: string): Promise<string[]> {
+  const rows = await db
+    .select({ userId: members.userId })
+    .from(members)
+    .where(and(eq(members.organizationId, organizationId), eq(members.role, "admin")))
+    .all();
+  return rows.map((r) => r.userId);
+}
+
+/**
+ * Relays an internal (reviewer/admin-private) note across the admin<->reviewer
+ * side of the case: every org admin plus the case's assigned reviewer, minus the
+ * author. Never reaches the client — internal notes carry `internal` visibility,
+ * and the client role is not in the recipient set. Best-effort.
+ */
+export async function notifyInternalNote(
+  db: Db,
+  caseId: string,
+  author: ViewerContext,
+  body: string,
+): Promise<void> {
+  try {
+    const target = await caseTargets(db, caseId);
+    const recipients = new Set<string>(await orgAdminIds(db, author.organizationId));
+    if (target?.assignedTo) recipients.add(target.assignedTo);
+    recipients.delete(author.userId);
+    for (const userId of recipients) {
+      await notifyUser(db, {
+        userId,
+        organizationId: author.organizationId,
+        caseId,
+        type: "message",
+        title: "Internal note added",
+        body: excerpt(body),
+      });
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[notifications] internal note relay failed (case=${caseId}): ${reason}`);
+  }
 }
 
 /**
