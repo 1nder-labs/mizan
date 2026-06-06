@@ -78,7 +78,10 @@ export async function createCampaign(body: CampaignCreate): Promise<CampaignMuta
 
 /** Posts a client-authored message on a campaign (`POST /:id/notes`, client_facing). */
 export async function postClientNote(id: string, body: string): Promise<void> {
-  const res = await apiMutate.portal.campaigns[":id"].notes.$post({ param: { id }, json: { body } });
+  const res = await apiMutate.portal.campaigns[":id"].notes.$post({
+    param: { id },
+    json: { body },
+  });
   assertAuthorized(res.status);
   if (!res.ok) throw await apiError(res);
 }

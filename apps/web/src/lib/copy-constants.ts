@@ -18,6 +18,13 @@ export const COPY = {
     home: "Back to start",
     notFound: "We couldn't find that page.",
   },
+  notifications: {
+    open: "Notifications",
+    title: "Notifications",
+    empty: "You're all caught up.",
+    markAll: "Mark all read",
+    unreadLabel: (count: number) => `${count} unread`,
+  },
   /**
    * Server error code -> user-facing message. The single source consumed by
    * `errorMessage()` in `api-errors.ts`; every API failure resolves through here

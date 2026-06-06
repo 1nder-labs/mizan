@@ -13,6 +13,7 @@ export const LiveEventTypeEnum = z.enum([
   "audit.new",
   "signal.persisted",
   "workflow.event",
+  "notification.new",
 ]);
 
 export type LiveEventType = z.infer<typeof LiveEventTypeEnum>;
@@ -90,6 +91,14 @@ const WorkflowEventPayloadSchema = z
   })
   .strict();
 
+const NotificationNewPayloadSchema = z
+  .object({
+    event_type: z.literal("notification.new"),
+    notification_id: z.string(),
+    user_id: z.string(),
+  })
+  .strict();
+
 export const LiveEventPayloadSchema = z.discriminatedUnion("event_type", [
   CaseStatusChangedPayloadSchema,
   CaseAssignedPayloadSchema,
@@ -99,6 +108,7 @@ export const LiveEventPayloadSchema = z.discriminatedUnion("event_type", [
   AuditNewPayloadSchema,
   SignalPersistedPayloadSchema,
   WorkflowEventPayloadSchema,
+  NotificationNewPayloadSchema,
 ]);
 
 export type LiveEventPayload = z.infer<typeof LiveEventPayloadSchema>;

@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { COPY } from "@/lib/copy-constants.ts";
 import { useSignOut } from "@/hooks/use-sign-out.ts";
 import { Button } from "@/components/ui/button.tsx";
+import { NotificationBell } from "@/components/notifications/notification-bell.tsx";
 
 interface PortalShellProps {
   readonly children: React.ReactNode;
@@ -20,10 +21,13 @@ export function PortalShell({ children }: PortalShellProps): React.JSX.Element {
       <header className="border-b border-border/60 px-6 py-3">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <span className="text-sm font-semibold tracking-tight">{COPY.portal.brand}</span>
-          <Button variant="ghost" size="sm" onClick={signOut} disabled={signingOut}>
-            {signingOut ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : null}
-            {COPY.portal.signOut}
-          </Button>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <Button variant="ghost" size="sm" onClick={signOut} disabled={signingOut}>
+              {signingOut ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : null}
+              {COPY.portal.signOut}
+            </Button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-4xl w-full px-6 py-8">{children}</main>

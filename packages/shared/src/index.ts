@@ -281,6 +281,17 @@ export {
   type NoteVisibility,
 } from "./schemas/case-note.ts";
 
+export {
+  MarkReadResponseSchema,
+  NotificationSchema,
+  NotificationTypeEnum,
+  NotificationsResponseSchema,
+  type MarkReadResponse,
+  type Notification,
+  type NotificationType,
+  type NotificationsResponse,
+} from "./schemas/notification.ts";
+
 export { ClientStatusEnum, toClientStatus, type ClientStatus } from "./schemas/client-status.ts";
 
 export {

@@ -25,6 +25,7 @@ import { caseRoutes } from "./routes/cases.ts";
 import { chatRoutes } from "./routes/chat.ts";
 import { eventsStreamRoutes } from "./routes/events-stream.ts";
 import { meRoutes } from "./routes/me.ts";
+import { notificationRoutes } from "./routes/notifications.ts";
 import { policyClauseRoutes } from "./routes/policy-clauses.ts";
 import { portalRoutes } from "./routes/portal/router.ts";
 import { teamRoutes } from "./routes/team.ts";
@@ -42,6 +43,7 @@ const apiApp = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables
   .route("/team", teamRoutes)
   .route("/events", eventsStreamRoutes)
   .route("/chat", chatRoutes)
+  .route("/notifications", notificationRoutes)
   .onError((err, c) => {
     console.error(`[api] unhandled ${c.req.method} ${c.req.path}: ${err.message}`, err.stack);
     return c.json(INTERNAL_ERROR_BODY, 500);

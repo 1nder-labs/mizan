@@ -38,6 +38,7 @@ import {
 import { ChatPanel } from "@/components/chat/chat-panel.tsx";
 import { ActiveOrgSwitcher } from "@/components/org/active-org-switcher.tsx";
 import { ThemeToggle } from "@/components/shell/theme-toggle.tsx";
+import { NotificationBell } from "@/components/notifications/notification-bell.tsx";
 
 interface SidebarShellProps {
   readonly context: string;
@@ -166,6 +167,9 @@ function TopBar({ context }: { readonly context: string }): React.JSX.Element {
     <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/80 px-4 py-2 backdrop-blur">
       <SidebarTrigger />
       <span className="text-sm font-semibold tracking-tight">{context}</span>
+      <div className="ml-auto">
+        <NotificationBell />
+      </div>
     </header>
   );
 }

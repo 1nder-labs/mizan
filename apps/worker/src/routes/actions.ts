@@ -59,6 +59,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
 import { cacheActionResponse, tryReadCachedActionResponse } from "../lib/action-cache.ts";
+import { notifyCaseClient } from "../lib/notifications.ts";
 import { finalizeActionWithLiveEvents, revertActionClaim } from "./action-live-events.ts";
 import type { ViewerVariables } from "../middleware/require-role.ts";
 
@@ -197,7 +198,21 @@ async function runPostActionChain(db: Db, input: PostActionInput): Promise<Brief
     actionId: input.actionId,
   });
   await emitTerminalEventBestEffort(db, input);
+  await notifyCaseClient(db, input.caseId, input.reviewerId, decisionNotice(input.action));
   return brief.payload;
+}
+
+/** Friendly client-facing notice for a terminal reviewer action. */
+function decisionNotice(action: ReviewerAction): { type: "status"; title: string; body: string } {
+  const body =
+    action === "APPROVE"
+      ? "Your campaign was approved."
+      : action === "BLOCK"
+        ? "Your campaign was not approved."
+        : action === "ESCALATE"
+          ? "Your campaign is under further review."
+          : "Your reviewer asked for more documents.";
+  return { type: "status", title: "Review update", body };
 }
 
 /**

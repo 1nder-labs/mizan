@@ -19,6 +19,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
 import { latestReviewerAction, readCaseNotes, writeCaseNote } from "../../lib/case-notes.ts";
+import { excerpt, notifyCaseReviewer } from "../../lib/notifications.ts";
 import { buildClientCaseDetail, listClientCampaigns } from "../../lib/client-views.ts";
 import type { ViewerVariables } from "../../middleware/require-role.ts";
 import { readEvidenceInput } from "./evidence-upload.ts";
@@ -187,7 +188,9 @@ export const campaignRoutes = new Hono<{
     const viewer = c.var.viewer;
     const owned = await loadOwnedCampaign(db, viewer, id);
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
-    if (await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null))
+    if (
+      await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null)
+    )
       return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
     const body = await c.req.parseBody().catch(() => null);
     if (body === null)
@@ -196,6 +199,11 @@ export const campaignRoutes = new Hono<{
     if (!input.ok) return c.json(PortalErrorBodySchema.parse({ error: "invalid_evidence" }), 400);
     const key = await storeEvidence(c.env, db, viewer, id, input);
     await attachEvidenceNote(db, viewer, id, input.docKind);
+    await notifyCaseReviewer(db, id, viewer.userId, {
+      type: "evidence",
+      title: "Client added evidence",
+      body: `Uploaded ${input.docKind.replace(/_/g, " ")}.`,
+    });
     return c.json(EvidenceUploadResponseSchema.parse({ docKind: input.docKind, key }), 201);
   })
   .get("/:id/notes", zValidator("param", CampaignParamSchema), async (c) => {
@@ -216,15 +224,23 @@ export const campaignRoutes = new Hono<{
       const owned = await loadOwnedCampaign(db, viewer, id);
       if (!owned.ok)
         return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
-      if (await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null))
+      if (
+        await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null)
+      )
         return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
+      const body = c.req.valid("json").body;
       await writeCaseNote(db, {
         caseId: id,
         organizationId: viewer.organizationId,
         authorUserId: viewer.userId,
         authorRole: "client",
         visibility: "client_facing",
-        body: c.req.valid("json").body,
+        body,
+      });
+      await notifyCaseReviewer(db, id, viewer.userId, {
+        type: "message",
+        title: "New message from the campaign creator",
+        body: excerpt(body),
       });
       return c.json({ ok: true }, 201);
     },

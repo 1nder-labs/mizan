@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
 import { caseInViewerOrg, readCaseNotes, writeCaseNote } from "../lib/case-notes.ts";
+import { excerpt, notifyCaseClient } from "../lib/notifications.ts";
 import type { ViewerVariables } from "../middleware/require-role.ts";
 
 const NoteParamSchema = z.object({ id: z.string().uuid() });
@@ -60,7 +61,13 @@ export const caseNotesRoutes = new Hono<{
       const { id } = c.req.valid("param");
       if (!(await caseInViewerOrg(db, id, c.var.viewer.organizationId)))
         return c.json({ error: "not_found" }, 404);
-      await persistReviewerNote(db, c.var.viewer, id, c.req.valid("json").body, "client_facing");
+      const body = c.req.valid("json").body;
+      await persistReviewerNote(db, c.var.viewer, id, body, "client_facing");
+      await notifyCaseClient(db, id, c.var.viewer.userId, {
+        type: "message",
+        title: "Message from your reviewer",
+        body: excerpt(body),
+      });
       return c.json({ ok: true }, 201);
     },
   )

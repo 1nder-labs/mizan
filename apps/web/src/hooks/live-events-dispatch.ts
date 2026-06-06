@@ -68,6 +68,9 @@ export function dispatchLiveEvent(queryClient: QueryClient, event: LiveEventRow)
     case "workflow.event":
       if (caseId) coalesceInvalidate(queryClient, queryKeys.cases.detail(caseId));
       return;
+    case "notification.new":
+      coalesceInvalidate(queryClient, queryKeys.notifications.all);
+      return;
     default: {
       const _exhaustive: never = event.payload;
       return _exhaustive;

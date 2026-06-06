@@ -286,6 +286,36 @@ export const live_events = sqliteTable(
   ],
 );
 
+/** Notification kinds — drives the list icon only; human text is rendered at write time. */
+export const NOTIFICATION_TYPE_VALUES = ["message", "evidence", "status"] as const;
+
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    organization_id: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    type: text("type", { enum: NOTIFICATION_TYPE_VALUES }).notNull(),
+    case_id: text("case_id").references(() => cases.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    read_at: integer("read_at", { mode: "timestamp_ms" }),
+    created_at: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("notifications_user_created_idx").on(table.user_id, table.created_at),
+    index("notifications_user_unread_idx").on(table.user_id, table.read_at),
+  ],
+);
+
 export const chat_threads = sqliteTable(
   "chat_threads",
   {
