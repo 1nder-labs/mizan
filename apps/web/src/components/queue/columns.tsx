@@ -11,7 +11,7 @@ import type { CaseRow, QueueSearch, QueueSort } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
-import { humanVerification } from "@/lib/display-labels.ts";
+import { formatCountry, humanVerification } from "@/lib/display-labels.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
 
@@ -87,7 +87,7 @@ const geographyColumn: ColumnDef<CaseRow> = {
   id: "geography",
   header: "Geography",
   cell: ({ row }) => (
-    <span className="text-sm text-muted-foreground">{row.original.geography}</span>
+    <span className="text-sm text-muted-foreground">{formatCountry(row.original.geography)}</span>
   ),
 };
 

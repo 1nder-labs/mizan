@@ -29,6 +29,15 @@ export const COUNTRIES: ReadonlyArray<Country> = ISO_3166_ALPHA2.map((code) => (
 
 export const COUNTRY_CODE_SET: ReadonlySet<string> = new Set(COUNTRIES.map((c) => c.code));
 
+const COUNTRY_NAME_BY_CODE: ReadonlyMap<string, string> = new Map(
+  COUNTRIES.map((c) => [c.code, c.name]),
+);
+
+/** Resolves a 2-letter code to its country name, or the code itself if unknown. */
+export function countryName(code: string): string {
+  return COUNTRY_NAME_BY_CODE.get(code) ?? code;
+}
+
 const FLAG_OFFSET = 0x1f1e6 - "A".charCodeAt(0);
 
 /** Emoji flag for a 2-letter country code (regional-indicator pair), or "". */

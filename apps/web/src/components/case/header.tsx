@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { formatShortDateTime } from "@/lib/format.ts";
 import { COPY } from "@/lib/copy-constants.ts";
+import { formatCountry } from "@/lib/display-labels.ts";
 import { cn } from "@/lib/utils.ts";
 import { CaseAssignment } from "./case-assignment.tsx";
 
@@ -79,7 +80,7 @@ export function CaseHeader({ caseRow, clientResponded }: CaseHeaderProps): React
             <ClientSubmittedBadge submitted={caseRow.client_submitted} />
           </div>
           <p className="text-sm capitalize text-muted-foreground">
-            {caseRow.category} · {caseRow.geography}
+            {caseRow.category} · {formatCountry(caseRow.geography)}
           </p>
         </div>
       </div>

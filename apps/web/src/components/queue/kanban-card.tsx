@@ -19,6 +19,7 @@ import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx"
 import { Badge } from "@/components/ui/badge.tsx";
 import { Card } from "@/components/ui/card.tsx";
 import { formatMediumDateTime } from "@/lib/format.ts";
+import { formatCountry } from "@/lib/display-labels.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
 
@@ -52,7 +53,7 @@ export function KanbanCardBody({ row }: { readonly row: CaseRow }): React.JSX.El
         <CaseStatusBadge status={row.status} />
       </div>
       <p className="text-xs capitalize text-muted-foreground">
-        {row.category} · {row.geography}
+        {row.category} · {formatCountry(row.geography)}
       </p>
       {row.latest_brief ? (
         <div className="flex items-center gap-2 border-t border-border/40 pt-2">

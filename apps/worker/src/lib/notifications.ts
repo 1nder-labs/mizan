@@ -26,10 +26,13 @@ interface CaseNotice {
   readonly body: string;
 }
 
-async function caseTargets(
-  db: Db,
-  caseId: string,
-): Promise<{ createdBy: string; assignedTo: string | null; organizationId: string } | null> {
+interface CaseTarget {
+  readonly createdBy: string;
+  readonly assignedTo: string | null;
+  readonly organizationId: string;
+}
+
+async function caseTargets(db: Db, caseId: string): Promise<CaseTarget | null> {
   try {
     const row = await db
       .select({
@@ -40,9 +43,7 @@ async function caseTargets(
       .from(cases)
       .where(eq(cases.id, caseId))
       .get();
-    return row
-      ? { createdBy: row.createdBy, assignedTo: row.assignedTo, organizationId: row.organizationId }
-      : null;
+    return row ?? null;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     console.error(`[notifications] caseTargets failed (case=${caseId}): ${reason}`);
@@ -127,8 +128,18 @@ export async function listNotifications(
   viewer: ViewerContext,
 ): Promise<{ notifications: Notification[]; unread: number }> {
   const rows = await db
-    .select()
+    .select({
+      id: notifications.id,
+      type: notifications.type,
+      caseId: notifications.case_id,
+      title: notifications.title,
+      body: notifications.body,
+      readAt: notifications.read_at,
+      createdAt: notifications.created_at,
+      caseTitle: cases.title,
+    })
     .from(notifications)
+    .leftJoin(cases, eq(cases.id, notifications.case_id))
     .where(eq(notifications.user_id, viewer.userId))
     .orderBy(desc(notifications.created_at))
     .limit(LIST_LIMIT)
@@ -138,11 +149,12 @@ export async function listNotifications(
     notifications: rows.map((r) => ({
       id: r.id,
       type: r.type,
-      caseId: r.case_id,
+      caseId: r.caseId,
+      caseTitle: r.caseTitle ?? null,
       title: r.title,
       body: r.body,
-      read: r.read_at !== null,
-      createdAt: r.created_at.getTime(),
+      read: r.readAt !== null,
+      createdAt: r.createdAt.getTime(),
     })),
     unread,
   };

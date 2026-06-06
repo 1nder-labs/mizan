@@ -26,7 +26,13 @@ export function notificationsQueryOptions() {
   return queryOptions<NotificationsResponse>({
     queryKey: queryKeys.notifications.all,
     queryFn: fetchNotifications,
-    staleTime: 10_000,
+    /**
+     * Freshness is driven by SSE (`notification.new` invalidates) + the
+     * mark-read mutations, not by polling — so the feed does not re-hit the DB
+     * on every mount/focus. The long staleTime is a backstop for the case where
+     * the SSE stream is unavailable.
+     */
+    staleTime: 60_000,
   });
 }
 

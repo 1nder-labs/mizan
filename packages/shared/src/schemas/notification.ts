@@ -10,6 +10,8 @@ export const NotificationSchema = z
     id: z.string(),
     type: NotificationTypeEnum,
     caseId: z.string().nullable(),
+    /** Live campaign name, joined at read time (null if the case was deleted). */
+    caseTitle: z.string().nullable(),
     title: z.string(),
     body: z.string(),
     read: z.boolean(),

@@ -8,6 +8,7 @@
 import type { CaseRow } from "@mizan/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { formatMediumDateTime } from "@/lib/format.ts";
+import { formatCountry } from "@/lib/display-labels.ts";
 
 interface CaseMetaCardProps {
   readonly caseRow: CaseRow;
@@ -36,7 +37,7 @@ export function CaseMetaCard({ caseRow }: CaseMetaCardProps): React.JSX.Element 
       </CardHeader>
       <CardContent className="pt-0">
         <MetaRow label="Category" value={<span className="capitalize">{caseRow.category}</span>} />
-        <MetaRow label="Geography" value={caseRow.geography} />
+        <MetaRow label="Geography" value={formatCountry(caseRow.geography)} />
         <MetaRow label="Zakat" value={caseRow.claimed_zakat_category ?? "—"} />
         <MetaRow label="Created" value={formatMediumDateTime(caseRow.created_at)} />
         <MetaRow label="Updated" value={formatMediumDateTime(caseRow.updated_at)} />

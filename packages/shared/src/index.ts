@@ -266,7 +266,13 @@ export {
   type TaxonomyOption,
   type ZakatCategory,
 } from "./schemas/campaign-taxonomy.ts";
-export { COUNTRIES, COUNTRY_CODE_SET, countryFlag, type Country } from "./data/countries.ts";
+export {
+  COUNTRIES,
+  COUNTRY_CODE_SET,
+  countryFlag,
+  countryName,
+  type Country,
+} from "./data/countries.ts";
 
 export {
   CaseNoteSchema,
