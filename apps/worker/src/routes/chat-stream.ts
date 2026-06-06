@@ -4,6 +4,7 @@ import {
   createMastra,
   flushLangfuse,
   type CopilotRole,
+  CHAT_CONTEXT_KEYS,
   RequestContext,
 } from "@mizan/mastra";
 import type { LangfuseExporter } from "@mizan/mastra";
@@ -30,9 +31,9 @@ function buildChatRequestContext(
   const requestContext = new RequestContext();
   requestContext.set("viewer", viewer);
   requestContext.set("db", db);
-  requestContext.set("route", context.route);
+  requestContext.set(CHAT_CONTEXT_KEYS.route, context.route);
   if (context.caseId) {
-    requestContext.set("caseId", context.caseId);
+    requestContext.set(CHAT_CONTEXT_KEYS.caseId, context.caseId);
   }
   return requestContext;
 }

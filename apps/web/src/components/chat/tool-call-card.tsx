@@ -67,7 +67,7 @@ export function ToolCallCard({
       {loading && !done ? <div className="mt-2 h-8 animate-pulse rounded bg-muted" /> : null}
       {errored ? (
         <div role="alert" className="mt-2 space-y-2 text-destructive">
-          <p>{part.errorText ?? COPY.chat.toolError}</p>
+          <p className="break-words">{COPY.chat.toolError}</p>
           <Button type="button" size="sm" variant="outline" onClick={onRetry}>
             {COPY.chat.retryLabel}
           </Button>

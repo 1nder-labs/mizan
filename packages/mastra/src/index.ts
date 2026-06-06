@@ -91,6 +91,10 @@ export {
 } from "./runtime/brief-run-factory.ts";
 export { createReviewerCopilotAgent } from "./agents/reviewer-copilot/index.ts";
 export {
+  CHAT_CONTEXT_KEYS,
+  buildCopilotInstructions,
+} from "./agents/reviewer-copilot/page-context.ts";
+export {
   buildReviewerCopilotTools,
   type CopilotHandlerDeps,
   type CopilotRole,

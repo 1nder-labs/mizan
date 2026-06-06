@@ -111,7 +111,9 @@ function TextFilter({
 export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): React.JSX.Element {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <StatusTabs search={search} onSearchChange={onSearchChange} />
+      {search.view === "board" ? null : (
+        <StatusTabs search={search} onSearchChange={onSearchChange} />
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <TextFilter
           key={`category-${search.category ?? ""}`}
