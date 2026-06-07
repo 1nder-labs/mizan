@@ -114,7 +114,7 @@ async function isCampaignDecided(
   submitted: boolean,
 ): Promise<boolean> {
   const latest = await latestReviewerAction(db, caseId);
-  const clientStatus = toClientStatus(status, latest?.action ?? null, submitted);
+  const clientStatus = toClientStatus(status, latest?.action ?? null, submitted, false);
   return clientStatus === "approved" || clientStatus === "not_approved";
 }
 

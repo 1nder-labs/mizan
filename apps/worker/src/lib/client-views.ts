@@ -14,7 +14,7 @@ import {
   type ReviewerAction,
   type ViewerContext,
 } from "@mizan/shared";
-import { latestReviewerAction, readCaseNotes } from "./case-notes.ts";
+import { clientResponded, latestReviewerAction, readCaseNotes } from "./case-notes.ts";
 
 type OwnedCampaign = typeof cases.$inferSelect;
 
@@ -72,15 +72,22 @@ export async function listClientCampaigns(
     )
     .orderBy(desc(cases.updated_at))
     .all();
-  return rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    category: r.category,
-    geography: r.geography,
-    status: toClientStatus(r.status, parseAction(r.latestAction), r.submittedAt !== null),
-    createdAt: r.createdAt.getTime(),
-    updatedAt: r.updatedAt.getTime(),
-  }));
+  return Promise.all(
+    rows.map(async (r) => ({
+      id: r.id,
+      title: r.title,
+      category: r.category,
+      geography: r.geography,
+      status: toClientStatus(
+        r.status,
+        parseAction(r.latestAction),
+        r.submittedAt !== null,
+        await clientResponded(db, r.id),
+      ),
+      createdAt: r.createdAt.getTime(),
+      updatedAt: r.updatedAt.getTime(),
+    })),
+  );
 }
 
 /**
@@ -100,6 +107,7 @@ export async function buildClientCaseDetail(
       campaign.status,
       (await latestReviewerAction(db, campaign.id))?.action ?? null,
       campaign.submitted_at !== null,
+      await clientResponded(db, campaign.id),
     ),
   );
   const overlay = CaseOverlaySchema.safeParse(campaign.brief_partial_json);
