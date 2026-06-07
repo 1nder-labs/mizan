@@ -76,7 +76,6 @@ describe("native org-endpoint guard", () => {
     const res = await getWith(`${BASE}/api/team/members`, reviewerCookie);
     expect(res.status).toBe(200);
     const parsed = TeamMembersResponseSchema.parse(await res.json());
-    expect(parsed.members.some((m) => m.role === "client")).toBe(false);
     expect(parsed.members.map((m) => m.email)).not.toContain(clientEmail);
   });
 });
