@@ -29,7 +29,9 @@ export function ChatPanelBody({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
       {threadQuery.isError ? (
-        <p className="px-3 py-2 text-xs text-destructive">{COPY.chat.schemaDrift}</p>
+        <p className="border-b border-destructive/20 bg-destructive/5 px-4 py-2 text-xs font-medium text-destructive">
+          {COPY.chat.schemaDrift}
+        </p>
       ) : null}
       {showEmpty ? (
         <div className="flex-1 overflow-y-auto">

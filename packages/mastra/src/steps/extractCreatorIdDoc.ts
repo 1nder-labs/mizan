@@ -1,5 +1,6 @@
 import { makeExtractor } from "./shared/makeExtractor.ts";
 import { CreatorIdSchema } from "../schemas/extractions/creator-id.ts";
+import { toDocumentPart } from "../util/image-format.ts";
 
 export const extractCreatorIdDoc = makeExtractor({
   name: "extractCreatorIdDoc",
@@ -19,7 +20,7 @@ export const extractCreatorIdDoc = makeExtractor({
               type: "text",
               text: `Organizer name on the campaign: ${caseRow.organizer_name}. Extract.`,
             },
-            { type: "image", image: bytes, mediaType: "image/png" },
+            toDocumentPart(bytes),
           ],
         },
       ],

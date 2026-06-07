@@ -63,3 +63,6 @@ logs/
 apps/web/test-results/
 apps/web/playwright-report/
 apps/web/.playwright/
+
+# Local dev upload fixtures (sample documents, generated)
+/fixtures/

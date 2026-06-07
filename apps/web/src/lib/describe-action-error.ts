@@ -1,22 +1,13 @@
-import { ReviewerActionError } from "./api-errors.ts";
+import { ApiError } from "./api-errors.ts";
+import { COPY } from "./copy-constants.ts";
 
 /**
- * Maps a reviewer-action failure to user-facing copy. Shared by the inline
- * action panel and the kanban action modal so both drag and form paths render
- * the same message for a given `ReviewerActionError.code`.
+ * User-facing copy for a reviewer-action failure. Defers to the unified
+ * `ApiError.message` (mapped from the server's `{ error: code }` via
+ * `errorMessage`) so the inline action panel and the kanban action modal show
+ * the same message as the rest of the app for a given code.
  */
 export function describeActionError(error: unknown): string {
-  if (!(error instanceof ReviewerActionError)) {
-    return error instanceof Error ? error.message : "Action failed";
-  }
-  switch (error.code) {
-    case "not_suspended_or_claimed":
-      return "Another reviewer acted on this case";
-    case "not_found":
-      return "Case not found";
-    case "no_run":
-      return "Case has no active workflow run";
-    case "workflow_failed":
-      return "Workflow failed to resume — try again";
-  }
+  if (error instanceof ApiError) return error.message;
+  return error instanceof Error ? error.message : COPY.apiError.fallback;
 }

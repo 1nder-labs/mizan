@@ -24,6 +24,7 @@ import {
 } from "@mizan/mastra/testing";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
+import { seedDocuments } from "./cases-test-helpers.ts";
 import seedCase006Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-006.json" with { type: "json" };
 import seedCase007Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-007.json" with { type: "json" };
 import seedCase008Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-008.json" with { type: "json" };
@@ -38,11 +39,7 @@ interface CommunityCaseFixture {
   readonly expectedPath: VerificationPath;
   readonly forcedEscalate: boolean;
   readonly expectedRecommendation: "READY_FOR_REVIEW" | "REQUEST_DOCS" | "ESCALATE";
-  /**
-   * Path-specific phrase from `forcedEscalateReason`'s
-   * `REASON_BY_PATH` lookup. Asserting on the phrase (not just the
-   * tuple) catches drift between the predicate and the reviewer copy.
-   */
+  /** Path-specific phrase from `forcedEscalateReason`'s `REASON_BY_PATH` lookup. */
   readonly expectedReasonPhrase: string;
 }
 
@@ -175,7 +172,6 @@ describe("phase 4 community-vouching workflow", () => {
       const overlay = {
         story: seed.story,
         organizer_name: seed.organizer_name,
-        r2_keys: seed.r2_keys,
         ...(seed.vouching_narrative ? { vouching_narrative: seed.vouching_narrative } : {}),
       };
       await env.DB.prepare(
@@ -203,6 +199,7 @@ describe("phase 4 community-vouching workflow", () => {
       await env.R2_BUCKET.put(seed.r2_keys.creator_id, MINIMAL_PNG_BYTES);
       await env.R2_BUCKET.put(seed.r2_keys.bank_statement, MINIMAL_PNG_BYTES);
       await env.R2_BUCKET.put(seed.r2_keys.category_doc, MINIMAL_PNG_BYTES);
+      await seedDocuments({ caseId: seed.id, organizationId: adminOrgId, keys: seed.r2_keys });
     }
   }, 60_000);
 

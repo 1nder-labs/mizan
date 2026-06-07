@@ -5,7 +5,7 @@
  * narrative is a secondary card with a "Read more" toggle when long.
  */
 import { useState } from "react";
-import { ScrollText, Sparkles } from "lucide-react";
+import { ScrollText, Waypoints } from "lucide-react";
 import type { CaseOverlay } from "@mizan/shared";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
@@ -21,7 +21,7 @@ function StoryEmpty(): React.JSX.Element {
   return (
     <Card className="border-border/70 bg-card/80 shadow-elev-1">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+        <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-[-0.01em]">
           <ScrollText className="size-4 text-muted-foreground" />
           {COPY.story.panelTitle}
         </CardTitle>
@@ -39,9 +39,9 @@ function VouchingBlock({ narrative }: { readonly narrative: string }): React.JSX
   const visible =
     expanded || !needsToggle ? narrative : `${narrative.slice(0, VOUCHING_COLLAPSE_THRESHOLD)}…`;
   return (
-    <div className="space-y-2 rounded-lg border border-border/40 bg-muted/30 p-4">
+    <div className="space-y-2 rounded-xl border border-border/40 bg-muted/30 p-4">
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-        <Sparkles className="size-3" />
+        <Waypoints className="size-3" />
         {COPY.story.vouchingLabel}
       </div>
       <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground/90">
@@ -66,7 +66,7 @@ export function StoryPanel({ overlay }: StoryPanelProps): React.JSX.Element {
   return (
     <Card className="border-border/70 bg-card/80 shadow-elev-1">
       <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+        <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-[-0.01em]">
           <ScrollText className="size-4 text-muted-foreground" />
           {COPY.story.panelTitle}
         </CardTitle>

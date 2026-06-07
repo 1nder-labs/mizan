@@ -55,6 +55,7 @@ interface OrganizationInvitationApi {
   acceptInvitation: AuthApiFn;
   createOrganization: AuthApiFn;
   addMember: AuthApiFn;
+  setActiveOrganization: AuthApiFn;
 }
 
 function readApiFn(api: Record<string, unknown>, key: string): AuthApiFn {
@@ -75,6 +76,7 @@ export function getOrganizationInvitationApi(auth: AuthLike): OrganizationInvita
     acceptInvitation: readApiFn(auth.api, "acceptInvitation"),
     createOrganization: readApiFn(auth.api, "createOrganization"),
     addMember: readApiFn(auth.api, "addMember"),
+    setActiveOrganization: readApiFn(auth.api, "setActiveOrganization"),
   };
 }
 

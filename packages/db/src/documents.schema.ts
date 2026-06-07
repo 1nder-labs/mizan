@@ -1,0 +1,53 @@
+/**
+ * The append-only `documents` table — the single source of truth for uploaded
+ * evidence. Split from `schema.ts` to keep that module under the 400-LOC cap.
+ * Registered in `drizzle.config.ts`'s schema array and merged into the runtime
+ * client in `index.ts`, so it participates in migrations + queries identically
+ * to the core tables.
+ */
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { organizations } from "./auth.schema.ts";
+import { cases } from "./schema.ts";
+
+export const EXTRACTED_DOCUMENT_KINDS = ["creator_id", "bank_statement", "category_doc"] as const;
+
+export const DOCUMENT_KIND_VALUES = [...EXTRACTED_DOCUMENT_KINDS, "supplementary"] as const;
+
+export type ExtractedDocumentKind = (typeof EXTRACTED_DOCUMENT_KINDS)[number];
+
+export type DocumentKindValue = (typeof DOCUMENT_KIND_VALUES)[number];
+
+/**
+ * Re-uploading a slot inserts a NEW row (prior versions are retained, not
+ * overwritten); the CURRENT version of a slot is the row with the greatest
+ * `uploaded_at` for that `(case_id, doc_kind)`. The three extraction slots feed
+ * the workflow via `case-loader`, which reads the current key per slot here;
+ * `supplementary` rows are reviewer-facing evidence only and never extracted.
+ * `r2_key` is unique per upload (`<caseId>/<doc_kind>/<uuid>`) so versions never
+ * collide in R2.
+ */
+export const documents = sqliteTable(
+  "documents",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    case_id: text("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    doc_kind: text("doc_kind", { enum: DOCUMENT_KIND_VALUES }).notNull(),
+    r2_key: text("r2_key").notNull(),
+    filename: text("filename").notNull().default(""),
+    content_type: text("content_type").notNull(),
+    uploaded_at: integer("uploaded_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    organization_id: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    index("documents_org_case_idx").on(table.organization_id, table.case_id),
+    index("documents_case_kind_uploaded_idx").on(table.case_id, table.doc_kind, table.uploaded_at),
+  ],
+);

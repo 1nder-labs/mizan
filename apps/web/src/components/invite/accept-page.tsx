@@ -8,7 +8,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, getRouteApi, useNavigate } from "@tanstack/react-router";
-import { ShieldCheck } from "lucide-react";
+import { Scale } from "lucide-react";
 import { toast } from "sonner";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
 import { Button } from "@/components/ui/button.tsx";
@@ -20,11 +20,16 @@ const inviteApi = getRouteApi("/invite/$token");
 
 function InviteShell({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
   return (
-    <main className="grid min-h-screen place-items-center bg-background p-6">
-      <div className="w-full max-w-md space-y-4">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="size-4" />
-          <span className="text-sm font-semibold tracking-tight">Mizan</span>
+    <main className="grid min-h-dvh place-items-center bg-background p-6">
+      <div className="w-full max-w-md animate-rise space-y-4">
+        <div className="mb-2 flex items-center gap-3">
+          <div className="btn-primary-surface flex size-8 items-center justify-center rounded-md">
+            <Scale className="size-4" />
+          </div>
+          <div className="flex flex-col gap-0">
+            <span className="text-sm font-semibold leading-tight tracking-tight">Mizan</span>
+            <span className="text-xs text-muted-foreground">Reviewer console</span>
+          </div>
         </div>
         {children}
       </div>
@@ -35,11 +40,11 @@ function InviteShell({ children }: { readonly children: React.ReactNode }): Reac
 function InviteError({ message }: { readonly message: string }): React.JSX.Element {
   return (
     <InviteShell>
-      <Card>
-        <CardHeader>
-          <CardTitle>Invitation issue</CardTitle>
+      <Card className="border-border shadow-elev-2">
+        <CardHeader className="space-y-1 pb-4 pt-6">
+          <CardTitle className="text-xl font-semibold text-display">Invitation issue</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
+        <CardContent className="space-y-4 pb-6 text-sm">
           <p className="text-muted-foreground">{message}</p>
           <Button asChild variant="outline">
             <Link to="/login">Go to sign in</Link>
@@ -57,11 +62,13 @@ function InviteSignInPrompt({
 }): React.JSX.Element {
   return (
     <InviteShell>
-      <Card>
-        <CardHeader>
-          <CardTitle>You're invited to Mizan</CardTitle>
+      <Card className="border-border shadow-elev-2">
+        <CardHeader className="space-y-1 pb-4 pt-6">
+          <CardTitle className="text-xl font-semibold text-display">
+            You&apos;re invited to Mizan
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
+        <CardContent className="space-y-4 pb-6 text-sm">
           <p className="text-muted-foreground">
             {inv.inviterName} invited <strong>{inv.email}</strong> to join as{" "}
             <strong>{inv.role}</strong>.
@@ -90,7 +97,7 @@ function renderInviteGate(
   if (lookup.isPending) {
     return (
       <InviteShell>
-        <Card>
+        <Card className="border-border shadow-elev-2">
           <CardContent className="p-6 text-sm text-muted-foreground">
             Loading invitation…
           </CardContent>
@@ -138,7 +145,7 @@ export function InviteAcceptPage(): React.JSX.Element {
   if (gate) return gate;
   return (
     <InviteShell>
-      <Card>
+      <Card className="border-border shadow-elev-2">
         <CardContent className="p-6 text-sm text-muted-foreground">
           Redirecting to your queue…
         </CardContent>

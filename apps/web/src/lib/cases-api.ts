@@ -19,10 +19,12 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   ActionErrorBodySchema,
+  BriefHistoryResponseSchema,
   CaseDetailResponseSchema,
   QueueResponseSchema,
   ReviewerActionResponseSchema,
   type ActionErrorCode,
+  type BriefHistoryResponse,
   type CaseDetailResponse,
   type QueueResponse,
   type QueueSearch,
@@ -31,13 +33,16 @@ import {
 } from "@mizan/shared";
 import { api, apiMutate } from "./rpc.ts";
 import { queryKeys } from "./query-keys.ts";
-import { assertAuthorized, ReviewerActionError } from "./api-errors.ts";
+import { apiError, assertAuthorized, ReviewerActionError } from "./api-errors.ts";
 
 export {
+  ApiError,
   ReviewerActionError,
   UnauthorizedError,
   ForbiddenError,
+  apiError,
   assertAuthorized,
+  errorMessage,
 } from "./api-errors.ts";
 
 function toQuery(search: QueueSearch): Record<string, string> {
@@ -55,7 +60,7 @@ function toQuery(search: QueueSearch): Record<string, string> {
 async function fetchCases(search: QueueSearch): Promise<QueueResponse> {
   const res = await api.cases.$get({ query: toQuery(search) });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`cases list failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   const json = await res.json();
   return QueueResponseSchema.parse(json);
 }
@@ -71,7 +76,7 @@ export function casesListQueryOptions(search: QueueSearch) {
 async function fetchCase(id: string): Promise<CaseDetailResponse> {
   const res = await api.cases[":id"].$get({ param: { id } });
   assertAuthorized(res.status);
-  if (!res.ok) throw new Error(`case fetch failed: ${res.status}`);
+  if (!res.ok) throw await apiError(res);
   const json = await res.json();
   return CaseDetailResponseSchema.parse(json);
 }
@@ -80,6 +85,22 @@ export function caseDetailQueryOptions(id: string) {
   return queryOptions<CaseDetailResponse>({
     queryKey: queryKeys.cases.detail(id),
     queryFn: () => fetchCase(id),
+    staleTime: 5_000,
+  });
+}
+
+async function fetchCaseBriefs(id: string): Promise<BriefHistoryResponse> {
+  const res = await api.cases[":id"].briefs.$get({ param: { id } });
+  assertAuthorized(res.status);
+  if (!res.ok) throw await apiError(res);
+  const json = await res.json();
+  return BriefHistoryResponseSchema.parse(json);
+}
+
+export function caseBriefsQueryOptions(id: string) {
+  return queryOptions<BriefHistoryResponse>({
+    queryKey: queryKeys.cases.briefs(id),
+    queryFn: () => fetchCaseBriefs(id),
     staleTime: 5_000,
   });
 }

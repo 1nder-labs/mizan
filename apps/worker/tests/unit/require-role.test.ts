@@ -2,20 +2,34 @@
  * Unit tests for the `requireRole` middleware factory.
  *
  * Org-scoped role resolution requires D1 membership rows; full role-gate
- * coverage lives in integration tests. These cases cover the early exits
- * that do not touch the database.
+ * coverage lives in integration tests. These cases cover the early exits, so
+ * `resolveActiveOrgId` is mocked to a pure session read (no D1) — matching its
+ * real early-return when the session already carries (or lacks) an active org.
+ * Mocking it also isolates this file from the process-global `@mizan/db` mock
+ * other unit tests install, which would otherwise leak into the backfill query.
  */
 
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { requireRole, type ViewerVariables } from "../../src/middleware/require-role.ts";
+import type { ViewerVariables } from "../../src/middleware/require-role.ts";
 import type { Role } from "../../src/middleware/role-utils.ts";
 
 interface FakeSession {
   user: { id: string };
   session: { id: string; userId: string; activeOrganizationId?: string | null };
 }
+
+mock.module("../../src/auth/active-org.ts", () => ({
+  resolveActiveOrgId: (
+    _env: unknown,
+    _auth: unknown,
+    _headers: Headers,
+    session: FakeSession,
+  ): Promise<string | null> => Promise.resolve(session.session.activeOrganizationId ?? null),
+}));
+
+const { requireRole } = await import("../../src/middleware/require-role.ts");
 
 const getSessionMock = mock(() => Promise.resolve(null as FakeSession | null));
 

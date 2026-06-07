@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { GeographyTier, PolicyCitation, VerificationPath } from "@mizan/shared";
 import type { PartialBriefState } from "../../schemas/partial-brief-state.ts";
+import type { PriorDecision } from "./prior-decision.ts";
 
 export function buildClauseIdSchema(availableClauseIds: readonly string[]): z.ZodType<string> {
   const [first, second, ...rest] = availableClauseIds;
@@ -18,6 +19,7 @@ export interface ComposeBriefBasePayload {
   geography_tier: GeographyTier | null;
   extractions: NonNullable<PartialBriefState["extractions"]> | Record<string, never>;
   signals: NonNullable<PartialBriefState["signals"]> | Record<string, never>;
+  prior_decision: PriorDecision | null;
 }
 
 /** Final prompt body sent to the composeBrief LLM, including the clause-grounding block. */

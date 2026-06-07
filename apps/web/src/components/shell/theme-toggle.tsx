@@ -20,7 +20,7 @@ export function ThemeToggle(): React.JSX.Element {
     <div
       role="radiogroup"
       aria-label={COPY.theme.label}
-      className="flex items-center gap-0.5 rounded-md border border-sidebar-border bg-sidebar-accent/40 p-0.5 group-data-[collapsible=icon]:hidden"
+      className="flex items-center gap-0.5 rounded-md border border-border bg-muted/50 p-0.5"
     >
       {OPTIONS.map(({ value, label, Icon }) => (
         <button
@@ -32,9 +32,9 @@ export function ThemeToggle(): React.JSX.Element {
           title={label}
           onClick={() => setTheme(value)}
           className={cn(
-            "grid h-7 flex-1 place-items-center rounded transition-colors",
+            "relative grid h-7 flex-1 place-items-center rounded transition-colors",
             theme === value
-              ? "bg-background text-foreground shadow-elev-1"
+              ? "text-foreground after:absolute after:inset-x-2 after:bottom-0 after:h-[2px] after:rounded-full after:bg-foreground"
               : "text-muted-foreground hover:text-foreground",
           )}
         >

@@ -36,7 +36,7 @@ function pickErrorMessage(fatalMessage: string | null, errorText: string | null)
 export function BriefStreamView({ view, fatalMessage }: BriefStreamViewProps): React.JSX.Element {
   const errorMessage = pickErrorMessage(fatalMessage, view.errorText);
   return (
-    <div className="space-y-4">
+    <div className="animate-section space-y-4">
       <StepProgress steps={view.steps} />
       {view.tools.length > 0 ? (
         <div className="space-y-2">

@@ -16,15 +16,24 @@
  * navigation signal, not a real exception) when the session is missing
  * or lacks admin role.
  */
-import { organizationClient } from "better-auth/client/plugins";
+import { inferAdditionalFields, organizationClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
 import { DEFAULT_QUEUE_SEARCH, type MeResponse } from "@mizan/shared";
 import { meQueryOptions } from "./me-api.ts";
 
+/**
+ * `inferAdditionalFields` teaches the client that `signUp.email` accepts the
+ * server-declared `signupKind` user field (optional, defaults to `internal`),
+ * so the client-signup form can pass `signupKind: "client"` type-safely while
+ * the existing reviewer/admin signup keeps omitting it.
+ */
 export const authClient = createAuthClient({
-  plugins: [organizationClient()],
+  plugins: [
+    organizationClient(),
+    inferAdditionalFields({ user: { signupKind: { type: "string", required: false } } }),
+  ],
 });
 
 type SessionData = Awaited<ReturnType<typeof authClient.getSession>>["data"];
@@ -54,6 +63,36 @@ export async function requireAdmin(qc: QueryClient): Promise<MeResponse> {
   await requireSession(qc);
   const me = await qc.ensureQueryData(meQueryOptions());
   if (me.user.role !== "admin") {
+    throw redirect({ to: "/queue", search: DEFAULT_QUEUE_SEARCH });
+  }
+  return me;
+}
+
+/**
+ * Guards reviewer-only surfaces (queue, case detail). A `client` session is
+ * bounced to its own portal — the reviewer API already 403s a client, so this
+ * just keeps a stray client off a reviewer route (e.g. a bookmarked /queue or a
+ * lingering session after a persona switch) instead of stranding them on a
+ * broken, data-less page.
+ */
+export async function requireReviewer(qc: QueryClient): Promise<MeResponse> {
+  await requireSession(qc);
+  const me = await qc.ensureQueryData(meQueryOptions());
+  if (me.user.role === "client") {
+    throw redirect({ to: "/portal/campaigns" });
+  }
+  return me;
+}
+
+/**
+ * Loader gate for the client portal: a logged-in non-client (reviewer/admin)
+ * is bounced to the reviewer queue, mirroring how `requireAdmin` bounces
+ * non-admins. Anonymous callers bounce to `/login` via `requireSession`.
+ */
+export async function requireClient(qc: QueryClient): Promise<MeResponse> {
+  await requireSession(qc);
+  const me = await qc.ensureQueryData(meQueryOptions());
+  if (me.user.role !== "client") {
     throw redirect({ to: "/queue", search: DEFAULT_QUEUE_SEARCH });
   }
   return me;

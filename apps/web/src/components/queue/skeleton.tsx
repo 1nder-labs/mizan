@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton.tsx";
 
 export function QueueSkeleton(): React.JSX.Element {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-elev-1">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-elev-1">
       <div className="grid grid-cols-6 gap-4 border-b border-border bg-muted/30 px-6 py-3">
         {Array.from({ length: 6 }).map((_, idx) => (
           <Skeleton key={idx} className="h-3 w-20" />

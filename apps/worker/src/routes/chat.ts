@@ -5,6 +5,8 @@ import {
   ChatThreadCreatedResponseSchema,
   ChatThreadDetailResponseSchema,
   ChatThreadListResponseSchema,
+  ChatThreadMutationResponseSchema,
+  ChatThreadRenameSchema,
   ChatMessageRecordSchema,
 } from "@mizan/shared";
 import { Hono } from "hono";
@@ -139,6 +141,33 @@ export const chatRoutes = new Hono<{
       return c.json({ error: "thread_schema_drift", threadId }, 422);
     }
     return c.json(ChatThreadDetailResponseSchema.parse({ threadId, messages: parsed.data }));
+  })
+  .patch(
+    "/threads/:id",
+    zValidator("param", ThreadIdParamSchema),
+    zValidator("json", ChatThreadRenameSchema),
+    async (c) => {
+      const { id } = c.req.valid("param");
+      const viewer = extractViewer(c);
+      const db = makeDb(c.env.DB);
+      const owned = await assertThreadOwner(db, id, viewer);
+      if (!owned.ok) return c.json({ error: "forbidden" }, owned.status);
+      await db
+        .update(chat_threads)
+        .set({ title: c.req.valid("json").title, updated_at: new Date() })
+        .where(eq(chat_threads.id, id))
+        .run();
+      return c.json(ChatThreadMutationResponseSchema.parse({ ok: true }));
+    },
+  )
+  .delete("/threads/:id", zValidator("param", ThreadIdParamSchema), async (c) => {
+    const { id } = c.req.valid("param");
+    const viewer = extractViewer(c);
+    const db = makeDb(c.env.DB);
+    const owned = await assertThreadOwner(db, id, viewer);
+    if (!owned.ok) return c.json({ error: "forbidden" }, owned.status);
+    await db.delete(chat_threads).where(eq(chat_threads.id, id)).run();
+    return c.json(ChatThreadMutationResponseSchema.parse({ ok: true }));
   })
   .post("/", zValidator("json", ChatPostSchema), async (c) => {
     const body = c.req.valid("json");

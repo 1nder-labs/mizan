@@ -3,7 +3,7 @@
  */
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ShieldCheck } from "lucide-react";
+import { Scale } from "lucide-react";
 import { z } from "zod";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
 import { SESSION_QUERY_KEY } from "@/lib/auth-client.ts";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/card.tsx";
 
 const SignupSearchSchema = z.object({
-  email: z.string().email().optional(),
+  email: z.email().optional(),
 });
 
 export const Route = createFileRoute("/signup")({
@@ -39,18 +39,23 @@ export function SignupRoutePage(): React.JSX.Element {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-background px-6 py-12">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <ShieldCheck className="size-4" />
-          <span>Mizan reviewer console</span>
+    <main className="grid min-h-dvh place-items-center bg-background px-6 py-12">
+      <div className="w-full max-w-sm animate-rise">
+        <div className="mb-8 flex items-center gap-3">
+          <div className="btn-primary-surface flex size-8 items-center justify-center rounded-md">
+            <Scale className="size-4" />
+          </div>
+          <div className="flex flex-col gap-0">
+            <span className="text-sm font-semibold leading-tight tracking-tight">Mizan</span>
+            <span className="text-xs text-muted-foreground">Reviewer console</span>
+          </div>
         </div>
-        <Card className="border-border/80 shadow-elev-1">
-          <CardHeader className="space-y-1.5">
-            <CardTitle className="text-xl tracking-tight">Create account</CardTitle>
+        <Card className="border-border shadow-elev-2">
+          <CardHeader className="space-y-1 pb-5 pt-6">
+            <CardTitle className="text-2xl font-semibold text-display">Create account</CardTitle>
             <CardDescription>Join your workspace or start a new one.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pb-6">
             <SignupForm
               defaultEmail={inviteEmail}
               emailReadonly={inviteEmail.length > 0}

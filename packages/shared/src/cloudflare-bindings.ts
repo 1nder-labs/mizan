@@ -33,6 +33,14 @@ export interface CloudflareBindings {
   VECTORIZE: VectorizeIndex;
   BRIEF_QUEUE: Queue;
   ASSETS: Fetcher;
+  /**
+   * Organization id that client self-signups join as `client` members —
+   * the single designated review org for this deployment. Read only via
+   * `resolveReviewOrgId`, which throws when blank so a misconfigured worker
+   * fails loud instead of dropping clients into the wrong org. Empty in
+   * `wrangler.jsonc`; set per-environment (dev: `.dev.vars` after seeding).
+   */
+  REVIEW_ORG_ID: string;
   DEFAULT_LLM_PROVIDER: "anthropic" | "openai" | "openrouter";
   /**
    * Langfuse base URL — empty in dev disables the OTel exporter entirely.

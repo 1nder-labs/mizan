@@ -12,6 +12,7 @@ import { makeDb, schema } from "@mizan/db";
 import type { CloudflareBindings } from "../env.ts";
 import { buildOrgDatabaseHooks } from "./org-hooks.ts";
 import { orgAccessControl, orgRoles } from "./org-access.ts";
+import { resolveReviewOrgId } from "../lib/review-org.ts";
 import type { AuthLike } from "./org-invitations.ts";
 
 const R2_MAX_FILE_SIZE = 25 * 1024 * 1024;
@@ -53,6 +54,24 @@ const RATE_LIMIT_OPTIONS = {
 };
 
 /**
+ * Builds the `databaseHooks` option for the betterAuth config — the org
+ * auto-provision + active-org seeding hooks — or an empty object in
+ * CLI/schema-generation mode (no `env`). Extracted so `createAuth` stays
+ * within the 50-line cap; `getAuth` is the lazy self-reference the hooks use
+ * to reach the org plugin's server-only API once `auth` is constructed.
+ */
+function buildDatabaseHooksOption(env: CloudflareBindings | undefined, getAuth: () => AuthLike) {
+  if (!env) return {};
+  return {
+    databaseHooks: buildOrgDatabaseHooks(
+      () => makeDb(env.DB),
+      getAuth,
+      () => resolveReviewOrgId(env),
+    ),
+  };
+}
+
+/**
  * Creates a fully-configured better-auth instance.
  *
  * Call with `(env, cf, origin, headers)` inside Hono request handlers.
@@ -76,6 +95,16 @@ export function createAuth(
       minPasswordLength: 12,
       maxPasswordLength: 128,
     },
+    user: {
+      additionalFields: {
+        signupKind: {
+          type: "string",
+          required: false,
+          defaultValue: "internal",
+          input: true,
+        },
+      },
+    },
     ...withCloudflare(buildCloudflareOptions(env, cf), RATE_LIMIT_OPTIONS),
     ...cliDatabase,
     plugins: [
@@ -87,14 +116,7 @@ export function createAuth(
         invitationExpiresIn: 48 * 60 * 60,
       }),
     ],
-    ...(env
-      ? {
-          databaseHooks: buildOrgDatabaseHooks(
-            () => makeDb(env.DB),
-            (): AuthLike => auth,
-          ),
-        }
-      : {}),
+    ...buildDatabaseHooksOption(env, (): AuthLike => auth),
   });
 
   return auth;

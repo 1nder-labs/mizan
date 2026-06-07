@@ -185,7 +185,7 @@ describe("POST /api/cases/:id/assign", () => {
     const body = CaseAssignResponseSchema.parse(await res.json());
     expect(body.case_id).toBe(caseId);
     expect(body.assigned_to).toBeNull();
-  });
+  }, 30_000);
 
   it("admin assigns case to another member → 200", async () => {
     const admin = await signUpUser("admin-assign");

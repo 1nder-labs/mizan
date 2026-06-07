@@ -72,7 +72,13 @@ export {
   type ResolveLanguageModelArgs,
 } from "./runtime/model-resolver.ts";
 export { tierFor } from "./runtime/geography-tier.ts";
-export { detectImageMediaType, toImagePart } from "./util/image-format.ts";
+export {
+  detectImageMediaType,
+  isPdf,
+  toDocumentPart,
+  toFilePart,
+  toImagePart,
+} from "./util/image-format.ts";
 export { createMastra, type MizanMastraBundle } from "./mastra-factory.ts";
 export { LangfuseExporter, buildLangfuseExporter } from "./observability/langfuse.ts";
 export { emitWorkflowEvent } from "./observability/workflow-event-logger.ts";
@@ -84,6 +90,10 @@ export {
   type BriefRunContextInput,
 } from "./runtime/brief-run-factory.ts";
 export { createReviewerCopilotAgent } from "./agents/reviewer-copilot/index.ts";
+export {
+  CHAT_CONTEXT_KEYS,
+  buildCopilotInstructions,
+} from "./agents/reviewer-copilot/page-context.ts";
 export {
   buildReviewerCopilotTools,
   type CopilotHandlerDeps,

@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@better-auth/cli": "1.4.22",
-    "better-auth": "1.6.9",
+    "better-auth": "1.6.11",
     "drizzle-kit": "0.31.10",
     "typescript": "6.0.3"
   }

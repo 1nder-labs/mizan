@@ -15,13 +15,17 @@ import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { CloudflareBindings } from "../env.ts";
+import { failCaseToFailed } from "../lib/fail-case.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { producerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
+import { requireCaseAccess } from "../middleware/require-case-access.ts";
 import { requireRole } from "../middleware/require-role.ts";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { actionRoutes } from "./actions.ts";
 import { assignmentsRoutes } from "./assignments.ts";
+import { caseDocumentsRoutes } from "./case-documents.ts";
+import { caseNotesRoutes } from "./case-notes.ts";
 import { caseStreamHandler } from "./case-stream.ts";
 import { casesListRoutes } from "./cases-list.ts";
 import { documentsRoutes } from "./documents.ts";
@@ -45,6 +49,22 @@ type BriefContext = Context<{
 function wantsEventStream(c: BriefContext): boolean {
   const accept = c.req.header("Accept") ?? "";
   return accept.includes("text/event-stream");
+}
+
+/**
+ * Flips the case to FAILED when a brief SSE stream finishes without the
+ * workflow having advanced the row off RUNNING. The workflow self-transitions
+ * to READY_FOR_REVIEW / SUSPENDED_HITL on success, so the guarded transition
+ * is a no-op there; only a genuinely stuck run — a step threw mid-stream, which
+ * the workflow stream serialises as a silent `{ status: "failed" }` with no
+ * error text — is failed + emitted. Without this the row sticks in RUNNING,
+ * which `producerGuard("RUNNING")` rejects as a retry source, so the reviewer
+ * could never re-brief and the case would be bricked. Aborts are skipped: the
+ * client-disconnect path owns the revert to DRAFT.
+ */
+function failBriefRunIfStuck(c: BriefContext, caseId: string, runId: string): void {
+  if (c.req.raw.signal.aborted) return;
+  c.executionCtx.waitUntil(failCaseToFailed(makeDb(c.env.DB), caseId, runId));
 }
 
 async function streamBriefResponse(
@@ -80,6 +100,7 @@ async function streamBriefResponse(
       },
       onFinish: () => {
         flushLangfuse(langfuse, c.executionCtx);
+        failBriefRunIfStuck(c, caseId, runId);
       },
     });
     return createUIMessageStreamResponse({ stream: uiStream });
@@ -177,16 +198,35 @@ async function routeBriefPost(c: BriefContext): Promise<Response> {
 const runningGuard = producerGuard("RUNNING");
 const queuedGuard = producerGuard("QUEUED");
 
+/**
+ * ORDERING INVARIANT — `assignmentsRoutes` is registered BEFORE the
+ * `requireCaseAccess` gate so it is exempt from it. Hono runs matched handlers
+ * in registration order and stops when one returns a Response without calling
+ * `next()`; the assign handler returns directly, so the later-registered
+ * `.use("/:id/*", requireCaseAccess)` never executes for `POST /:id/assign`.
+ * This is intentional: assign lets a reviewer SELF-CLAIM an unassigned case (the
+ * queue's core flow), which the access gate — "a reviewer may only touch cases
+ * assigned to them" — would otherwise 403. The assign route enforces its own
+ * finer `self_assign_only` + org-scope policy.
+ *
+ * Every OTHER `/:id` data route MUST stay registered AFTER the two
+ * `requireCaseAccess` `.use(...)` lines: anything registered before them is
+ * silently ungated. Do not move a data route above this gate.
+ */
 export const caseRoutes = new Hono<{
   Bindings: CloudflareBindings;
   Variables: ProducerVariables;
 }>()
   .use("*", requireRole(["reviewer", "admin"]))
+  .route("/", assignmentsRoutes)
+  .use("/:id", requireCaseAccess)
+  .use("/:id/*", requireCaseAccess)
   .route("/", casesListRoutes)
   .route("/", actionRoutes)
   .route("/", documentsRoutes)
+  .route("/", caseDocumentsRoutes)
   .route("/", signalsRoutes)
-  .route("/", assignmentsRoutes)
+  .route("/", caseNotesRoutes)
   .get("/:id/stream", zValidator("param", StreamParamsSchema), caseStreamHandler)
   .post(
     "/:id/brief",

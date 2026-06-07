@@ -1,8 +1,8 @@
 /**
  * Inline button styled as a policy-clause chip. Opens the citation
- * drawer on click. Source-color border gives an at-a-glance scan of
- * citation density; the tactile inner ring + hover scale say
- * "interactive" without screaming.
+ * drawer on click. Monochrome chrome — source identity is encoded in
+ * the clauseId prefix that's already visible; color is reserved for
+ * semantic state only (forensic spec §3).
  *
  * Relevance is intentionally NOT visualised at the chip level —
  * reviewers need to compare clause density in prose; relevance lives
@@ -19,10 +19,8 @@ interface CitationChipProps {
 }
 
 const SOURCE_STYLES: Readonly<Record<PolicyClauseSource, string>> = {
-  zakat:
-    "border-indigo-300/80 bg-indigo-50/60 text-indigo-900 hover:bg-indigo-100/80 hover:border-indigo-400 shadow-[inset_0_0_0_1px_oklch(0.94_0.04_270/0.6)]",
-  safety:
-    "border-amber-300/80 bg-amber-50/60 text-amber-900 hover:bg-amber-100/80 hover:border-amber-400 shadow-[inset_0_0_0_1px_oklch(0.94_0.06_80/0.6)]",
+  zakat: "border-border bg-muted/60 text-foreground hover:bg-muted hover:border-foreground/20",
+  safety: "border-border bg-muted/60 text-foreground hover:bg-muted hover:border-foreground/20",
 };
 
 export function CitationChip({ clauseId, source }: CitationChipProps): React.JSX.Element {

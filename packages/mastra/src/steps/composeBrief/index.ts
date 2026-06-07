@@ -1,9 +1,11 @@
 import { createStep } from "@mastra/core/workflows";
+import { makeDb } from "@mizan/db";
 import { clampInt } from "@mizan/shared";
 import type { BriefPayload } from "@mizan/shared";
 import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
 import { getCtx, getEnv } from "../../runtime/context-accessors.ts";
 import { persistBrief, runComposeBriefGeneration } from "./run.ts";
+import { fetchPriorDecision } from "./prior-decision.ts";
 
 /**
  * Composes the reviewer brief and persists it.
@@ -26,6 +28,11 @@ export const composeBrief = createStep({
     }
     const env = getEnv(requestContext);
     const ctx = getCtx(requestContext);
+    const priorDecision = await fetchPriorDecision(
+      makeDb(env.DB),
+      inputData.caseId,
+      inputData.runId,
+    );
     const policyMatches = inputData.policy_matches ?? [];
     if (policyMatches.length === 0) {
       console.warn(
@@ -33,7 +40,7 @@ export const composeBrief = createStep({
       );
     }
     const llmOutput = await runComposeBriefGeneration(
-      { env, ctx, inputData, abortSignal, tracingContext },
+      { env, ctx, inputData, abortSignal, tracingContext, priorDecision },
       policyMatches,
     );
     const composed = normalizeBrief({

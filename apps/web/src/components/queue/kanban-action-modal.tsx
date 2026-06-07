@@ -49,7 +49,7 @@ export function KanbanActionModal({
       if (caseId) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.cases.detail(caseId) });
       }
-      await queryClient.invalidateQueries({ queryKey: queryKeys.cases.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.cases.lists });
     },
     onError: (error) => {
       toast.error(describeActionError(error));

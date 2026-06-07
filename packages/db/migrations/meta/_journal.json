@@ -8,6 +8,41 @@
       "when": 1780280067345,
       "tag": "0000_slow_black_bird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1780402189057,
+      "tag": "0001_fantastic_the_initiative",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1780407813800,
+      "tag": "0002_tranquil_gauntlet",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1780534611077,
+      "tag": "0003_romantic_nightcrawler",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1780748493379,
+      "tag": "0004_neat_shape",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1780817929329,
+      "tag": "0005_perpetual_preak",
+      "breakpoints": true
     }
   ]
 }

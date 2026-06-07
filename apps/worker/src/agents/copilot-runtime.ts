@@ -1,4 +1,4 @@
-import type { CopilotRuntimeBag, RequestContext } from "@mizan/mastra";
+import { CHAT_CONTEXT_KEYS, type CopilotRuntimeBag, type RequestContext } from "@mizan/mastra";
 import type { Db } from "@mizan/db";
 import { ViewerContextSchema } from "@mizan/shared";
 
@@ -17,5 +17,7 @@ export function parseCopilotRuntime(requestContext: RequestContext | undefined):
   const viewer = ViewerContextSchema.parse(requestContext.get("viewer"));
   const dbValue = requestContext.get("db");
   if (!isDb(dbValue)) throw new Error("requestContext.db missing");
-  return { viewer, db: dbValue };
+  const rawCaseId = requestContext.get(CHAT_CONTEXT_KEYS.caseId);
+  const pageCaseId = typeof rawCaseId === "string" && rawCaseId.length > 0 ? rawCaseId : undefined;
+  return pageCaseId ? { viewer, db: dbValue, pageCaseId } : { viewer, db: dbValue };
 }

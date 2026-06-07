@@ -50,6 +50,9 @@ async function authorizeTopic(
   const id = match[2];
   if (!kind || !id) return { ok: false, status: 400 };
   const viewer = c.var.viewer;
+  if (viewer.role === "client") {
+    return kind === "user" && id === viewer.userId ? { ok: true } : { ok: false, status: 403 };
+  }
   if (kind === "org" && id !== viewer.organizationId) return { ok: false, status: 403 };
   if (kind === "user" && id !== viewer.userId) return { ok: false, status: 403 };
   if (kind === "case") {
@@ -154,7 +157,7 @@ export const eventsStreamRoutes = new Hono<{
   Bindings: CloudflareBindings;
   Variables: ViewerVariables;
 }>()
-  .use("*", requireRole(["reviewer", "admin"]))
+  .use("*", requireRole(["reviewer", "admin", "client"]))
   .get("/stream", zValidator("query", TopicQuerySchema), async (c) => {
     const { topic } = c.req.valid("query");
     const authz = await authorizeTopic(c, topic);

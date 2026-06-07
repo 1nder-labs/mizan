@@ -61,6 +61,30 @@ if (typeof globalThis.BroadcastChannel === "undefined") {
   globalThis.BroadcastChannel = TestBroadcastChannel as typeof BroadcastChannel;
 }
 
+/** JSDOM lacks ResizeObserver; cmdk's Command measures its list with it. */
+if (typeof globalThis.ResizeObserver === "undefined") {
+  class TestResizeObserver {
+    constructor(_callback: ResizeObserverCallback) {}
+
+    observe(): void {}
+
+    unobserve(): void {}
+
+    disconnect(): void {}
+  }
+  globalThis.ResizeObserver = TestResizeObserver;
+}
+
+/** JSDOM's pointer-capture + scroll methods throw; Radix Select/cmdk call them on open. */
+if (typeof Element !== "undefined") {
+  Element.prototype.scrollIntoView = function scrollIntoView(): void {};
+  Element.prototype.hasPointerCapture = function hasPointerCapture(): boolean {
+    return false;
+  };
+  Element.prototype.setPointerCapture = function setPointerCapture(): void {};
+  Element.prototype.releasePointerCapture = function releasePointerCapture(): void {};
+}
+
 if (typeof navigator !== "undefined" && !navigator.locks) {
   Object.defineProperty(navigator, "locks", {
     configurable: true,

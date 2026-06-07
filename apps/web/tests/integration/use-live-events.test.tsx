@@ -104,7 +104,7 @@ describe("subscribeLiveEvents", () => {
     );
     await waitFor(() => {
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.cases.all,
+        queryKey: queryKeys.cases.lists,
         refetchType: "all",
       });
     });

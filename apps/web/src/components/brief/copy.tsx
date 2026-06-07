@@ -7,9 +7,9 @@ import { Markdown } from "@/lib/markdown.tsx";
 
 export function BriefCopy({ markdown }: { readonly markdown: string }): React.JSX.Element {
   return (
-    <Card className="border-border/80 shadow-elev-1">
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Brief</CardTitle>
+    <Card className="animate-rise border-border/60 shadow-elev-1">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold tracking-tight">Brief</CardTitle>
       </CardHeader>
       <CardContent>
         {markdown.length === 0 ? (

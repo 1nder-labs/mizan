@@ -13,11 +13,16 @@ import { useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useNavigate } from "@tanstack/react-router";
+import { Clock, ContactRound } from "lucide-react";
 import type { CaseRow } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
+import { Badge } from "@/components/ui/badge.tsx";
 import { Card } from "@/components/ui/card.tsx";
+import { useTeamMembers } from "@/hooks/use-team.ts";
 import { formatMediumDateTime } from "@/lib/format.ts";
+import { formatCountry } from "@/lib/display-labels.ts";
+import { COPY } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
 
 const CLICK_DRIFT_THRESHOLD_PX = 5;
@@ -27,29 +32,93 @@ interface KanbanCardProps {
   readonly dragging?: boolean;
 }
 
-export function KanbanCardBody({ row }: { readonly row: CaseRow }): React.JSX.Element {
+/** Resolves an assignee user-id to a display name via the shared team query. */
+function useAssigneeName(assignedTo: string | null): string | null {
+  const members = useTeamMembers();
+  if (!assignedTo) return null;
+  const match = (members.data?.members ?? []).find((member) => member.id === assignedTo);
+  return match?.name ?? null;
+}
+
+/** One icon + text line in the card footer. */
+function MetaLine({
+  icon: Icon,
+  children,
+  muted,
+}: {
+  readonly icon: typeof Clock;
+  readonly children: React.ReactNode;
+  readonly muted?: boolean;
+}): React.JSX.Element {
   return (
-    <div className="space-y-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[15px] font-semibold leading-tight tracking-tight text-foreground">
-          {row.title}
-        </p>
-        <CaseStatusBadge status={row.status} />
-      </div>
-      <p className="text-xs capitalize text-muted-foreground">
-        {row.category} · {row.geography}
-      </p>
+    <div
+      className={cn(
+        "flex items-center gap-1.5 text-[11px]",
+        muted ? "text-muted-foreground/80" : "text-muted-foreground",
+      )}
+    >
+      <Icon className="size-3 shrink-0 text-muted-foreground/60" />
+      <span className="truncate">{children}</span>
+    </div>
+  );
+}
+
+/** Footer: AI recommendation, assignee (when set), and the last-updated stamp. */
+function CardMeta({
+  row,
+  assigneeName,
+}: {
+  readonly row: CaseRow;
+  readonly assigneeName: string | null;
+}): React.JSX.Element {
+  return (
+    <div className="space-y-2 border-t border-border/40 pt-2.5">
       {row.latest_brief ? (
-        <div className="flex items-center gap-2 border-t border-border/40 pt-2">
+        <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
             AI rec
           </span>
           <RecommendationBadge recommendation={row.latest_brief.recommendation} />
         </div>
       ) : null}
-      <p className="text-[11px] text-muted-foreground/80 tabular">
-        {formatMediumDateTime(row.updated_at)}
+      {row.assigned_to ? (
+        <MetaLine icon={ContactRound}>
+          Assigned to{" "}
+          <span className="font-medium text-foreground/80">{assigneeName ?? "a reviewer"}</span>
+        </MetaLine>
+      ) : null}
+      <MetaLine icon={Clock} muted>
+        <span className="font-numeric tabular">{formatMediumDateTime(row.updated_at)}</span>
+      </MetaLine>
+    </div>
+  );
+}
+
+export function KanbanCardBody({ row }: { readonly row: CaseRow }): React.JSX.Element {
+  const assigneeName = useAssigneeName(row.assigned_to);
+  return (
+    <div className="space-y-2.5">
+      <p className="line-clamp-2 text-[15px] font-semibold leading-snug tracking-tight text-foreground">
+        {row.title}
       </p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {row.client_submitted ? (
+          <Badge
+            variant="outline"
+            className={cn(
+              "shrink-0 rounded-full px-1.5 py-0 text-[10px] font-medium leading-none tracking-wide",
+              "bg-status-info text-status-info-foreground border-status-info-border",
+            )}
+          >
+            {COPY.reviewerNotes.clientSubmittedShort}
+          </Badge>
+        ) : null}
+        <CaseStatusBadge status={row.status} />
+      </div>
+      <p className="text-xs capitalize text-muted-foreground">
+        {row.category} · {formatCountry(row.geography)}
+      </p>
+      <CardMeta row={row} assigneeName={assigneeName} />
     </div>
   );
 }

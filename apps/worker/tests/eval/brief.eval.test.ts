@@ -20,6 +20,7 @@ import { BriefPayloadSchema, type BriefPayload } from "@mizan/shared";
 import { loadGoldSet, type GoldCase } from "@mizan/eval";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 import { RUN_EVAL, RUN_REMOTE_VECTORIZE } from "../integration/remote-deps.ts";
+import { seedDocuments } from "../integration/cases-test-helpers.ts";
 import seedCase001 from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
 import seedCase002 from "../../../../packages/mastra/src/seeds/documentary/case-002.json" with { type: "json" };
 import seedCase003 from "../../../../packages/mastra/src/seeds/documentary/case-003.json" with { type: "json" };
@@ -105,7 +106,6 @@ async function seedCase(
   const overlay = {
     story: seed.story,
     organizer_name: seed.organizer_name,
-    r2_keys: seed.r2_keys,
   };
   await env.DB.prepare(
     `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
@@ -132,6 +132,7 @@ async function seedCase(
   await env.R2_BUCKET.put(seed.r2_keys.creator_id, MINIMAL_PNG_BYTES);
   await env.R2_BUCKET.put(seed.r2_keys.bank_statement, MINIMAL_PNG_BYTES);
   await env.R2_BUCKET.put(seed.r2_keys.category_doc, MINIMAL_PNG_BYTES);
+  await seedDocuments({ caseId: seed.id, organizationId, keys: seed.r2_keys });
 }
 
 async function drainSse(res: Response): Promise<string> {

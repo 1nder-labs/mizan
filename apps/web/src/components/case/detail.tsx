@@ -25,113 +25,73 @@ import { useEffect, useReducer } from "react";
 import {
   ACTIVE_CASE_STATUSES,
   HITL_SUSPENDED_STATUS,
-  TERMINAL_CASE_STATUSES,
-  type CaseDetailResponse,
+  deriveCaseDisposition,
+  isTerminalDisposition,
+  type CaseDisposition,
+  type CaseOverlay,
   type CaseRow,
-  type CaseStatus,
+  type ReviewerAction,
 } from "@mizan/shared";
-import { BriefStream } from "@/components/brief/stream.tsx";
 import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-tape-invalidation.ts";
 import { useCaseDetailLiveEvents } from "@/hooks/use-case-detail-live-events.ts";
-import { ActionPanel } from "@/components/case/action-panel.tsx";
-import { BriefDetailTabs } from "./brief-details.tsx";
-import { BriefEmptyState } from "./brief-empty.tsx";
-import { BriefInflight } from "./brief-inflight.tsx";
-import { BriefSummaryCard } from "./brief-summary.tsx";
-import { DocumentsPanel } from "./documents-panel.tsx";
 import { CaseHeader } from "./header.tsx";
-import { CaseMetaCard } from "./meta-card.tsx";
-import { SignalExpansionPanel } from "./signal-expansion-panel.tsx";
-import { StoryPanel } from "./story-panel.tsx";
-import { type CaseOverlay } from "@mizan/shared";
-
-type BriefSummary = CaseDetailResponse["brief"];
-type BriefPanelMode = "stream" | "inflight" | "action" | "summary" | "empty";
+import { CaseTabs, type BriefPanelMode } from "./case-tabs.tsx";
+import { INITIAL_PHASE, deriveMode, phaseReducer, type BriefSummary } from "./brief-phase.ts";
 
 interface CaseDetailProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
+  readonly clientResponded: boolean;
+  readonly latestAction: ReviewerAction | null;
 }
 
-const SHOW_PERSISTED_STATUSES: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
-  "READY_FOR_REVIEW",
-  "ACTIONED",
-]);
-
-interface StreamPhase {
-  readonly userTriggered: boolean;
-  readonly streamErrored: boolean;
-}
-
-type PhaseEvent =
-  | { readonly type: "case-changed" }
-  | { readonly type: "status-changed"; readonly status: CaseStatus }
-  | { readonly type: "user-generated" }
-  | { readonly type: "stream-errored" };
-
-const INITIAL_PHASE: StreamPhase = { userTriggered: false, streamErrored: false };
-
-function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase {
-  switch (event.type) {
-    case "case-changed":
-      return INITIAL_PHASE;
-    case "status-changed":
-      return TERMINAL_CASE_STATUSES.has(event.status) ? INITIAL_PHASE : state;
-    case "user-generated":
-      return { userTriggered: true, streamErrored: false };
-    case "stream-errored":
-      return { ...state, streamErrored: true };
-  }
-}
-
-function deriveMode(status: CaseStatus, brief: BriefSummary, phase: StreamPhase): BriefPanelMode {
-  if (status === HITL_SUSPENDED_STATUS) return "action";
-  if (phase.userTriggered && !phase.streamErrored) return "stream";
-  if (ACTIVE_CASE_STATUSES.has(status)) return "inflight";
-  if (brief && SHOW_PERSISTED_STATUSES.has(status)) return "summary";
-  return "empty";
-}
-
-interface BriefPanelProps {
+interface DetailLayoutProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
+  readonly disposition: CaseDisposition;
+  readonly canRerun: boolean;
   readonly mode: BriefPanelMode;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
 }
 
-function BriefPanel({
+/** Always-visible header above the tabbed body. */
+function DetailLayout({
   caseRow,
   brief,
   overlay,
+  disposition,
+  canRerun,
   mode,
   onGenerate,
   onStreamError,
-}: BriefPanelProps): React.JSX.Element {
-  if (mode === "stream") return <BriefStream caseId={caseRow.id} onStreamError={onStreamError} />;
-  if (mode === "inflight") return <BriefInflight status={caseRow.status} />;
-  if (mode === "action") return <ActionPanel detail={{ case: caseRow, brief, overlay }} />;
-  if (mode === "summary" && brief) {
-    return (
-      <div className="space-y-4">
-        <BriefSummaryCard payload={brief.payload_json} composedAt={brief.composed_at} />
-        <BriefDetailTabs payload={brief.payload_json} />
-      </div>
-    );
-  }
-  return <BriefEmptyState status={caseRow.status} onGenerate={onGenerate} />;
+}: DetailLayoutProps): React.JSX.Element {
+  return (
+    <article className="w-full space-y-8 px-6 py-8">
+      <CaseHeader caseRow={caseRow} disposition={disposition} />
+      <CaseTabs
+        caseRow={caseRow}
+        brief={brief}
+        overlay={overlay}
+        mode={mode}
+        canRerun={canRerun}
+        onGenerate={onGenerate}
+        onStreamError={onStreamError}
+      />
+    </article>
+  );
 }
 
-export function CaseDetail({ caseRow, brief, overlay }: CaseDetailProps): React.JSX.Element {
+export function CaseDetail({
+  caseRow,
+  brief,
+  overlay,
+  clientResponded,
+  latestAction,
+}: CaseDetailProps): React.JSX.Element {
   const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
-  /**
-   * Tape enabled on any active state (RUNNING, QUEUED, SUSPENDED_HITL) so a
-   * passive `inflight` panel will see `workflow.finish` and trigger a
-   * case-detail refetch. The tape never POSTs — it's a GET SSE that's
-   * safe to mount on every render of an active case.
-   */
   const tapeEnabled =
     ACTIVE_CASE_STATUSES.has(caseRow.status) || caseRow.status === HITL_SUSPENDED_STATUS;
   useWorkflowTapeInvalidation(caseRow.id, tapeEnabled);
@@ -144,33 +104,23 @@ export function CaseDetail({ caseRow, brief, overlay }: CaseDetailProps): React.
     dispatchPhase({ type: "status-changed", status: caseRow.status });
   }, [caseRow.status]);
 
-  const mode = deriveMode(caseRow.status, brief, phase);
+  const disposition = deriveCaseDisposition({
+    status: caseRow.status,
+    latestAction,
+    clientResponded,
+    submitted: true,
+  });
 
-  /**
-   * Detail layout (top to bottom on >= 768px, stacked on narrow):
-   *   StoryPanel · DocumentsPanel + MetaCard (aside) · BriefPanel · SignalExpansionPanel
-   */
   return (
-    <article className="w-full space-y-8 px-6 py-8">
-      <CaseHeader caseRow={caseRow} />
-      <StoryPanel overlay={overlay} />
-      <section className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <aside className="space-y-4">
-          <CaseMetaCard caseRow={caseRow} />
-          <DocumentsPanel caseId={caseRow.id} hasOverlay={overlay !== null} />
-        </aside>
-        <div className="space-y-6">
-          <BriefPanel
-            caseRow={caseRow}
-            brief={brief}
-            overlay={overlay}
-            mode={mode}
-            onGenerate={() => dispatchPhase({ type: "user-generated" })}
-            onStreamError={() => dispatchPhase({ type: "stream-errored" })}
-          />
-          <SignalExpansionPanel caseId={caseRow.id} />
-        </div>
-      </section>
-    </article>
+    <DetailLayout
+      caseRow={caseRow}
+      brief={brief}
+      overlay={overlay}
+      disposition={disposition}
+      canRerun={!isTerminalDisposition(disposition)}
+      mode={deriveMode(caseRow.status, brief, phase)}
+      onGenerate={() => dispatchPhase({ type: "user-generated" })}
+      onStreamError={() => dispatchPhase({ type: "stream-errored" })}
+    />
   );
 }

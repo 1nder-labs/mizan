@@ -4,13 +4,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const alertVariants = cva(
-  "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",
+  "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4",
   {
     variants: {
       variant: {
-        default: "bg-background text-foreground",
+        default: "border-border bg-card text-foreground [&>svg]:text-muted-foreground",
+        info: "border-status-info-border bg-status-info text-status-info-foreground [&>svg]:text-status-info-foreground",
+        warning:
+          "border-status-warning-border bg-status-warning text-status-warning-foreground [&>svg]:text-status-warning-foreground",
+        success:
+          "border-status-success-border bg-status-success text-status-success-foreground [&>svg]:text-status-success-foreground",
         destructive:
-          "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+          "border-status-destructive-border bg-status-destructive text-status-destructive-foreground [&>svg]:text-status-destructive-foreground",
       },
     },
     defaultVariants: {
@@ -34,7 +39,7 @@ function AlertTitle({ className, ref, ...props }: React.ComponentProps<"h5">) {
   return (
     <h5
       ref={ref}
-      className={cn("mb-1 font-medium leading-none tracking-tight", className)}
+      className={cn("mb-1 font-semibold leading-none tracking-[-0.01em]", className)}
       {...props}
     />
   );

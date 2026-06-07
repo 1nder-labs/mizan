@@ -3,7 +3,7 @@
  * when nothing has streamed yet) and tells the reviewer another
  * session owns the workflow run for this case.
  */
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 
 interface InFlightNoticeProps {
@@ -13,11 +13,11 @@ interface InFlightNoticeProps {
 
 export function InFlightNotice({ onRefresh, refreshing }: InFlightNoticeProps): React.JSX.Element {
   return (
-    <Card className="border-border/80 shadow-elev-1">
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
+    <Card className="border-border/60 shadow-elev-1">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <div className="flex items-center gap-2">
-          <Loader2 className="size-4 animate-spin text-status-info-foreground" />
-          <CardTitle className="text-sm font-medium">Composing brief</CardTitle>
+          <LoaderCircle className="size-4 animate-spin text-foreground" />
+          <CardTitle className="text-sm font-semibold tracking-tight">Composing brief</CardTitle>
         </div>
         <button
           type="button"

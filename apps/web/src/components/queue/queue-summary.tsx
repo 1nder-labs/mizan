@@ -18,11 +18,18 @@ export function QueueSummary({
 }): React.JSX.Element {
   return (
     <div className="space-y-1">
-      <h1 className="text-2xl font-semibold tracking-tight">Queue</h1>
+      <h1 className="text-display text-3xl font-semibold">Queue</h1>
       <p className="text-sm text-muted-foreground">
-        {isPending
-          ? "Loading cases…"
-          : `${showing} of ${total} ${total === 1 ? "case" : "cases"} • sorted by ${sort.replace("_", " ")}`}
+        {isPending ? (
+          "Loading cases…"
+        ) : (
+          <>
+            <span className="font-numeric">{showing}</span>
+            {" of "}
+            <span className="font-numeric">{total}</span>
+            {` ${total === 1 ? "case" : "cases"} · sorted by ${sort.replace("_", " ")}`}
+          </>
+        )}
       </p>
     </div>
   );

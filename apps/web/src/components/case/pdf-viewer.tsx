@@ -10,13 +10,14 @@
  * / Urdu glyphs render correctly without vendoring the asset directory.
  */
 import { useCallback, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { toast } from "sonner";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "@/components/ui/button.tsx";
 import { COPY } from "@/lib/copy-constants.ts";
+import { cn } from "@/lib/utils.ts";
 
 const DOCUMENT_OPTIONS = {
   cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/cmaps/`,
@@ -68,7 +69,7 @@ function PageNav({
       >
         <ChevronLeft className="size-4" />
       </Button>
-      <span className="text-xs tabular text-muted-foreground">
+      <span className="font-numeric text-xs tabular text-muted-foreground">
         {COPY.documents.pdfPageOf(pageNumber, numPages || 1)}
       </span>
       <Button
@@ -106,7 +107,9 @@ function ZoomControls({
       >
         <ZoomOut className="size-4" />
       </Button>
-      <span className="text-xs tabular text-muted-foreground">{Math.round(scale * 100)}%</span>
+      <span className="font-numeric tabular text-xs text-muted-foreground">
+        {Math.round(scale * 100)}%
+      </span>
       <Button
         variant="ghost"
         size="sm"
@@ -117,7 +120,7 @@ function ZoomControls({
         <ZoomIn className="size-4" />
       </Button>
       <Button variant="ghost" size="sm" onClick={onOpenInTab} aria-label={COPY.documents.openInTab}>
-        <ExternalLink className="size-4" />
+        <ArrowUpRight className="size-4" />
       </Button>
     </div>
   );
@@ -202,7 +205,12 @@ export default function PdfViewer({ url, fileName }: PdfViewerProps): React.JSX.
   }, []);
   const openInTab = useCallback(() => window.open(url, "_blank", "noopener,noreferrer"), [url]);
   return (
-    <div className="flex h-[70vh] flex-col overflow-hidden rounded-md border border-border/60 bg-background">
+    <div
+      className={cn(
+        "flex h-[70vh] flex-col overflow-hidden",
+        "rounded-lg border border-border/60 bg-background",
+      )}
+    >
       <PdfControls
         pageNumber={pageNumber}
         numPages={numPages}

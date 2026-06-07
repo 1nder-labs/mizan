@@ -75,6 +75,17 @@ export {
 } from "./schemas/document-url.ts";
 
 export {
+  DocumentFileUrlResponseSchema,
+  DocumentKindEnum,
+  DocumentSummarySchema,
+  DocumentsListResponseSchema,
+  type DocumentFileUrlResponse,
+  type DocumentKind,
+  type DocumentSummary,
+  type DocumentsListResponse,
+} from "./schemas/document.ts";
+
+export {
   PolicyClauseErrorBodySchema,
   PolicyClauseErrorCodeEnum,
   PolicyClauseQuerySchema,
@@ -207,6 +218,7 @@ export {
 export { SeedCaseSchema, type SeedCase } from "./schemas/seed-case.ts";
 
 export { ViewerContextSchema, type ViewerContext } from "./schemas/viewer.ts";
+export { RoleEnum, ROLE_VALUES, type Role } from "./schemas/role.ts";
 export { MeResponseSchema, type MeResponse } from "./schemas/me.ts";
 
 export {
@@ -224,12 +236,16 @@ export {
   ChatThreadCreatedResponseSchema,
   ChatThreadDetailResponseSchema,
   ChatThreadListResponseSchema,
+  ChatThreadMutationResponseSchema,
+  ChatThreadRenameSchema,
   ChatThreadSchema,
   type ChatMessageRecord,
   type ChatThread,
   type ChatThreadCreatedResponse,
   type ChatThreadDetailResponse,
   type ChatThreadListResponse,
+  type ChatThreadMutationResponse,
+  type ChatThreadRename,
 } from "./schemas/chat.ts";
 
 export { BriefQueueMessageSchema, type BriefQueueMessage } from "./schemas/queue-message.ts";
@@ -240,3 +256,86 @@ export {
   type BriefSummary,
   type CaseDetailResponse,
 } from "./schemas/case-detail.ts";
+
+export {
+  BRIEF_HISTORY_LIMIT,
+  BriefHistoryResponseSchema,
+  type BriefHistoryEntry,
+  type BriefHistoryResponse,
+} from "./schemas/brief-history.ts";
+
+export {
+  PortalErrorBodySchema,
+  PortalErrorCodeEnum,
+  type PortalErrorBody,
+  type PortalErrorCode,
+} from "./schemas/portal-errors.ts";
+
+export {
+  CampaignCreateSchema,
+  CampaignMutationResponseSchema,
+  EvidenceUploadResponseSchema,
+  type CampaignCreate,
+  type CampaignMutationResponse,
+  type EvidenceUploadResponse,
+} from "./schemas/campaign.ts";
+export {
+  CAMPAIGN_CATEGORY_OPTIONS,
+  CampaignCategoryEnum,
+  ZAKAT_CATEGORY_OPTIONS,
+  ZakatCategoryEnum,
+  type CampaignCategory,
+  type TaxonomyOption,
+  type ZakatCategory,
+} from "./schemas/campaign-taxonomy.ts";
+export {
+  COUNTRIES,
+  COUNTRY_CODE_SET,
+  countryFlag,
+  countryName,
+  type Country,
+} from "./data/countries.ts";
+
+export {
+  CaseNoteSchema,
+  CaseNotesResponseSchema,
+  NoteAuthorRoleEnum,
+  NoteCreateSchema,
+  NoteVisibilityEnum,
+  type CaseNote,
+  type CaseNotesResponse,
+  type NoteAuthorRole,
+  type NoteCreate,
+  type NoteVisibility,
+} from "./schemas/case-note.ts";
+
+export {
+  MarkReadResponseSchema,
+  NotificationSchema,
+  NotificationTypeEnum,
+  NotificationsResponseSchema,
+  type MarkReadResponse,
+  type Notification,
+  type NotificationType,
+  type NotificationsResponse,
+} from "./schemas/notification.ts";
+
+export { CASE_TAB_VALUES, CaseTabEnum, type CaseTab } from "./schemas/case-tab.ts";
+
+export { ClientStatusEnum, toClientStatus, type ClientStatus } from "./schemas/client-status.ts";
+
+export {
+  deriveCaseDisposition,
+  isTerminalDisposition,
+  REVIEWER_DISPOSITION_LABEL,
+  type CaseDisposition,
+} from "./schemas/case-disposition.ts";
+
+export {
+  ClientCampaignsResponseSchema,
+  ClientCampaignSummarySchema,
+  ClientCaseDetailSchema,
+  type ClientCampaignsResponse,
+  type ClientCampaignSummary,
+  type ClientCaseDetail,
+} from "./schemas/client-case-detail.ts";

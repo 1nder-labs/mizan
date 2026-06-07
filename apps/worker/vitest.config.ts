@@ -47,9 +47,22 @@ export default defineConfig({
             miniflare: {
               bindings: {
                 MOCK_PROVIDERS_ALLOWED: "1",
+                REVIEW_ORG_ID: "review-org-fixture",
                 RUN_REMOTE_VECTORIZE: RUN_REMOTE ? "1" : "0",
                 RUN_LANGFUSE_E2E: process.env.RUN_LANGFUSE_E2E === "1" ? "1" : "0",
                 RUN_EVAL: RUN_REMOTE && process.env.RUN_EVAL === "1" ? "1" : "0",
+                /**
+                 * Force telemetry OFF for the whole suite. `.dev.vars` carries
+                 * the real cloud Langfuse host + keys (needed by `wrangler dev`
+                 * and the opt-in `langfuse-e2e` test, which reads `process.env`
+                 * directly). Left untouched, the worker's telemetry gate
+                 * (`brief-run-factory`: host && publicKey && secretKey) would
+                 * ship a trace to the PRODUCTION Langfuse project on every brief
+                 * the integration suite runs. Emptying the host binding here is
+                 * the highest-precedence override and breaks that gate, so the
+                 * suite never writes to cloud Langfuse.
+                 */
+                LANGFUSE_HOST: "",
               },
             },
           }),

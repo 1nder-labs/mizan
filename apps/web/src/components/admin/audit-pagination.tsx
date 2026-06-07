@@ -14,7 +14,7 @@ export function AuditPagination({ search, totalPages }: AuditPaginationProps): R
   const navigate = useNavigate({ from: "/admin/audit" });
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       <Button
         variant="outline"
         size="sm"
@@ -23,7 +23,7 @@ export function AuditPagination({ search, totalPages }: AuditPaginationProps): R
       >
         Previous
       </Button>
-      <span className="text-sm text-muted-foreground">
+      <span className="tabular text-xs text-muted-foreground">
         Page {search.page} of {totalPages}
       </span>
       <Button

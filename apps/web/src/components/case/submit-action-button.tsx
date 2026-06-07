@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 
 interface SubmitActionButtonProps {
@@ -12,10 +12,10 @@ export function SubmitActionButton({
   disabled,
 }: SubmitActionButtonProps): React.JSX.Element {
   return (
-    <Button type="submit" disabled={disabled}>
+    <Button type="submit" disabled={disabled} className="w-full" size="lg">
       {pending ? (
         <>
-          <Loader2 className="mr-2 size-4 animate-spin" />
+          <LoaderCircle className="mr-2 size-4 animate-spin" />
           Submitting…
         </>
       ) : (

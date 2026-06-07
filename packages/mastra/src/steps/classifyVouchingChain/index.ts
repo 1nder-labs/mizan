@@ -94,7 +94,7 @@ async function classifyOrDefault(args: {
     return {
       structure: "none",
       weakest_link_narrative:
-        "no vouching narrative provided — defaulted to `none` by app-side gate",
+        "No supporters, references, or guarantors were named to vouch for this campaign, so there is no accountability chain to assess.",
     };
   }
   const envelope: VouchingChainEnvelope = await runStructuredLlm({

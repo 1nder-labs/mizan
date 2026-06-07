@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { ROLE_VALUES } from "@mizan/shared";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -7,6 +8,7 @@ export const users = sqliteTable("users", {
   email: text("email").notNull().unique(),
   emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
   image: text("image"),
+  signupKind: text("signup_kind").notNull().default("internal"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),
@@ -37,7 +39,7 @@ export const members = sqliteTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    role: text("role", { enum: ["admin", "reviewer"] as const }).notNull(),
+    role: text("role", { enum: ROLE_VALUES }).notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
       .notNull(),
@@ -56,9 +58,7 @@ export const invitations = sqliteTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    role: text("role", { enum: ["admin", "reviewer"] as const })
-      .notNull()
-      .default("reviewer"),
+    role: text("role", { enum: ROLE_VALUES }).notNull().default("reviewer"),
     status: text("status", {
       enum: ["pending", "accepted", "expired", "cancelled"] as const,
     })

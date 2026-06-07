@@ -33,12 +33,28 @@ function workspaceSlug(user: { name?: string | null; email: string }): string {
  * Invited signups join the inviter's org; the invitations row is marked
  * accepted to keep it single-use (better-auth exposes no server-only accept
  * endpoint — `addMember` adds the membership and the status flip consumes the
- * invitations).
+ * invitations). Un-invited signups with `signupKind === "client"` join the
+ * single designated review org as `client` members (the portal self-signup
+ * path); every other un-invited signup creates its own admin org (the
+ * internal default, preserving the existing bootstrap).
+ *
+ * `signupKind` IS a client-supplied field (better-auth `input: true`, set by
+ * the portal signup form) — but it is NOT privilege-bearing. It only routes
+ * between joining the single review org as `client` (the lowest role) and
+ * creating one's OWN fresh, empty admin org (the pre-portal default; signup has
+ * always done `createOrganization`, the portal merely narrowed it). It can
+ * never place a user in an EXISTING org or grant a role in one: that path is
+ * gated solely on a matching `invitations` row (a server-side DB lookup), not
+ * on `signupKind`. A forged value therefore yields at most an isolated empty
+ * workspace, never review-org or cross-tenant reach. The role + org assigned
+ * per branch here are the security boundary; `signupKind` only selects which
+ * self-signup shape runs.
  */
 async function provisionOrgOnSignup(
-  user: { id: string; email: string; name?: string | null },
+  user: { id: string; email: string; name?: string | null; signupKind?: string | null },
   getDb: () => Db,
   getAuth: () => AuthLike,
+  getReviewOrgId: () => string,
 ): Promise<void> {
   const db = getDb();
   const api = getOrganizationInvitationApi(getAuth());
@@ -59,6 +75,12 @@ async function provisionOrgOnSignup(
       body: { userId: user.id, organizationId: pending.organizationId, role: pending.role },
     });
     await db.update(invitations).set({ status: "accepted" }).where(eq(invitations.id, pending.id));
+    return;
+  }
+  if (user.signupKind === "client") {
+    await api.addMember({
+      body: { userId: user.id, organizationId: getReviewOrgId(), role: "client" },
+    });
     return;
   }
   await api.createOrganization({
@@ -91,18 +113,43 @@ async function seedActiveOrganization(
 /**
  * better-auth database hooks for org auto-provision on signup and active-org seeding.
  */
-export function buildOrgDatabaseHooks(getDb: () => Db, getAuth: () => AuthLike) {
+export function buildOrgDatabaseHooks(
+  getDb: () => Db,
+  getAuth: () => AuthLike,
+  getReviewOrgId: () => string,
+) {
   return {
     user: {
       create: {
-        after: (user: { id: string; email: string; name?: string | null }) =>
-          provisionOrgOnSignup(user, getDb, getAuth),
+        after: async (user: {
+          id: string;
+          email: string;
+          name?: string | null;
+          signupKind?: string | null;
+        }) => {
+          try {
+            await provisionOrgOnSignup(user, getDb, getAuth, getReviewOrgId);
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.error(
+              `[signup] org provisioning failed for user ${user.id} (${user.email}): ${reason}`,
+            );
+            throw error;
+          }
+        },
       },
     },
     session: {
       create: {
-        before: (session: { userId: string; activeOrganizationId?: string | null }) =>
-          seedActiveOrganization(session, getDb),
+        before: async (session: { userId: string; activeOrganizationId?: string | null }) => {
+          try {
+            return await seedActiveOrganization(session, getDb);
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.error(`[signup] active-org seed failed for user ${session.userId}: ${reason}`);
+            return { data: session };
+          }
+        },
       },
     },
   };

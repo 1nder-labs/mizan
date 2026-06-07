@@ -1,21 +1,21 @@
 /**
  * Admin audit page. Renders the admin-only audit log surface.
  */
-import { History, Lock } from "lucide-react";
+import { FileClock, Lock } from "lucide-react";
 import { AuditList } from "@/components/admin/audit-list.tsx";
 import { AuthenticatedShell } from "@/components/shell/authenticated-shell.tsx";
 
 export function AdminAuditPage(): React.JSX.Element {
   return (
     <AuthenticatedShell context="Admin / audit">
-      <section className="w-full space-y-8 px-6 py-8">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
+      <section className="w-full space-y-8 px-6 py-10">
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted px-2.5 py-0.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             <Lock className="size-3" />
             Admin only
           </div>
-          <h1 className="flex items-center gap-3 text-2xl font-semibold tracking-tight">
-            <History className="size-5 text-muted-foreground" />
+          <h1 className="text-display flex items-center gap-3 text-3xl font-semibold tracking-tight">
+            <FileClock className="size-5 text-muted-foreground" />
             Audit log
           </h1>
           <p className="text-sm text-muted-foreground">

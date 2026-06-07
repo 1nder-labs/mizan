@@ -23,28 +23,44 @@ export function AuditEntriesTable({ entries }: AuditEntriesTableProps): React.JS
   return (
     <Table>
       <TableHeader>
-        <TableRow>
-          <TableHead>Case</TableHead>
-          <TableHead>Reviewer</TableHead>
-          <TableHead>Action</TableHead>
-          <TableHead>Rationale</TableHead>
-          <TableHead>Acted at</TableHead>
+        <TableRow className="border-border/50 bg-muted/30">
+          <TableHead className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Case
+          </TableHead>
+          <TableHead className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Reviewer
+          </TableHead>
+          <TableHead className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Action
+          </TableHead>
+          <TableHead className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Rationale
+          </TableHead>
+          <TableHead className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Acted at
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {entries.map((entry) => (
           <TableRow
             key={entry.id}
-            className="cursor-pointer hover:bg-muted/40"
+            className="cursor-pointer border-border/40 transition-colors hover:bg-muted/40"
             onClick={() =>
               void navigate({ to: "/case/$caseId", params: { caseId: entry.case_id } })
             }
           >
-            <TableCell className="font-mono text-xs">{entry.case_id.slice(0, 8)}…</TableCell>
-            <TableCell>{entry.reviewer_email ?? "—"}</TableCell>
-            <TableCell>{entry.action}</TableCell>
-            <TableCell className="max-w-xs truncate">{entry.rationale}</TableCell>
-            <TableCell>{formatMediumDateTime(entry.acted_at)}</TableCell>
+            <TableCell className="font-mono text-xs font-numeric text-muted-foreground">
+              {entry.case_id.slice(0, 8)}…
+            </TableCell>
+            <TableCell className="text-sm">{entry.reviewer_email ?? "—"}</TableCell>
+            <TableCell className="text-sm font-medium">{entry.action}</TableCell>
+            <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
+              {entry.rationale}
+            </TableCell>
+            <TableCell className="font-mono text-xs font-numeric tabular text-muted-foreground">
+              {formatMediumDateTime(entry.acted_at)}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

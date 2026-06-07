@@ -14,17 +14,21 @@ export function ChatThreadRail({
   threadId,
   onSelect,
   onCreate,
+  onRename,
+  onDelete,
 }: {
   readonly open: boolean;
   readonly threads: readonly ChatThread[];
   readonly threadId: string | null;
   readonly onSelect: (id: string) => void;
   readonly onCreate: () => void;
+  readonly onRename: (id: string, title: string) => void;
+  readonly onDelete: (id: string) => void;
 }): React.JSX.Element {
   return (
     <div
       className={cn(
-        "shrink-0 overflow-hidden border-r border-border/60 bg-muted/20 transition-[width] duration-200 ease-out",
+        "shrink-0 overflow-hidden border-r border-border/40 bg-muted/30 transition-[width] duration-200 ease-out",
         open ? RAIL_CONTENT_WIDTH : "w-0",
       )}
       aria-hidden={!open}
@@ -35,6 +39,8 @@ export function ChatThreadRail({
           threadId={threadId}
           onSelect={onSelect}
           onCreate={onCreate}
+          onRename={onRename}
+          onDelete={onDelete}
         />
       </div>
     </div>

@@ -8,10 +8,17 @@
 import { useId, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { UserPlus } from "lucide-react";
-import { sessionQueryOptions } from "@/lib/auth-client.ts";
+import { meQueryOptions } from "@/lib/me-api.ts";
 import { useTeamMembers } from "@/hooks/use-team.ts";
 import { useAssignCase } from "@/hooks/use-assign-case.ts";
 import { cn } from "@/lib/utils.ts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx";
 import { deriveOptionDisabled } from "./case-assignment-policy.ts";
 
 interface CaseAssignmentProps {
@@ -35,27 +42,23 @@ function AssigneeSelect({
   readonly onAssign: (userId: string | null) => void;
 }): React.JSX.Element {
   return (
-    <select
-      id={selectId}
-      disabled={disabled}
+    <Select
       value={value}
-      onChange={(event) => {
-        const next = event.target.value;
-        onAssign(next === UNASSIGNED_VALUE ? null : next);
-      }}
-      className={cn(
-        "min-w-[200px] rounded-md border border-border/60 bg-card px-2 py-1 text-sm shadow-elev-1",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        "disabled:cursor-not-allowed disabled:opacity-60",
-      )}
+      disabled={disabled}
+      onValueChange={(next) => onAssign(next === UNASSIGNED_VALUE ? null : next)}
     >
-      <option value={UNASSIGNED_VALUE}>Unassigned</option>
-      {options.map((option) => (
-        <option key={option.id} value={option.id} disabled={option.disabled}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+      <SelectTrigger id={selectId} className="min-w-[200px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
+        {options.map((option) => (
+          <SelectItem key={option.id} value={option.id} disabled={option.disabled}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -64,8 +67,8 @@ export function CaseAssignment({
   caseId,
 }: CaseAssignmentProps): React.JSX.Element {
   const selectId = useId();
-  const session = useQuery(sessionQueryOptions());
-  const viewer = session.data?.user;
+  const me = useQuery(meQueryOptions());
+  const viewer = me.data?.user;
   const members = useTeamMembers();
   const mutation = useAssignCase();
   const memberList = useMemo(() => members.data?.members ?? [], [members.data]);
@@ -78,12 +81,15 @@ export function CaseAssignment({
     disabled: deriveOptionDisabled(role, currentAssignee, member.id, viewer.id),
   }));
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1.5">
       <label
         htmlFor={selectId}
-        className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+        className={cn(
+          "flex items-center gap-1 text-[10px] font-medium",
+          "uppercase tracking-[0.18em] text-muted-foreground",
+        )}
       >
-        <UserPlus className="mr-1 inline size-3" />
+        <UserPlus className="size-3" />
         Assigned to
       </label>
       <AssigneeSelect

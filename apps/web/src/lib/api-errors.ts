@@ -1,45 +1,83 @@
 /**
- * Typed API error classes shared across the client data layer. Kept in a
- * leaf module (depends only on `@mizan/shared` types) so query-options
- * factories, mutations, and identity probes can all throw the same
- * `instanceof`-checkable errors without forming an import cycle through
- * `query-keys.ts` / `cases-api.ts`.
+ * One consistent client-side error schema for every API surface.
  *
- * Auth-failure split: 401 → `UnauthorizedError` (session expired, bounce to
- * `/login` via `query-client.ts`); 403 → `ForbiddenError` (authenticated but
- * lacks the role) surfaces as an in-place error on the protected route.
+ * `ApiError` carries `status` (HTTP), `code` (the server's `{ error: <code> }`
+ * discriminator — DESTRUCTURED from the response body, never guessed from the
+ * status), and `message` (the user-facing string mapped from `COPY.apiError`).
+ * `apiError(res)` is the single factory every data-layer call uses on a failed
+ * response, so toasts and the route error page read one shape and show the
+ * right message. 401 → `UnauthorizedError` (bounce to /login via
+ * `query-client.ts`); 403 → `ForbiddenError` (in-place on the protected route).
  */
+import { z } from "zod";
 import type { ActionErrorCode } from "@mizan/shared";
+import { COPY } from "./copy-constants.ts";
 
-/**
- * Carries the server's `ActionErrorCode` discriminator so callers can
- * `instanceof` + switch on `.code` instead of string-matching `.message`.
- */
-export class ReviewerActionError extends Error {
-  readonly code: ActionErrorCode;
+const ErrorBodySchema = z.object({ error: z.string() });
+
+/** Friendly, user-facing message for a server error code. */
+export function errorMessage(code: string): string {
+  const map: Record<string, string> = COPY.apiError;
+  return map[code] ?? COPY.apiError.fallback;
+}
+
+export class ApiError extends Error {
   readonly status: number;
-  constructor(code: ActionErrorCode, status: number) {
-    super(code);
-    this.name = "ReviewerActionError";
-    this.code = code;
+  readonly code: string;
+  constructor(status: number, code: string, message: string = errorMessage(code)) {
+    super(message);
+    this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
-export class UnauthorizedError extends Error {
-  readonly status = 401 as const;
-  constructor(message = "Session expired") {
-    super(message);
+export class UnauthorizedError extends ApiError {
+  constructor() {
+    super(401, "unauthorized");
     this.name = "UnauthorizedError";
   }
 }
 
-export class ForbiddenError extends Error {
-  readonly status = 403 as const;
-  constructor(message = "You don't have permission to view this resource") {
-    super(message);
+export class ForbiddenError extends ApiError {
+  constructor(code = "forbidden") {
+    super(403, code);
     this.name = "ForbiddenError";
   }
+}
+
+/**
+ * Carries the server's `ActionErrorCode` so the action panel can switch on
+ * `.code`; still an `ApiError`, so `.message` is the mapped friendly string.
+ */
+export class ReviewerActionError extends ApiError {
+  constructor(code: ActionErrorCode, status: number) {
+    super(status, code);
+    this.name = "ReviewerActionError";
+  }
+}
+
+/** Minimal shape shared by DOM `Response` and Hono's typed `ClientResponse`. */
+type FailedResponse = { readonly status: number; readonly json: () => Promise<unknown> };
+
+/**
+ * Builds the right `ApiError` from a failed response by destructuring the
+ * shared `{ error: code }` body once. Accepts both a raw `fetch` `Response` and
+ * a Hono `ClientResponse`. 401/403 return the typed subclasses the auth flow +
+ * protected routes rely on; everything else carries the body code (falling back
+ * to `internal_error` for an unreadable 5xx body).
+ */
+export async function apiError(res: FailedResponse): Promise<ApiError> {
+  const body: unknown = await res.json().catch(() => null);
+  const parsed = ErrorBodySchema.safeParse(body);
+  const code = parsed.success
+    ? parsed.data.error
+    : res.status >= 500
+      ? "internal_error"
+      : "unknown";
+  if (res.status === 401) return new UnauthorizedError();
+  if (res.status === 403) return new ForbiddenError(code);
+  return new ApiError(res.status, code);
 }
 
 export function assertAuthorized(status: number): void {

@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { RoleEnum } from "./role.ts";
 
 /** Canonical viewer identity passed to handler helpers and Mastra tools. */
 export const ViewerContextSchema = z
   .object({
     userId: z.string(),
-    role: z.enum(["reviewer", "admin"]),
+    role: RoleEnum,
     organizationId: z.string(),
   })
   .strict();

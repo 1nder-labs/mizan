@@ -21,12 +21,18 @@ export function ClipboardFallbackDialog({
 }): React.JSX.Element {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="shadow-elev-3">
         <DialogHeader>
-          <DialogTitle>{COPY.invite.clipboardBlockedTitle}</DialogTitle>
-          <DialogDescription>{COPY.invite.clipboardBlockedBody}</DialogDescription>
+          <DialogTitle className="text-base font-semibold tracking-tight">
+            {COPY.invite.clipboardBlockedTitle}
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            {COPY.invite.clipboardBlockedBody}
+          </DialogDescription>
         </DialogHeader>
-        <code className="block truncate rounded bg-muted px-2 py-1 text-xs">{url}</code>
+        <code className="font-mono font-numeric block select-all rounded-md border border-border/60 bg-muted px-3 py-2 text-xs text-foreground">
+          {url}
+        </code>
         <p className="text-xs text-muted-foreground">{COPY.invite.copyManuallyHint}</p>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

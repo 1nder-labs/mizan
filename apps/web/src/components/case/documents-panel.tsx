@@ -6,7 +6,7 @@
  * R2 URL. Tiles disable cleanly when the overlay is missing.
  */
 import { useEffect, useState } from "react";
-import { FileText, IdCard, Landmark, Loader2, ScrollText } from "lucide-react";
+import { FileText, IdCard, Landmark, LoaderCircle, ScrollText } from "lucide-react";
 import { toast } from "sonner";
 import type { DocumentKey } from "@mizan/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
@@ -14,6 +14,7 @@ import { useDocumentUrl } from "@/hooks/use-document-url.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
 import { DocumentViewerDialog } from "./document-viewer-dialog.tsx";
+import { DocumentHistory } from "./document-history.tsx";
 
 interface DocumentsPanelProps {
   readonly caseId: string;
@@ -32,24 +33,57 @@ const TILES: readonly TileSpec[] = [
     docKey: "creator_id",
     label: COPY.documents.creatorIdLabel,
     icon: IdCard,
-    tone: "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/60",
+    tone: "bg-muted text-muted-foreground",
   },
   {
     docKey: "bank_statement",
     label: COPY.documents.bankStatementLabel,
     icon: Landmark,
-    tone: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60",
+    tone: "bg-muted text-muted-foreground",
   },
   {
     docKey: "category_doc",
     label: COPY.documents.categoryDocLabel,
     icon: ScrollText,
-    tone: "bg-amber-50 text-amber-700 ring-1 ring-amber-200/60",
+    tone: "bg-muted text-muted-foreground",
   },
 ];
 
 function deriveFileName(docKey: DocumentKey): string {
   return `${docKey.replace(/_/g, "-")}.pdf`;
+}
+
+/** Inner label block for a document tile row. */
+function TileLabel({
+  spec,
+  active,
+  disabled,
+}: {
+  readonly spec: TileSpec;
+  readonly active: boolean;
+  readonly disabled: boolean;
+}): React.JSX.Element {
+  const Icon = spec.icon;
+  return (
+    <>
+      <span className={cn("grid size-8 shrink-0 place-items-center rounded-md", spec.tone)}>
+        <Icon className="size-3.5" />
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span
+          className={cn(
+            "text-sm font-medium",
+            active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
+          )}
+        >
+          {spec.label}
+        </span>
+        <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+          {disabled ? COPY.documents.panelEmpty : COPY.documents.openInTab}
+        </span>
+      </span>
+    </>
+  );
 }
 
 function DocumentTileButton({
@@ -63,7 +97,6 @@ function DocumentTileButton({
   readonly active: boolean;
   readonly onClick: () => void;
 }): React.JSX.Element {
-  const Icon = spec.icon;
   return (
     <button
       type="button"
@@ -71,22 +104,18 @@ function DocumentTileButton({
       disabled={disabled}
       aria-pressed={active}
       className={cn(
-        "lift-on-hover group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-card p-3 text-left",
-        "hover:border-foreground/30 hover:shadow-elev-1",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:border-border/50",
-        active && "border-foreground/40 bg-muted/30 shadow-elev-1",
+        "group relative flex w-full items-center gap-3 rounded-md px-3 py-2.5",
+        "pl-4 text-left transition-colors",
+        "before:absolute before:inset-y-2 before:left-0 before:w-[3px]",
+        "before:rounded-r-full before:transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2",
+        "focus-visible:ring-ring focus-visible:ring-offset-2",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        active ? "bg-muted/60 before:bg-foreground" : "before:bg-transparent hover:bg-muted/30",
+        !disabled && !active && "hover:before:bg-foreground/30",
       )}
     >
-      <span className={cn("grid size-10 shrink-0 place-items-center rounded-md", spec.tone)}>
-        <Icon className="size-4" />
-      </span>
-      <span className="flex flex-col gap-0.5">
-        <span className="text-sm font-medium text-foreground">{spec.label}</span>
-        <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-          {disabled ? COPY.documents.panelEmpty : COPY.documents.openInTab}
-        </span>
-      </span>
+      <TileLabel spec={spec} active={active} disabled={disabled} />
     </button>
   );
 }
@@ -119,6 +148,7 @@ function ActiveDialog({
       title={label}
       description={description}
       fileName={deriveFileName(docKey)}
+      contentType={query.data?.contentType ?? null}
     />
   );
 }
@@ -131,17 +161,27 @@ export function DocumentsPanel({ caseId, hasOverlay }: DocumentsPanelProps): Rea
     if (!next) setActiveKey(null);
   };
   return (
-    <Card className="border-border/70 bg-card/80 shadow-elev-1">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <FileText className="size-4 text-muted-foreground" />
+    <Card className="rounded-xl border-border/60 bg-card shadow-elev-1">
+      <CardHeader className="border-b border-border/50 px-5 py-4">
+        <CardTitle
+          className={cn(
+            "flex items-center gap-2 text-[10px] font-medium",
+            "uppercase tracking-[0.18em] text-muted-foreground",
+          )}
+        >
+          <FileText className="size-3.5" />
           {COPY.documents.panelTitle}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-0.5 px-5 py-3">
         {hasOverlay ? null : (
-          <p className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
-            <Loader2 className="size-3.5 animate-pulse" /> {COPY.documents.panelEmpty}
+          <p
+            className={cn(
+              "flex items-center gap-2 px-3 py-2 text-[10px]",
+              "uppercase tracking-[0.14em] text-muted-foreground",
+            )}
+          >
+            <LoaderCircle className="size-3 animate-pulse" /> {COPY.documents.panelEmpty}
           </p>
         )}
         {TILES.map((spec) => (
@@ -156,6 +196,7 @@ export function DocumentsPanel({ caseId, hasOverlay }: DocumentsPanelProps): Rea
             }}
           />
         ))}
+        <DocumentHistory caseId={caseId} />
       </CardContent>
       <ActiveDialog caseId={caseId} docKey={activeKey} open={open} onOpenChange={onOpenChange} />
     </Card>

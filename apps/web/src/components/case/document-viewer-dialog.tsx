@@ -9,7 +9,7 @@
  * loading line while the chunk arrives.
  */
 import { Suspense, lazy, useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,31 +30,34 @@ interface DocumentViewerDialogProps {
   readonly title: string;
   readonly description: string;
   readonly fileName: string;
+  readonly contentType: string | null;
 }
 
 function ViewerBody({
   url,
   fileName,
   title,
+  contentType,
 }: {
   readonly url: string | null;
   readonly fileName: string;
   readonly title: string;
+  readonly contentType: string | null;
 }): React.JSX.Element {
   if (!url) {
     return (
       <div className="flex h-[70vh] items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-2 size-4 animate-spin" /> {COPY.documents.loadingLabel}
+        <LoaderCircle className="mr-2 size-4 animate-spin" /> {COPY.documents.loadingLabel}
       </div>
     );
   }
-  const kind = classifyDocumentKind(url);
+  const kind = classifyDocumentKind(contentType);
   if (kind === "pdf") {
     return (
       <Suspense
         fallback={
           <div className="flex h-[70vh] items-center justify-center text-sm text-muted-foreground">
-            <Loader2 className="mr-2 size-4 animate-spin" /> {COPY.documents.loadingLabel}
+            <LoaderCircle className="mr-2 size-4 animate-spin" /> {COPY.documents.loadingLabel}
           </div>
         }
       >
@@ -72,19 +75,24 @@ export function DocumentViewerDialog({
   title,
   description,
   fileName,
+  contentType,
 }: DocumentViewerDialogProps): React.JSX.Element {
   const body = useMemo(
-    () => <ViewerBody url={url} fileName={fileName} title={title} />,
-    [url, fileName, title],
+    () => <ViewerBody url={url} fileName={fileName} title={title} contentType={contentType} />,
+    [url, fileName, title, contentType],
   );
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl gap-0 p-0">
-        <DialogHeader className="px-4 pt-4 pb-2">
-          <DialogTitle>{title}</DialogTitle>
-          {description.length > 0 ? <DialogDescription>{description}</DialogDescription> : null}
+      <DialogContent className="max-w-5xl gap-0 rounded-xl p-0 shadow-elev-3">
+        <DialogHeader className="border-b border-border/50 px-5 py-4">
+          <DialogTitle className="text-sm font-semibold tracking-[-0.01em]">{title}</DialogTitle>
+          {description.length > 0 ? (
+            <DialogDescription className="text-xs text-muted-foreground">
+              {description}
+            </DialogDescription>
+          ) : null}
         </DialogHeader>
-        <div className="px-4 pb-4">{body}</div>
+        <div className="px-5 pb-5 pt-4">{body}</div>
       </DialogContent>
     </Dialog>
   );

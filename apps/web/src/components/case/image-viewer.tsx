@@ -8,9 +8,10 @@
  * versus a server-proxied download.
  */
 import { useState } from "react";
-import { Download, ExternalLink } from "lucide-react";
+import { ArrowUpRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { COPY } from "@/lib/copy-constants.ts";
+import { cn } from "@/lib/utils.ts";
 
 interface ImageViewerProps {
   readonly url: string;
@@ -21,11 +22,21 @@ interface ImageViewerProps {
 export function ImageViewer({ url, alt, fileName }: ImageViewerProps): React.JSX.Element {
   const [zoomed, setZoomed] = useState(false);
   return (
-    <div className="flex h-[70vh] flex-col overflow-hidden rounded-md border border-border/60 bg-background">
-      <div className="flex items-center justify-end gap-1 border-b border-border/60 bg-muted/30 px-3 py-2">
+    <div
+      className={cn(
+        "flex h-[70vh] flex-col overflow-hidden",
+        "rounded-lg border border-border/60 bg-background",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-end gap-1",
+          "border-b border-border/60 bg-muted/30 px-3 py-2",
+        )}
+      >
         <Button asChild variant="ghost" size="sm" aria-label={COPY.documents.openInTab}>
           <a href={url} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="size-4" />
+            <ArrowUpRight className="size-4" />
           </a>
         </Button>
         <Button asChild variant="ghost" size="sm" aria-label={COPY.documents.downloadLabel}>

@@ -1,22 +1,19 @@
 /**
- * Document URL route — Phase 7.5 U3.
+ * Document URL route — named extraction slots.
  *
  * `GET /api/cases/:id/documents/:docKey/url` returns a short-TTL R2
- * presigned URL for one of the three known per-case attachments
- * (`creator_id`, `bank_statement`, `category_doc`). The browser fetches
- * the URL directly; the Worker stays out of the doc-bytes path.
+ * presigned URL for the CURRENT version of one of the three named per-case
+ * attachments (`creator_id`, `bank_statement`, `category_doc`). "Current" is
+ * the latest row in the `documents` table for that slot. The browser fetches
+ * the URL directly; the Worker stays out of the doc-bytes path. Supplementary
+ * docs + prior versions are served by the by-id routes in `case-documents.ts`.
  *
- * Auth: shared-queue (`reviewer | admin`) — matches the existing case
- * read surface. No per-owner filter (consistent with `cases-list.ts`).
- *
- * Errors: 404 (case missing), 409 (no overlay → DRAFT pre-seed),
- * 400 (invalid docKey via zod), 500 (signing failure — logged).
+ * Auth: shared-queue (`reviewer | admin`). Errors: 404 (case missing),
+ * 409 (slot has no upload yet), 400 (invalid docKey via zod), 500 (signing).
  */
 import { zValidator } from "@hono/zod-validator";
-import { and, eq } from "drizzle-orm";
-import { cases as casesTable, makeDb, type Db } from "@mizan/db";
+import { and, cases as casesTable, currentExtractedDocument, eq, makeDb, type Db } from "@mizan/db";
 import {
-  CaseOverlaySchema,
   DocumentKeyEnum,
   DocumentUrlErrorBodySchema,
   DocumentUrlResponseSchema,
@@ -32,7 +29,7 @@ import type { ViewerVariables } from "../middleware/require-role.ts";
 
 type DocContext = Context<{ Bindings: CloudflareBindings; Variables: ViewerVariables }>;
 type KeyResolution =
-  | { readonly ok: true; readonly objectKey: string }
+  | { readonly ok: true; readonly objectKey: string; readonly contentType: string }
   | { readonly ok: false; readonly status: 404 | 409; readonly code: DocumentUrlErrorCode };
 
 const PRESIGN_TTL_SECONDS = 300;
@@ -48,28 +45,17 @@ function docErrorBody(code: DocumentUrlErrorCode): { error: DocumentUrlErrorCode
 }
 
 /**
- * Loads the case overlay scoped to the viewer's organization. A case in
- * another organization resolves as non-existent so presigned R2 URLs can
- * never be minted across tenant boundaries.
+ * Whether the case exists within the viewer's organization. A case in another
+ * org resolves as non-existent so presigned R2 URLs can never be minted across
+ * tenant boundaries.
  */
-async function loadCaseOverlay(
-  db: Db,
-  caseId: string,
-  organizationId: string,
-): Promise<{ overlay: unknown | null; exists: boolean }> {
+async function caseExistsInOrg(db: Db, caseId: string, organizationId: string): Promise<boolean> {
   const row = await db
-    .select({ brief_partial_json: casesTable.brief_partial_json })
+    .select({ id: casesTable.id })
     .from(casesTable)
     .where(and(eq(casesTable.id, caseId), eq(casesTable.organization_id, organizationId)))
     .get();
-  if (!row) return { overlay: null, exists: false };
-  return { overlay: row.brief_partial_json, exists: true };
-}
-
-function resolveObjectKey(overlayRaw: unknown, docKey: DocumentKey): string | null {
-  const parsed = CaseOverlaySchema.safeParse(overlayRaw);
-  if (!parsed.success) return null;
-  return parsed.data.r2_keys[docKey] ?? null;
+  return row !== undefined;
 }
 
 function readR2Creds(env: CloudflareBindings): {
@@ -90,18 +76,18 @@ function readR2Creds(env: CloudflareBindings): {
   };
 }
 
-/** Org-scoped: resolves the R2 object key for a case document, or a denial. */
+/** Org-scoped: resolves the current R2 object key for a named slot, or a denial. */
 async function resolveDocObjectKey(
   c: DocContext,
   id: string,
   docKey: DocumentKey,
 ): Promise<KeyResolution> {
   const db = makeDb(c.env.DB);
-  const { overlay, exists } = await loadCaseOverlay(db, id, c.var.viewer.organizationId);
-  if (!exists) return { ok: false, status: 404, code: "not_found" };
-  const objectKey = resolveObjectKey(overlay, docKey);
-  if (!objectKey) return { ok: false, status: 409, code: "not_ready" };
-  return { ok: true, objectKey };
+  const org = c.var.viewer.organizationId;
+  if (!(await caseExistsInOrg(db, id, org))) return { ok: false, status: 404, code: "not_found" };
+  const doc = await currentExtractedDocument(db, id, org, docKey);
+  if (!doc) return { ok: false, status: 409, code: "not_ready" };
+  return { ok: true, objectKey: doc.r2_key, contentType: doc.content_type };
 }
 
 /** Production path: a short-TTL presigned remote-R2 GET URL. */
@@ -109,6 +95,7 @@ async function presignedUrlResponse(
   c: DocContext,
   objectKey: string,
   docKey: DocumentKey,
+  contentType: string,
   creds: NonNullable<ReturnType<typeof readR2Creds>>,
 ): Promise<Response> {
   try {
@@ -124,6 +111,7 @@ async function presignedUrlResponse(
       url: signed.url,
       expiresInSeconds: PRESIGN_TTL_SECONDS,
       docKey,
+      contentType,
     });
     return c.json(body);
   } catch (error) {
@@ -142,7 +130,8 @@ export const documentsRoutes = new Hono<{
     const resolved = await resolveDocObjectKey(c, id, docKey);
     if (!resolved.ok) return c.json(docErrorBody(resolved.code), resolved.status);
     const creds = readR2Creds(c.env);
-    if (creds) return presignedUrlResponse(c, resolved.objectKey, docKey, creds);
+    if (creds)
+      return presignedUrlResponse(c, resolved.objectKey, docKey, resolved.contentType, creds);
     /**
      * No presign creds → local Miniflare dev. There is no R2 presign endpoint
      * locally, so hand back a same-origin raw-serve path the Worker streams
@@ -152,6 +141,7 @@ export const documentsRoutes = new Hono<{
       url: `/api/cases/${id}/documents/${docKey}/raw`,
       expiresInSeconds: PRESIGN_TTL_SECONDS,
       docKey,
+      contentType: resolved.contentType,
     });
     return c.json(body);
   })
@@ -163,7 +153,7 @@ export const documentsRoutes = new Hono<{
     if (!object) return c.json(docErrorBody("not_ready"), 404);
     const bytes = await object.arrayBuffer();
     const headers = new Headers();
-    headers.set("Content-Type", object.httpMetadata?.contentType ?? "application/octet-stream");
+    headers.set("Content-Type", object.httpMetadata?.contentType ?? resolved.contentType);
     headers.set("Cache-Control", "private, max-age=300");
     return new Response(bytes, { headers });
   });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RoleEnum } from "./role.ts";
 
 /** Response shape for `GET /api/me`. */
 export const MeResponseSchema = z
@@ -7,7 +8,7 @@ export const MeResponseSchema = z
       .object({
         id: z.string(),
         email: z.string(),
-        role: z.enum(["reviewer", "admin"]),
+        role: RoleEnum,
         activeOrganizationId: z.string().nullable(),
       })
       .strict(),

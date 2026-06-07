@@ -4,7 +4,7 @@
  * `usePolicyClause`. Errors fall back to a "not found" state with a
  * copy-clause-ID button.
  */
-import { Copy, Loader2 } from "lucide-react";
+import { Copy, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import type { PolicyClauseSource } from "@mizan/shared";
 import { Button } from "@/components/ui/button.tsx";
@@ -58,7 +58,7 @@ export function CitationDrawer({
         <SheetHeader className="space-y-3 text-left">
           <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             <span>{sourceLabel(source)}</span>
-            <span className="font-mono text-foreground/80 tabular">{clauseId}</span>
+            <span className="font-numeric text-foreground/80">{clauseId}</span>
           </div>
           <SheetTitle className="text-xl font-semibold tracking-tight">
             {query.data?.title ?? COPY.citations.drawerTitle}
@@ -69,7 +69,7 @@ export function CitationDrawer({
         </SheetHeader>
         {query.isPending ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
+            <LoaderCircle className="size-4 animate-spin" />
             {COPY.documents.loadingLabel}
           </div>
         ) : null}

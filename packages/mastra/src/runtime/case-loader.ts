@@ -1,11 +1,17 @@
-import { cases, eq, makeDb } from "@mizan/db";
-import type { Case } from "@mizan/db";
+import { cases, currentExtractedKeys, eq, makeDb } from "@mizan/db";
+import type { Case, ExtractedDocumentKeys } from "@mizan/db";
 import type { CloudflareBindings } from "@mizan/shared";
 import { CaseOverlaySchema, type CaseOverlay } from "@mizan/shared";
 
 export type CaseRow = Case;
 
-export type CaseContext = CaseRow & CaseOverlay;
+/**
+ * The case row + campaign overlay + current evidence keys. `r2_keys` is the
+ * latest R2 key per extraction slot, read from the `documents` table at load
+ * time (not the overlay) — so every extraction step keeps reading
+ * `caseRow.r2_keys.<slot>` against the current version with zero step changes.
+ */
+export type CaseContext = CaseRow & CaseOverlay & { readonly r2_keys: ExtractedDocumentKeys };
 
 const CASE_CONTEXT_CACHE = new WeakMap<CloudflareBindings, Map<string, Promise<CaseContext>>>();
 
@@ -50,7 +56,8 @@ function getCacheBucket(env: CloudflareBindings): Map<string, Promise<CaseContex
 async function uncachedLoad(env: CloudflareBindings, caseId: string): Promise<CaseContext> {
   const row = await loadCaseRow(env, caseId);
   const overlay = parseCaseOverlay(caseId, row.brief_partial_json);
-  return { ...row, ...overlay };
+  const r2_keys = await currentExtractedKeys(makeDb(env.DB), caseId, row.organization_id);
+  return { ...row, ...overlay, r2_keys };
 }
 
 /**

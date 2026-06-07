@@ -28,6 +28,12 @@ export const DocumentUrlResponseSchema = z
     url: DocumentSrcSchema,
     expiresInSeconds: z.number().int().min(60).max(3600),
     docKey: DocumentKeyEnum,
+    /**
+     * The stored R2 content type (e.g. `application/pdf`, `image/png`). The
+     * raw-serve URL has no file extension, so the viewer picks PDF vs image
+     * from this, never from the URL path.
+     */
+    contentType: z.string().min(1),
   })
   .strict();
 

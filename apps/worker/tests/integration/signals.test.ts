@@ -7,8 +7,8 @@
  *   newest `recorded_at` is returned.
  * - Multiple distinct signal_types: both appear in response.
  * - Empty case: no signals seeded → `{ signals: [] }`.
- * - Org-scoping: a signal in a different org is invisible to the viewer,
- *   returning 200 with an empty signals array (no 404 branch in the route).
+ * - Org-scoping: a case in another org is blocked by the per-case access gate
+ *   (requireCaseAccess) with a 404 — no cross-tenant existence leak.
  * - Schema: every response validates against CaseSignalsResponseSchema.
  */
 
@@ -264,15 +264,13 @@ describe("GET /api/cases/:id/signals", () => {
     expect(body.signals).toEqual([]);
   });
 
-  it("signals seeded under a different org are not visible to the viewer (org-scoping)", async () => {
+  it("a case in another org returns 404 — the access gate blocks cross-tenant reads", async () => {
     const res = await exports.default.fetch(
       new Request(`${BASE}/api/cases/${CASE_OTHER_ORG_ID}/signals`, {
         headers: { Cookie: cookie },
       }),
     );
-    expect(res.status).toBe(200);
-    const body = CaseSignalsResponseSchema.parse(await res.json());
-    expect(body.signals).toEqual([]);
+    expect(res.status).toBe(404);
   });
 
   it("the other-org viewer sees their own signal on the same case", async () => {

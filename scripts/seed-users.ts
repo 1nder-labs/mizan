@@ -68,9 +68,43 @@ async function inviteReviewer(adminCookie: string): Promise<void> {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readActiveOrgId(payload: unknown): string | null {
+  if (!isRecord(payload)) return null;
+  const user = payload["user"];
+  if (!isRecord(user)) return null;
+  const id = user["activeOrganizationId"];
+  return typeof id === "string" ? id : null;
+}
+
+/**
+ * Resolves the seeded admin's active organization id via `/api/me`. That org
+ * is the single designated review org; the dev pastes it into
+ * `REVIEW_ORG_ID` so client self-signups join it (see U2).
+ */
+async function fetchReviewOrgId(adminCookie: string): Promise<string | null> {
+  const res = await fetch(`${BASE}/api/me`, { headers: { Cookie: adminCookie } });
+  if (!res.ok) return null;
+  const payload: unknown = await res.json();
+  return readActiveOrgId(payload);
+}
+
 await signUp(ADMIN);
 const adminCookie = await signIn(ADMIN);
 await inviteReviewer(adminCookie);
 await signUp(REVIEWER);
 console.log(`seeded ${ADMIN.email} (admin org owner)`);
 console.log(`seeded ${REVIEWER.email} (reviewer via invite)`);
+
+const reviewOrgId = await fetchReviewOrgId(adminCookie);
+if (reviewOrgId) {
+  console.log(`review org id: ${reviewOrgId}`);
+  console.log(
+    `→ set REVIEW_ORG_ID=${reviewOrgId} in apps/worker/.dev.vars, then restart the worker so client signups can join it`,
+  );
+} else {
+  console.log("could not resolve review org id — sign in as admin and read /api/me");
+}

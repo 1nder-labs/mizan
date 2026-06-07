@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `signup_kind` text DEFAULT 'internal' NOT NULL;

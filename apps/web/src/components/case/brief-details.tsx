@@ -88,11 +88,12 @@ function PolicyCitationsTab({ payload }: { readonly payload: BriefPayload }): Re
   return (
     <ul className="space-y-3 text-sm">
       {payload.policy_citations.map((citation) => (
-        <li key={citation.clauseId} className="rounded-md border border-border/70 bg-muted/40 p-3">
+        <li key={citation.clauseId} className="rounded-xl border border-border/70 bg-muted/30 p-3">
           <div className="flex items-center gap-2">
             <CitationChip clauseId={citation.clauseId} source={citation.source} />
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              relevance {(citation.relevance * 100).toFixed(0)}%
+              relevance{" "}
+              <span className="font-numeric">{(citation.relevance * 100).toFixed(0)}%</span>
             </span>
           </div>
           <p className="mt-2 text-foreground">
@@ -131,7 +132,7 @@ export function BriefDetailTabs({
 }): React.JSX.Element {
   return (
     <Card className="border-border/80 shadow-elev-1">
-      <CardContent className="p-4">
+      <CardContent className="p-4 pt-4">
         <Tabs defaultValue="missing">
           <TabsList>
             <TabsTrigger value="missing">Missing docs ({payload.missing_docs.length})</TabsTrigger>

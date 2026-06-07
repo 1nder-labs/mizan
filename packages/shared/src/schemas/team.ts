@@ -1,8 +1,17 @@
 import { z } from "zod";
+import { RoleEnum } from "./role.ts";
 
 /** Shared contracts for the team-management surface — Phase 7.6 U4. */
 
-export const TeamRoleEnum = z.enum(["reviewer", "admin"]);
+/**
+ * Team membership + invitation roles. A meaningful SUBSET of `RoleEnum` —
+ * `client` is excluded: clients self-signup via the portal and are never team
+ * members (`listTeamMembers` filters them out, the invite UI offers only
+ * reviewer/admin, and accept redirects to the reviewer queue). Narrowing here
+ * also closes the invite contract so an admin cannot mint a `client`-role
+ * invitation through the team surface.
+ */
+export const TeamRoleEnum = RoleEnum.exclude(["client"]);
 export type TeamRole = z.infer<typeof TeamRoleEnum>;
 
 export const TeamMemberSchema = z

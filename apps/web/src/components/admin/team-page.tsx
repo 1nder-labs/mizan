@@ -17,17 +17,17 @@ import { InvitationDialog } from "./team-invite-dialog.tsx";
 
 function MemberRow({ member }: { readonly member: TeamMember }): React.JSX.Element {
   return (
-    <tr className="border-b border-border/40 last:border-b-0">
-      <td className="px-4 py-3">
+    <tr className="border-b border-border/40 transition-colors hover:bg-muted/30 last:border-b-0">
+      <td className="px-4 py-3.5">
         <p className="text-sm font-medium text-foreground">{member.name}</p>
-        <p className="text-xs text-muted-foreground">{member.email}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{member.email}</p>
       </td>
-      <td className="px-4 py-3">
-        <span className="rounded-full border border-border/60 bg-muted px-2 py-0.5 text-[10px] uppercase tracking-[0.18em]">
+      <td className="px-4 py-3.5">
+        <span className="rounded-full border border-border/60 bg-muted px-2.5 py-0.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           {member.role}
         </span>
       </td>
-      <td className="px-4 py-3 text-right text-xs text-muted-foreground tabular">
+      <td className="px-4 py-3.5 text-right font-mono text-xs font-numeric tabular text-muted-foreground">
         {formatMediumDateTime(member.createdAt)}
       </td>
     </tr>
@@ -44,15 +44,21 @@ function InvitationRow({
   const url = `${window.location.origin}/invite/${inv.token}`;
   const accepted = inv.acceptedAt !== null;
   return (
-    <tr className="border-b border-border/40 last:border-b-0">
-      <td className="px-4 py-3 text-sm">{inv.email}</td>
-      <td className="px-4 py-3 text-sm capitalize">{inv.role}</td>
-      <td className="px-4 py-3 text-xs text-muted-foreground tabular">
+    <tr className="border-b border-border/40 transition-colors hover:bg-muted/30 last:border-b-0">
+      <td className="px-4 py-3.5 text-sm">{inv.email}</td>
+      <td className="px-4 py-3.5">
+        <span className="rounded-full border border-border/60 bg-muted px-2.5 py-0.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          {inv.role}
+        </span>
+      </td>
+      <td className="px-4 py-3.5 font-mono text-xs font-numeric tabular text-muted-foreground">
         {accepted ? "Accepted" : formatMediumDateTime(inv.expiresAt)}
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-4 py-3.5 text-right">
         {accepted ? (
-          <span className="text-[10px] uppercase tracking-[0.22em] text-emerald-600">Accepted</span>
+          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            Accepted
+          </span>
         ) : (
           <Button
             variant="ghost"
@@ -77,7 +83,7 @@ function InvitationsTable({
   const items = useMemo(() => data?.invitations ?? [], [data]);
   if (items.length === 0) {
     return (
-      <p className="rounded-md border border-dashed border-border/40 bg-card/60 p-6 text-center text-sm text-muted-foreground">
+      <p className="px-6 py-8 text-center text-sm text-muted-foreground">
         No outstanding invitations.
       </p>
     );
@@ -85,11 +91,11 @@ function InvitationsTable({
   return (
     <table className="w-full">
       <thead>
-        <tr className="border-b border-border/40 bg-muted/30 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          <th className="px-4 py-2 text-left">Email</th>
-          <th className="px-4 py-2 text-left">Role</th>
-          <th className="px-4 py-2 text-left">Expires</th>
-          <th className="px-4 py-2 text-right">Link</th>
+        <tr className="border-b border-border/50 bg-muted/30 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          <th className="px-4 py-2.5 text-left font-normal">Email</th>
+          <th className="px-4 py-2.5 text-left font-normal">Role</th>
+          <th className="px-4 py-2.5 text-left font-normal">Expires</th>
+          <th className="px-4 py-2.5 text-right font-normal">Link</th>
         </tr>
       </thead>
       <tbody>
@@ -103,17 +109,19 @@ function InvitationsTable({
 
 function MembersCard({ members }: { readonly members: readonly TeamMember[] }): React.JSX.Element {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Members</CardTitle>
+    <Card className="overflow-hidden shadow-elev-1">
+      <CardHeader className="border-b border-border/50 px-5 py-4">
+        <CardTitle className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Members
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-border/40 bg-muted/30 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              <th className="px-4 py-2 text-left">Member</th>
-              <th className="px-4 py-2 text-left">Role</th>
-              <th className="px-4 py-2 text-right">Joined</th>
+            <tr className="border-b border-border/50 bg-muted/30 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              <th className="px-4 py-2.5 text-left font-normal">Member</th>
+              <th className="px-4 py-2.5 text-left font-normal">Role</th>
+              <th className="px-4 py-2.5 text-right font-normal">Joined</th>
             </tr>
           </thead>
           <tbody>
@@ -135,9 +143,9 @@ function LastInviteBanner({
   readonly onReveal: (url: string) => void;
 }): React.JSX.Element {
   return (
-    <Card className="border-foreground/20 bg-foreground/[0.04]">
-      <CardContent className="flex items-center justify-between gap-4 py-3">
-        <code className="truncate text-xs">{url}</code>
+    <Card className="border-border/60 bg-muted/40 shadow-elev-1">
+      <CardContent className="flex items-center justify-between gap-4 px-5 py-3">
+        <code className="font-mono font-numeric truncate text-xs text-muted-foreground">{url}</code>
         <Button
           variant="ghost"
           size="sm"
@@ -159,8 +167,8 @@ export function AdminTeamPage(): React.JSX.Element {
     <AuthenticatedShell context="Team management">
       <section className="mx-auto max-w-5xl space-y-8 px-6 py-8">
         <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
+          <div className="space-y-1">
+            <h1 className="text-display text-3xl font-semibold tracking-tight">Team</h1>
             <p className="text-sm text-muted-foreground">
               Members + outstanding invitations. Invite by generating a shareable link.
             </p>
@@ -169,9 +177,11 @@ export function AdminTeamPage(): React.JSX.Element {
         </header>
         {lastInviteUrl ? <LastInviteBanner url={lastInviteUrl} onReveal={setFallbackUrl} /> : null}
         <MembersCard members={members.data?.members ?? []} />
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Invitations</CardTitle>
+        <Card className="overflow-hidden shadow-elev-1">
+          <CardHeader className="border-b border-border/50 px-5 py-4">
+            <CardTitle className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              Invitations
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <InvitationsTable onReveal={setFallbackUrl} />

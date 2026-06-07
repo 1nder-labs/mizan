@@ -47,17 +47,30 @@ function sqlEscape(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+const SEED_DOC_KINDS = ["creator_id", "bank_statement", "category_doc"] as const;
+
+/** Deterministic `documents` rows pointing at the seed's fixture R2 keys (idempotent). */
+function documentInserts(seed: SeedCase, organizationId: string, ts: number): string {
+  return SEED_DOC_KINDS.map((kind) => {
+    const id = `${seed.id}-${kind}`;
+    const key = sqlEscape(seed.r2_keys[kind]);
+    return `INSERT INTO documents (id, case_id, doc_kind, r2_key, filename, content_type, uploaded_at, organization_id)
+VALUES ('${id}', '${seed.id}', '${kind}', '${key}', '', 'image/png', ${ts}, '${organizationId}') ON CONFLICT(id) DO NOTHING;`;
+  }).join("\n");
+}
+
 async function seedCase(seed: SeedCase, adminId: string, organizationId: string): Promise<void> {
   const overlay = CaseOverlaySchema.parse({
     story: seed.story,
     organizer_name: seed.organizer_name,
-    r2_keys: seed.r2_keys,
     ...(seed.vouching_narrative ? { vouching_narrative: seed.vouching_narrative } : {}),
   });
   const overlayJson = sqlEscape(JSON.stringify(overlay));
+  const ts = Date.now();
   const sql = `INSERT INTO cases (id, status, title, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
-VALUES ('${seed.id}', '${seed.status}', '${sqlEscape(seed.title)}', '${seed.category}', '${seed.geography}', '${seed.claimed_zakat_category}', '${overlayJson}', '${adminId}', '${organizationId}', ${Date.now()}, ${Date.now()})
-ON CONFLICT(id) DO NOTHING;`;
+VALUES ('${seed.id}', '${seed.status}', '${sqlEscape(seed.title)}', '${seed.category}', '${seed.geography}', '${seed.claimed_zakat_category}', '${overlayJson}', '${adminId}', '${organizationId}', ${ts}, ${ts})
+ON CONFLICT(id) DO NOTHING;
+${documentInserts(seed, organizationId, ts)}`;
   const proc = Bun.spawn(["bunx", "wrangler", "d1", "execute", "DB", "--local", "--command", sql], {
     cwd: "apps/worker",
     stdout: "pipe",

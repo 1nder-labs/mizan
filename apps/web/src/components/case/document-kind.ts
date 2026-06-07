@@ -1,14 +1,10 @@
 /**
- * Sniffs whether a presigned document URL points at a PDF or an image,
- * by file extension on the URL path. Pure + dependency-free so it stays
- * unit-testable without pulling the react-pdf viewer chunk.
+ * Picks whether a document is a PDF or an image from its stored content type
+ * (e.g. `application/pdf`, `image/png`). The raw-serve URL has no file
+ * extension, so the content type — not the URL path — is the source of truth.
+ * Pure + dependency-free so it stays unit-testable without the react-pdf chunk.
  */
-export function classifyDocumentKind(url: string | null): "pdf" | "image" {
-  if (!url) return "image";
-  try {
-    const parsed = new URL(url);
-    return parsed.pathname.toLowerCase().endsWith(".pdf") ? "pdf" : "image";
-  } catch {
-    return "image";
-  }
+export function classifyDocumentKind(contentType: string | null): "pdf" | "image" {
+  if (!contentType) return "image";
+  return contentType.toLowerCase().includes("pdf") ? "pdf" : "image";
 }

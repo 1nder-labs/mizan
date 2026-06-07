@@ -7,7 +7,18 @@
  *
  * Add new label maps here when a new enum surfaces — never inline.
  */
-import type { CaseStatus, GeographyTier, VerificationPath } from "@mizan/shared";
+import {
+  countryName,
+  type CaseStatus,
+  type GeographyTier,
+  type VerificationPath,
+} from "@mizan/shared";
+
+/** "Pakistan (PK)" — full country name with its code, or just the code if unknown. */
+export function formatCountry(code: string): string {
+  const name = countryName(code);
+  return name === code ? code : `${name} (${code})`;
+}
 
 export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
   DRAFT: "Draft",
