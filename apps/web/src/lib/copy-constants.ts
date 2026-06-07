@@ -39,8 +39,6 @@ export const COPY = {
     clientSubmitted: "The creator submitted this campaign through the client portal (not a seed).",
     actionTypes:
       "Approve clears it. Request docs asks the creator for more. Escalate sends it for further review. Block declines it. Every action is logged and becomes an eval case.",
-    clientStatus:
-      "A plain-language version of where your campaign is in review — it never exposes the internal brief or scores.",
   },
   notifications: {
     open: "Notifications",

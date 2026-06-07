@@ -19,7 +19,6 @@ import { IntakeForm } from "@/components/portal/intake-form.tsx";
 import { EvidencePanel } from "@/components/portal/evidence-panel.tsx";
 import { NoteThread } from "@/components/portal/note-thread.tsx";
 import { ClientNoteComposer } from "@/components/portal/note-composer.tsx";
-import { InfoHint } from "@/components/ui/info-hint.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -85,7 +84,6 @@ function DetailHeader({
         <div className="mt-2 flex items-center gap-2">
           <h1 className="text-3xl font-semibold text-display">{detail.organizerName}</h1>
           <ClientStatusBadge status={detail.status} />
-          <InfoHint label={COPY.hints.clientStatus} />
         </div>
       </div>
       {detail.status === "submitted" || detail.status === "draft" ? (
