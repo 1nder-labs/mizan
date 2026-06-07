@@ -49,7 +49,7 @@ Skills the demo must visibly prove:
 - Tool use — typed tools called inside Mastra steps (doc extractors, registry lookups, drafted-message generator)
 - Streaming — Mastra workflow `.stream()` → AI SDK UI message parts → live reviewer UI
 - HITL — explicit `.suspend()` at the reviewer gate; `.resume()` with the reviewer action
-- Tracing + observability — `@mastra/observability` shipping traces to local Langfuse; demo video shows the dashboard
+- Tracing + observability — `@mastra/observability` shipping traces to Langfuse Cloud; demo video shows the dashboard
 - Eval harness — Vitest spec running locally against seeded gold set; provider-swap regression check
 - Agnostic LLM — provider factory works across Anthropic, OpenAI, OpenRouter via env-var switch
 
@@ -65,7 +65,7 @@ Skills the demo must visibly prove:
 8. **No multi-tenant or org-modeling complexity in the demo.** Two roles only: reviewer + admin. — **Amended:** multi-tenant org-scoping landed in Phase 7.7 (orgs/members/invitations). A third `client` role is added by the client-campaign-portal feature, so the role set is **reviewer + admin + client** (client is RBAC-scoped to its own campaigns within the single review org).
 9. **No production-grade auth flows in the demo** (invite flows, SSO, billing). `better-auth-cloudflare` w/ D1 + KV + R2 + email/password is sufficient.
 10. **No provider lock-in.** Every LLM call routes through the provider factory (`getModel({provider, model})`); swap by env var.
-11. **No external infrastructure beyond LLM providers.** Storage, compute, vector search, object storage, queues, auth — all Cloudflare-native. Langfuse runs locally only (Docker), not in production.
+11. **No external infrastructure beyond LLM providers + the managed Langfuse Cloud trace sink.** Storage, compute, vector search, object storage, queues, auth — all Cloudflare-native. The Langfuse exporter is fail-closed (OFF unless all three credentials are set), so it adds no mandatory production dependency.
 12. **No four-agent architecture theatre.** Single Mastra workflow with layered steps. Each layer is one Mastra `createStep`, not a separate "agent" for marketing.
 
 ## 5. Success metrics
@@ -371,7 +371,7 @@ _Other:_
 - zod schemas: NO `.min()` / `.max()` / `.regex()` on Anthropic/OpenAI strict-mode fields — clamp + validate post-parse in TypeScript helpers (`src/lib/clamp.ts`)
 - Multimodal input as `Uint8Array` buffers (not base64) to save Workers memory
 - Small/fast models (`claude-haiku-4-5`, `gpt-4o-mini`) for deterministic extractions; reasoning model only for `composeBrief`
-- **Langfuse observability contract (wired here, dashboarded in Phase 8):** every Mastra workflow run + every nested AI SDK call ships through the Mastra-native `@mastra/langfuse` exporter so Phase 8 only has to start the local Docker stack + set `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` to light up the trace tree. Pattern verified against `/mastra-ai/mastra` 2026-05 (`observability/langfuse/README.md`).
+- **Langfuse observability contract (wired here, dashboarded in Phase 8):** every Mastra workflow run + every nested AI SDK call ships through the Mastra-native `@mastra/langfuse` exporter so Phase 8 only has to set the Langfuse Cloud keys (`LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST`) in `.dev.vars` to light up the trace tree. Pattern verified against `/mastra-ai/mastra` 2026-05 (`observability/langfuse/README.md`).
 
   **(1) `Mastra({ observability })` is the single wiring point.** `createMastra(env)` in `packages/mastra/src/index.ts` constructs `new Observability({ configs: { langfuse: { serviceName: "mizan", exporters: [new LangfuseExporter({...})] } } })` per request and hands it to the `Mastra` constructor. There is no manual `registerOTel`, no `@vercel/otel`, and no `langfuse-vercel` — Mastra owns the OTel pipeline end-to-end:
 
@@ -437,7 +437,7 @@ _Other:_
 
   **(8) Reviewer-action continuation (forward-compat for Phase 7):** Phase 7's HITL `suspend()` / `resume()` carries the OTel trace context through Mastra's D1-backed durable workflow state. The reviewer action lands on the same trace identified by `runId` because Mastra's observability pipeline reconstructs the parent context on resume. Verify in Phase 7 integration test that a suspend+resume produces ONE Langfuse trace, not two.
 
-  **(9) Cost extraction.** Each `generation` span auto-gets cost computed from `model` + `usageDetails`. Langfuse maintains a per-provider pricing table; for self-hosted, drop a `models.json` into the Langfuse project to keep cost accurate for `claude-haiku-4-5`, `gpt-4o-mini`, `claude-opus-4-7`, etc. The `@mizan/eval` cost ledger asserts (in Phase 9) that per-run cost reported by Langfuse matches the eval-side ledger within 5%.
+  **(9) Cost extraction.** Each `generation` span auto-gets cost computed from `model` + `usageDetails`. Langfuse Cloud ships built-in prices for known models; for any model not yet in Langfuse's list, add a custom model definition in the project's Models UI. The `@mizan/eval` cost ledger asserts (in Phase 9) that per-run cost reported by Langfuse matches the eval-side ledger within 5%.
 
 **Tests (per §7.11):**
 
@@ -984,13 +984,13 @@ Fresh signup → admin of own org → empty queue. Invited signup → reviewer i
 
 ---
 
-### Phase 8 — Observability (@mastra/observability + local Langfuse)
+### Phase 8 — Observability (@mastra/langfuse → managed Langfuse Cloud)
 
-**Goal:** Every Mastra step + every LLM call shows in a local Langfuse trace tree with token + cost auto-extracted. No production dependency.
+**Goal:** Every Mastra step + every LLM call shows in a Langfuse Cloud trace tree with token + cost auto-extracted. Exporter is fail-closed (OFF unless all three credentials are set); integration tests force `LANGFUSE_HOST=""` so no traces ship to the cloud project during CI.
 
 **Force-read (internal — MUST read before implementing):**
 
-- [ ] §7.7 Langfuse local-only setup — Docker compose + LANGFUSE_HOST env var
+- [ ] §7.7 Langfuse Cloud setup — LANGFUSE_HOST/keys in `.dev.vars` + fail-closed gate
 - [ ] §12 Best-practices checklist — Vercel AI SDK telemetry section (experimental_telemetry shape, metadata fields, isEnabled conditional)
 - [ ] Phase 2 — `experimental_telemetry` contract was set in Phase 2; this phase wires it up
 
@@ -1133,12 +1133,12 @@ Fresh signup → admin of own org → empty queue. Invited signup → reviewer i
   - `docs/why-mastra.md`
   - `docs/why-cloudflare.md`
   - `docs/provider-factory.md`
-  - `docs/local-dev.md` (covers `wrangler dev` + Docker Langfuse + seeded users)
+  - `docs/local-dev.md` (covers `wrangler dev` + Langfuse Cloud keys + seeded users)
 - `wrangler deploy` to `mizan.<slug>.workers.dev`
 - Demo video recorded (Loom or local) ≤5min covering: problem framing, live brief streaming, HITL suspend/resume, Langfuse trace tree, eval spec run, provider swap demonstration
 - Architecture diagram extracted from §7.5 + §7.8 Mermaid into a 1-page PDF
 - Resumable brief streaming via a Durable-Object-backed resumable-stream store: a reviewer opening (or reloading) a RUNNING case reconnects to the in-flight brief token stream instead of the current 409 + poll-until-persisted behavior. Server exposes a `GET /api/cases/:id/brief/stream` resume route reading the run's `activeStreamId`; client uses `useChat({ resume: true })`. Mastra `resumeStream` covers HITL-resume only, not stream-rejoin — the DO is the Workers-native substitute for the AI SDK resumable-stream Redis store. Until shipped, the real-time SSE event bus (Phase 7.7) surfaces step-level progress from the `workflow_events` tape.
-- Langfuse span input/output masking before any non-local `LANGFUSE_HOST` is configured: configure the `@mastra/langfuse` exporter (or a Mastra span processor) to strip campaign PII — bank-statement text, creator/beneficiary IDs, `reviewer_email`, and brief `payload_json` — from span `input`/`output` before egress. Phase 8 ships local-only with the fail-closed credential gate (`LANGFUSE_HOST=""` → exporter null) as the interim guard; this bullet is the prerequisite that must land before production telemetry is ever pointed at a remote endpoint. (Surfaced in the Phase 8 review.)
+- Langfuse span input/output masking before production telemetry is pointed at a real Langfuse Cloud project: configure the `@mastra/langfuse` exporter (or a Mastra span processor) to strip campaign PII — bank-statement text, creator/beneficiary IDs, `reviewer_email`, and brief `payload_json` — from span `input`/`output` before egress. Phase 8 ships with the fail-closed credential gate (`LANGFUSE_HOST=""` → exporter null) + integration tests forced OFF as the interim guard; this bullet is the prerequisite that must land — with LaunchGood compliance sign-off — before any project is pointed at real applicant data. (Surfaced in the Phase 8 review.)
 - Migration deploy-safety hardening before the production `wrangler deploy`: the Phase 7.7 org-foundation migrations (`0007`/`0008`) include an `organization_id ADD COLUMN NOT NULL` without a backfill default and a `users.role` DROP. These applied cleanly to empty/reset local D1 throughout Phases 0–9, but the first real production deploy must guard against non-empty-table failure: add an explicit backfill/default step (or split add-nullable → backfill → set-not-null) and confirm no production data exists for the dropped column. Verify each migration against a non-empty D1 snapshot before the deploy. (Surfaced in the PR #12 review as finding #13 — real but premature; production data does not exist until this phase.)
 - Portal write-endpoint rate limiting: `/api/portal/*` mutations (campaign create, evidence upload, note writes) have no per-user rate limit — better-auth's `rateLimit` only covers its own `/api/auth/*` routes (sign-in/up are already capped). An authenticated client could spam DRAFT-case + R2-object creation. Add a KV-backed per-user limiter (reuse the `KV` binding + the 60s-window pattern) as middleware on the portal router before the production deploy. (Surfaced in the client-portal review as finding #8 — a real authed-abuse vector, not a blocker for the local dev surface.)
 - Role-enum single source of truth: the `reviewer | admin | client` enum is hand-declared in 5+ places (`packages/shared` viewer/team/me/case-note schemas + `apps/worker` `role-utils`). Derive one canonical `RoleEnum` (ideally from the `members.role` drizzle column via drizzle-zod) and import it everywhere so a future role can't drift across surfaces. (Surfaced in the client-portal review as finding #16 — a cross-cutting refactor across every importing package; routed here to avoid bloating the feature PR.)
@@ -1419,7 +1419,7 @@ await generateObject({
 c.executionCtx.waitUntil(langfuse?.flush() ?? Promise.resolve());
 ```
 
-Demo video records the local Langfuse dashboard showing the trace tree for a brief generation: classifyCampaign → extract-id → extract-bank → extract-category-docs → extract-story → compose-brief, with per-step latency and token cost rolled up automatically by `@mastra/langfuse`. This is how the candidate proves "evaluation framework + observability" without shipping a vendor dependency to production.
+Demo video records the Langfuse Cloud dashboard showing the trace tree for a brief generation: classifyCampaign → extract-id → extract-bank → extract-category-docs → extract-story → compose-brief, with per-step latency and token cost rolled up automatically by `@mastra/langfuse`. The fail-closed exporter adds no mandatory production dependency by default.
 
 ## 7.7.5 Client state architecture (where every kind of state lives)
 
@@ -1453,7 +1453,7 @@ Honest list of dependencies that look tempting but don't earn their slot in this
 | **Cloudflare Workers AI**              | Rejected as primary | Provider-agnostic factory targets Anthropic + OpenAI + OpenRouter. Workers AI could be one more provider plugged into the factory if cost optimization demands it, but it's not the default — the goal is showing provider-agnostic substrate.                                                                                                                                                                                                                    |
 | **Hyperdrive**                         | Rejected            | We use D1 (SQLite), not external Postgres/MySQL. Hyperdrive only matters if connecting to an external relational DB.                                                                                                                                                                                                                                                                                                                                              |
 | **Cloudflare Workflows (the product)** | Rejected as primary | Mastra workflows persisted to D1 via `@mastra/cloudflare-d1` are our durable execution layer. Cloudflare Workflows is a separate product and would duplicate Mastra's durability model. Reserve it for the case where a single Mastra step exceeds Worker CPU budget — has not appeared in our brief shape.                                                                                                                                                       |
-| **Sentry / Datadog**                   | Rejected for demo   | Cloudflare Observability (built-in) + local Langfuse cover the demo's needs. Production might add Sentry; not required to show the skill.                                                                                                                                                                                                                                                                                                                         |
+| **Sentry / Datadog**                   | Rejected for demo   | Cloudflare Observability (built-in) + Langfuse Cloud cover the demo's needs. Production might add Sentry; not required to show the skill.                                                                                                                                                                                                                                                                                                                         |
 
 ## 7.8 Ingestion queue (the "as new cases arrive" question)
 
@@ -1883,19 +1883,19 @@ tests/
 
 ## 8. Risks + mitigations
 
-| Risk                                                                                            | Likelihood            | Impact                            | Mitigation                                                                                                                                                                                                                                     |
-| ----------------------------------------------------------------------------------------------- | --------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Worker CPU budget (30s std / 5min paid) exceeded on a heavy brief                               | Low                   | High                              | Mode B background path uses Cloudflare Workflows / Queues with no per-request CPU ceiling. Mode A streaming responses complete in <8s on the 5 seeded cases. Per-case timeout fallback: enqueue to Queue and respond with "processing" status. |
-| Vectorize cold start or quota throttling                                                        | Low                   | Medium                            | Pre-warm at deploy; policy corpus is small (LaunchGood Zakat policy + Safety policy ≈ 50 chunks). Embeddings generated once at deploy.                                                                                                         |
-| D1 region locality (each binding pinned to a region)                                            | Low                   | Low                               | All demo traffic from one reviewer; latency irrelevant at this scale. Production move = monitor read latency by region.                                                                                                                        |
-| Document extraction quality on seeded fake docs is unconvincing                                 | Medium                | High                              | Use realistic seed data (anonymized public examples, generated docs that look like real hospital bills/IDs). Test extractors first; scope down to 3-4 fields per doc type if quality is below 90%.                                             |
-| LaunchGood reads framing as accusatorial despite reframe                                        | Medium                | High                              | Test 0:30 opening on a friend who doesn't know the context. Default opening = "reviewer cognitive load on mechanical work," NOT "the badge is broken."                                                                                         |
-| "Mastra isn't on the JD's framework list" pattern-matches to "candidate doesn't know LangGraph" | Low-Medium            | Medium                            | Explicit `why-mastra.md` doc + 20-second video beat: TS-native, durable workflows on D1, suspend/resume HITL out of the box, Cloudflare deployer official. Skip orchestration only for single-shot prompts.                                    |
-| Reviewer disagrees with AI brief 40%+ of the time → "the AI doesn't actually help"              | Low (on seeded cases) | N/A for demo; flag for production | Demo runs on seeded cases where AI's call is correct. Langfuse trace dashboard surfaces disagreement-rate per agent as the operational metric a future deployment would gate on.                                                               |
-| Cost runs higher than $0.10/brief in production                                                 | Low                   | Medium                            | Deterministic pre-filter handles ~60% before LLM. Langfuse cost-per-trace + Vitest CI gate.                                                                                                                                                    |
-| Recruiter doesn't watch past 2 minutes                                                          | High                  | High                              | First 2 minutes: problem statement (0:30), live demo of brief generation (1:30). Stack opinion + roadmap after demo, not before.                                                                                                               |
-| Mocked external systems look like hand-waving                                                   | Medium                | Medium                            | Explicit "this would be replaced by X in production" callouts in the UI itself, not just the video. Show the mock response shape next to a real-provider URL.                                                                                  |
-| Langfuse local Docker setup adds video-recording friction                                       | Low                   | Low                               | Pre-start Langfuse stack before recording; switch between Mizan + Langfuse tabs in the demo. Local-only is the point — production has no Langfuse dependency.                                                                                  |
+| Risk                                                                                            | Likelihood            | Impact                            | Mitigation                                                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------- | --------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker CPU budget (30s std / 5min paid) exceeded on a heavy brief                               | Low                   | High                              | Mode B background path uses Cloudflare Workflows / Queues with no per-request CPU ceiling. Mode A streaming responses complete in <8s on the 5 seeded cases. Per-case timeout fallback: enqueue to Queue and respond with "processing" status.                                                           |
+| Vectorize cold start or quota throttling                                                        | Low                   | Medium                            | Pre-warm at deploy; policy corpus is small (LaunchGood Zakat policy + Safety policy ≈ 50 chunks). Embeddings generated once at deploy.                                                                                                                                                                   |
+| D1 region locality (each binding pinned to a region)                                            | Low                   | Low                               | All demo traffic from one reviewer; latency irrelevant at this scale. Production move = monitor read latency by region.                                                                                                                                                                                  |
+| Document extraction quality on seeded fake docs is unconvincing                                 | Medium                | High                              | Use realistic seed data (anonymized public examples, generated docs that look like real hospital bills/IDs). Test extractors first; scope down to 3-4 fields per doc type if quality is below 90%.                                                                                                       |
+| LaunchGood reads framing as accusatorial despite reframe                                        | Medium                | High                              | Test 0:30 opening on a friend who doesn't know the context. Default opening = "reviewer cognitive load on mechanical work," NOT "the badge is broken."                                                                                                                                                   |
+| "Mastra isn't on the JD's framework list" pattern-matches to "candidate doesn't know LangGraph" | Low-Medium            | Medium                            | Explicit `why-mastra.md` doc + 20-second video beat: TS-native, durable workflows on D1, suspend/resume HITL out of the box, Cloudflare deployer official. Skip orchestration only for single-shot prompts.                                                                                              |
+| Reviewer disagrees with AI brief 40%+ of the time → "the AI doesn't actually help"              | Low (on seeded cases) | N/A for demo; flag for production | Demo runs on seeded cases where AI's call is correct. Langfuse trace dashboard surfaces disagreement-rate per agent as the operational metric a future deployment would gate on.                                                                                                                         |
+| Cost runs higher than $0.10/brief in production                                                 | Low                   | Medium                            | Deterministic pre-filter handles ~60% before LLM. Langfuse cost-per-trace + Vitest CI gate.                                                                                                                                                                                                              |
+| Recruiter doesn't watch past 2 minutes                                                          | High                  | High                              | First 2 minutes: problem statement (0:30), live demo of brief generation (1:30). Stack opinion + roadmap after demo, not before.                                                                                                                                                                         |
+| Mocked external systems look like hand-waving                                                   | Medium                | Medium                            | Explicit "this would be replaced by X in production" callouts in the UI itself, not just the video. Show the mock response shape next to a real-provider URL.                                                                                                                                            |
+| Langfuse Cloud is third-party SaaS — PII egress risk before masking lands                       | Low                   | High                              | Fail-closed gate: exporter null when any credential absent; integration tests force `LANGFUSE_HOST=""` so CI never ships traces. Phase 10 span input/output masking + LaunchGood compliance sign-off are prerequisites before any project sees real applicant data. Demo uses synthetic seed cases only. |
 
 ## 9. Submission package
 
@@ -1910,7 +1910,7 @@ tests/
 - `docs/why-mastra.md` — "TS-native, durable workflows on D1, native suspend/resume HITL, official Cloudflare deployer. When NOT to use: single-shot prompts."
 - `docs/why-cloudflare.md` — "One platform, one CLI, one billing surface. D1 + R2 + Vectorize + Workflows + Queues + Workers cover every dependency. Zero external infra except LLM providers."
 - `docs/provider-factory.md` — the agnostic LLM thesis with code samples
-- `docs/local-dev.md` — how to run Mizan locally w/ wrangler dev + Langfuse Docker
+- `docs/local-dev.md` — how to run Mizan locally w/ wrangler dev + Langfuse Cloud keys + seeded users
 
 ## 10. Concrete file layout (Bun workspaces monorepo)
 
@@ -2447,7 +2447,7 @@ This is the bar. Every item is enforced in code or surfaced in the demo video. *
 **Observability:**
 
 - Langfuse Vercel AI SDK instrumentation: https://github.com/langfuse/langfuse-docs (context7 `/langfuse/langfuse-docs`)
-- Langfuse self-hosting (Docker): https://langfuse.com/self-hosting
+- Langfuse Cloud OTEL ingestion: https://langfuse.com/docs/opentelemetry/get-started
 
 ## 14. Git workflow + contribution policy
 
