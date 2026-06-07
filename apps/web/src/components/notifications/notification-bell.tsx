@@ -123,9 +123,18 @@ function useNotificationFeed() {
   };
 }
 
-function BellButton({ unread }: { readonly unread: number }): React.JSX.Element {
+function BellButton({
+  unread,
+  ...props
+}: { readonly unread: number } & React.ComponentProps<typeof Button>): React.JSX.Element {
   return (
-    <Button variant="ghost" size="icon" className="relative" aria-label={COPY.notifications.open}>
+    <Button
+      variant="ghost"
+      size="icon"
+      className="relative"
+      aria-label={COPY.notifications.open}
+      {...props}
+    >
       <Bell className="size-4" />
       {unread > 0 ? (
         <m.span

@@ -28,7 +28,6 @@ import { BriefEmptyState } from "./brief-empty.tsx";
 import { BriefInflight } from "./brief-inflight.tsx";
 import { BriefSummaryCard } from "./brief-summary.tsx";
 import { DocumentsPanel } from "./documents-panel.tsx";
-import { CaseMetaCard } from "./meta-card.tsx";
 import { SignalExpansionPanel } from "./signal-expansion-panel.tsx";
 import { StoryPanel } from "./story-panel.tsx";
 import { ReviewerNotesPanel } from "./notes-panel.tsx";
@@ -117,7 +116,6 @@ export function CaseTabs(props: CaseTabsProps): React.JSX.Element {
 
       <TabsContent value="overview" className="animate-section space-y-6">
         <StoryPanel overlay={props.overlay} />
-        <CaseMetaCard caseRow={props.caseRow} />
       </TabsContent>
 
       <TabsContent value="brief" forceMount className="mt-0 data-[state=inactive]:hidden">
