@@ -20,6 +20,14 @@ export const queryKeys = {
     lists: ["cases", "list"] as const,
     list: (search: QueueSearch) => ["cases", "list", search] as const,
     detail: (id: string) => ["cases", "detail", id] as const,
+    /**
+     * Nested UNDER `detail(id)` on purpose: a re-run produces a new brief and a
+     * new case-detail together, so the existing `detail` invalidation
+     * (stream onFinish + workflow-tape) prefix-matches and refreshes the brief
+     * history for free. Notes stay a separate root because they must NOT be
+     * dragged along by a detail refresh.
+     */
+    briefs: (id: string) => ["cases", "detail", id, "briefs"] as const,
     notes: (id: string) => ["cases", "notes", id] as const,
   },
   audit: {

@@ -247,6 +247,13 @@ export {
 } from "./schemas/case-detail.ts";
 
 export {
+  BRIEF_HISTORY_LIMIT,
+  BriefHistoryResponseSchema,
+  type BriefHistoryEntry,
+  type BriefHistoryResponse,
+} from "./schemas/brief-history.ts";
+
+export {
   PortalErrorBodySchema,
   PortalErrorCodeEnum,
   type PortalErrorBody,

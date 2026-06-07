@@ -19,10 +19,12 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   ActionErrorBodySchema,
+  BriefHistoryResponseSchema,
   CaseDetailResponseSchema,
   QueueResponseSchema,
   ReviewerActionResponseSchema,
   type ActionErrorCode,
+  type BriefHistoryResponse,
   type CaseDetailResponse,
   type QueueResponse,
   type QueueSearch,
@@ -83,6 +85,22 @@ export function caseDetailQueryOptions(id: string) {
   return queryOptions<CaseDetailResponse>({
     queryKey: queryKeys.cases.detail(id),
     queryFn: () => fetchCase(id),
+    staleTime: 5_000,
+  });
+}
+
+async function fetchCaseBriefs(id: string): Promise<BriefHistoryResponse> {
+  const res = await api.cases[":id"].briefs.$get({ param: { id } });
+  assertAuthorized(res.status);
+  if (!res.ok) throw await apiError(res);
+  const json = await res.json();
+  return BriefHistoryResponseSchema.parse(json);
+}
+
+export function caseBriefsQueryOptions(id: string) {
+  return queryOptions<BriefHistoryResponse>({
+    queryKey: queryKeys.cases.briefs(id),
+    queryFn: () => fetchCaseBriefs(id),
     staleTime: 5_000,
   });
 }

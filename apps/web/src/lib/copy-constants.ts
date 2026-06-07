@@ -226,6 +226,9 @@ export const COPY = {
   caseBrief: {
     rerunHint: "Re-run the review to compose a fresh brief from the current documents.",
     rerunAction: "Re-run review",
+    versionLabel: "Brief version",
+    viewingPrevious: "You're viewing an earlier brief for this case.",
+    backToLatest: "Back to latest",
   },
   portal: {
     brand: "Mizan",

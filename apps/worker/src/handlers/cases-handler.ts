@@ -10,10 +10,12 @@ import {
   type Db,
 } from "@mizan/db";
 import {
+  BRIEF_HISTORY_LIMIT,
   CaseDetailResponseSchema,
   CaseOverlaySchema,
   LatestBriefProjectionSchema,
   QUEUE_PAGE_SIZE,
+  type BriefHistoryResponse,
   type CaseDetailResponse,
   type CaseOverlay,
   type CaseRow,
@@ -296,6 +298,51 @@ export async function fetchCaseDetail(
     latest_action: lastAction,
   });
   return caseOnly.success ? caseOnly.data : null;
+}
+
+/**
+ * Lists every brief composed for a case (newest run first), bounded by
+ * `BRIEF_HISTORY_LIMIT`. Returns `null` when the case is not visible to the
+ * viewer so the route can 404 — distinct from a visible case that simply has
+ * no briefs yet, which returns `{ briefs: [] }`.
+ */
+export async function fetchBriefHistory(
+  caseId: string,
+  viewer: ViewerContext,
+  db: Db,
+): Promise<BriefHistoryResponse | null> {
+  const caseRow = await db
+    .select({ id: casesTable.id })
+    .from(casesTable)
+    .where(and(eq(casesTable.id, caseId), eq(casesTable.organization_id, viewer.organizationId)))
+    .get();
+  if (!caseRow) return null;
+
+  const rows = await db
+    .select({
+      run_id: briefsTable.run_id,
+      recommendation: briefsTable.recommendation,
+      confidence: briefsTable.confidence,
+      composed_at: briefsTable.composed_at,
+      payload_json: briefsTable.payload_json,
+    })
+    .from(briefsTable)
+    .where(
+      and(eq(briefsTable.case_id, caseId), eq(briefsTable.organization_id, viewer.organizationId)),
+    )
+    .orderBy(desc(briefsTable.composed_at))
+    .limit(BRIEF_HISTORY_LIMIT)
+    .all();
+
+  return {
+    briefs: rows.map((row) => ({
+      run_id: row.run_id,
+      recommendation: row.recommendation,
+      confidence: row.confidence,
+      composed_at: row.composed_at.getTime(),
+      payload_json: row.payload_json,
+    })),
+  };
 }
 
 /** Loads the most recent brief for a case within the viewer's org. */

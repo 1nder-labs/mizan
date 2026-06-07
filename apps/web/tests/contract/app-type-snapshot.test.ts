@@ -14,6 +14,7 @@ import type { InferResponseType } from "hono/client";
 import type { AppType } from "@mizan/shared/app-type";
 import type {
   AuditListResponse,
+  BriefHistoryResponse,
   CampaignMutationResponse,
   CaseDetailResponse,
   CaseNotesResponse,
@@ -36,6 +37,7 @@ const client = hc<AppType>("/api");
 
 type WireQueueList = InferResponseType<typeof client.cases.$get>;
 type WireCaseDetail = InferResponseType<(typeof client.cases)[":id"]["$get"]>;
+type WireBriefHistory = InferResponseType<(typeof client.cases)[":id"]["briefs"]["$get"]>;
 type WireReviewerAction = InferResponseType<(typeof client.cases)[":id"]["action"]["$post"]>;
 type WireAuditList = InferResponseType<typeof client.admin.audit.$get>;
 type WireDocumentUrl = InferResponseType<
@@ -62,6 +64,12 @@ const _queueListExact: Equal<WireQueueList, QueueResponse> = true;
  * `{ case, brief }` — no more, no fewer fields.
  */
 const _caseDetailExact: Equal<WireCaseDetail, CaseDetailResponse> = true;
+
+/**
+ * Asserts the wire brief-history response (`GET /api/cases/:id/briefs`) matches
+ * `BriefHistoryResponse` exactly — `{ briefs: BriefHistoryEntry[] }`.
+ */
+const _briefHistoryExact: Equal<WireBriefHistory, BriefHistoryResponse> = true;
 
 /**
  * Asserts that the wire reviewer-action response matches the shared schema.
@@ -113,6 +121,10 @@ describe("AppType contract snapshot", () => {
 
   test("case-detail wire type matches CaseDetailResponse exactly", () => {
     expect(_caseDetailExact).toBe(true);
+  });
+
+  test("brief-history wire type matches BriefHistoryResponse exactly", () => {
+    expect(_briefHistoryExact).toBe(true);
   });
 
   test("reviewer-action wire type matches ReviewerActionResponse exactly", () => {
