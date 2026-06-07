@@ -18,6 +18,7 @@ import type { CloudflareBindings } from "../env.ts";
 import { failCaseToFailed } from "../lib/fail-case.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { producerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
+import { requireCaseAccess } from "../middleware/require-case-access.ts";
 import { requireRole } from "../middleware/require-role.ts";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
@@ -202,6 +203,8 @@ export const caseRoutes = new Hono<{
   Variables: ProducerVariables;
 }>()
   .use("*", requireRole(["reviewer", "admin"]))
+  .use("/:id", requireCaseAccess)
+  .use("/:id/*", requireCaseAccess)
   .route("/", casesListRoutes)
   .route("/", actionRoutes)
   .route("/", documentsRoutes)

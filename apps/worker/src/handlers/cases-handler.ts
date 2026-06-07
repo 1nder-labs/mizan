@@ -16,12 +16,14 @@ import {
   LatestBriefProjectionSchema,
   QUEUE_PAGE_SIZE,
   type BriefHistoryResponse,
+  type BriefSummary,
   type CaseDetailResponse,
   type CaseOverlay,
   type CaseRow,
   type LatestBriefProjection,
   type QueueResponse,
   type QueueSearch,
+  type ReviewerAction,
   type ViewerContext,
 } from "@mizan/shared";
 import { clientResponded, latestReviewerAction } from "../lib/case-notes.ts";
@@ -74,15 +76,34 @@ function clientSubmittedExpr() {
   return sql<number>`(CASE WHEN (SELECT ${members.role} FROM ${members} WHERE ${members.userId} = ${casesTable.created_by} AND ${members.organizationId} = ${casesTable.organization_id}) = 'client' THEN 1 ELSE 0 END)`;
 }
 
+/**
+ * RBAC scope for the queue list. A reviewer is HARD-scoped to cases assigned to
+ * them — the assignee query param is ignored and unassigned cases are excluded
+ * (only admins triage unassigned work). Admins keep the flexible filter
+ * (default "all"; can narrow to me / unassigned / a specific reviewer).
+ */
 function resolveAssigneeFilter(search: QueueSearch, viewer: ViewerContext): SQL | undefined {
-  const explicit = search.assignee;
-  const effective = explicit ?? (viewer.role === "admin" ? "all" : "me");
+  if (viewer.role !== "admin") {
+    return eq(casesTable.assigned_to, viewer.userId);
+  }
+  const effective = search.assignee ?? "all";
   if (effective === "all") return undefined;
   if (effective === "unassigned") return isNull(casesTable.assigned_to);
   if (effective === "me") {
     return or(eq(casesTable.assigned_to, viewer.userId), isNull(casesTable.assigned_to));
   }
   return eq(casesTable.assigned_to, effective);
+}
+
+/**
+ * Per-case RBAC predicate for single-case reads (detail, title resolution) so
+ * the Mastra chat tools — which bypass the HTTP `requireCaseAccess` middleware —
+ * enforce the same boundary: a reviewer only resolves cases assigned to them;
+ * an admin resolves any case in the org. `undefined` for admin so `and(...)`
+ * drops it.
+ */
+function reviewerAssigneeFilter(viewer: ViewerContext): SQL | undefined {
+  return viewer.role === "admin" ? undefined : eq(casesTable.assigned_to, viewer.userId);
 }
 
 /**
@@ -248,6 +269,26 @@ export async function resolveCaseIdByTitle(
   return { status: "found", caseId: first.id };
 }
 
+interface CaseDetailDraft {
+  readonly case: CaseRow;
+  readonly brief: BriefSummary | null;
+  readonly overlay: CaseOverlay | null;
+  readonly client_responded: boolean;
+  readonly latest_action: ReviewerAction | null;
+}
+
+/**
+ * Validates the assembled detail draft. Falls back to a brief-less shape if the
+ * brief payload fails the schema (degraded brief row) so the reviewer still gets
+ * the case rather than a hard error.
+ */
+function parseCaseDetail(draft: CaseDetailDraft): CaseDetailResponse | null {
+  const parsed = CaseDetailResponseSchema.safeParse(draft);
+  if (parsed.success) return parsed.data;
+  const caseOnly = CaseDetailResponseSchema.safeParse({ ...draft, brief: null });
+  return caseOnly.success ? caseOnly.data : null;
+}
+
 /** Loads one org-scoped case detail payload. */
 export async function fetchCaseDetail(
   caseId: string,
@@ -262,7 +303,13 @@ export async function fetchCaseDetail(
   const row = await db
     .select(projection)
     .from(casesTable)
-    .where(and(eq(casesTable.id, caseId), eq(casesTable.organization_id, viewer.organizationId)))
+    .where(
+      and(
+        eq(casesTable.id, caseId),
+        eq(casesTable.organization_id, viewer.organizationId),
+        reviewerAssigneeFilter(viewer),
+      ),
+    )
     .get();
   if (!row) return null;
 
@@ -271,9 +318,7 @@ export async function fetchCaseDetail(
     ? resolveLatestBrief(brief.recommendation, brief.payload_json?.verification_path ?? null)
     : null;
 
-  const responded = await clientResponded(db, caseId);
-  const lastAction = (await latestReviewerAction(db, caseId))?.action ?? null;
-  const draft = {
+  const draft: CaseDetailDraft = {
     case: mapCaseRow(row, latestBrief, row.clientSubmitted === 1),
     brief: brief
       ? {
@@ -284,20 +329,10 @@ export async function fetchCaseDetail(
         }
       : null,
     overlay: resolveOverlay(row.brief_partial_json),
-    client_responded: responded,
-    latest_action: lastAction,
+    client_responded: await clientResponded(db, caseId),
+    latest_action: (await latestReviewerAction(db, caseId))?.action ?? null,
   };
-
-  const parsed = CaseDetailResponseSchema.safeParse(draft);
-  if (parsed.success) return parsed.data;
-  const caseOnly = CaseDetailResponseSchema.safeParse({
-    case: draft.case,
-    brief: null,
-    overlay: draft.overlay,
-    client_responded: responded,
-    latest_action: lastAction,
-  });
-  return caseOnly.success ? caseOnly.data : null;
+  return parseCaseDetail(draft);
 }
 
 /**
@@ -350,7 +385,13 @@ export async function loadBrief(caseId: string, viewer: ViewerContext, db: Db) {
   const caseRow = await db
     .select({ id: casesTable.id })
     .from(casesTable)
-    .where(and(eq(casesTable.id, caseId), eq(casesTable.organization_id, viewer.organizationId)))
+    .where(
+      and(
+        eq(casesTable.id, caseId),
+        eq(casesTable.organization_id, viewer.organizationId),
+        reviewerAssigneeFilter(viewer),
+      ),
+    )
     .get();
   if (!caseRow) throw new NotFoundError(`case not found: ${caseId}`);
   const brief = await fetchLatestBriefRow(db, caseId, viewer.organizationId);

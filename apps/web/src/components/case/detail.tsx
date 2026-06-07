@@ -25,22 +25,18 @@ import { useEffect, useReducer } from "react";
 import {
   ACTIVE_CASE_STATUSES,
   HITL_SUSPENDED_STATUS,
-  TERMINAL_CASE_STATUSES,
   deriveCaseDisposition,
   isTerminalDisposition,
-  type CaseDetailResponse,
   type CaseDisposition,
   type CaseOverlay,
   type CaseRow,
-  type CaseStatus,
   type ReviewerAction,
 } from "@mizan/shared";
 import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-tape-invalidation.ts";
 import { useCaseDetailLiveEvents } from "@/hooks/use-case-detail-live-events.ts";
 import { CaseHeader } from "./header.tsx";
 import { CaseTabs, type BriefPanelMode } from "./case-tabs.tsx";
-
-type BriefSummary = CaseDetailResponse["brief"];
+import { INITIAL_PHASE, deriveMode, phaseReducer, type BriefSummary } from "./brief-phase.ts";
 
 interface CaseDetailProps {
   readonly caseRow: CaseRow;
@@ -48,45 +44,6 @@ interface CaseDetailProps {
   readonly overlay: CaseOverlay | null;
   readonly clientResponded: boolean;
   readonly latestAction: ReviewerAction | null;
-}
-
-const SHOW_PERSISTED_STATUSES: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
-  "READY_FOR_REVIEW",
-  "ACTIONED",
-]);
-
-interface StreamPhase {
-  readonly userTriggered: boolean;
-  readonly streamErrored: boolean;
-}
-
-type PhaseEvent =
-  | { readonly type: "case-changed" }
-  | { readonly type: "status-changed"; readonly status: CaseStatus }
-  | { readonly type: "user-generated" }
-  | { readonly type: "stream-errored" };
-
-const INITIAL_PHASE: StreamPhase = { userTriggered: false, streamErrored: false };
-
-function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase {
-  switch (event.type) {
-    case "case-changed":
-      return INITIAL_PHASE;
-    case "status-changed":
-      return TERMINAL_CASE_STATUSES.has(event.status) ? INITIAL_PHASE : state;
-    case "user-generated":
-      return { userTriggered: true, streamErrored: false };
-    case "stream-errored":
-      return { ...state, streamErrored: true };
-  }
-}
-
-function deriveMode(status: CaseStatus, brief: BriefSummary, phase: StreamPhase): BriefPanelMode {
-  if (status === HITL_SUSPENDED_STATUS) return "action";
-  if (phase.userTriggered && !phase.streamErrored) return "stream";
-  if (ACTIVE_CASE_STATUSES.has(status)) return "inflight";
-  if (brief && SHOW_PERSISTED_STATUSES.has(status)) return "summary";
-  return "empty";
 }
 
 interface DetailLayoutProps {

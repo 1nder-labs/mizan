@@ -69,6 +69,22 @@ export async function requireAdmin(qc: QueryClient): Promise<MeResponse> {
 }
 
 /**
+ * Guards reviewer-only surfaces (queue, case detail). A `client` session is
+ * bounced to its own portal — the reviewer API already 403s a client, so this
+ * just keeps a stray client off a reviewer route (e.g. a bookmarked /queue or a
+ * lingering session after a persona switch) instead of stranding them on a
+ * broken, data-less page.
+ */
+export async function requireReviewer(qc: QueryClient): Promise<MeResponse> {
+  await requireSession(qc);
+  const me = await qc.ensureQueryData(meQueryOptions());
+  if (me.user.role === "client") {
+    throw redirect({ to: "/portal/campaigns" });
+  }
+  return me;
+}
+
+/**
  * Loader gate for the client portal: a logged-in non-client (reviewer/admin)
  * is bounced to the reviewer queue, mirroring how `requireAdmin` bounces
  * non-admins. Anonymous callers bounce to `/login` via `requireSession`.
