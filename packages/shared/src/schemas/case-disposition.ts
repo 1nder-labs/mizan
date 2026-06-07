@@ -65,3 +65,28 @@ export function deriveCaseDisposition(input: DispositionInput): CaseDisposition 
   if (status === "DRAFT" || status === "QUEUED") return "SUBMITTED";
   return "IN_REVIEW";
 }
+
+/** Reviewer-facing label for each disposition (ops-honest, unlike the raw enum). */
+export const REVIEWER_DISPOSITION_LABEL: Record<CaseDisposition, string> = {
+  DRAFT: "Draft",
+  SUBMITTED: "Submitted",
+  IN_REVIEW: "In review",
+  AWAITING_REVIEWER: "Awaiting your action",
+  NEEDS_CLIENT_DOCS: "Needs client docs",
+  CLIENT_REPLIED: "Client replied",
+  ESCALATED: "Escalated",
+  APPROVED: "Approved",
+  DECLINED: "Declined",
+  REVIEWED: "Reviewed",
+  FAILED: "Failed",
+};
+
+const TERMINAL_DISPOSITIONS: ReadonlySet<CaseDisposition> = new Set<CaseDisposition>([
+  "APPROVED",
+  "DECLINED",
+]);
+
+/** True when the case is settled (approved/declined) — no re-run is offered. */
+export function isTerminalDisposition(disposition: CaseDisposition): boolean {
+  return TERMINAL_DISPOSITIONS.has(disposition);
+}

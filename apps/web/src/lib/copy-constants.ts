@@ -220,10 +220,12 @@ export const COPY = {
     addInternal: "Add note",
     composeError: "Could not send. Please try again.",
     notesEmpty: "No notes yet.",
-    respondedBadge: "Client responded",
-    clientSubmittedBadge: "Client submitted",
     clientSubmittedShort: "Client",
     loadError: "Couldn't load notes. Try refreshing.",
+  },
+  caseBrief: {
+    rerunHint: "Re-run the review to compose a fresh brief from the current documents.",
+    rerunAction: "Re-run review",
   },
   portal: {
     brand: "Mizan",

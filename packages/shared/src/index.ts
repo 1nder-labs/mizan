@@ -307,6 +307,13 @@ export { CASE_TAB_VALUES, CaseTabEnum, type CaseTab } from "./schemas/case-tab.t
 export { ClientStatusEnum, toClientStatus, type ClientStatus } from "./schemas/client-status.ts";
 
 export {
+  deriveCaseDisposition,
+  isTerminalDisposition,
+  REVIEWER_DISPOSITION_LABEL,
+  type CaseDisposition,
+} from "./schemas/case-disposition.ts";
+
+export {
   ClientCampaignsResponseSchema,
   ClientCampaignSummarySchema,
   ClientCaseDetailSchema,

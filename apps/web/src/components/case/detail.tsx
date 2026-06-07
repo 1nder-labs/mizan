@@ -26,15 +26,19 @@ import {
   ACTIVE_CASE_STATUSES,
   HITL_SUSPENDED_STATUS,
   TERMINAL_CASE_STATUSES,
+  deriveCaseDisposition,
+  isTerminalDisposition,
   type CaseDetailResponse,
+  type CaseDisposition,
+  type CaseOverlay,
   type CaseRow,
   type CaseStatus,
+  type ReviewerAction,
 } from "@mizan/shared";
 import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-tape-invalidation.ts";
 import { useCaseDetailLiveEvents } from "@/hooks/use-case-detail-live-events.ts";
 import { CaseHeader } from "./header.tsx";
 import { CaseTabs, type BriefPanelMode } from "./case-tabs.tsx";
-import { type CaseOverlay } from "@mizan/shared";
 
 type BriefSummary = CaseDetailResponse["brief"];
 
@@ -43,6 +47,7 @@ interface CaseDetailProps {
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
   readonly clientResponded: boolean;
+  readonly latestAction: ReviewerAction | null;
 }
 
 const SHOW_PERSISTED_STATUSES: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
@@ -88,7 +93,8 @@ interface DetailLayoutProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
-  readonly clientResponded: boolean;
+  readonly disposition: CaseDisposition;
+  readonly canRerun: boolean;
   readonly mode: BriefPanelMode;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
@@ -99,19 +105,21 @@ function DetailLayout({
   caseRow,
   brief,
   overlay,
-  clientResponded,
+  disposition,
+  canRerun,
   mode,
   onGenerate,
   onStreamError,
 }: DetailLayoutProps): React.JSX.Element {
   return (
     <article className="w-full space-y-8 px-6 py-8">
-      <CaseHeader caseRow={caseRow} clientResponded={clientResponded} />
+      <CaseHeader caseRow={caseRow} disposition={disposition} />
       <CaseTabs
         caseRow={caseRow}
         brief={brief}
         overlay={overlay}
         mode={mode}
+        canRerun={canRerun}
         onGenerate={onGenerate}
         onStreamError={onStreamError}
       />
@@ -124,6 +132,7 @@ export function CaseDetail({
   brief,
   overlay,
   clientResponded,
+  latestAction,
 }: CaseDetailProps): React.JSX.Element {
   const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
   const tapeEnabled =
@@ -138,12 +147,20 @@ export function CaseDetail({
     dispatchPhase({ type: "status-changed", status: caseRow.status });
   }, [caseRow.status]);
 
+  const disposition = deriveCaseDisposition({
+    status: caseRow.status,
+    latestAction,
+    clientResponded,
+    submitted: true,
+  });
+
   return (
     <DetailLayout
       caseRow={caseRow}
       brief={brief}
       overlay={overlay}
-      clientResponded={clientResponded}
+      disposition={disposition}
+      canRerun={!isTerminalDisposition(disposition)}
       mode={deriveMode(caseRow.status, brief, phase)}
       onGenerate={() => dispatchPhase({ type: "user-generated" })}
       onStreamError={() => dispatchPhase({ type: "stream-errored" })}

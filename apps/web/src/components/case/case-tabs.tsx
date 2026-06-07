@@ -10,6 +10,7 @@
  * mounts on first activation, so Signals/Messages fetch lazily.
  */
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { RotateCw } from "lucide-react";
 import {
   CaseTabEnum,
   HITL_SUSPENDED_STATUS,
@@ -20,6 +21,7 @@ import {
   type CaseTab,
 } from "@mizan/shared";
 import { COPY } from "@/lib/copy-constants.ts";
+import { Button } from "@/components/ui/button.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import { BriefStream } from "@/components/brief/stream.tsx";
 import { ActionPanel } from "@/components/case/action-panel.tsx";
@@ -40,8 +42,22 @@ interface BriefPanelProps {
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
   readonly mode: BriefPanelMode;
+  readonly canRerun: boolean;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
+}
+
+/** Re-run affordance shown above a settled brief when the case isn't terminal. */
+function RerunBar({ onGenerate }: { readonly onGenerate: () => void }): React.JSX.Element {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/40 px-4 py-2.5">
+      <p className="text-xs text-muted-foreground">{COPY.caseBrief.rerunHint}</p>
+      <Button size="sm" variant="outline" onClick={onGenerate}>
+        <RotateCw className="mr-2 size-3.5" />
+        {COPY.caseBrief.rerunAction}
+      </Button>
+    </div>
+  );
 }
 
 /** Mode-switched brief surface (stream / inflight / action / summary / empty). */
@@ -50,6 +66,7 @@ export function BriefPanel({
   brief,
   overlay,
   mode,
+  canRerun,
   onGenerate,
   onStreamError,
 }: BriefPanelProps): React.JSX.Element {
@@ -59,6 +76,7 @@ export function BriefPanel({
   if (mode === "summary" && brief) {
     return (
       <div className="space-y-4">
+        {canRerun ? <RerunBar onGenerate={onGenerate} /> : null}
         <BriefSummaryCard payload={brief.payload_json} composedAt={brief.composed_at} />
         <BriefDetailTabs payload={brief.payload_json} />
       </div>
@@ -78,6 +96,7 @@ interface CaseTabsProps {
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
   readonly mode: BriefPanelMode;
+  readonly canRerun: boolean;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
 }
@@ -124,6 +143,7 @@ export function CaseTabs(props: CaseTabsProps): React.JSX.Element {
           brief={props.brief}
           overlay={props.overlay}
           mode={props.mode}
+          canRerun={props.canRerun}
           onGenerate={props.onGenerate}
           onStreamError={props.onStreamError}
         />

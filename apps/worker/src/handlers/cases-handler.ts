@@ -22,7 +22,7 @@ import {
   type QueueSearch,
   type ViewerContext,
 } from "@mizan/shared";
-import { clientResponded } from "../lib/case-notes.ts";
+import { clientResponded, latestReviewerAction } from "../lib/case-notes.ts";
 
 export class NotFoundError extends Error {
   constructor(message: string) {
@@ -270,6 +270,7 @@ export async function fetchCaseDetail(
     : null;
 
   const responded = await clientResponded(db, caseId);
+  const lastAction = (await latestReviewerAction(db, caseId))?.action ?? null;
   const draft = {
     case: mapCaseRow(row, latestBrief, row.clientSubmitted === 1),
     brief: brief
@@ -282,6 +283,7 @@ export async function fetchCaseDetail(
       : null,
     overlay: resolveOverlay(row.brief_partial_json),
     client_responded: responded,
+    latest_action: lastAction,
   };
 
   const parsed = CaseDetailResponseSchema.safeParse(draft);
@@ -291,6 +293,7 @@ export async function fetchCaseDetail(
     brief: null,
     overlay: draft.overlay,
     client_responded: responded,
+    latest_action: lastAction,
   });
   return caseOnly.success ? caseOnly.data : null;
 }
