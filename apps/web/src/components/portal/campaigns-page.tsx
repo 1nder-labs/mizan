@@ -82,12 +82,13 @@ function CampaignsSkeletons(): React.JSX.Element {
   );
 }
 
+const EMPTY_STEPS = [
+  COPY.portal.listEmptyStep1,
+  COPY.portal.listEmptyStep2,
+  COPY.portal.listEmptyStep3,
+] as const;
+
 function CampaignsEmpty(): React.JSX.Element {
-  const steps = [
-    COPY.portal.listEmptyStep1,
-    COPY.portal.listEmptyStep2,
-    COPY.portal.listEmptyStep3,
-  ];
   return (
     <Card>
       <CardContent className="py-12">
@@ -100,7 +101,7 @@ function CampaignsEmpty(): React.JSX.Element {
             {COPY.portal.listEmptyStepsTitle}
           </p>
           <ol className="mt-3 space-y-3">
-            {steps.map((step, i) => (
+            {EMPTY_STEPS.map((step, i) => (
               <li key={step} className="flex items-start gap-3">
                 <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular">
                   {i + 1}

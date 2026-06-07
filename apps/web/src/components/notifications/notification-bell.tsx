@@ -93,12 +93,14 @@ function useNotificationFeed() {
   useLiveEvents(userId ? `user:${userId}` : "", { enabled: Boolean(userId) });
   const { data } = useQuery(notificationsQueryOptions());
   const { data: me } = useQuery(meQueryOptions());
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
   const readOne = useMutation({
     mutationFn: (id: string) => markNotificationRead(id),
-    onSuccess: invalidate,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
   });
-  const readAll = useMutation({ mutationFn: markAllNotificationsRead, onSuccess: invalidate });
+  const readAll = useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
+  });
 
   const goToCase = (caseId: string) => {
     if (me?.user.role === "client") {
