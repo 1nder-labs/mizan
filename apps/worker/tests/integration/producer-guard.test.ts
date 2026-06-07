@@ -77,11 +77,6 @@ async function insertCase(
       JSON.stringify({
         story: "test story",
         organizer_name: "Test Organizer",
-        r2_keys: {
-          creator_id: "case-001-creator-id.png",
-          bank_statement: "case-001-bank-statement.png",
-          category_doc: "case-001-medical-receipt.png",
-        },
       }),
       reviewerId,
       organizationId,

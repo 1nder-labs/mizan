@@ -46,16 +46,25 @@ describe("signR2GetUrl", () => {
     await expect(signR2GetUrl({ ...validInput, ttlSeconds: 7200 })).rejects.toThrow();
   });
 
-  test("object key outside allowed prefixes is rejected", async () => {
+  test("path-traversal object key is rejected", async () => {
     await expect(
       signR2GetUrl({ ...validInput, objectKey: "../secrets/api-key" }),
     ).rejects.toThrow();
   });
 
-  test("each of the three allowed prefixes signs successfully", async () => {
-    for (const prefix of ["creators/", "bank-statements/", "category-docs/"]) {
-      const { url } = await signR2GetUrl({ ...validInput, objectKey: `${prefix}case-1/file.pdf` });
-      expect(url).toContain(`/${prefix}case-1/file.pdf`);
+  test("absolute object key is rejected", async () => {
+    await expect(signR2GetUrl({ ...validInput, objectKey: "/etc/passwd" })).rejects.toThrow();
+  });
+
+  test("versioned upload + flat seed keys sign successfully", async () => {
+    const keys = [
+      "11111111-1111-4111-8111-111111111111/creator_id/22222222-2222-4222-8222-222222222222",
+      "case-001-creator-id.png",
+      "creators/case-1/file.pdf",
+    ];
+    for (const objectKey of keys) {
+      const { url } = await signR2GetUrl({ ...validInput, objectKey });
+      expect(url).toContain("X-Amz-Signature");
     }
   });
 });

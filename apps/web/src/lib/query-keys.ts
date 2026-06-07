@@ -28,6 +28,8 @@ export const queryKeys = {
      * dragged along by a detail refresh.
      */
     briefs: (id: string) => ["cases", "detail", id, "briefs"] as const,
+    /** Nested under detail so a brief-finish / detail refresh also refreshes docs. */
+    documents: (id: string) => ["cases", "detail", id, "documents"] as const,
     notes: (id: string) => ["cases", "notes", id] as const,
   },
   audit: {
@@ -46,6 +48,8 @@ export const queryKeys = {
   portal: {
     campaigns: () => ["portal", "campaigns"] as const,
     campaign: (id: string) => ["portal", "campaign", id] as const,
+    /** Nested under `campaign(id)` so an upload's campaign refresh also refreshes docs. */
+    documents: (id: string) => ["portal", "campaign", id, "documents"] as const,
     /**
      * Own root (not nested under `campaign(id)`) so invalidating a campaign's
      * detail does not also refetch its notes thread.

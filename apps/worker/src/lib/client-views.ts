@@ -1,5 +1,12 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import { briefs, cases, reviewer_actions, type Db } from "@mizan/db";
+import {
+  briefs,
+  cases,
+  currentExtractedKeys,
+  reviewer_actions,
+  type Db,
+  type ExtractedDocumentKeys,
+} from "@mizan/db";
 import {
   BriefPayloadSchema,
   CaseOverlaySchema,
@@ -8,7 +15,6 @@ import {
   DocumentKeyEnum,
   ReviewerActionEnum,
   toClientStatus,
-  type CaseOverlay,
   type ClientCampaignSummary,
   type ClientCaseDetail,
   type ReviewerAction,
@@ -39,11 +45,11 @@ async function fetchOrganizerAsk(db: Db, caseId: string, organizationId: string)
   return ask ? { message: ask.message, missingItems: ask.missing_items } : null;
 }
 
-/** Per-doc upload state derived from the overlay r2_keys (a non-empty key = uploaded). */
-function buildEvidenceList(r2_keys: CaseOverlay["r2_keys"] | null) {
+/** Per-slot upload state from the current document versions (non-empty key = uploaded). */
+function buildEvidenceList(keys: ExtractedDocumentKeys) {
   return DocumentKeyEnum.options.map((docKind) => ({
     docKind,
-    uploaded: (r2_keys?.[docKind] ?? "").length > 0,
+    uploaded: keys[docKind].length > 0,
   }));
 }
 
@@ -128,7 +134,7 @@ export async function buildClientCaseDetail(
     vouchingNarrative: overlayData?.vouching_narrative ?? null,
     createdAt: campaign.created_at.getTime(),
     updatedAt: campaign.updated_at.getTime(),
-    evidence: buildEvidenceList(overlayData?.r2_keys ?? null),
+    evidence: buildEvidenceList(await currentExtractedKeys(db, campaign.id, viewer.organizationId)),
     organizerAsk,
     notes,
   });

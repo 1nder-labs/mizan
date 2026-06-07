@@ -23,9 +23,10 @@
 
 import { drizzle, type AnyD1Database, type DrizzleD1Database } from "drizzle-orm/d1";
 import * as authSchema from "./auth.schema.ts";
+import * as documentsSchema from "./documents.schema.ts";
 import * as domainSchema from "./schema.ts";
 
-export const schema = { ...authSchema, ...domainSchema } as const;
+export const schema = { ...authSchema, ...domainSchema, ...documentsSchema } as const;
 
 export type Schema = typeof schema;
 
@@ -37,12 +38,23 @@ export function makeDb(d1: AnyD1Database): DrizzleD1Database<Schema> {
 export type Db = ReturnType<typeof makeDb>;
 
 export * from "./schema.ts";
+export * from "./documents.schema.ts";
 export * from "./auth.schema.ts";
 export * from "./schemas.ts";
 export { transitionCase, type CaseTransitionInput } from "./case-transitions.ts";
 export { caseListProjection } from "./projections.ts";
 export { fetchAuditPage, type AuditRow } from "./audit.ts";
 export { resolveCaseOrganizationId } from "./case-org.ts";
+export {
+  currentExtractedDocument,
+  currentExtractedKeys,
+  documentById,
+  insertDocumentIfOwned,
+  listCaseDocuments,
+  type DocumentRow,
+  type ExtractedDocumentKeys,
+  type InsertDocumentInput,
+} from "./document-queries.ts";
 export { emitLiveEvent, executeEmit, type EmitLiveEventInput } from "./emit-live-event.ts";
 export {
   batchTransitionWithEmits,

@@ -14,7 +14,8 @@ import { DocumentKeyEnum, type DocumentKey } from "@mizan/shared";
 import type { ClientCaseDetail } from "@mizan/shared";
 import { uploadEvidence } from "@/lib/portal-api.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
-import { COPY, docKindDisplay, docKindWhy, evidenceProgress } from "@/lib/copy-constants.ts";
+import { COPY } from "@/lib/copy-constants.ts";
+import { docKindDisplay, docKindWhy, evidenceProgress } from "@/lib/doc-kind-copy.ts";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 

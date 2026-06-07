@@ -17,6 +17,7 @@ import { PortalShell } from "@/components/portal/portal-shell.tsx";
 import { ClientStatusBadge } from "@/components/portal/client-status-badge.tsx";
 import { IntakeForm } from "@/components/portal/intake-form.tsx";
 import { EvidencePanel } from "@/components/portal/evidence-panel.tsx";
+import { SupplementaryDocs } from "@/components/portal/supplementary-docs.tsx";
 import { NoteThread } from "@/components/portal/note-thread.tsx";
 import { ClientNoteComposer } from "@/components/portal/note-composer.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
@@ -176,6 +177,7 @@ function EvidenceSection({
         </Alert>
       ) : null}
       <EvidencePanel campaignId={detail.id} evidence={detail.evidence} readOnly={readOnly} />
+      <SupplementaryDocs campaignId={detail.id} readOnly={readOnly} />
     </section>
   );
 }

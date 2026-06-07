@@ -101,6 +101,31 @@ export async function insertCase(opts: {
     .run();
 }
 
+const SEED_DOC_KINDS = ["creator_id", "bank_statement", "category_doc"] as const;
+
+/**
+ * Inserts the three extraction-slot `documents` rows pointing at the given R2
+ * keys — the documents-table replacement for the old overlay `r2_keys`. Ids are
+ * deterministic (`<caseId>-<kind>`) so re-seeding is idempotent. Call alongside
+ * the case insert for any test that runs the workflow or reads current evidence.
+ */
+export async function seedDocuments(opts: {
+  caseId: string;
+  organizationId: string;
+  keys: { creator_id: string; bank_statement: string; category_doc: string };
+  uploadedAt?: number;
+}): Promise<void> {
+  const ts = opts.uploadedAt ?? Date.now();
+  for (const kind of SEED_DOC_KINDS) {
+    await env.DB.prepare(
+      `INSERT INTO documents (id, case_id, doc_kind, r2_key, filename, content_type, uploaded_at, organization_id)
+       VALUES (?, ?, ?, ?, '', 'image/png', ?, ?) ON CONFLICT(id) DO NOTHING`,
+    )
+      .bind(`${opts.caseId}-${kind}`, opts.caseId, kind, opts.keys[kind], ts, opts.organizationId)
+      .run();
+  }
+}
+
 /** Inserts a brief row for a case, using a minimal valid payload_json. */
 export async function insertBrief(opts: {
   id: string;

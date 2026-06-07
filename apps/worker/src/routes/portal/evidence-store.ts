@@ -1,11 +1,12 @@
-import { and, cases, eq, sql, type Db } from "@mizan/db";
-import type { DocumentKey, ViewerContext } from "@mizan/shared";
+import { and, cases, eq, insertDocumentIfOwned, type Db } from "@mizan/db";
+import type { DocumentKind, ViewerContext } from "@mizan/shared";
 import type { CloudflareBindings } from "../../env.ts";
-import { evidenceKey } from "./evidence-upload.ts";
+import { documentKey } from "./evidence-upload.ts";
 
 export interface EvidenceObject {
   readonly file: File;
-  readonly docKind: DocumentKey;
+  readonly docKind: DocumentKind;
+  readonly filename: string;
   readonly contentType: string;
 }
 
@@ -24,13 +25,31 @@ async function deleteQuietly(env: CloudflareBindings, key: string): Promise<void
 }
 
 /**
- * Persists one evidence object: R2 put first, then the overlay key. The update
- * is scoped to the owning client AND org, returns the affected rows, and
- * deletes the just-written object if the update throws OR matches no row (case
- * vanished mid-upload) — so a partial failure never leaves R2 holding an object
- * the case can't reference. The key is deterministic (`<caseId>/<docKind>`) so a
- * retry overwrites, never duplicates. The stored content type is the sniffed
- * type from `readEvidenceInput`, never the client-reported `file.type`.
+ * Bumps the case activity timestamp after a durable upload so the row resurfaces
+ * in the reviewer queue. Best-effort: the document is already committed, so a
+ * stale `updated_at` is cosmetic and must not fail the request or trigger the R2
+ * compensation — hence logged, not rethrown.
+ */
+async function touchCase(db: Db, caseId: string, organizationId: string): Promise<void> {
+  try {
+    await db
+      .update(cases)
+      .set({ updated_at: new Date() })
+      .where(and(eq(cases.id, caseId), eq(cases.organization_id, organizationId)));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[portal] case updated_at bump failed (case=${caseId}): ${reason}`);
+  }
+}
+
+/**
+ * Persists one evidence upload as a NEW document version. R2 put first, then an
+ * atomic ownership-guarded `documents` insert (`INSERT ... SELECT ... WHERE
+ * owner` — no read-then-write TOCTOU); the just-written object is deleted if the
+ * insert throws OR matches no owned case, so a partial failure never leaves R2
+ * holding an unreferenced object. The R2 key carries a fresh uuid
+ * (`<caseId>/<docKind>/<docId>`) so re-uploads never overwrite a prior version.
+ * The stored content type is the sniffed type, never the client `file.type`.
  */
 export async function storeEvidence(
   env: CloudflareBindings,
@@ -39,31 +58,28 @@ export async function storeEvidence(
   caseId: string,
   input: EvidenceObject,
 ): Promise<string> {
-  const key = evidenceKey(caseId, input.docKind);
+  const docId = crypto.randomUUID();
+  const key = documentKey(caseId, input.docKind, docId);
   await env.R2_BUCKET.put(key, await input.file.arrayBuffer(), {
     httpMetadata: { contentType: input.contentType },
   });
   try {
-    const updated = await db
-      .update(cases)
-      .set({
-        brief_partial_json: sql`json_set(${cases.brief_partial_json}, ${`$.r2_keys.${input.docKind}`}, ${key})`,
-        updated_at: new Date(),
-      })
-      .where(
-        and(
-          eq(cases.id, caseId),
-          eq(cases.created_by, viewer.userId),
-          eq(cases.organization_id, viewer.organizationId),
-        ),
-      )
-      .returning({ id: cases.id });
-    if (updated.length === 0) {
-      throw new Error(`evidence overlay update matched no owned case (${caseId})`);
-    }
+    const inserted = await insertDocumentIfOwned(db, {
+      id: docId,
+      caseId,
+      organizationId: viewer.organizationId,
+      ownerUserId: viewer.userId,
+      docKind: input.docKind,
+      r2Key: key,
+      filename: input.filename,
+      contentType: input.contentType,
+      uploadedAtMs: Date.now(),
+    });
+    if (!inserted) throw new Error(`evidence upload matched no owned case (${caseId})`);
   } catch (error) {
     await deleteQuietly(env, key);
     throw error;
   }
+  await touchCase(db, caseId, viewer.organizationId);
   return key;
 }

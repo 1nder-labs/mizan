@@ -15,6 +15,7 @@ import {
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 import { embedCorpusInto } from "../../../../scripts/lib/embed-corpus-into.ts";
 import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
+import { seedDocuments } from "./cases-test-helpers.ts";
 import seedCase001Raw from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
 
 const BASE = "http://localhost";
@@ -84,7 +85,6 @@ async function seedCase001(adminUserId: string, organizationId: string): Promise
       JSON.stringify({
         story: seed.story,
         organizer_name: seed.organizer_name,
-        r2_keys: seed.r2_keys,
       }),
       adminUserId,
       organizationId,
@@ -95,6 +95,7 @@ async function seedCase001(adminUserId: string, organizationId: string): Promise
   await env.R2_BUCKET.put(seed.r2_keys.creator_id, MINIMAL_PNG_BYTES);
   await env.R2_BUCKET.put(seed.r2_keys.bank_statement, MINIMAL_PNG_BYTES);
   await env.R2_BUCKET.put(seed.r2_keys.category_doc, MINIMAL_PNG_BYTES);
+  await seedDocuments({ caseId: seed.id, organizationId, keys: seed.r2_keys });
 }
 
 async function drainSse(res: Response): Promise<string> {

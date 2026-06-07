@@ -1,7 +1,8 @@
-import { DocumentKeyEnum, type DocumentKey } from "@mizan/shared";
+import { DocumentKindEnum, type DocumentKind } from "@mizan/shared";
 
 const MAX_EVIDENCE_BYTES = 25 * 1024 * 1024;
 const MAGIC_HEAD_BYTES = 12;
+const MAX_FILENAME_CHARS = 200;
 
 /**
  * Magic-byte signatures for the allowed upload types. The client-reported
@@ -25,7 +26,8 @@ export type EvidenceInput =
   | {
       readonly ok: true;
       readonly file: File;
-      readonly docKind: DocumentKey;
+      readonly docKind: DocumentKind;
+      readonly filename: string;
       readonly contentType: string;
     }
   | { readonly ok: false };
@@ -41,10 +43,11 @@ function sniffMime(head: Uint8Array): string | null {
 /**
  * Validates a multipart evidence upload: a single `file` field whose ACTUAL
  * leading bytes match one of the allowed types (PDF / PNG / JPEG / WEBP) and is
- * within the size cap, plus a `docKind` field constrained to the three core doc
- * kinds. `docKind` is the only client-supplied component of the R2 key and is
- * checked against the enum here; the uploaded filename is never used, so the
- * derived key can never traverse outside the `<caseId>/` prefix. The returned
+ * within the size cap, plus a `docKind` field constrained to the four doc kinds
+ * (3 extraction slots + supplementary). `docKind` is checked against the enum
+ * here and the R2 key suffix is a server-generated uuid, so the derived key can
+ * never traverse outside the `<caseId>/` prefix. The client filename is captured
+ * for display only (sanitized), never used in the key. The returned
  * `contentType` is the sniffed type, not the client `file.type`. Any deviation
  * (missing/array file, unknown kind, empty/oversize file, bytes matching no
  * allowed type) collapses to a single `ok: false`, surfaced by the route as 400.
@@ -53,16 +56,28 @@ export async function readEvidenceInput(form: Record<string, unknown>): Promise<
   const file = form["file"];
   const docKindRaw = form["docKind"];
   if (!(file instanceof File) || typeof docKindRaw !== "string") return { ok: false };
-  const docKind = DocumentKeyEnum.safeParse(docKindRaw);
+  const docKind = DocumentKindEnum.safeParse(docKindRaw);
   if (!docKind.success) return { ok: false };
   if (file.size <= 0 || file.size > MAX_EVIDENCE_BYTES) return { ok: false };
   const head = new Uint8Array(await file.slice(0, MAGIC_HEAD_BYTES).arrayBuffer());
   const contentType = sniffMime(head);
   if (contentType === null) return { ok: false };
-  return { ok: true, file, docKind: docKind.data, contentType };
+  return {
+    ok: true,
+    file,
+    docKind: docKind.data,
+    filename: sanitizeFilename(file.name),
+    contentType,
+  };
 }
 
-/** Server-derived R2 key — no client filename, cannot escape the case prefix. */
-export function evidenceKey(caseId: string, docKind: DocumentKey): string {
-  return `${caseId}/${docKind}`;
+/** Strips path separators + truncates the client filename to a safe display string. */
+function sanitizeFilename(name: string): string {
+  const base = name.replace(/[/\\]/g, "_").trim().slice(0, MAX_FILENAME_CHARS);
+  return base.length > 0 ? base : "document";
+}
+
+/** Versioned R2 key — uuid suffix so a re-upload never overwrites a prior version. */
+export function documentKey(caseId: string, docKind: DocumentKind, docId: string): string {
+  return `${caseId}/${docKind}/${docId}`;
 }

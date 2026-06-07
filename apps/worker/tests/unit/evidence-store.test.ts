@@ -1,11 +1,10 @@
 /**
- * Unit: `storeEvidence` writes R2 first, then the overlay key — and compensates
- * a failed OR no-op overlay update by deleting the just-written object so a
- * partial failure never leaves an R2 orphan the case can't reference. The
- * integration suite can't force the overlay update to fail after the R2 put (a
- * corrupt overlay fails earlier, at the `mode: "json"` row load), so the
- * compensation is proven here with a db double whose `.returning()` controls
- * the update outcome.
+ * Unit: `storeEvidence` writes R2 first, then inserts a `documents` row via
+ * `insertDocumentIfOwned` — and compensates a failed OR no-op insert by
+ * deleting the just-written object so a partial failure never leaves an R2
+ * orphan the case can't reference. The integration suite can't force the insert
+ * to fail after the R2 put, so the compensation is proven here with a db double
+ * whose `.run()` controls the insert outcome.
  */
 
 import { describe, expect, it, mock } from "bun:test";
@@ -20,9 +19,14 @@ function fakeFile(): File {
   return { arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as unknown as File;
 }
 
-function fakeDb(returning: () => Promise<{ id: string }[]>): Db {
+/**
+ * Builds a minimal db double whose `.run()` delegates to the provided thunk.
+ * `insertDocumentIfOwned` calls `db.run(sql\`...\`)` and checks
+ * `result.meta?.changes > 0` to determine whether a row was inserted.
+ */
+function fakeDb(runResult: () => Promise<{ meta?: { changes?: number } }>): Db {
   return {
-    update: () => ({ set: () => ({ where: () => ({ returning }) }) }),
+    run: () => runResult(),
   } as unknown as Db;
 }
 
@@ -33,7 +37,7 @@ function fakeEnv(put: () => Promise<unknown>, del: () => Promise<unknown>): Clou
 const docKind: DocumentKey = "creator_id";
 
 describe("storeEvidence", () => {
-  it("deletes the just-written R2 object and rethrows when the overlay update throws", async () => {
+  it("deletes the just-written R2 object and rethrows when the db insert throws", async () => {
     const put = mock(() => Promise.resolve());
     const del = mock(() => Promise.resolve());
     const db = fakeDb(() => Promise.reject(new Error("d1 down")));
@@ -42,41 +46,42 @@ describe("storeEvidence", () => {
       storeEvidence(fakeEnv(put, del), db, viewer, "case-1", {
         file: fakeFile(),
         docKind,
+        filename: "id.pdf",
         contentType: "application/pdf",
       }),
     ).rejects.toThrow("d1 down");
     expect(put).toHaveBeenCalledTimes(1);
     expect(del).toHaveBeenCalledTimes(1);
-    expect(del).toHaveBeenCalledWith("case-1/creator_id");
   });
 
-  it("deletes the R2 object when the update matches no row (case vanished)", async () => {
+  it("deletes the R2 object when the insert matches no row (case vanished)", async () => {
     const put = mock(() => Promise.resolve());
     const del = mock(() => Promise.resolve());
-    const db = fakeDb(() => Promise.resolve([]));
+    const db = fakeDb(() => Promise.resolve({ meta: { changes: 0 } }));
 
     await expect(
       storeEvidence(fakeEnv(put, del), db, viewer, "case-3", {
         file: fakeFile(),
         docKind,
+        filename: "id.pdf",
         contentType: "application/pdf",
       }),
     ).rejects.toThrow("matched no owned case");
     expect(del).toHaveBeenCalledTimes(1);
-    expect(del).toHaveBeenCalledWith("case-3/creator_id");
   });
 
-  it("returns the deterministic key on success without deleting", async () => {
+  it("returns a versioned key on success without deleting", async () => {
     const put = mock(() => Promise.resolve());
     const del = mock(() => Promise.resolve());
-    const db = fakeDb(() => Promise.resolve([{ id: "case-2" }]));
+    const db = fakeDb(() => Promise.resolve({ meta: { changes: 1 } }));
 
     const key = await storeEvidence(fakeEnv(put, del), db, viewer, "case-2", {
       file: fakeFile(),
       docKind: "bank_statement",
+      filename: "bank.pdf",
       contentType: "application/pdf",
     });
-    expect(key).toBe("case-2/bank_statement");
+    expect(key.startsWith("case-2/bank_statement/")).toBe(true);
     expect(put).toHaveBeenCalledTimes(1);
     expect(del).toHaveBeenCalledTimes(0);
   });

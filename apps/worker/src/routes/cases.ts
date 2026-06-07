@@ -23,6 +23,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { actionRoutes } from "./actions.ts";
 import { assignmentsRoutes } from "./assignments.ts";
+import { caseDocumentsRoutes } from "./case-documents.ts";
 import { caseNotesRoutes } from "./case-notes.ts";
 import { caseStreamHandler } from "./case-stream.ts";
 import { casesListRoutes } from "./cases-list.ts";
@@ -204,6 +205,7 @@ export const caseRoutes = new Hono<{
   .route("/", casesListRoutes)
   .route("/", actionRoutes)
   .route("/", documentsRoutes)
+  .route("/", caseDocumentsRoutes)
   .route("/", signalsRoutes)
   .route("/", assignmentsRoutes)
   .route("/", caseNotesRoutes)

@@ -5,10 +5,10 @@
  *
  * Pure module: no Hono coupling, no env coupling, no top-level state.
  * Inputs validated with zod at the boundary; on success the function
- * uses typed values throughout. Defensive prefix check rejects object
- * keys outside the seed-overlay shape (`creators/...`, `bank-
- * statements/...`, `category-docs/...`) so even a buggy caller cannot
- * sign arbitrary R2 paths.
+ * uses typed values throughout. Object keys are always server-generated
+ * (`<caseId>/<docKind>/<uuid>` for uploads, flat fixture names for seeds),
+ * so the only defensive check needed is path-safety: reject absolute keys
+ * and any `..` segment so a buggy caller cannot escape the bucket prefix.
  *
  * TTL clamp: 60–3600 seconds. Production callers pass 300; the bounds
  * exist so ops can tweak via env without a code change.
@@ -19,7 +19,10 @@
 import { AwsClient } from "aws4fetch";
 import { z } from "zod";
 
-const ALLOWED_OBJECT_KEY_PREFIXES = ["creators/", "bank-statements/", "category-docs/"] as const;
+/** Rejects absolute keys + any `..` segment so a signed URL cannot escape the bucket. */
+function isPathSafeKey(key: string): boolean {
+  return !key.startsWith("/") && !key.split("/").includes("..");
+}
 
 const SignR2GetUrlInputSchema = z
   .object({
@@ -28,9 +31,7 @@ const SignR2GetUrlInputSchema = z
     objectKey: z
       .string()
       .min(1)
-      .refine((key) => ALLOWED_OBJECT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)), {
-        message: `objectKey must start with one of ${ALLOWED_OBJECT_KEY_PREFIXES.join(", ")}`,
-      }),
+      .refine(isPathSafeKey, { message: "objectKey must be relative with no '..' segments" }),
     accessKeyId: z.string().min(1),
     secretAccessKey: z.string().min(1),
     ttlSeconds: z.number().int().min(60).max(3600),

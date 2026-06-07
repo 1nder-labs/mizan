@@ -14,6 +14,7 @@ import { useDocumentUrl } from "@/hooks/use-document-url.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
 import { DocumentViewerDialog } from "./document-viewer-dialog.tsx";
+import { DocumentHistory } from "./document-history.tsx";
 
 interface DocumentsPanelProps {
   readonly caseId: string;
@@ -195,6 +196,7 @@ export function DocumentsPanel({ caseId, hasOverlay }: DocumentsPanelProps): Rea
             }}
           />
         ))}
+        <DocumentHistory caseId={caseId} />
       </CardContent>
       <ActiveDialog caseId={caseId} docKey={activeKey} open={open} onOpenChange={onOpenChange} />
     </Card>

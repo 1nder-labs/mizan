@@ -1,15 +1,14 @@
 import { z } from "zod";
 
-/** Seed overlay persisted in `cases.brief_partial_json`. */
+/**
+ * Campaign narrative persisted in `cases.brief_partial_json`. Uploaded files
+ * live in the `documents` table (single source of truth), NOT here — the
+ * overlay carries only the human-authored campaign text.
+ */
 export const CaseOverlaySchema = z
   .object({
     story: z.string(),
     organizer_name: z.string(),
-    r2_keys: z.object({
-      creator_id: z.string(),
-      bank_statement: z.string(),
-      category_doc: z.string(),
-    }),
     vouching_narrative: z.string().optional(),
   })
   .strict();

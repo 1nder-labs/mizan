@@ -17,7 +17,7 @@ describe("matchPolicy helpers", () => {
         category: "medical",
         geography: "US",
         claimed_zakat_category: "medical",
-        brief_partial_json: {},
+        brief_partial_json: { story: "Urgent surgery", organizer_name: "Organizer" },
         current_run_id: null,
         created_by: "user",
         assigned_to: null,

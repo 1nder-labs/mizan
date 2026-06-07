@@ -1,14 +1,15 @@
 /**
  * Integration: client evidence upload (U5).
  *
- * Proves: a core doc lands in R2 under the server-derived key `<caseId>/<docKind>`
- * and its key is recorded in the overlay (which still parses); re-upload
- * replaces the same key; wrong-MIME and oversize uploads are rejected 400; a
- * file whose bytes don't match its claimed MIME (a spoofed PDF) is rejected by
- * the magic-byte sniff; a docKind outside the three core kinds is rejected so no
- * key can escape the `<caseId>/` prefix; uploading to a sibling's campaign is
- * 404; a decided (APPROVE/BLOCK) case rejects uploads 409 while a REQUEST_DOCS
- * case still accepts the client's response.
+ * Proves: a core doc lands in R2 under the versioned key
+ * `<caseId>/<docKind>/<uuid>` and its key is recorded as the current
+ * `documents` row; re-upload adds a NEW version (latest row wins); wrong-MIME
+ * and oversize uploads are rejected 400; a file whose bytes don't match its
+ * claimed MIME (a spoofed PDF) is rejected by the magic-byte sniff; a docKind
+ * outside the three core kinds is rejected so no key can escape the `<caseId>/`
+ * prefix; uploading to a sibling's campaign is 404; a decided (APPROVE/BLOCK)
+ * case rejects uploads 409 while a REQUEST_DOCS case still accepts the client's
+ * response.
  *
  * Run via `bun --filter @mizan/worker test:integration`.
  */
@@ -16,7 +17,6 @@ import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import {
   CampaignMutationResponseSchema,
-  CaseOverlaySchema,
   EvidenceUploadResponseSchema,
   PortalErrorBodySchema,
 } from "@mizan/shared";
@@ -70,11 +70,23 @@ function uploadEvidence(
   );
 }
 
-async function overlayOf(id: string) {
-  const row = await env.DB.prepare("SELECT brief_partial_json FROM cases WHERE id = ?")
-    .bind(id)
-    .first<{ brief_partial_json: string }>();
-  return CaseOverlaySchema.parse(JSON.parse(row?.brief_partial_json ?? "null"));
+/** Returns the most-recent documents row for a (case, docKind) pair, or null. */
+async function latestDocRow(caseId: string, docKind: string): Promise<{ r2_key: string } | null> {
+  return env.DB.prepare(
+    "SELECT r2_key FROM documents WHERE case_id = ? AND doc_kind = ? ORDER BY uploaded_at DESC LIMIT 1",
+  )
+    .bind(caseId, docKind)
+    .first<{ r2_key: string }>();
+}
+
+/** Returns the total number of documents rows for a (case, docKind) pair. */
+async function docRowCount(caseId: string, docKind: string): Promise<number> {
+  const row = await env.DB.prepare(
+    "SELECT COUNT(*) as cnt FROM documents WHERE case_id = ? AND doc_kind = ?",
+  )
+    .bind(caseId, docKind)
+    .first<{ cnt: number }>();
+  return row?.cnt ?? 0;
 }
 
 async function insertAction(caseId: string, reviewerId: string, action: string): Promise<void> {
@@ -111,7 +123,7 @@ describe("portal evidence upload", () => {
       .cookie;
   }, 60_000);
 
-  it("stores a core doc in R2 under <caseId>/<docKind> and records the key in the overlay", async () => {
+  it("stores a core doc in R2 under a versioned key and records a documents row", async () => {
     const id = await createCampaign(clientACookie);
     const res = await uploadEvidence(
       id,
@@ -121,34 +133,44 @@ describe("portal evidence upload", () => {
     );
     expect(res.status).toBe(201);
     const body = EvidenceUploadResponseSchema.parse(await res.json());
-    expect(body).toEqual({ docKind: "creator_id", key: `${id}/creator_id` });
+    expect(body.docKind).toBe("creator_id");
+    expect(body.key.startsWith(`${id}/creator_id/`)).toBe(true);
 
-    expect(await env.R2_BUCKET.get(`${id}/creator_id`)).not.toBeNull();
-    const overlay = await overlayOf(id);
-    expect(overlay.r2_keys.creator_id).toBe(`${id}/creator_id`);
-    expect(overlay.r2_keys.bank_statement).toBe("");
-    expect(overlay.r2_keys.category_doc).toBe("");
+    const r2Obj = await env.R2_BUCKET.get(body.key);
+    expect(r2Obj).not.toBeNull();
+
+    const docRow = await latestDocRow(id, "creator_id");
+    expect(docRow).not.toBeNull();
+    expect(docRow?.r2_key).toBe(body.key);
   });
 
-  it("replaces the same key on re-upload (overwrites the R2 object)", async () => {
+  it("re-upload adds a new version row (two rows, latest has the new key)", async () => {
     const id = await createCampaign(clientACookie);
-    await uploadEvidence(
+    const res1 = await uploadEvidence(
       id,
       clientACookie,
       "bank_statement",
       new File([PDF_BYTES], "b.pdf", { type: "application/pdf" }),
     );
-    const res = await uploadEvidence(
+    expect(res1.status).toBe(201);
+    const key1 = EvidenceUploadResponseSchema.parse(await res1.json()).key;
+
+    const res2 = await uploadEvidence(
       id,
       clientACookie,
       "bank_statement",
       new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "b.png", { type: "image/png" }),
     );
-    expect(res.status).toBe(201);
+    expect(res2.status).toBe(201);
+    const key2 = EvidenceUploadResponseSchema.parse(await res2.json()).key;
 
-    const overlay = await overlayOf(id);
-    expect(overlay.r2_keys.bank_statement).toBe(`${id}/bank_statement`);
-    const obj = await env.R2_BUCKET.get(`${id}/bank_statement`);
+    expect(key2).not.toBe(key1);
+    expect(await docRowCount(id, "bank_statement")).toBe(2);
+
+    const latest = await latestDocRow(id, "bank_statement");
+    expect(latest?.r2_key).toBe(key2);
+
+    const obj = await env.R2_BUCKET.get(key2);
     expect(obj?.httpMetadata?.contentType).toBe("image/png");
   });
 

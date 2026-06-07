@@ -17,7 +17,7 @@ import {
   type CaseNotesResponse,
   type ClientCampaignsResponse,
   type ClientCaseDetail,
-  type DocumentKey,
+  type DocumentKind,
   type EvidenceUploadResponse,
 } from "@mizan/shared";
 import { api, apiMutate, postMultipart } from "./rpc.ts";
@@ -119,7 +119,7 @@ export async function deleteCampaign(id: string): Promise<void> {
  */
 export async function uploadEvidence(
   id: string,
-  docKind: DocumentKey,
+  docKind: DocumentKind,
   file: File,
 ): Promise<EvidenceUploadResponse> {
   const form = new FormData();

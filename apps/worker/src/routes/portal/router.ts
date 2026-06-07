@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { CloudflareBindings } from "../../env.ts";
 import { requireRole, type ViewerVariables } from "../../middleware/require-role.ts";
 import { campaignRoutes } from "./campaigns.ts";
+import { campaignDocumentsRoutes } from "./campaign-documents.ts";
 
 /**
  * Client-facing campaign portal (`/api/portal/*`). Gated to the `client` role
@@ -17,4 +18,5 @@ export const portalRoutes = new Hono<{
   Variables: ViewerVariables;
 }>()
   .use("*", requireRole(["client"]))
-  .route("/campaigns", campaignRoutes);
+  .route("/campaigns", campaignRoutes)
+  .route("/campaigns", campaignDocumentsRoutes);

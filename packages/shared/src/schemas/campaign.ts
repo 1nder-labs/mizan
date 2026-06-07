@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DocumentKeyEnum } from "./document-url.ts";
+import { DocumentKindEnum } from "./document.ts";
 import { CaseStatusEnum } from "./queue-search.ts";
 import { CampaignCategoryEnum, ZakatCategoryEnum } from "./campaign-taxonomy.ts";
 import { COUNTRY_CODE_SET } from "../data/countries.ts";
@@ -8,9 +8,9 @@ import { COUNTRY_CODE_SET } from "../data/countries.ts";
  * Client-portal campaign intake contracts (U4). A campaign is a `cases` row:
  * `category`/`geography`/`claimed_zakat_category` are columns; `story`,
  * `organizer_name`, and `vouching_narrative` live in the strict
- * `CaseOverlaySchema` overlay (`cases.brief_partial_json`). The 3 evidence
- * `r2_keys` are NOT part of intake — they are filled server-side by the
- * evidence-upload unit, so the create route seeds them empty.
+ * `CaseOverlaySchema` overlay (`cases.brief_partial_json`). Evidence files are
+ * NOT part of intake — they are uploaded server-side into the `documents` table
+ * after the campaign row exists.
  *
  * `.strict()` rejects extra keys, so a client can never mass-assign
  * server-controlled columns (status, created_by, organization_id, assigned_to).
@@ -39,11 +39,11 @@ export const CampaignMutationResponseSchema = z
 export type CampaignMutationResponse = z.infer<typeof CampaignMutationResponseSchema>;
 
 /**
- * Returned by an evidence upload. `docKind` is one of the three core docs;
- * `key` is the server-derived R2 object key (`<caseId>/<docKind>`) now recorded
- * in the overlay `r2_keys`. The client never supplies the key.
+ * Returned by an evidence upload. `docKind` is one of the document kinds (the 3
+ * extraction slots or `supplementary`); `key` is the server-derived versioned
+ * R2 object key (`<caseId>/<docKind>/<uuid>`). The client never supplies the key.
  */
 export const EvidenceUploadResponseSchema = z
-  .object({ docKind: DocumentKeyEnum, key: z.string() })
+  .object({ docKind: DocumentKindEnum, key: z.string() })
   .strict();
 export type EvidenceUploadResponse = z.infer<typeof EvidenceUploadResponseSchema>;

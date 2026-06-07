@@ -75,6 +75,17 @@ export {
 } from "./schemas/document-url.ts";
 
 export {
+  DocumentFileUrlResponseSchema,
+  DocumentKindEnum,
+  DocumentSummarySchema,
+  DocumentsListResponseSchema,
+  type DocumentFileUrlResponse,
+  type DocumentKind,
+  type DocumentSummary,
+  type DocumentsListResponse,
+} from "./schemas/document.ts";
+
+export {
   PolicyClauseErrorBodySchema,
   PolicyClauseErrorCodeEnum,
   PolicyClauseQuerySchema,

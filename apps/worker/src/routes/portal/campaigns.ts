@@ -27,15 +27,13 @@ import { storeEvidence } from "./evidence-store.ts";
 import { deleteDraftCampaign } from "./delete-campaign.ts";
 import { loadOwnedCampaign } from "./ownership.ts";
 
-const EMPTY_R2_KEYS = { creator_id: "", bank_statement: "", category_doc: "" } as const;
 const CampaignParamSchema = z.object({ id: z.string().uuid() });
 
-/** Builds the strict overlay from intake fields, carrying the evidence keys in. */
-function buildOverlay(input: CampaignCreate, r2_keys: CaseOverlay["r2_keys"]): CaseOverlay {
+/** Builds the strict campaign-narrative overlay from intake fields. */
+function buildOverlay(input: CampaignCreate): CaseOverlay {
   return CaseOverlaySchema.parse({
     story: input.story,
     organizer_name: input.organizer_name,
-    r2_keys,
     ...(input.vouching_narrative !== undefined
       ? { vouching_narrative: input.vouching_narrative }
       : {}),
@@ -43,9 +41,8 @@ function buildOverlay(input: CampaignCreate, r2_keys: CaseOverlay["r2_keys"]): C
 }
 
 /**
- * Overlay update for an edit: `json_set` the intake fields on the CURRENT stored
- * overlay so a concurrent evidence upload's `r2_keys` are never clobbered by a
- * stale app-side snapshot (the prior full-overlay rewrite did exactly that).
+ * Overlay update for an edit: `json_set` the narrative fields on the CURRENT
+ * stored overlay (story / organizer_name / vouching_narrative).
  * `vouching_narrative` is REMOVED when cleared — the overlay schema is
  * `.optional()`, not nullable, so a stored `null` would fail re-parse on read —
  * and set otherwise.
@@ -66,7 +63,7 @@ function createCampaign(db: Db, viewer: ViewerContext, input: CampaignCreate) {
       category: input.category,
       geography: input.geography,
       claimed_zakat_category: input.claimed_zakat_category ?? null,
-      brief_partial_json: buildOverlay(input, { ...EMPTY_R2_KEYS }),
+      brief_partial_json: buildOverlay(input),
       created_by: viewer.userId,
       organization_id: viewer.organizationId,
     })

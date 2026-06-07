@@ -8,7 +8,7 @@
  * Existing surfaces (Phase 4–7) keep their own copy locally for now;
  * a future pass may consolidate but is out of Phase 7.5's scope.
  */
-import type { CaseStatus, ClientStatus, DocumentKey } from "@mizan/shared";
+import type { CaseStatus, ClientStatus } from "@mizan/shared";
 
 export const COPY = {
   error: {
@@ -80,6 +80,9 @@ export const COPY = {
     categoryDocLabel: "Category document",
     openInTab: "Open in new tab",
     downloadLabel: "Download",
+    historyTitle: "Additional & previous documents",
+    supplementaryLabel: "Supplementary document",
+    previousVersion: "Previous version",
     loadingLabel: "Loading document…",
     loadError: "Couldn't load this document. Try refreshing the page.",
     pdfNextPage: "Next page",
@@ -309,6 +312,12 @@ export const COPY = {
     evidenceDecided: "This campaign has been decided — documents can no longer be changed.",
     evidenceError: "Upload failed. Use a PDF or image under 25 MB.",
     evidenceRequired: "Required",
+    supplementaryTitle: "Additional documents",
+    supplementaryHint: "Add any extra files that support your campaign.",
+    supplementaryAdd: "Add document",
+    supplementaryView: "View",
+    supplementaryEmpty: "No additional documents yet.",
+    supplementaryUntitled: "Document",
     detailEvidenceIncompleteTitle: "Documents still needed",
     detailEvidenceIncompleteBody:
       "Your campaign is submitted, but some required documents are missing. Upload them below so your reviewer can continue.",
@@ -362,32 +371,4 @@ const CLIENT_STATUS_DISPLAY: Readonly<Record<ClientStatus, string>> = {
 /** Returns the friendly, client-facing label for a ClientStatus. */
 export function clientStatusDisplay(status: ClientStatus): string {
   return CLIENT_STATUS_DISPLAY[status];
-}
-
-const DOC_KIND_DISPLAY: Readonly<Record<DocumentKey, string>> = {
-  creator_id: "Creator ID",
-  bank_statement: "Bank statement",
-  category_doc: "Category document",
-};
-
-/** Returns the client-facing label for one of the three core evidence docs. */
-export function docKindDisplay(docKind: DocumentKey): string {
-  return DOC_KIND_DISPLAY[docKind];
-}
-
-const DOC_KIND_WHY: Readonly<Record<DocumentKey, string>> = {
-  creator_id: "Confirms who is organizing this campaign.",
-  bank_statement: "Shows funds will reach the right account.",
-  category_doc: "Backs up the specific need you're raising for.",
-};
-
-/** A one-line reason each core evidence doc is needed, shown under its row. */
-export function docKindWhy(docKind: DocumentKey): string {
-  return DOC_KIND_WHY[docKind];
-}
-
-/** Completeness label for the evidence panel, e.g. "2 of 3 documents uploaded". */
-export function evidenceProgress(uploaded: number, total: number): string {
-  if (uploaded >= total) return `All ${total} documents uploaded`;
-  return `${uploaded} of ${total} documents uploaded`;
 }
