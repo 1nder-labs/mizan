@@ -41,11 +41,40 @@ describe("composeBrief helpers", () => {
         geography_tier: "SAFE",
         extractions: {},
         signals: {},
+        prior_decision: null,
       },
       [{ clauseId: "zakat.5.1", source: "zakat", excerpt: "Medical", relevance: 0.9 }],
     );
     expect(payload.available_clause_ids).toEqual(["zakat.5.1"]);
     expect(payload.policy_clause_list).toContain("zakat.5.1");
+    expect(payload.prior_decision).toBeNull();
+  });
+
+  it("buildPromptWithClauses carries prior_decision through for re-review", () => {
+    const payload = buildPromptWithClauses(
+      {
+        caseId: "case-2",
+        category: "medical",
+        geography: "US",
+        verification_path: "documentary",
+        geography_tier: "SAFE",
+        extractions: {},
+        signals: {},
+        prior_decision: {
+          prior_recommendation: "REQUEST_DOCS",
+          prior_confidence: 55,
+          prior_missing_docs: ["bank_statement: last 3 months missing"],
+          reviewer_action: "REQUEST_DOCS",
+          reviewer_rationale: "Need an updated bank statement before deciding",
+        },
+      },
+      [],
+    );
+    expect(payload.prior_decision?.reviewer_action).toBe("REQUEST_DOCS");
+    expect(payload.prior_decision?.prior_recommendation).toBe("REQUEST_DOCS");
+    expect(payload.prior_decision?.prior_missing_docs).toContain(
+      "bank_statement: last 3 months missing",
+    );
   });
 });
 

@@ -56,4 +56,4 @@ export {
   orgTopic,
   userTopic,
 } from "./live-event-builders.ts";
-export { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+export { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
