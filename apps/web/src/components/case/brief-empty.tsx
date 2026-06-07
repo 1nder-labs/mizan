@@ -19,7 +19,7 @@
  *     resume flow; surfacing a Generate button here would race the
  *     producer-guard.
  */
-import { Sparkles } from "lucide-react";
+import { BrainCircuit } from "lucide-react";
 import type { CaseStatus } from "@mizan/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -76,7 +76,7 @@ function GenerateBriefButton({
 }): React.JSX.Element {
   return (
     <Button size="sm" onClick={onGenerate}>
-      <Sparkles className="mr-2 size-3.5" />
+      <BrainCircuit className="mr-2 size-3.5" />
       Generate brief
     </Button>
   );

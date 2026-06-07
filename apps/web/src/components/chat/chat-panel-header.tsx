@@ -1,4 +1,4 @@
-import { PanelLeft, Plus, X, Sparkles } from "lucide-react";
+import { PanelLeft, Plus, X, BrainCircuit } from "lucide-react";
 import { COPY } from "@/lib/copy-constants.ts";
 import { Button } from "@/components/ui/button.tsx";
 
@@ -52,7 +52,7 @@ export function ChatPanelHeader({
         <PanelLeft className="size-4" />
       </HeaderIconButton>
       <div className="min-w-0 flex-1 flex items-center gap-2">
-        <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
+        <BrainCircuit className="size-3.5 shrink-0 text-muted-foreground" />
         <p className="truncate text-sm font-semibold tracking-[-0.01em] leading-none">
           {COPY.chat.panelTitle}
         </p>

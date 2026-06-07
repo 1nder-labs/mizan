@@ -3,6 +3,8 @@ import { useForm } from "react-hook-form";
 import {
   RATIONALE_REQUIRED_ACTIONS,
   ReviewerActionRequestSchema,
+  type Recommendation,
+  type ReviewerAction,
   type ReviewerActionRequest,
 } from "@mizan/shared";
 import { Form } from "@/components/ui/form.tsx";
@@ -10,12 +12,25 @@ import { ActionRadioField } from "./action-form-fields.tsx";
 import { RationaleField } from "./rationale-field.tsx";
 import { SubmitActionButton } from "./submit-action-button.tsx";
 
+/** Maps the AI brief recommendation to the reviewer action it suggests. */
+const RECOMMENDATION_TO_ACTION: Record<Recommendation, ReviewerAction> = {
+  READY_FOR_REVIEW: "APPROVE",
+  REQUEST_DOCS: "REQUEST_DOCS",
+  ESCALATE: "ESCALATE",
+  BLOCK: "BLOCK",
+};
+
 interface ActionFormProps {
   readonly pending: boolean;
   readonly onSubmit: (payload: ReviewerActionRequest) => Promise<void>;
+  readonly recommendation?: Recommendation;
 }
 
-export function ActionForm({ pending, onSubmit }: ActionFormProps): React.JSX.Element {
+export function ActionForm({
+  pending,
+  onSubmit,
+  recommendation,
+}: ActionFormProps): React.JSX.Element {
   const form = useForm<ReviewerActionRequest>({
     resolver: zodResolver(ReviewerActionRequestSchema),
     defaultValues: {
@@ -28,6 +43,7 @@ export function ActionForm({ pending, onSubmit }: ActionFormProps): React.JSX.El
 
   const selectedAction = form.watch("action");
   const requiresRationale = RATIONALE_REQUIRED_ACTIONS.has(selectedAction);
+  const suggestedAction = recommendation ? RECOMMENDATION_TO_ACTION[recommendation] : null;
 
   return (
     <Form {...form}>
@@ -37,7 +53,11 @@ export function ActionForm({ pending, onSubmit }: ActionFormProps): React.JSX.El
           await onSubmit(values);
         })}
       >
-        <ActionRadioField control={form.control} pending={pending} />
+        <ActionRadioField
+          control={form.control}
+          pending={pending}
+          suggestedAction={suggestedAction}
+        />
         <div className="border-t border-border/40 pt-4">
           <RationaleField
             control={form.control}

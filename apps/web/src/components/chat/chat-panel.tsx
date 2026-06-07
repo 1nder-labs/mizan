@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { BrainCircuit } from "lucide-react";
 import { AnimatePresence, m } from "framer-motion";
 import { Button } from "@/components/ui/button.tsx";
 import { DUR_BASE, EASE_OUT } from "@/lib/motion.ts";
@@ -67,7 +67,7 @@ function CopilotFab({ onOpen }: { readonly onOpen: () => void }): React.JSX.Elem
         className="shadow-elev-2 gap-1.5 px-3"
         onClick={onOpen}
       >
-        <Sparkles className="size-3.5" />
+        <BrainCircuit className="size-3.5" />
         Copilot
       </Button>
     </m.div>

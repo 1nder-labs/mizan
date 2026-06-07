@@ -6,7 +6,7 @@ import { buildCopilotInstructions } from "./page-context.ts";
 
 /** Creates the read-only Mizan Copilot agent with caller-supplied tools. */
 export function createReviewerCopilotAgent(env: CloudflareBindings, tools: ToolsInput) {
-  const resolved = resolveLanguageModel({ kind: "compose", env });
+  const resolved = resolveLanguageModel({ kind: "copilot", env });
   return new Agent({
     id: "reviewerCopilot",
     name: "Mizan Copilot",

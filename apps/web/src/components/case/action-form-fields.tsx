@@ -1,4 +1,5 @@
 import type { Control } from "react-hook-form";
+import { BrainCircuit } from "lucide-react";
 import { ReviewerActionEnum, type ReviewerAction, type ReviewerActionRequest } from "@mizan/shared";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form.tsx";
 import { InfoHint } from "@/components/ui/info-hint.tsx";
@@ -16,17 +17,36 @@ const ACTION_LABELS: Record<ReviewerAction, string> = {
 interface ActionRadioFieldProps {
   readonly control: Control<ReviewerActionRequest>;
   readonly pending: boolean;
+  readonly suggestedAction?: ReviewerAction | null;
+}
+
+/** Small "AI suggested" marker shown on the recommendation-matched action row. */
+function AiSuggestedBadge(): React.JSX.Element {
+  return (
+    <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-status-info-border bg-status-info px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-status-info-foreground">
+      <BrainCircuit className="size-2.5" />
+      AI suggested
+    </span>
+  );
+}
+
+function rowToneClass(selected: boolean, suggested: boolean): string {
+  if (selected) return "bg-muted/60 before:bg-foreground text-foreground";
+  if (suggested) return "before:bg-transparent text-foreground hover:bg-muted/30";
+  return "before:bg-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground";
 }
 
 /** Single accent-bar radio row for one action option. */
 function ActionRadioRow({
   action,
   selected,
+  suggested,
   pending,
   onSelect,
 }: {
   readonly action: ReviewerAction;
   readonly selected: boolean;
+  readonly suggested: boolean;
   readonly pending: boolean;
   readonly onSelect: (action: ReviewerAction) => void;
 }): React.JSX.Element {
@@ -38,9 +58,7 @@ function ActionRadioRow({
         "transition-colors",
         "before:absolute before:inset-y-2 before:left-0 before:w-[3px]",
         "before:rounded-r-full before:transition-colors",
-        selected
-          ? "bg-muted/60 before:bg-foreground text-foreground"
-          : "before:bg-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground",
+        rowToneClass(selected, suggested),
         pending ? "cursor-not-allowed opacity-60" : "",
       )}
     >
@@ -55,12 +73,17 @@ function ActionRadioRow({
         className="sr-only"
       />
       <span className="text-sm font-medium">{ACTION_LABELS[action]}</span>
+      {suggested ? <AiSuggestedBadge /> : null}
     </label>
   );
 }
 
 /** Radio group for selecting the reviewer action disposition. */
-export function ActionRadioField({ control, pending }: ActionRadioFieldProps): React.JSX.Element {
+export function ActionRadioField({
+  control,
+  pending,
+  suggestedAction,
+}: ActionRadioFieldProps): React.JSX.Element {
   return (
     <FormField
       control={control}
@@ -84,6 +107,7 @@ export function ActionRadioField({ control, pending }: ActionRadioFieldProps): R
                   key={action}
                   action={action}
                   selected={field.value === action}
+                  suggested={suggestedAction === action}
                   pending={pending}
                   onSelect={field.onChange}
                 />

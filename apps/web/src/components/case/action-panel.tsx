@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { CaseDetailResponse } from "@mizan/shared";
 import { BriefSummaryCard } from "./brief-summary.tsx";
+import { BriefDetailTabs } from "./brief-details.tsx";
 import { ActionForm } from "./action-form.tsx";
 import { ReviewerActionError, submitReviewerAction } from "@/lib/cases-api.ts";
 import { describeActionError } from "@/lib/describe-action-error.ts";
@@ -57,10 +58,13 @@ export function ActionPanel({ detail }: ActionPanelProps): React.JSX.Element {
       style={mutation.isPending ? { pointerEvents: "none" } : undefined}
     >
       {detail.brief ? (
-        <BriefSummaryCard
-          payload={detail.brief.payload_json}
-          composedAt={detail.brief.composed_at}
-        />
+        <>
+          <BriefSummaryCard
+            payload={detail.brief.payload_json}
+            composedAt={detail.brief.composed_at}
+          />
+          <BriefDetailTabs payload={detail.brief.payload_json} />
+        </>
       ) : null}
       <div className="rounded-xl border border-border/70 bg-card shadow-elev-1">
         <div className="border-b border-border/50 px-5 py-4">
@@ -71,6 +75,7 @@ export function ActionPanel({ detail }: ActionPanelProps): React.JSX.Element {
         <div className="p-5">
           <ActionForm
             pending={formLocked}
+            {...(detail.brief ? { recommendation: detail.brief.payload_json.recommendation } : {})}
             onSubmit={async (body) => {
               await mutation.mutateAsync(body);
             }}

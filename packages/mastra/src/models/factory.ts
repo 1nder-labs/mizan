@@ -11,19 +11,35 @@ export interface ModelConfig {
   readonly model: string;
 }
 
-export type ModelKind = "extract" | "compose";
+export type ModelKind = "extract" | "compose" | "copilot";
 
 interface ProviderModelMap {
   readonly extract: string;
   readonly compose: string;
+  readonly copilot: string;
 }
 
+/**
+ * `copilot` is a full (non-mini) reasoning model: the reviewer copilot answers
+ * free-form questions over case/brief/signal data, where a smaller model
+ * paraphrases loosely and hallucinates. Kept separate from `compose` so the
+ * brief pipeline's cost/latency profile is unaffected.
+ */
 const PROVIDER_DEFAULTS: Record<LlmProvider, ProviderModelMap> = {
-  anthropic: { extract: "claude-haiku-4-5", compose: "claude-opus-4-7" },
-  openai: { extract: "gpt-5.4-mini-2026-03-17", compose: "gpt-5.4-mini-2026-03-17" },
+  anthropic: {
+    extract: "claude-haiku-4-5",
+    compose: "claude-opus-4-7",
+    copilot: "claude-opus-4-7",
+  },
+  openai: {
+    extract: "gpt-5.4-mini-2026-03-17",
+    compose: "gpt-5.4-mini-2026-03-17",
+    copilot: "gpt-5.4-2026-03-05",
+  },
   openrouter: {
     extract: "anthropic/claude-3.5-haiku",
     compose: "anthropic/claude-3.5-sonnet",
+    copilot: "anthropic/claude-3.5-sonnet",
   },
 };
 
