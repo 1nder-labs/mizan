@@ -198,11 +198,27 @@ async function routeBriefPost(c: BriefContext): Promise<Response> {
 const runningGuard = producerGuard("RUNNING");
 const queuedGuard = producerGuard("QUEUED");
 
+/**
+ * ORDERING INVARIANT — `assignmentsRoutes` is registered BEFORE the
+ * `requireCaseAccess` gate so it is exempt from it. Hono runs matched handlers
+ * in registration order and stops when one returns a Response without calling
+ * `next()`; the assign handler returns directly, so the later-registered
+ * `.use("/:id/*", requireCaseAccess)` never executes for `POST /:id/assign`.
+ * This is intentional: assign lets a reviewer SELF-CLAIM an unassigned case (the
+ * queue's core flow), which the access gate — "a reviewer may only touch cases
+ * assigned to them" — would otherwise 403. The assign route enforces its own
+ * finer `self_assign_only` + org-scope policy.
+ *
+ * Every OTHER `/:id` data route MUST stay registered AFTER the two
+ * `requireCaseAccess` `.use(...)` lines: anything registered before them is
+ * silently ungated. Do not move a data route above this gate.
+ */
 export const caseRoutes = new Hono<{
   Bindings: CloudflareBindings;
   Variables: ProducerVariables;
 }>()
   .use("*", requireRole(["reviewer", "admin"]))
+  .route("/", assignmentsRoutes)
   .use("/:id", requireCaseAccess)
   .use("/:id/*", requireCaseAccess)
   .route("/", casesListRoutes)
@@ -210,7 +226,6 @@ export const caseRoutes = new Hono<{
   .route("/", documentsRoutes)
   .route("/", caseDocumentsRoutes)
   .route("/", signalsRoutes)
-  .route("/", assignmentsRoutes)
   .route("/", caseNotesRoutes)
   .get("/:id/stream", zValidator("param", StreamParamsSchema), caseStreamHandler)
   .post(

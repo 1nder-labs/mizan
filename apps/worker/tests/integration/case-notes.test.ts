@@ -27,13 +27,18 @@ async function inviteReviewerInto(orgId: string, inviterId: string) {
   return signUp(email, "Reviewer");
 }
 
-async function insertCase(createdBy: string, orgId: string, status = "DRAFT"): Promise<string> {
+async function insertCase(
+  createdBy: string,
+  orgId: string,
+  status = "DRAFT",
+  assignedTo: string | null = null,
+): Promise<string> {
   const id = crypto.randomUUID();
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
-     VALUES (?, ?, 'orphan', 'US', NULL, NULL, ?, ?, ?, ?)`,
+    `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, assigned_to, created_by, organization_id, created_at, updated_at)
+     VALUES (?, ?, 'orphan', 'US', NULL, NULL, ?, ?, ?, ?, ?)`,
   )
-    .bind(id, status, createdBy, orgId, Date.now(), Date.now())
+    .bind(id, status, assignedTo, createdBy, orgId, Date.now(), Date.now())
     .run();
   return id;
 }
@@ -208,7 +213,7 @@ describe("case notes", () => {
   });
 
   it("scopes note visibility: reviewer sees all, client sees only client_facing", async () => {
-    const caseId = await insertCase(clientAId, REVIEW_ORG_ID);
+    const caseId = await insertCase(clientAId, REVIEW_ORG_ID, "DRAFT", reviewerId);
     expect(
       (
         await send("POST", `${BASE}/api/cases/${caseId}/notes/message`, reviewerCookie, {

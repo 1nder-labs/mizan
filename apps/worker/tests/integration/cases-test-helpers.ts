@@ -67,7 +67,11 @@ export async function seedAdmin(): Promise<{ cookie: string; userId: string }> {
   return { cookie: signIn.headers.getSetCookie().join("; "), userId: row.id };
 }
 
-/** Inserts a case row directly into D1. */
+/**
+ * Inserts a case row directly into D1. `assignedTo` defaults to `createdBy` so a
+ * reviewer that creates a case can also access it under the reviewer-assignee
+ * RBAC; pass `assignedTo: null` to seed an explicitly unassigned case.
+ */
 export async function insertCase(opts: {
   id: string;
   status: string;
@@ -76,15 +80,18 @@ export async function insertCase(opts: {
   createdBy: string;
   organizationId: string;
   title?: string;
+  assignedTo?: string | null;
   createdAt?: number;
   updatedAt?: number;
 }): Promise<void> {
   const now = Date.now();
+  const assignedTo = opts.assignedTo === undefined ? opts.createdBy : opts.assignedTo;
   await env.DB.prepare(
-    `INSERT INTO cases (id, status, title, category, geography, claimed_zakat_category, brief_partial_json, created_by, organization_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)
+    `INSERT INTO cases (id, status, title, category, geography, claimed_zakat_category, brief_partial_json, created_by, assigned_to, organization_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        status = excluded.status,
+       assigned_to = excluded.assigned_to,
        updated_at = excluded.updated_at`,
   )
     .bind(
@@ -94,6 +101,7 @@ export async function insertCase(opts: {
       opts.category,
       opts.geography,
       opts.createdBy,
+      assignedTo,
       opts.organizationId,
       opts.createdAt ?? now,
       opts.updatedAt ?? now,
