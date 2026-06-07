@@ -212,6 +212,32 @@ describe("case notes", () => {
     expect(await clientResponded(db, id)).toBe(true);
   });
 
+  it("true: a client response newer than an ESCALATE — escalations also await the client", async () => {
+    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
+    await insertAction(id, reviewerId, 100, "ESCALATE");
+    await insertNote({
+      caseId: id,
+      authorUserId: clientAId,
+      authorRole: "client",
+      visibility: "client_facing",
+      createdAt: 200,
+    });
+    expect(await clientResponded(db, id)).toBe(true);
+  });
+
+  it("false: an ESCALATE newer than the client note", async () => {
+    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
+    await insertNote({
+      caseId: id,
+      authorUserId: clientAId,
+      authorRole: "client",
+      visibility: "client_facing",
+      createdAt: 100,
+    });
+    await insertAction(id, reviewerId, 200, "ESCALATE");
+    expect(await clientResponded(db, id)).toBe(false);
+  });
+
   it("scopes note visibility: reviewer sees all, client sees only client_facing", async () => {
     const caseId = await insertCase(clientAId, REVIEW_ORG_ID, "DRAFT", reviewerId);
     expect(

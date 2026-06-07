@@ -26,7 +26,7 @@ import {
   type ReviewerAction,
   type ViewerContext,
 } from "@mizan/shared";
-import { clientResponded, latestReviewerAction } from "../lib/case-notes.ts";
+import { clientRespondedFor, latestReviewerAction } from "../lib/case-notes.ts";
 
 export class NotFoundError extends Error {
   constructor(message: string) {
@@ -187,7 +187,6 @@ async function fetchLatestBriefRow(db: Db, caseId: string, organizationId: strin
 }
 
 function resolveOverlay(raw: unknown): CaseOverlay | null {
-  if (raw === null || raw === undefined) return null;
   const parsed = CaseOverlaySchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
 }
@@ -318,6 +317,7 @@ export async function fetchCaseDetail(
     ? resolveLatestBrief(brief.recommendation, brief.payload_json?.verification_path ?? null)
     : null;
 
+  const latest = await latestReviewerAction(db, caseId);
   const draft: CaseDetailDraft = {
     case: mapCaseRow(row, latestBrief, row.clientSubmitted === 1),
     brief: brief
@@ -329,8 +329,8 @@ export async function fetchCaseDetail(
         }
       : null,
     overlay: resolveOverlay(row.brief_partial_json),
-    client_responded: await clientResponded(db, caseId),
-    latest_action: (await latestReviewerAction(db, caseId))?.action ?? null,
+    client_responded: await clientRespondedFor(db, caseId, latest),
+    latest_action: latest?.action ?? null,
   };
   return parseCaseDetail(draft);
 }

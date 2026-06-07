@@ -92,20 +92,37 @@ export async function latestReviewerAction(
 }
 
 /**
- * KTD-5: a case needs reviewer attention when the reviewer's LATEST action was
- * REQUEST_DOCS and the client has since added a `client_facing` note newer than
- * that action. Reviewer actions are terminal (every action, REQUEST_DOCS
- * included, flips the case to ACTIONED), so the signal keys off the action TYPE
- * — a case-status gate would treat every doc-request response as "closed" and
- * never fire. The strict `>` re-arms per request: a second REQUEST_DOCS resets
- * the bar until a newer client note arrives, so the re-brief loop never
- * double-flags. The note subquery filters `author_role = 'client'` so a
- * reviewer's own `client_facing` message can never self-flag the case.
+ * Reviewer actions that hand the ball back to the client — a doc request or an
+ * escalation that invites more from the campaign owner. MUST stay in sync with
+ * `deriveCaseDisposition`, whose precedence maps BOTH `REQUEST_DOCS + responded`
+ * and `ESCALATE + responded` to `CLIENT_REPLIED`. Keying only off REQUEST_DOCS
+ * left the ESCALATE branch permanently dead — a client reply to an escalated
+ * case never registered, so the client saw "under further review" forever.
  */
-export async function clientResponded(db: Db, caseId: string): Promise<boolean> {
-  const latest = await latestReviewerAction(db, caseId);
-  if (!latest || latest.action !== "REQUEST_DOCS") return false;
-  const noteRow = await db
+const CLIENT_AWAITING_ACTIONS = new Set<ReviewerAction>(["REQUEST_DOCS", "ESCALATE"]);
+
+/**
+ * Pure rule: the client has responded when the reviewer's latest action awaits
+ * client input and a `client_facing` client note is STRICTLY newer than it.
+ * Both inputs are epoch-ms (`acted_at` + `created_at` are `timestamp_ms`). The
+ * strict `>` re-arms per request: a second awaiting-action resets the bar until
+ * a newer client note arrives, so the re-brief loop never double-flags.
+ */
+export function isClientResponded(
+  latest: { action: ReviewerAction; actedAtMs: number } | null,
+  clientNoteMs: number | null,
+): boolean {
+  if (!latest || !CLIENT_AWAITING_ACTIONS.has(latest.action)) return false;
+  return clientNoteMs !== null && clientNoteMs > latest.actedAtMs;
+}
+
+/**
+ * Max `created_at` (epoch-ms) of a client's own `client_facing` note for a case,
+ * or null when none. The `author_role = 'client'` filter means a reviewer's own
+ * client-facing message can never self-flag the case.
+ */
+async function latestClientNoteMs(db: Db, caseId: string): Promise<number | null> {
+  const row = await db
     .select({ max: sql<number | null>`MAX(${caseNotes.created_at})` })
     .from(caseNotes)
     .where(
@@ -116,8 +133,31 @@ export async function clientResponded(db: Db, caseId: string): Promise<boolean> 
       ),
     )
     .get();
-  const noteMax = noteRow?.max ?? null;
-  return noteMax !== null && noteMax > latest.actedAtMs;
+  return row?.max ?? null;
+}
+
+/**
+ * `clientResponded` for a caller that ALREADY holds the latest reviewer action,
+ * avoiding a duplicate `latestReviewerAction` query. Skips the note query
+ * entirely when the latest action does not await a client response.
+ */
+export async function clientRespondedFor(
+  db: Db,
+  caseId: string,
+  latest: { action: ReviewerAction; actedAtMs: number } | null,
+): Promise<boolean> {
+  if (!latest || !CLIENT_AWAITING_ACTIONS.has(latest.action)) return false;
+  return isClientResponded(latest, await latestClientNoteMs(db, caseId));
+}
+
+/**
+ * True when the reviewer's latest action awaits client input (REQUEST_DOCS or
+ * ESCALATE) and the client has since added a newer `client_facing` note.
+ * Reviewer actions are terminal (all flip the case to ACTIONED), so this keys
+ * off the action TYPE, not the case status.
+ */
+export async function clientResponded(db: Db, caseId: string): Promise<boolean> {
+  return clientRespondedFor(db, caseId, await latestReviewerAction(db, caseId));
 }
 
 /** True when the case exists within the given org — the reviewer cross-org write guard. */
