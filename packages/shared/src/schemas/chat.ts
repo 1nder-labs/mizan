@@ -10,6 +10,15 @@ export const ChatThreadSchema = z
 
 export type ChatThread = z.infer<typeof ChatThreadSchema>;
 
+/** Rename body — the new conversation title. */
+export const ChatThreadRenameSchema = z
+  .object({ title: z.string().trim().min(1).max(120) })
+  .strict();
+export type ChatThreadRename = z.infer<typeof ChatThreadRenameSchema>;
+
+export const ChatThreadMutationResponseSchema = z.object({ ok: z.literal(true) }).strict();
+export type ChatThreadMutationResponse = z.infer<typeof ChatThreadMutationResponseSchema>;
+
 export const ChatThreadListResponseSchema = z
   .object({
     threads: ChatThreadSchema.array(),

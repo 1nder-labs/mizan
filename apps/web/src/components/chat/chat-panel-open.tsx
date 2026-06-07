@@ -50,7 +50,7 @@ function ResizeHandle({ handleProps }: { readonly handleProps: ChatPanelResize["
 export function OpenChatPanel({ onClose }: { readonly onClose: () => void }): React.JSX.Element {
   const { width, handleProps } = useChatPanelResize();
   const [historyOpen, setHistoryOpen] = useState(false);
-  const { threadId, setThreadId, createThread, threads } = useChatThread();
+  const { threadId, setThreadId, createThread, threads, onRename, onDelete } = useChatThread();
   useEscapeKey(onClose);
 
   const newChat = useCallback((): void => {
@@ -83,6 +83,8 @@ export function OpenChatPanel({ onClose }: { readonly onClose: () => void }): Re
           threadId={threadId}
           onSelect={setThreadId}
           onCreate={() => void createThread.mutate()}
+          onRename={onRename}
+          onDelete={onDelete}
         />
         <ChatPanelBody threadId={threadId} />
       </div>

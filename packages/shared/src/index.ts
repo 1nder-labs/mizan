@@ -225,12 +225,16 @@ export {
   ChatThreadCreatedResponseSchema,
   ChatThreadDetailResponseSchema,
   ChatThreadListResponseSchema,
+  ChatThreadMutationResponseSchema,
+  ChatThreadRenameSchema,
   ChatThreadSchema,
   type ChatMessageRecord,
   type ChatThread,
   type ChatThreadCreatedResponse,
   type ChatThreadDetailResponse,
   type ChatThreadListResponse,
+  type ChatThreadMutationResponse,
+  type ChatThreadRename,
 } from "./schemas/chat.ts";
 
 export { BriefQueueMessageSchema, type BriefQueueMessage } from "./schemas/queue-message.ts";

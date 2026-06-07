@@ -14,12 +14,16 @@ export function ChatThreadRail({
   threadId,
   onSelect,
   onCreate,
+  onRename,
+  onDelete,
 }: {
   readonly open: boolean;
   readonly threads: readonly ChatThread[];
   readonly threadId: string | null;
   readonly onSelect: (id: string) => void;
   readonly onCreate: () => void;
+  readonly onRename: (id: string, title: string) => void;
+  readonly onDelete: (id: string) => void;
 }): React.JSX.Element {
   return (
     <div
@@ -35,6 +39,8 @@ export function ChatThreadRail({
           threadId={threadId}
           onSelect={onSelect}
           onCreate={onCreate}
+          onRename={onRename}
+          onDelete={onDelete}
         />
       </div>
     </div>

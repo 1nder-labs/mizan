@@ -2,12 +2,40 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { validateUIMessages } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { ChatThreadCreatedResponseSchema } from "@mizan/shared";
 import { COPY } from "@/lib/copy-constants.ts";
-import { chatThreadQueryOptions, chatThreadsQueryOptions } from "@/lib/chat-api.ts";
+import {
+  chatThreadQueryOptions,
+  chatThreadsQueryOptions,
+  deleteThread,
+  renameThread,
+} from "@/lib/chat-api.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
 import { apiMutate } from "@/lib/rpc.ts";
 import { useChatTransport } from "@/hooks/use-chat-transport.ts";
+
+/** Rename + delete mutations; deleting the active thread clears the selection. */
+function useThreadMutations(threadId: string | null, clearSelection: () => void) {
+  const queryClient = useQueryClient();
+  const renameMutation = useMutation({
+    mutationFn: (input: { id: string; title: string }) => renameThread(input.id, input.title),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() }),
+    onError: () => toast.error(COPY.chat.renameError),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteThread(id),
+    onSuccess: (_data, id) => {
+      if (id === threadId) clearSelection();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
+    },
+    onError: () => toast.error(COPY.chat.deleteError),
+  });
+  return {
+    onRename: (id: string, title: string) => renameMutation.mutate({ id, title }),
+    onDelete: (id: string) => deleteMutation.mutate(id),
+  };
+}
 
 /** Thread CRUD state for the copilot panel. */
 export function useChatThread() {
@@ -49,7 +77,9 @@ export function useChatThread() {
     void createThread.mutateAsync().catch(() => undefined);
   }, [threads.isLoading, threads.data, threadId, createThread]);
 
-  return { threadId, setThreadId: setSelectedId, createThread, threads };
+  const { onRename, onDelete } = useThreadMutations(threadId, () => setSelectedId(null));
+
+  return { threadId, setThreadId: setSelectedId, createThread, threads, onRename, onDelete };
 }
 
 async function hydrateThreadMessages(

@@ -20,8 +20,19 @@ import type { ExecutionContext } from "@cloudflare/workers-types";
 import type { Context } from "hono";
 import type { CloudflareBindings } from "../env.ts";
 import { buildCopilotTools } from "../agents/copilot-tools.ts";
+import { maybeGenerateThreadTitle } from "../lib/thread-title.ts";
 import type { ViewerVariables } from "../middleware/require-role.ts";
 import type { ChatPostBody } from "./chat.ts";
+
+/** Concatenated text of the first user message — the seed for the AI thread title. */
+function firstUserText(messages: Awaited<ReturnType<typeof validateUIMessages>>): string {
+  const first = messages.find((message) => message.role === "user");
+  if (!first) return "";
+  return first.parts
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .join(" ")
+    .trim();
+}
 
 function buildChatRequestContext(
   viewer: ViewerContext,
@@ -96,6 +107,9 @@ export async function handleChatPost(
   executionCtx: ExecutionContext,
 ): Promise<Response> {
   const validated = await persistLatestUserMessage(db, body.threadId, body.messages);
+  executionCtx.waitUntil(
+    maybeGenerateThreadTitle(c.env, db, body.threadId, firstUserText(validated)),
+  );
   const { mastra, langfuse } = registerCopilotAgent(c.env, viewer.role);
   const agent = mastra.getAgent("reviewerCopilot");
   const requestContext = buildChatRequestContext(viewer, db, body.context);

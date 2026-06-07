@@ -5,9 +5,23 @@ import {
   type ChatThreadDetailResponse,
   type ChatThreadListResponse,
 } from "@mizan/shared";
-import { api } from "@/lib/rpc.ts";
+import { api, apiMutate } from "@/lib/rpc.ts";
 import { apiError, assertAuthorized } from "@/lib/api-errors.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
+
+/** Renames a conversation (`PATCH /chat/threads/:id`). */
+export async function renameThread(id: string, title: string): Promise<void> {
+  const res = await apiMutate.chat.threads[":id"].$patch({ param: { id }, json: { title } });
+  assertAuthorized(res.status);
+  if (!res.ok) throw await apiError(res);
+}
+
+/** Deletes a conversation and its messages (`DELETE /chat/threads/:id`). */
+export async function deleteThread(id: string): Promise<void> {
+  const res = await apiMutate.chat.threads[":id"].$delete({ param: { id } });
+  assertAuthorized(res.status);
+  if (!res.ok) throw await apiError(res);
+}
 
 export function chatThreadsQueryOptions() {
   return queryOptions<ChatThreadListResponse>({
