@@ -1,4 +1,6 @@
+import { m } from "framer-motion";
 import { COPY } from "@/lib/copy-constants.ts";
+import { reveal } from "@/lib/motion.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { GetBriefBody } from "@/components/chat/tool-bodies/get-brief-body.tsx";
 import { GetCaseBody } from "@/components/chat/tool-bodies/get-case-body.tsx";
@@ -60,7 +62,7 @@ export function ToolCallCard({
   const done = state === "output-available";
 
   return (
-    <div className="rounded-md border border-border/50 bg-muted/20 p-3 text-sm">
+    <m.div className="rounded-md border border-border/50 bg-muted/20 p-3 text-sm" {...reveal}>
       <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         {loading && !done ? COPY.chat.toolQueued(toolName) : toolName}
       </p>
@@ -78,6 +80,6 @@ export function ToolCallCard({
           <DoneBody toolName={toolName} output={part.output} />
         </div>
       ) : null}
-    </div>
+    </m.div>
   );
 }

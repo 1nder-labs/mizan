@@ -2,6 +2,8 @@ import type { Control } from "react-hook-form";
 import { ReviewerActionEnum, type ReviewerAction, type ReviewerActionRequest } from "@mizan/shared";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form.tsx";
 import { Label } from "@/components/ui/label.tsx";
+import { InfoHint } from "@/components/ui/info-hint.tsx";
+import { COPY } from "@/lib/copy-constants.ts";
 
 const ACTION_LABELS: Record<ReviewerAction, string> = {
   APPROVE: "Approve",
@@ -24,7 +26,10 @@ export function ActionRadioField({ control, pending }: ActionRadioFieldProps): R
       name="action"
       render={({ field }) => (
         <FormItem>
-          <FormLabel>Action</FormLabel>
+          <FormLabel className="flex items-center gap-1">
+            Action
+            <InfoHint label={COPY.hints.actionTypes} />
+          </FormLabel>
           <FormControl>
             <fieldset className="space-y-2">
               <legend className="sr-only">Action</legend>

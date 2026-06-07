@@ -1,16 +1,43 @@
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
+import { m } from "framer-motion";
 
 import { cn } from "@/lib/utils";
+import { SPRING_PILL } from "@/lib/motion.ts";
 
-const Tabs = TabsPrimitive.Root;
+/**
+ * Tracks the active tab value + a per-list id so {@link TabsTrigger} can render
+ * a single shared-layout pill that springs between triggers. A unique id per
+ * list keeps multiple tab strips on one page from sharing (and fighting over)
+ * the same `layoutId`.
+ */
+interface TabsState {
+  readonly value: string | undefined;
+  readonly listId: string;
+}
+const TabsStateContext = React.createContext<TabsState | null>(null);
+
+function Tabs({ onValueChange, ...props }: React.ComponentProps<typeof TabsPrimitive.Root>) {
+  const listId = React.useId();
+  const [internal, setInternal] = React.useState(props.defaultValue);
+  const active = props.value ?? internal;
+  const handleChange = (next: string) => {
+    if (props.value === undefined) setInternal(next);
+    onValueChange?.(next);
+  };
+  return (
+    <TabsStateContext.Provider value={{ value: active, listId }}>
+      <TabsPrimitive.Root onValueChange={handleChange} {...props} />
+    </TabsStateContext.Provider>
+  );
+}
 
 function TabsList({ className, ref, ...props }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
       ref={ref}
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+        "inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-muted/70 p-1 text-muted-foreground",
         className,
       )}
       {...props}
@@ -20,18 +47,33 @@ function TabsList({ className, ref, ...props }: React.ComponentProps<typeof Tabs
 
 function TabsTrigger({
   className,
+  children,
+  value,
   ref,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Trigger>) {
+  const state = React.useContext(TabsStateContext);
+  const isActive = state?.value === value;
   return (
     <TabsPrimitive.Trigger
       ref={ref}
+      value={value}
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+        "relative inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground",
         className,
       )}
       {...props}
-    />
+    >
+      {isActive && state ? (
+        <m.span
+          aria-hidden
+          layoutId={`tab-pill-${state.listId}`}
+          transition={SPRING_PILL}
+          className="absolute inset-0 rounded-md bg-background shadow-sm"
+        />
+      ) : null}
+      <span className="relative z-10 inline-flex items-center gap-1.5">{children}</span>
+    </TabsPrimitive.Trigger>
   );
 }
 

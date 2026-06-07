@@ -18,6 +18,30 @@ export const COPY = {
     home: "Back to start",
     notFound: "We couldn't find that page.",
   },
+  caseTabs: {
+    overview: "Overview",
+    brief: "Brief",
+    signals: "Signals",
+    documents: "Documents",
+    messages: "Messages",
+  },
+  hints: {
+    confidence:
+      "How sure the AI is about the recommendation, 0–100. It's a signal for you, not a verdict — you decide.",
+    verificationPath:
+      "Which route the pipeline used to verify the campaign: documentary evidence, trust-chain vouching, or an unverifiable fallback.",
+    geographyTier:
+      "Risk tier for the campaign's country, derived from published policy — higher tiers warrant closer review.",
+    policyGrounded:
+      "Every claim in this brief is tied to a specific published policy clause you can open and read.",
+    clientResponded:
+      "The campaign creator added new evidence or a message after you last requested documents.",
+    clientSubmitted: "The creator submitted this campaign through the client portal (not a seed).",
+    actionTypes:
+      "Approve clears it. Request docs asks the creator for more. Escalate sends it for further review. Block declines it. Every action is logged and becomes an eval case.",
+    clientStatus:
+      "A plain-language version of where your campaign is in review — it never exposes the internal brief or scores.",
+  },
   notifications: {
     open: "Notifications",
     title: "Notifications",

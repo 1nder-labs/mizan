@@ -9,7 +9,9 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { getRouteApi, Outlet } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
+import { domMax, LazyMotion, MotionConfig } from "framer-motion";
 import { ThemeProvider } from "@/components/theme-provider.tsx";
+import { TooltipProvider } from "@/components/ui/tooltip.tsx";
 import { Toaster } from "@/components/ui/sonner.tsx";
 
 const rootApi = getRouteApi("__root__");
@@ -35,18 +37,24 @@ export function RootShell(): React.JSX.Element {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <Outlet />
-        <Toaster />
-        {TanStackRouterDevtools ? (
-          <Suspense fallback={null}>
-            <TanStackRouterDevtools position="bottom-right" />
-          </Suspense>
-        ) : null}
-        {ReactQueryDevtools ? (
-          <Suspense fallback={null}>
-            <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
-          </Suspense>
-        ) : null}
+        <LazyMotion features={domMax}>
+          <MotionConfig reducedMotion="user">
+            <TooltipProvider delayDuration={200}>
+              <Outlet />
+              <Toaster />
+              {TanStackRouterDevtools ? (
+                <Suspense fallback={null}>
+                  <TanStackRouterDevtools position="bottom-right" />
+                </Suspense>
+              ) : null}
+              {ReactQueryDevtools ? (
+                <Suspense fallback={null}>
+                  <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+                </Suspense>
+              ) : null}
+            </TooltipProvider>
+          </MotionConfig>
+        </LazyMotion>
       </QueryClientProvider>
     </ThemeProvider>
   );

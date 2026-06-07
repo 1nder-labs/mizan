@@ -298,6 +298,8 @@ export {
   type NotificationsResponse,
 } from "./schemas/notification.ts";
 
+export { CASE_TAB_VALUES, CaseTabEnum, type CaseTab } from "./schemas/case-tab.ts";
+
 export { ClientStatusEnum, toClientStatus, type ClientStatus } from "./schemas/client-status.ts";
 
 export {

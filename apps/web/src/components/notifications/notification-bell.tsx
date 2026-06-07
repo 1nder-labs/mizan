@@ -11,7 +11,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Bell } from "lucide-react";
+import { m } from "framer-motion";
 import type { Notification } from "@mizan/shared";
+import { fadeUp, popItem, staggerParent } from "@/lib/motion.ts";
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -34,8 +36,9 @@ function NotificationItem({
   readonly onSelect: (note: Notification) => void;
 }): React.JSX.Element {
   return (
-    <button
+    <m.button
       type="button"
+      variants={fadeUp}
       onClick={() => onSelect(note)}
       className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left hover:bg-muted/50"
     >
@@ -50,7 +53,7 @@ function NotificationItem({
       <span className="text-[11px] text-muted-foreground tabular">
         {new Date(note.createdAt).toLocaleString()}
       </span>
-    </button>
+    </m.button>
   );
 }
 
@@ -69,11 +72,16 @@ function NotificationList({
     );
   }
   return (
-    <div className="max-h-80 space-y-1 overflow-y-auto">
+    <m.div
+      variants={staggerParent}
+      initial="hidden"
+      animate="show"
+      className="max-h-80 space-y-1 overflow-y-auto"
+    >
       {notes.map((note) => (
         <NotificationItem key={note.id} note={note} onSelect={onSelect} />
       ))}
-    </div>
+    </m.div>
   );
 }
 
@@ -118,9 +126,17 @@ function BellButton({ unread }: { readonly unread: number }): React.JSX.Element 
     <Button variant="ghost" size="icon" className="relative" aria-label={COPY.notifications.open}>
       <Bell className="size-4" />
       {unread > 0 ? (
-        <Badge className="absolute -right-1 -top-1 size-4 justify-center p-0 text-[10px]">
-          {unread > 9 ? "9+" : unread}
-        </Badge>
+        <m.span
+          key={unread}
+          variants={popItem}
+          initial="hidden"
+          animate="show"
+          className="absolute -right-1 -top-1"
+        >
+          <Badge className="size-4 justify-center p-0 text-[10px]">
+            {unread > 9 ? "9+" : unread}
+          </Badge>
+        </m.span>
       ) : null}
     </Button>
   );

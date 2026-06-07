@@ -354,6 +354,21 @@
     animation: mizan-rise 220ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
   }
 
+  @keyframes mizan-section {
+    from {
+      opacity: 0;
+      transform: translateY(7px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-section {
+    animation: mizan-section 320ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+
   @keyframes mizan-shimmer {
     0% {
       background-position: 200% 0;
@@ -394,5 +409,22 @@
 
   .lift-on-hover:hover {
     transform: translateY(-1px);
+  }
+}
+
+/**
+ * Honour the OS reduced-motion preference for the CSS keyframe + transition
+ * paths framer-motion does not own (tw-animate-css overlays, .animate-rise,
+ * .animate-section, .lift-on-hover). framer's own animations are disabled by
+ * the root <MotionConfig reducedMotion="user">.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

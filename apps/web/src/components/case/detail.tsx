@@ -30,24 +30,13 @@ import {
   type CaseRow,
   type CaseStatus,
 } from "@mizan/shared";
-import { BriefStream } from "@/components/brief/stream.tsx";
 import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-tape-invalidation.ts";
 import { useCaseDetailLiveEvents } from "@/hooks/use-case-detail-live-events.ts";
-import { ActionPanel } from "@/components/case/action-panel.tsx";
-import { BriefDetailTabs } from "./brief-details.tsx";
-import { BriefEmptyState } from "./brief-empty.tsx";
-import { BriefInflight } from "./brief-inflight.tsx";
-import { BriefSummaryCard } from "./brief-summary.tsx";
-import { DocumentsPanel } from "./documents-panel.tsx";
 import { CaseHeader } from "./header.tsx";
-import { CaseMetaCard } from "./meta-card.tsx";
-import { SignalExpansionPanel } from "./signal-expansion-panel.tsx";
-import { StoryPanel } from "./story-panel.tsx";
-import { ReviewerNotesPanel } from "./notes-panel.tsx";
+import { CaseTabs, type BriefPanelMode } from "./case-tabs.tsx";
 import { type CaseOverlay } from "@mizan/shared";
 
 type BriefSummary = CaseDetailResponse["brief"];
-type BriefPanelMode = "stream" | "inflight" | "action" | "summary" | "empty";
 
 interface CaseDetailProps {
   readonly caseRow: CaseRow;
@@ -95,37 +84,6 @@ function deriveMode(status: CaseStatus, brief: BriefSummary, phase: StreamPhase)
   return "empty";
 }
 
-interface BriefPanelProps {
-  readonly caseRow: CaseRow;
-  readonly brief: BriefSummary;
-  readonly overlay: CaseOverlay | null;
-  readonly mode: BriefPanelMode;
-  readonly onGenerate: () => void;
-  readonly onStreamError: () => void;
-}
-
-function BriefPanel({
-  caseRow,
-  brief,
-  overlay,
-  mode,
-  onGenerate,
-  onStreamError,
-}: BriefPanelProps): React.JSX.Element {
-  if (mode === "stream") return <BriefStream caseId={caseRow.id} onStreamError={onStreamError} />;
-  if (mode === "inflight") return <BriefInflight status={caseRow.status} />;
-  if (mode === "action") return <ActionPanel detail={{ case: caseRow, brief, overlay }} />;
-  if (mode === "summary" && brief) {
-    return (
-      <div className="space-y-4">
-        <BriefSummaryCard payload={brief.payload_json} composedAt={brief.composed_at} />
-        <BriefDetailTabs payload={brief.payload_json} />
-      </div>
-    );
-  }
-  return <BriefEmptyState status={caseRow.status} onGenerate={onGenerate} />;
-}
-
 interface DetailLayoutProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
@@ -136,7 +94,7 @@ interface DetailLayoutProps {
   readonly onStreamError: () => void;
 }
 
-/** Pure layout shell — keeps `CaseDetail` state logic within the 50-line budget. */
+/** Always-visible header above the tabbed body. */
 function DetailLayout({
   caseRow,
   brief,
@@ -147,27 +105,16 @@ function DetailLayout({
   onStreamError,
 }: DetailLayoutProps): React.JSX.Element {
   return (
-    <article className="w-full space-y-8 px-6 py-8">
+    <article className="w-full space-y-6 px-6 py-8">
       <CaseHeader caseRow={caseRow} clientResponded={clientResponded} />
-      <StoryPanel overlay={overlay} />
-      <section className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <aside className="space-y-4">
-          <CaseMetaCard caseRow={caseRow} />
-          <DocumentsPanel caseId={caseRow.id} hasOverlay={overlay !== null} />
-        </aside>
-        <div className="space-y-6">
-          <BriefPanel
-            caseRow={caseRow}
-            brief={brief}
-            overlay={overlay}
-            mode={mode}
-            onGenerate={onGenerate}
-            onStreamError={onStreamError}
-          />
-          <SignalExpansionPanel caseId={caseRow.id} />
-          <ReviewerNotesPanel caseId={caseRow.id} />
-        </div>
-      </section>
+      <CaseTabs
+        caseRow={caseRow}
+        brief={brief}
+        overlay={overlay}
+        mode={mode}
+        onGenerate={onGenerate}
+        onStreamError={onStreamError}
+      />
     </article>
   );
 }

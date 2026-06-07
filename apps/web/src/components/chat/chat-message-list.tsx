@@ -1,6 +1,8 @@
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef } from "react";
+import { m } from "framer-motion";
 import { COPY } from "@/lib/copy-constants.ts";
+import { reveal } from "@/lib/motion.ts";
 import { Markdown } from "@/lib/markdown.tsx";
 import { ToolCallCard } from "@/components/chat/tool-call-card.tsx";
 
@@ -55,7 +57,7 @@ function MessageParts({
   readonly onRegenerate: () => void;
 }): React.JSX.Element {
   return (
-    <div className="space-y-2">
+    <m.div className="space-y-2" {...reveal}>
       {message.parts.map((part, index) => {
         const partKey = `${message.id}-${part.type}-${index}`;
         if (part.type === "text") {
@@ -77,7 +79,7 @@ function MessageParts({
         }
         return null;
       })}
-    </div>
+    </m.div>
   );
 }
 

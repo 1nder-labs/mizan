@@ -4,8 +4,10 @@
  * no notes exist yet.
  */
 import { useQuery } from "@tanstack/react-query";
+import { m } from "framer-motion";
 import { clientCampaignNotesQueryOptions } from "@/lib/portal-api.ts";
 import { COPY } from "@/lib/copy-constants.ts";
+import { fadeUp, staggerParent } from "@/lib/motion.ts";
 import type { CaseNote } from "@mizan/shared";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 
@@ -13,7 +15,7 @@ function NoteCard({ note }: { readonly note: CaseNote }): React.JSX.Element {
   const authorLabel =
     note.authorRole === "client" ? COPY.portal.noteFromYou : COPY.portal.noteFromReviewer;
   return (
-    <div className="rounded-lg border border-border/60 bg-card p-4 space-y-1.5">
+    <m.div variants={fadeUp} className="rounded-lg border border-border/60 bg-card p-4 space-y-1.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-foreground">{authorLabel}</span>
         <span className="text-xs text-muted-foreground tabular">
@@ -21,7 +23,7 @@ function NoteCard({ note }: { readonly note: CaseNote }): React.JSX.Element {
         </span>
       </div>
       <p className="text-sm leading-relaxed">{note.body}</p>
-    </div>
+    </m.div>
   );
 }
 
@@ -52,10 +54,10 @@ export function NoteThread({ campaignId }: NoteThreadProps): React.JSX.Element {
   }
 
   return (
-    <div className="space-y-3">
+    <m.div variants={staggerParent} initial="hidden" animate="show" className="space-y-3">
       {notes.map((note) => (
         <NoteCard key={note.id} note={note} />
       ))}
-    </div>
+    </m.div>
   );
 }

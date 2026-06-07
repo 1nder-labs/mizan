@@ -11,6 +11,8 @@ import { AlertTriangle, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { BriefPayload } from "@mizan/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
+import { InfoHint } from "@/components/ui/info-hint.tsx";
+import { COPY } from "@/lib/copy-constants.ts";
 import { humanGeography, humanVerification } from "@/lib/display-labels.ts";
 import { formatMediumDateTime } from "@/lib/format.ts";
 import { wrapCitations } from "./citation-wrap.tsx";
@@ -20,14 +22,19 @@ function Stat({
   label,
   value,
   hint,
+  info,
 }: {
   readonly label: string;
   readonly value: React.ReactNode;
   readonly hint?: string;
+  readonly info?: string;
 }): React.JSX.Element {
   return (
     <div className="space-y-1">
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="flex items-center gap-1 text-[11px] uppercase tracking-wider text-muted-foreground">
+        {label}
+        {info ? <InfoHint label={info} /> : null}
+      </p>
       <p className="text-sm font-medium text-foreground tabular">{value}</p>
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
@@ -63,6 +70,35 @@ function EscalationNotice({ reason }: { readonly reason: string }): React.JSX.El
   );
 }
 
+/** The four headline stats with their helper hints. */
+function BriefStatGrid({ payload }: { readonly payload: BriefPayload }): React.JSX.Element {
+  return (
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <Stat
+        label="Confidence"
+        value={`${payload.confidence}`}
+        hint="out of 100"
+        info={COPY.hints.confidence}
+      />
+      <Stat
+        label="Verification"
+        value={humanVerification(payload.verification_path)}
+        info={COPY.hints.verificationPath}
+      />
+      <Stat
+        label="Geography"
+        value={humanGeography(payload.geography_tier)}
+        info={COPY.hints.geographyTier}
+      />
+      <Stat
+        label="Policy"
+        value={<PolicyFlag grounded={payload.policy_grounded} />}
+        info={COPY.hints.policyGrounded}
+      />
+    </div>
+  );
+}
+
 export function BriefSummaryCard({
   payload,
   composedAt,
@@ -82,12 +118,7 @@ export function BriefSummaryCard({
         <RecommendationBadge recommendation={payload.recommendation} />
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat label="Confidence" value={`${payload.confidence}`} hint="out of 100" />
-          <Stat label="Verification" value={humanVerification(payload.verification_path)} />
-          <Stat label="Geography" value={humanGeography(payload.geography_tier)} />
-          <Stat label="Policy" value={<PolicyFlag grounded={payload.policy_grounded} />} />
-        </div>
+        <BriefStatGrid payload={payload} />
         {payload.forced_escalate_reason ? (
           <EscalationNotice reason={payload.forced_escalate_reason} />
         ) : null}
