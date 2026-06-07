@@ -31,7 +31,7 @@ import { SignalExpansionPanel } from "./signal-expansion-panel.tsx";
 import { StoryPanel } from "./story-panel.tsx";
 import { ReviewerNotesPanel } from "./notes-panel.tsx";
 
-type BriefSummary = CaseDetailResponse["brief"];
+export type BriefSummary = CaseDetailResponse["brief"];
 export type BriefPanelMode = "stream" | "inflight" | "action" | "summary" | "empty";
 
 interface BriefPanelProps {

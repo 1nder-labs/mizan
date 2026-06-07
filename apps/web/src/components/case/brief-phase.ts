@@ -16,12 +16,11 @@ import {
   ACTIVE_CASE_STATUSES,
   HITL_SUSPENDED_STATUS,
   TERMINAL_CASE_STATUSES,
-  type CaseDetailResponse,
   type CaseStatus,
 } from "@mizan/shared";
-import type { BriefPanelMode } from "./case-tabs.tsx";
+import type { BriefPanelMode, BriefSummary } from "./case-tabs.tsx";
 
-export type BriefSummary = CaseDetailResponse["brief"];
+export type { BriefSummary };
 
 export interface StreamPhase {
   readonly userTriggered: boolean;

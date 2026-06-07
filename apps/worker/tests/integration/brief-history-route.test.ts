@@ -13,7 +13,7 @@
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import { BriefHistoryResponseSchema } from "@mizan/shared";
+import { BRIEF_HISTORY_LIMIT, BriefHistoryResponseSchema } from "@mizan/shared";
 import { insertBrief, insertCase, seedReviewer } from "./cases-test-helpers.ts";
 
 const BASE = "http://localhost";
@@ -135,5 +135,36 @@ describe("GET /api/cases/:id/briefs — brief history route", () => {
       }),
     );
     expect(res.status).toBe(404);
+  });
+
+  it("caps the response at BRIEF_HISTORY_LIMIT newest runs", async () => {
+    const capCase = "a3000000-0000-4000-8000-0000000000a3";
+    await insertCase({
+      id: capCase,
+      status: "ACTIONED",
+      category: "medical",
+      geography: "US",
+      createdBy: reviewerUserId,
+      organizationId: reviewerOrgId,
+    });
+    const base = Date.now();
+    for (let i = 0; i <= BRIEF_HISTORY_LIMIT; i += 1) {
+      await insertBrief({
+        id: `cap-brief-${i.toString().padStart(2, "0")}`,
+        caseId: capCase,
+        runId: `cap-run-${i}`,
+        recommendation: "READY_FOR_REVIEW",
+        verificationPath: "documentary",
+        organizationId: reviewerOrgId,
+        composedAt: base + i,
+      });
+    }
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/cases/${capCase}/briefs`, { headers: { Cookie: reviewerCookie } }),
+    );
+    expect(res.status).toBe(200);
+    const body = BriefHistoryResponseSchema.parse(await res.json());
+    expect(body.briefs).toHaveLength(BRIEF_HISTORY_LIMIT);
+    expect(body.briefs[0]?.run_id).toBe(`cap-run-${BRIEF_HISTORY_LIMIT}`);
   });
 });
