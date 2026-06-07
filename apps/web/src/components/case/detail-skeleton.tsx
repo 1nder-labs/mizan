@@ -6,11 +6,15 @@ import { Skeleton } from "@/components/ui/skeleton.tsx";
 
 export function CaseDetailSkeleton(): React.JSX.Element {
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-6 py-8">
-      <Skeleton className="h-10 w-48" />
-      <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <Skeleton className="h-72 w-full" />
-        <Skeleton className="h-96 w-full" />
+    <div className="w-full space-y-8 px-6 py-8">
+      <div className="space-y-4 border-b border-border/50 pb-6">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-7 w-96 max-w-full" />
+        <Skeleton className="h-4 w-48" />
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     </div>
   );

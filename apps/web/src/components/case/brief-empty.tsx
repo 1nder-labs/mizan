@@ -108,7 +108,7 @@ export function BriefEmptyState({
   return (
     <Card className="border-dashed border-border/70 bg-card/40 shadow-none">
       <CardHeader>
-        <CardTitle className="text-sm font-medium">{copy.title}</CardTitle>
+        <CardTitle className="text-base font-semibold tracking-[-0.01em]">{copy.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">{copy.body}</p>

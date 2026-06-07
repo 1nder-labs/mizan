@@ -59,22 +59,47 @@ function ClientSubmittedBadge({
   );
 }
 
+/** Right-aligned meta column: last-updated stamp + assignment control. */
+function CaseHeaderMeta({ caseRow }: { readonly caseRow: CaseRow }): React.JSX.Element {
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-4">
+      <div className="flex flex-col items-end gap-0.5">
+        <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Updated
+        </span>
+        <div className="flex items-center gap-1.5 text-xs text-foreground">
+          <Clock className="size-3 text-muted-foreground" />
+          <span className="font-numeric tabular">{formatShortDateTime(caseRow.updated_at)}</span>
+        </div>
+      </div>
+      <CaseAssignment caseId={caseRow.id} currentAssignee={caseRow.assigned_to} />
+    </div>
+  );
+}
+
 export function CaseHeader({ caseRow, clientResponded }: CaseHeaderProps): React.JSX.Element {
   return (
-    <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
-      <div className="space-y-3">
-        <Button asChild variant="ghost" size="sm" className="-ml-3">
+    <header className="flex flex-wrap items-start justify-between gap-6 border-b border-border/50 pb-6">
+      <div className="min-w-0 space-y-4">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="-ml-2 text-muted-foreground hover:text-foreground"
+        >
           <Link to="/queue" search={{ page: 1, sort: "updated_desc", view: "board" }}>
-            <ArrowLeft className="mr-1 size-3.5" />
+            <ArrowLeft className="mr-1.5 size-3.5" />
             Back to queue
           </Link>
         </Button>
-        <div className="space-y-1">
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+        <div className="space-y-2">
+          <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
             Campaign
           </span>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">{caseRow.title}</h1>
+            <h1 className="text-display text-2xl font-semibold leading-tight tracking-[-0.02em]">
+              {caseRow.title}
+            </h1>
             <CaseStatusBadge status={caseRow.status} />
             <ClientResponseBadge responded={clientResponded ?? false} />
             <ClientSubmittedBadge submitted={caseRow.client_submitted} />
@@ -84,13 +109,7 @@ export function CaseHeader({ caseRow, clientResponded }: CaseHeaderProps): React
           </p>
         </div>
       </div>
-      <div className="flex flex-col items-end gap-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Clock className="size-3.5" />
-          <span className="tabular">Updated {formatShortDateTime(caseRow.updated_at)}</span>
-        </div>
-        <CaseAssignment caseId={caseRow.id} currentAssignee={caseRow.assigned_to} />
-      </div>
+      <CaseHeaderMeta caseRow={caseRow} />
     </header>
   );
 }

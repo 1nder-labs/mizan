@@ -45,6 +45,43 @@ function DoneBody({
   return <p className="text-xs text-muted-foreground">{COPY.chat.listEmpty}</p>;
 }
 
+/** Header strip: tool name (or queued label) + a loading pulse or done check. */
+function ToolCardHeader({
+  toolName,
+  loading,
+  done,
+}: {
+  readonly toolName: string;
+  readonly loading: boolean;
+  readonly done: boolean;
+}): React.JSX.Element {
+  return (
+    <div className="flex items-center gap-2 border-b border-border/40 bg-muted/30 px-3 py-2">
+      <span
+        className={[
+          "select-none font-mono text-[10px] font-medium uppercase",
+          "tracking-[0.18em] text-muted-foreground/70",
+        ].join(" ")}
+      >
+        {loading && !done ? COPY.chat.toolQueued(toolName) : toolName}
+      </span>
+      {loading && !done ? (
+        <span className="ml-auto inline-block h-1.5 w-12 animate-pulse rounded-full bg-muted-foreground/20" />
+      ) : null}
+      {done ? (
+        <span
+          className={[
+            "ml-auto inline-flex h-4 w-4 items-center justify-center",
+            "rounded-full bg-muted text-[9px] font-medium text-muted-foreground",
+          ].join(" ")}
+        >
+          ✓
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * Inline tool-call frame with pending/loading/done/error states.
  */
@@ -62,21 +99,33 @@ export function ToolCallCard({
   const done = state === "output-available";
 
   return (
-    <m.div className="rounded-md border border-border/50 bg-muted/20 p-3 text-sm" {...reveal}>
-      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-        {loading && !done ? COPY.chat.toolQueued(toolName) : toolName}
-      </p>
-      {loading && !done ? <div className="mt-2 h-8 animate-pulse rounded bg-muted" /> : null}
+    <m.div
+      className="overflow-hidden rounded-lg border border-border/50 bg-card text-sm shadow-elev-1"
+      {...reveal}
+    >
+      <ToolCardHeader toolName={toolName} loading={loading} done={done} />
+      {loading && !done ? (
+        <div className="space-y-2 p-3">
+          <div className="h-3 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+        </div>
+      ) : null}
       {errored ? (
-        <div role="alert" className="mt-2 space-y-2 text-destructive">
-          <p className="break-words">{COPY.chat.toolError}</p>
-          <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+        <div role="alert" className="space-y-2 p-3 text-destructive">
+          <p className="break-words text-xs">{COPY.chat.toolError}</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={onRetry}
+          >
             {COPY.chat.retryLabel}
           </Button>
         </div>
       ) : null}
       {done ? (
-        <div className="mt-2">
+        <div className="p-3">
           <DoneBody toolName={toolName} output={part.output} />
         </div>
       ) : null}

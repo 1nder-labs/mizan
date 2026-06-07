@@ -57,7 +57,7 @@ function MessageParts({
   readonly onRegenerate: () => void;
 }): React.JSX.Element {
   return (
-    <m.div className="space-y-2" {...reveal}>
+    <m.div className="space-y-1.5" {...reveal}>
       {message.parts.map((part, index) => {
         const partKey = `${message.id}-${part.type}-${index}`;
         if (part.type === "text") {
@@ -68,7 +68,11 @@ function MessageParts({
           return (
             <div
               key={partKey}
-              className={`rounded-md px-3 py-2 text-sm ${message.role === "user" ? "bg-muted" : "bg-card border border-border/40"}`}
+              className={
+                message.role === "user"
+                  ? "rounded-xl bg-muted px-3 py-2.5 text-sm leading-relaxed ml-4"
+                  : "rounded-xl px-3 py-2.5 text-sm leading-relaxed bg-card border border-border/40"
+              }
             >
               <Markdown>{display}</Markdown>
             </div>
@@ -106,7 +110,7 @@ export function ChatMessages({
       role="log"
       aria-live="polite"
       aria-atomic="false"
-      className="flex-1 space-y-3 overflow-y-auto p-3"
+      className="flex-1 space-y-2.5 overflow-y-auto px-3 py-4"
       onScroll={onScroll}
     >
       {messages.map((message) => (

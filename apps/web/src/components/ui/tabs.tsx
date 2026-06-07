@@ -37,7 +37,7 @@ function TabsList({ className, ref, ...props }: React.ComponentProps<typeof Tabs
     <TabsPrimitive.List
       ref={ref}
       className={cn(
-        "inline-flex h-10 items-center justify-center gap-1 rounded-lg bg-muted/70 p-1 text-muted-foreground",
+        "inline-flex h-auto items-center justify-start gap-0.5 border-b border-border text-muted-foreground",
         className,
       )}
       {...props}
@@ -59,7 +59,7 @@ function TabsTrigger({
       ref={ref}
       value={value}
       className={cn(
-        "relative inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground",
+        "relative inline-flex items-center justify-center whitespace-nowrap rounded-t-md px-3.5 py-2 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground",
         className,
       )}
       {...props}
@@ -69,7 +69,7 @@ function TabsTrigger({
           aria-hidden
           layoutId={`tab-pill-${state.listId}`}
           transition={SPRING_PILL}
-          className="absolute inset-0 rounded-md bg-background shadow-sm"
+          className="absolute inset-x-2 -bottom-px h-[2px] rounded-full bg-foreground"
         />
       ) : null}
       <span className="relative z-10 inline-flex items-center gap-1.5">{children}</span>

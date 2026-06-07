@@ -28,7 +28,7 @@ export function ChatThreadRail({
   return (
     <div
       className={cn(
-        "shrink-0 overflow-hidden border-r border-border/60 bg-muted/20 transition-[width] duration-200 ease-out",
+        "shrink-0 overflow-hidden border-r border-border/40 bg-muted/30 transition-[width] duration-200 ease-out",
         open ? RAIL_CONTENT_WIDTH : "w-0",
       )}
       aria-hidden={!open}

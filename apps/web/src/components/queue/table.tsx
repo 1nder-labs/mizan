@@ -101,7 +101,7 @@ export function QueueTable({ rows, search, onSearchChange }: QueueTableProps): R
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-elev-1">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-elev-1">
       <Table>
         <QueueTableHeader table={table} />
         <QueueTableBody

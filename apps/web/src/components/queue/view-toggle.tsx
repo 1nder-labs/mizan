@@ -1,8 +1,8 @@
 /**
  * URL-backed view selector for `/queue` — toggles `?view=board|table`
- * via TanStack Router's `navigate`. The active state lifts via inset
- * shadow + foreground text so the eye can find the selection in one
- * glance.
+ * via TanStack Router's `navigate`. The active option carries the
+ * app-wide accent-bar indicator (a foreground underline) + foreground
+ * text so the selection reads the same as sidebar nav + tabs.
  */
 import { useNavigate } from "@tanstack/react-router";
 import { LayoutGrid, Rows3 } from "lucide-react";
@@ -42,9 +42,9 @@ function ToggleOption({
       onClick={() => onSelect(option.value)}
       aria-pressed={active}
       className={cn(
-        "relative inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-all duration-200",
+        "relative inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors duration-200",
         active
-          ? "bg-card text-foreground shadow-elev-1"
+          ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-[2px] after:rounded-full after:bg-foreground"
           : "text-muted-foreground hover:text-foreground",
       )}
     >

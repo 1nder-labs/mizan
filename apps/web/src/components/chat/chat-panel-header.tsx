@@ -1,4 +1,4 @@
-import { PanelLeft, Plus, X } from "lucide-react";
+import { PanelLeft, Plus, X, Sparkles } from "lucide-react";
 import { COPY } from "@/lib/copy-constants.ts";
 import { Button } from "@/components/ui/button.tsx";
 
@@ -18,7 +18,7 @@ function HeaderIconButton({
       type="button"
       size="icon"
       variant="ghost"
-      className="size-8 shrink-0"
+      className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
       aria-label={label}
       aria-pressed={pressed}
       onClick={onClick}
@@ -43,7 +43,7 @@ export function ChatPanelHeader({
   readonly onClose: () => void;
 }): React.JSX.Element {
   return (
-    <header className="flex items-center gap-1 border-b border-border/60 p-2">
+    <header className="flex items-center gap-1.5 border-b border-border/50 px-3 py-2.5">
       <HeaderIconButton
         label={COPY.chat.toggleThreads}
         pressed={historyOpen}
@@ -51,17 +51,20 @@ export function ChatPanelHeader({
       >
         <PanelLeft className="size-4" />
       </HeaderIconButton>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold leading-none">{COPY.chat.panelTitle}</p>
-        <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          {COPY.chat.shortcutHint}
+      <div className="min-w-0 flex-1 flex items-center gap-2">
+        <Sparkles className="size-3.5 shrink-0 text-muted-foreground" />
+        <p className="truncate text-sm font-semibold tracking-[-0.01em] leading-none">
+          {COPY.chat.panelTitle}
         </p>
+        <span className="hidden text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 sm:block">
+          {COPY.chat.shortcutHint}
+        </span>
       </div>
       <Button
         type="button"
         size="sm"
         variant="outline"
-        className="h-7 gap-1 px-2 text-xs"
+        className="h-7 gap-1 px-2 text-xs font-medium"
         onClick={onNewChat}
       >
         <Plus className="size-3" />

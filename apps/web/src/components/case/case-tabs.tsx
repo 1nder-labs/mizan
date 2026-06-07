@@ -114,11 +114,11 @@ export function CaseTabs(props: CaseTabsProps): React.JSX.Element {
     <Tabs value={effective} onValueChange={setTab} className="space-y-6">
       <CaseTabStrip isHitl={props.caseRow.status === HITL_SUSPENDED_STATUS} />
 
-      <TabsContent value="overview" className="animate-section space-y-6">
+      <TabsContent value="overview" className="animate-section space-y-6 pt-2">
         <StoryPanel overlay={props.overlay} />
       </TabsContent>
 
-      <TabsContent value="brief" forceMount className="mt-0 data-[state=inactive]:hidden">
+      <TabsContent value="brief" forceMount className="mt-0 pt-2 data-[state=inactive]:hidden">
         <BriefPanel
           caseRow={props.caseRow}
           brief={props.brief}
@@ -129,15 +129,15 @@ export function CaseTabs(props: CaseTabsProps): React.JSX.Element {
         />
       </TabsContent>
 
-      <TabsContent value="signals" className="animate-section">
+      <TabsContent value="signals" className="animate-section pt-2">
         <SignalExpansionPanel caseId={props.caseRow.id} />
       </TabsContent>
 
-      <TabsContent value="documents" className="animate-section">
+      <TabsContent value="documents" className="animate-section pt-2">
         <DocumentsPanel caseId={props.caseRow.id} hasOverlay={props.overlay !== null} />
       </TabsContent>
 
-      <TabsContent value="messages" className="animate-section">
+      <TabsContent value="messages" className="animate-section pt-2">
         <ReviewerNotesPanel caseId={props.caseRow.id} />
       </TabsContent>
     </Tabs>

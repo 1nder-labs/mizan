@@ -26,23 +26,23 @@ interface KanbanColumnProps {
 }
 
 const STATUS_TONE: Readonly<Record<CaseStatus, string>> = {
-  DRAFT: "bg-slate-400",
-  QUEUED: "bg-sky-400",
-  RUNNING: "bg-indigo-400",
-  SUSPENDED_HITL: "bg-amber-400",
-  READY_FOR_REVIEW: "bg-violet-400",
-  ACTIONED: "bg-emerald-500",
-  FAILED: "bg-rose-500",
+  DRAFT: "bg-status-neutral-border",
+  QUEUED: "bg-status-info",
+  RUNNING: "bg-status-info-foreground",
+  SUSPENDED_HITL: "bg-status-warning-border",
+  READY_FOR_REVIEW: "bg-status-neutral-foreground",
+  ACTIONED: "bg-status-success-border",
+  FAILED: "bg-status-destructive-border",
 };
 
 const STATUS_RAIL: Readonly<Record<CaseStatus, string>> = {
-  DRAFT: "from-slate-400/0 via-slate-400/40 to-slate-400/0",
-  QUEUED: "from-sky-400/0 via-sky-400/40 to-sky-400/0",
-  RUNNING: "from-indigo-400/0 via-indigo-400/40 to-indigo-400/0",
-  SUSPENDED_HITL: "from-amber-400/0 via-amber-400/40 to-amber-400/0",
-  READY_FOR_REVIEW: "from-violet-400/0 via-violet-400/40 to-violet-400/0",
-  ACTIONED: "from-emerald-500/0 via-emerald-500/40 to-emerald-500/0",
-  FAILED: "from-rose-500/0 via-rose-500/40 to-rose-500/0",
+  DRAFT: "from-status-neutral/0 via-status-neutral/40 to-status-neutral/0",
+  QUEUED: "from-status-info/0 via-status-info/40 to-status-info/0",
+  RUNNING: "from-status-info/0 via-status-info/60 to-status-info/0",
+  SUSPENDED_HITL: "from-status-warning/0 via-status-warning/40 to-status-warning/0",
+  READY_FOR_REVIEW: "from-status-neutral/0 via-status-neutral/60 to-status-neutral/0",
+  ACTIONED: "from-status-success/0 via-status-success/40 to-status-success/0",
+  FAILED: "from-status-destructive/0 via-status-destructive/40 to-status-destructive/0",
 };
 
 function deriveIsValidTarget(activeStatus: CaseStatus | null, target: CaseStatus): boolean {
@@ -69,7 +69,7 @@ function ColumnHeader({
           {statusDisplay(spec.status)}
         </span>
       </div>
-      <span className="rounded-full bg-muted/50 px-2 text-[11px] font-mono text-muted-foreground tabular">
+      <span className="font-numeric rounded-full bg-muted/50 px-2 text-[11px] text-muted-foreground">
         {rows.length}
       </span>
       <span

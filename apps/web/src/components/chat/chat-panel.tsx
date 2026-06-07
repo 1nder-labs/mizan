@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { MessageSquare } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { AnimatePresence, m } from "framer-motion";
 import { Button } from "@/components/ui/button.tsx";
 import { DUR_BASE, EASE_OUT } from "@/lib/motion.ts";
@@ -60,8 +60,14 @@ function CopilotFab({ onOpen }: { readonly onOpen: () => void }): React.JSX.Elem
       transition={{ duration: DUR_BASE, ease: EASE_OUT }}
       className="fixed bottom-4 right-4 z-40 lg:bottom-6 lg:right-6"
     >
-      <Button type="button" size="sm" variant="outline" className="shadow-elev-2" onClick={onOpen}>
-        <MessageSquare className="mr-2 size-4" />
+      <Button
+        type="button"
+        size="sm"
+        variant="default"
+        className="shadow-elev-2 gap-1.5 px-3"
+        onClick={onOpen}
+      >
+        <Sparkles className="size-3.5" />
         Copilot
       </Button>
     </m.div>

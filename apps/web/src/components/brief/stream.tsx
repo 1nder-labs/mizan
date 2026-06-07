@@ -108,7 +108,7 @@ export function BriefStream({ caseId, onStreamError }: BriefStreamProps): React.
   const refreshing = useInflightPoll(caseId, inflight);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {inflight ? (
         <InFlightNotice onRefresh={() => void invalidateDetail()} refreshing={refreshing} />
       ) : null}

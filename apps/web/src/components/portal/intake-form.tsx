@@ -223,7 +223,9 @@ function FormSection({
 }): React.JSX.Element {
   return (
     <section className="space-y-4">
-      <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+      <h3 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+        {title}
+      </h3>
       {children}
     </section>
   );
@@ -231,7 +233,7 @@ function FormSection({
 
 function DocsCallout(): React.JSX.Element {
   return (
-    <div className="flex gap-3 rounded-lg border bg-muted/40 p-4">
+    <div className="flex gap-3 rounded-xl border border-border/60 bg-muted/30 p-4 shadow-elev-1">
       <FileText className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
       <div className="space-y-1">
         <p className="text-sm font-medium">{COPY.portal.intakeDocsTitle}</p>
@@ -251,7 +253,7 @@ function SubmitRow({
   readonly onCancel?: () => void;
 }): React.JSX.Element {
   return (
-    <div className="flex gap-3 pt-2">
+    <div className="flex gap-3 pt-4">
       <Button type="submit" disabled={isPending}>
         {isPending ? (
           <>
@@ -356,7 +358,7 @@ export function IntakeForm({
         error={mutation.isError && !conflictError ? mutation.error : null}
       />
       <Form {...form}>
-        <form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <form className="space-y-10" onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <IntakeFields control={form.control} mode={mode} />
           <SubmitRow
             isPending={mutation.isPending}

@@ -70,8 +70,8 @@ export function ReviewerNotesPanel({ caseId }: ReviewerNotesPanelProps): React.J
   if (isPending) {
     return (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Skeleton className="h-[26rem] w-full" />
-        <Skeleton className="h-[26rem] w-full" />
+        <Skeleton className="h-[26rem] w-full rounded-xl" />
+        <Skeleton className="h-[26rem] w-full rounded-xl" />
       </div>
     );
   }

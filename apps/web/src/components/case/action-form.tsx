@@ -32,17 +32,19 @@ export function ActionForm({ pending, onSubmit }: ActionFormProps): React.JSX.El
   return (
     <Form {...form}>
       <form
-        className="space-y-4"
+        className="space-y-5"
         onSubmit={form.handleSubmit(async (values) => {
           await onSubmit(values);
         })}
       >
         <ActionRadioField control={form.control} pending={pending} />
-        <RationaleField
-          control={form.control}
-          pending={pending}
-          requiresRationale={requiresRationale}
-        />
+        <div className="border-t border-border/40 pt-4">
+          <RationaleField
+            control={form.control}
+            pending={pending}
+            requiresRationale={requiresRationale}
+          />
+        </div>
         <SubmitActionButton pending={pending} disabled={pending || !form.formState.isValid} />
       </form>
     </Form>

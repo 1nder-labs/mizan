@@ -26,7 +26,7 @@ function SidebarStatic({ className, children, ref, ...props }: React.ComponentPr
   return (
     <div
       className={cn(
-        "flex h-full w-[var(--sidebar-width)] flex-col bg-sidebar text-sidebar-foreground",
+        "sidebar-surface flex h-full w-[var(--sidebar-width)] flex-col bg-sidebar text-sidebar-foreground",
         className,
       )}
       ref={ref}
@@ -58,7 +58,7 @@ function SidebarMobile({
       <SheetContent
         data-sidebar="sidebar"
         data-mobile="true"
-        className="w-[var(--sidebar-width)] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+        className="sidebar-surface w-[var(--sidebar-width)] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
         style={MOBILE_STYLE}
         side={side}
       >
@@ -97,7 +97,7 @@ function sidebarFixedClass(
       : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
     variant === "floating" || variant === "inset"
       ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4)_+2px)]"
-      : "group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] group-data-[side=left]:border-r group-data-[side=right]:border-l",
+      : "border-sidebar-border group-data-[collapsible=icon]:w-[var(--sidebar-width-icon)] group-data-[side=left]:border-r group-data-[side=right]:border-l",
     className,
   );
 }
@@ -126,7 +126,7 @@ function SidebarDesktop({
       <div className={sidebarFixedClass(side, variant, className)} {...props}>
         <div
           data-sidebar="sidebar"
-          className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
+          className="sidebar-surface flex h-full w-full flex-col bg-sidebar shadow-[inset_-1px_0_0_0_var(--sidebar-border)] group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
         >
           {children}
         </div>

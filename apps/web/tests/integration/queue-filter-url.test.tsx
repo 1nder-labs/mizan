@@ -1,8 +1,9 @@
 /**
- * Integration: QueueFilterBar writes back through `onSearchChange`
- * with the right shape, so the parent's URL-search wiring round-trips
- * correctly. Drives status tabs, category text filter, geography
- * text filter, and the clear button.
+ * Integration: QueueFilterBar writes back through `onSearchChange` with the
+ * right shape, so the parent's URL-search wiring round-trips correctly. Drives
+ * the status tabs and the free-text search bar; the category Select and country
+ * combobox are Radix portals (hard to drive in jsdom), so their presence is
+ * smoke-checked here and their emit is covered by the live worker query test.
  */
 import { describe, expect, test, vi } from "vitest";
 import { render, within } from "@testing-library/react";
@@ -10,7 +11,7 @@ import userEvent from "@testing-library/user-event";
 import type { QueueSearch } from "@mizan/shared";
 import { QueueFilterBar } from "../../src/components/queue/filter-bar.tsx";
 
-const BASE_SEARCH: QueueSearch = { page: 1, sort: "updated_desc" };
+const BASE_SEARCH: QueueSearch = { page: 1, sort: "updated_desc", view: "table" };
 
 function mount(initial: QueueSearch, onSearchChange: (next: Partial<QueueSearch>) => void) {
   const { container, rerender } = render(
@@ -40,31 +41,27 @@ describe("<QueueFilterBar /> URL round-trip", () => {
     expect(onSearchChange).toHaveBeenCalledWith({ status: undefined });
   });
 
-  test("typing into the category input and submitting emits category=<value>", async () => {
+  test("typing into the search bar and submitting emits title=<value>", async () => {
     const onSearchChange = vi.fn();
     const { ui } = mount(BASE_SEARCH, onSearchChange);
     const user = userEvent.setup();
-    const input = ui.getByLabelText("Filter by category");
-    await user.type(input, "humanitarian{Enter}");
-    expect(onSearchChange).toHaveBeenCalledWith({ category: "humanitarian" });
+    await user.type(ui.getByLabelText("Search campaigns"), "flood relief{Enter}");
+    expect(onSearchChange).toHaveBeenCalledWith({ title: "flood relief" });
   });
 
-  test("typing into the geography input emits geography=<value>", async () => {
+  test("Clear on an active search emits title=undefined", async () => {
+    const onSearchChange = vi.fn();
+    const { ui } = mount({ ...BASE_SEARCH, title: "flood" }, onSearchChange);
+    const user = userEvent.setup();
+    await user.click(ui.getByRole("button", { name: /clear/i }));
+    expect(onSearchChange).toHaveBeenCalledWith({ title: undefined });
+  });
+
+  test("renders the category and country filter controls", () => {
     const onSearchChange = vi.fn();
     const { ui } = mount(BASE_SEARCH, onSearchChange);
-    const user = userEvent.setup();
-    const input = ui.getByLabelText("Filter by geography");
-    await user.type(input, "PS{Enter}");
-    expect(onSearchChange).toHaveBeenCalledWith({ geography: "PS" });
-  });
-
-  test("Clear button on active category emits undefined", async () => {
-    const onSearchChange = vi.fn();
-    const { ui } = mount({ ...BASE_SEARCH, category: "humanitarian" }, onSearchChange);
-    const user = userEvent.setup();
-    const clears = ui.getAllByRole("button", { name: /clear/i });
-    await user.click(clears[0]!);
-    expect(onSearchChange).toHaveBeenCalledWith({ category: undefined });
+    expect(ui.getByLabelText("Filter by category")).toBeInTheDocument();
+    expect(ui.getByLabelText("Filter by country")).toBeInTheDocument();
   });
 
   test("external status change reflects in the active tab", async () => {

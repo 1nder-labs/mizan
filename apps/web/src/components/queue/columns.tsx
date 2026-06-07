@@ -61,7 +61,7 @@ const idColumn: ColumnDef<CaseRow> = {
   header: "Case",
   cell: ({ row }) => (
     <div className="flex items-center gap-2">
-      <span className="text-sm font-medium text-foreground">{row.original.title}</span>
+      <span className="text-[15px] font-medium text-foreground">{row.original.title}</span>
       {row.original.client_submitted ? (
         <Badge
           variant="outline"
@@ -142,7 +142,7 @@ export function buildColumns(
       id: "updated",
       header: () => <UpdatedHeader search={search} onSearchChange={onSearchChange} />,
       cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground tabular">
+        <span className="font-numeric text-xs text-muted-foreground tabular">
           {dateFormatter.format(new Date(row.original.updated_at))}
         </span>
       ),

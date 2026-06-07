@@ -85,7 +85,10 @@ export function CountryCombobox({ value, onChange, id, invalid }: CountryCombobo
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] rounded-xl border-border/60 p-0 shadow-elev-2"
+        align="start"
+      >
         <Command>
           <CommandInput placeholder={COPY.portal.countrySearch} className="h-9" />
           <CommandList id={listId}>

@@ -31,12 +31,15 @@ function CampaignRow({
   readonly onNavigate: (id: string) => void;
 }): React.JSX.Element {
   return (
-    <TableRow className="cursor-pointer hover:bg-muted/40" onClick={() => onNavigate(campaign.id)}>
+    <TableRow
+      className="cursor-pointer transition-colors hover:bg-muted/30 lift-on-hover"
+      onClick={() => onNavigate(campaign.id)}
+    >
       <TableCell className="font-medium">{campaign.title}</TableCell>
       <TableCell>
         <ClientStatusBadge status={campaign.status} />
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground tabular">
+      <TableCell className="font-numeric text-sm text-muted-foreground tabular">
         {new Date(campaign.updatedAt).toLocaleDateString()}
       </TableCell>
     </TableRow>
@@ -51,14 +54,20 @@ function CampaignsTable({
   readonly onNavigate: (id: string) => void;
 }): React.JSX.Element {
   return (
-    <Card>
+    <Card className="rounded-xl border-border shadow-elev-1">
       <CardContent className="p-0">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>{COPY.portal.listColumnCampaign}</TableHead>
-              <TableHead>{COPY.portal.listColumnStatus}</TableHead>
-              <TableHead>{COPY.portal.listColumnUpdated}</TableHead>
+            <TableRow className="border-border/50">
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {COPY.portal.listColumnCampaign}
+              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {COPY.portal.listColumnStatus}
+              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {COPY.portal.listColumnUpdated}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -90,23 +99,23 @@ const EMPTY_STEPS = [
 
 function CampaignsEmpty(): React.JSX.Element {
   return (
-    <Card>
-      <CardContent className="py-12">
+    <Card className="rounded-xl border-border shadow-elev-1">
+      <CardContent className="py-14">
         <div className="mx-auto max-w-md text-center">
-          <p className="text-base font-medium">{COPY.portal.listEmptyTitle}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{COPY.portal.listEmptyBody}</p>
+          <p className="text-base font-semibold tracking-tight">{COPY.portal.listEmptyTitle}</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">{COPY.portal.listEmptyBody}</p>
         </div>
-        <div className="mx-auto mt-8 max-w-md">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="mx-auto mt-10 max-w-sm">
+          <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
             {COPY.portal.listEmptyStepsTitle}
           </p>
-          <ol className="mt-3 space-y-3">
+          <ol className="mt-4 space-y-3.5">
             {EMPTY_STEPS.map((step, i) => (
               <li key={step} className="flex items-start gap-3">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted font-numeric text-xs font-semibold">
                   {i + 1}
                 </span>
-                <span className="text-sm text-muted-foreground">{step}</span>
+                <span className="text-sm leading-relaxed text-muted-foreground">{step}</span>
               </li>
             ))}
           </ol>
@@ -130,10 +139,10 @@ export function PortalCampaignsPage(): React.JSX.Element {
 
   return (
     <PortalShell>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{COPY.portal.listTitle}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{COPY.portal.listSubtitle}</p>
+          <h1 className="text-3xl font-semibold text-display">{COPY.portal.listTitle}</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">{COPY.portal.listSubtitle}</p>
         </div>
         <Button onClick={() => void handleNew()}>{COPY.portal.listNew}</Button>
       </header>

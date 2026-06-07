@@ -105,8 +105,9 @@ function buildFilters(search: QueueSearch, viewer: ViewerContext): SQL {
   filters.push(sql`NOT (${clientSubmittedExpr()} = 1 AND ${casesTable.submitted_at} IS NULL)`);
   if (search.status) filters.push(eq(casesTable.status, search.status));
   if (search.title) filters.push(titleLikeFilter(search.title));
-  if (search.category) filters.push(eq(casesTable.category, search.category));
-  if (search.geography) filters.push(eq(casesTable.geography, search.geography));
+  if (search.category) filters.push(sql`LOWER(${casesTable.category}) = LOWER(${search.category})`);
+  if (search.geography)
+    filters.push(sql`LOWER(${casesTable.geography}) = LOWER(${search.geography})`);
   const assignee = resolveAssigneeFilter(search, viewer);
   if (assignee) filters.push(assignee);
   return and(...filters) ?? eq(casesTable.organization_id, viewer.organizationId);

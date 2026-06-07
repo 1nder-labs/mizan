@@ -26,8 +26,12 @@ function useEscapeKey(onEscape: () => void): void {
 
 function ChatPanelFooter(): React.JSX.Element {
   return (
-    <div className="border-t border-border/40 px-3 py-1.5 text-[10px] text-muted-foreground">
-      <Link to="/queue" search={DEFAULT_QUEUE_SEARCH}>
+    <div className="border-t border-border/40 px-4 py-1.5 text-[10px] text-muted-foreground/60 tracking-wide">
+      <Link
+        to="/queue"
+        search={DEFAULT_QUEUE_SEARCH}
+        className="transition-colors hover:text-muted-foreground"
+      >
         {COPY.chat.backToQueue}
       </Link>
     </div>
@@ -41,7 +45,10 @@ function ResizeHandle({ handleProps }: { readonly handleProps: ChatPanelResize["
       aria-orientation="vertical"
       aria-label={COPY.chat.resizeLabel}
       tabIndex={0}
-      className="absolute inset-y-0 left-0 hidden w-1.5 cursor-ew-resize transition-colors hover:bg-border focus-visible:bg-border focus-visible:outline-none lg:block"
+      className={[
+        "absolute inset-y-0 left-0 hidden w-1 cursor-ew-resize transition-colors",
+        "hover:bg-border/60 focus-visible:bg-border focus-visible:outline-none lg:block",
+      ].join(" ")}
       {...handleProps}
     />
   );
@@ -65,7 +72,7 @@ export function OpenChatPanel({ onClose }: { readonly onClose: () => void }): Re
       aria-label={COPY.chat.panelTitle}
       style={panelStyle}
       className={cn(
-        "fixed inset-0 z-50 flex flex-col border-border bg-background shadow-elev-2",
+        "fixed inset-0 z-50 flex flex-col border-border bg-background shadow-elev-3",
         "lg:inset-y-3 lg:right-3 lg:left-auto lg:z-40 lg:w-[var(--chat-w)] lg:rounded-2xl lg:border",
         "lg:transition-[width] lg:duration-200 lg:ease-out",
       )}

@@ -28,12 +28,12 @@ interface AuditErrorCardProps {
 
 function AuditErrorCard({ onRetry, isFetching }: AuditErrorCardProps): React.JSX.Element {
   return (
-    <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm">
-      <p className="text-destructive">Could not load reviewer actions.</p>
-      <p className="mt-1 text-muted-foreground">
+    <div className="rounded-xl border border-destructive/30 bg-destructive/[0.04] p-5 shadow-elev-1">
+      <p className="text-sm font-medium text-destructive">Could not load reviewer actions.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
         The audit feed temporarily failed to load - retry below.
       </p>
-      <Button variant="outline" size="sm" onClick={onRetry} disabled={isFetching} className="mt-3">
+      <Button variant="outline" size="sm" onClick={onRetry} disabled={isFetching} className="mt-4">
         <RefreshCw className={isFetching ? "size-3 animate-spin" : "size-3"} />
         Retry
       </Button>
@@ -59,18 +59,24 @@ export function AuditList(): React.JSX.Element {
   if (isError) return <AuditErrorCard onRetry={() => void refetch()} isFetching={isFetching} />;
 
   if (isPending) {
-    return <p className="text-sm text-muted-foreground">Loading audit entries…</p>;
+    return <p className="py-8 text-center text-sm text-muted-foreground">Loading audit entries…</p>;
   }
 
   if (!data || data.entries.length === 0) {
-    return <p className="text-sm text-muted-foreground">No reviewer actions recorded yet.</p>;
+    return (
+      <p className="rounded-xl border border-dashed border-border/50 bg-card px-6 py-10 text-center text-sm text-muted-foreground">
+        No reviewer actions recorded yet.
+      </p>
+    );
   }
 
   const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
 
   return (
     <div className="space-y-4">
-      <AuditEntriesTable entries={data.entries} />
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-elev-1">
+        <AuditEntriesTable entries={data.entries} />
+      </div>
       <AuditPagination search={search} totalPages={totalPages} />
     </div>
   );

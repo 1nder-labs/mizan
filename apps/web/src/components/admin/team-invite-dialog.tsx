@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { MailPlus } from "lucide-react";
@@ -19,9 +19,41 @@ import {
 } from "@/components/ui/dialog.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx";
 import { useCreateInvitation } from "@/hooks/use-team.ts";
 import { copyInviteUrlWithFallback } from "@/lib/copy-invite-url.ts";
 import { ClipboardFallbackDialog } from "./clipboard-fallback-dialog.tsx";
+
+/** Role picker bound to the form via Controller (Radix Select is controlled). */
+function RoleSelectField({
+  form,
+}: {
+  readonly form: ReturnType<typeof useForm<CreateInvitationRequest>>;
+}): React.JSX.Element {
+  return (
+    <Controller
+      control={form.control}
+      name="role"
+      render={({ field }) => (
+        <Select value={field.value} onValueChange={field.onChange}>
+          <SelectTrigger id="invite-role">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="reviewer">Reviewer</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
+    />
+  );
+}
 
 function InvitationFields({
   form,
@@ -42,14 +74,7 @@ function InvitationFields({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="invite-role">Role</Label>
-          <select
-            id="invite-role"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-elev-1"
-            {...form.register("role")}
-          >
-            <option value="reviewer">Reviewer</option>
-            <option value="admin">Admin</option>
-          </select>
+          <RoleSelectField form={form} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="invite-ttl">Expires in (hours)</Label>
@@ -152,10 +177,12 @@ export function InvitationDialog({
           Invite reviewer
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md shadow-elev-3">
         <DialogHeader>
-          <DialogTitle>Invite a team member</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base font-semibold tracking-tight">
+            Invite a team member
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
             Generates a one-time invitation URL. Copy and send manually.
           </DialogDescription>
         </DialogHeader>

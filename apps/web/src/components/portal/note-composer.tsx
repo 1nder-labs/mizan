@@ -40,7 +40,7 @@ export function ClientNoteComposer({ campaignId }: NoteComposerProps): React.JSX
   return (
     <Form {...form}>
       <form
-        className="space-y-2"
+        className="space-y-3"
         onSubmit={form.handleSubmit((values) => mutation.mutateAsync(values.body))}
         noValidate
       >
@@ -50,7 +50,11 @@ export function ClientNoteComposer({ campaignId }: NoteComposerProps): React.JSX
           render={({ field }) => (
             <FormItem>
               <FormControl>
-                <Textarea placeholder={COPY.portal.noteComposePlaceholder} {...field} />
+                <Textarea
+                  className="rounded-xl border-border/60 bg-card shadow-elev-1 focus-visible:shadow-elev-2 transition-shadow"
+                  placeholder={COPY.portal.noteComposePlaceholder}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

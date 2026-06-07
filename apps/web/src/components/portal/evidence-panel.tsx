@@ -121,7 +121,7 @@ function EvidenceRow({
   readOnly,
 }: EvidenceRowProps): React.JSX.Element {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
+    <div className="flex items-center justify-between gap-4 px-4 py-3.5">
       <div className="flex min-w-0 items-start gap-3">
         <DocStatusIcon uploaded={uploaded} />
         <div className="min-w-0">
@@ -162,16 +162,16 @@ export function EvidencePanel({
   const uploadedCount = DocumentKeyEnum.options.filter((k) => uploadedMap[k]).length;
 
   return (
-    <div className="mt-3 overflow-hidden rounded-lg border">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b bg-muted/30 px-4 py-2.5">
-        <p className="text-sm font-medium">
+    <div className="mt-4 overflow-hidden rounded-xl border border-border shadow-elev-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border/50 bg-muted/30 px-4 py-3">
+        <p className="text-sm font-semibold">
           {evidenceProgress(uploadedCount, DocumentKeyEnum.options.length)}
         </p>
         <p className="text-xs text-muted-foreground">
           {readOnly ? COPY.portal.evidenceDecided : COPY.portal.evidenceHint}
         </p>
       </div>
-      <div className="divide-y">
+      <div className="divide-y divide-border/40">
         {DocumentKeyEnum.options.map((docKind) => (
           <EvidenceRow
             key={docKind}

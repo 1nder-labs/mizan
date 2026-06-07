@@ -18,9 +18,11 @@ export function PortalShell({ children }: PortalShellProps): React.JSX.Element {
   const { signOut, signingOut } = useSignOut();
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="border-b border-border/60 px-6 py-3">
+      <header className="border-b border-border/50 bg-card/80 px-6 py-3 backdrop-blur-sm">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <span className="text-sm font-semibold tracking-tight">{COPY.portal.brand}</span>
+          <span className="text-sm font-semibold tracking-tight text-foreground">
+            {COPY.portal.brand}
+          </span>
           <div className="flex items-center gap-1">
             <NotificationBell />
             <Button variant="ghost" size="sm" onClick={signOut} disabled={signingOut}>
@@ -30,7 +32,7 @@ export function PortalShell({ children }: PortalShellProps): React.JSX.Element {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl w-full px-6 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-4xl px-6 py-10">{children}</main>
     </div>
   );
 }

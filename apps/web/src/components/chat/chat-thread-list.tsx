@@ -4,6 +4,27 @@ import { COPY } from "@/lib/copy-constants.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { ThreadRow } from "@/components/chat/chat-thread-row.tsx";
 
+/** Rail heading + new-chat action. */
+function ThreadListHeader({ onCreate }: { readonly onCreate: () => void }): React.JSX.Element {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2 px-2 pt-1">
+      <p className="truncate text-[10px] uppercase tracking-[0.2em] font-medium text-muted-foreground/70">
+        {COPY.chat.threadsHeading}
+      </p>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="size-5 shrink-0 text-muted-foreground hover:text-foreground"
+        aria-label={COPY.chat.newChat}
+        onClick={onCreate}
+      >
+        <Plus className="size-3" />
+      </Button>
+    </div>
+  );
+}
+
 /**
  * Full-height conversation list for the copilot rail: heading, new-chat
  * action, and a scrollable list of {@link ThreadRow}s (each with an inline
@@ -26,22 +47,8 @@ export function ChatThreadList({
 }): React.JSX.Element {
   return (
     <div className="flex h-full flex-col p-2">
-      <div className="mb-1 flex items-center justify-between gap-2 px-1">
-        <p className="truncate text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          {COPY.chat.threadsHeading}
-        </p>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="size-6 shrink-0"
-          aria-label={COPY.chat.newChat}
-          onClick={onCreate}
-        >
-          <Plus className="size-3.5" />
-        </Button>
-      </div>
-      <ul className="flex-1 space-y-1 overflow-y-auto">
+      <ThreadListHeader onCreate={onCreate} />
+      <ul className="flex-1 space-y-px overflow-y-auto">
         {threads.map((thread) => (
           <ThreadRow
             key={thread.id}
@@ -53,7 +60,9 @@ export function ChatThreadList({
           />
         ))}
         {threads.length === 0 ? (
-          <li className="px-2 py-1 text-xs text-muted-foreground">{COPY.chat.newConversation}</li>
+          <li className="px-3 py-2 text-[11px] text-muted-foreground/60">
+            {COPY.chat.newConversation}
+          </li>
         ) : null}
       </ul>
     </div>

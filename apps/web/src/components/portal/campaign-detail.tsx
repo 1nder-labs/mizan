@@ -44,14 +44,14 @@ function OrganizerAskCard({
   readonly ask: NonNullable<ClientCaseDetail["organizerAsk"]>;
 }): React.JSX.Element {
   return (
-    <Card className="border-status-warning border">
+    <Card className="rounded-xl border border-status-warning-border shadow-elev-1">
       <CardHeader>
         <CardTitle className="text-sm font-medium">{COPY.portal.detailAskTitle}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         <p className="text-sm">{ask.message}</p>
         {ask.missingItems.length > 0 ? (
-          <ul className="list-disc pl-4 space-y-1">
+          <ul className="space-y-1 pl-4 list-disc">
             {ask.missingItems.map((item) => (
               <li key={item} className="text-sm text-muted-foreground">
                 {item}
@@ -82,8 +82,8 @@ function DetailHeader({
         >
           {COPY.portal.detailBack}
         </Link>
-        <div className="flex items-center gap-2 mt-2">
-          <h1 className="text-2xl font-semibold tracking-tight">{detail.organizerName}</h1>
+        <div className="mt-2 flex items-center gap-2">
+          <h1 className="text-3xl font-semibold text-display">{detail.organizerName}</h1>
           <ClientStatusBadge status={detail.status} />
           <InfoHint label={COPY.hints.clientStatus} />
         </div>
@@ -140,7 +140,7 @@ function DraftActions({ campaignId }: { readonly campaignId: string }): React.JS
     if (window.confirm(COPY.portal.draftDeleteConfirm)) remove.mutate();
   }
   return (
-    <Alert>
+    <Alert className="rounded-xl border-border shadow-elev-1">
       <AlertTitle>{COPY.portal.draftBannerTitle}</AlertTitle>
       <AlertDescription className="space-y-3">
         <p className="text-sm">{COPY.portal.draftBannerBody}</p>
@@ -167,10 +167,12 @@ function EvidenceSection({
   const incomplete = detail.status === "submitted" && !detail.evidence.every((e) => e.uploaded);
   return (
     <section>
-      <h2 className="mb-1 text-base font-semibold">{COPY.portal.detailEvidenceTitle}</h2>
+      <h2 className="mb-1 text-xl font-semibold tracking-[-0.01em]">
+        {COPY.portal.detailEvidenceTitle}
+      </h2>
       <p className="text-sm text-muted-foreground">{COPY.portal.detailEvidenceSubtitle}</p>
       {incomplete ? (
-        <Alert className="mt-3 border-status-warning-border bg-status-warning/40">
+        <Alert className="mt-4 rounded-xl border-status-warning-border bg-status-warning/40">
           <AlertTitle>{COPY.portal.detailEvidenceIncompleteTitle}</AlertTitle>
           <AlertDescription>{COPY.portal.detailEvidenceIncompleteBody}</AlertDescription>
         </Alert>
@@ -194,7 +196,7 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
       {detail.status === "draft" ? <DraftActions campaignId={detail.id} /> : null}
       {editing ? (
         <section>
-          <h2 className="mb-4 text-base font-semibold">{COPY.portal.editTitle}</h2>
+          <h2 className="mb-4 text-xl font-semibold tracking-[-0.01em]">{COPY.portal.editTitle}</h2>
           <IntakeForm
             mode="edit"
             campaignId={detail.id}
@@ -209,7 +211,7 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
       <EvidenceSection detail={detail} readOnly={evidenceReadOnly} />
       <Separator />
       <section className="space-y-4">
-        <h2 className="text-base font-semibold">{COPY.portal.detailNotesTitle}</h2>
+        <h2 className="text-xl font-semibold tracking-[-0.01em]">{COPY.portal.detailNotesTitle}</h2>
         <NoteThread campaignId={detail.id} />
         {detail.status === "approved" || detail.status === "not_approved" ? (
           <p className="text-sm text-muted-foreground">{COPY.portal.noteComposeDecided}</p>

@@ -58,10 +58,10 @@ export function CaseDetailPage(): React.JSX.Element {
     const copy = classifyError(error ?? null, !error && !data);
     return (
       <AuthenticatedShell context="Case detail">
-        <div className="mx-auto max-w-3xl px-6 py-16">
-          <Alert variant="destructive">
-            <AlertTitle>{copy.title}</AlertTitle>
-            <AlertDescription>{copy.body}</AlertDescription>
+        <div className="mx-auto max-w-2xl px-6 py-16">
+          <Alert variant="destructive" className="rounded-xl shadow-elev-1">
+            <AlertTitle className="font-semibold">{copy.title}</AlertTitle>
+            <AlertDescription className="text-sm">{copy.body}</AlertDescription>
           </Alert>
         </div>
       </AuthenticatedShell>

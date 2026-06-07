@@ -34,7 +34,7 @@ function stateBadgeClass(state: ToolState): string {
     return "border-status-success-border bg-status-success text-status-success-foreground";
   if (state === "output-error")
     return "border-status-destructive-border bg-status-destructive text-status-destructive-foreground";
-  return "border-status-info-border bg-status-info text-status-info-foreground";
+  return "border-border/60 bg-muted text-muted-foreground";
 }
 
 function PayloadBlock({ value }: { readonly value: unknown }): React.JSX.Element {
@@ -45,7 +45,7 @@ function PayloadBlock({ value }: { readonly value: unknown }): React.JSX.Element
     serialized = String(value);
   }
   return (
-    <pre className="max-h-72 overflow-auto rounded-md border border-border bg-muted/50 p-3 font-mono text-[11px] leading-relaxed text-foreground">
+    <pre className="max-h-72 overflow-auto rounded-md border border-border/60 bg-muted/30 p-3 font-mono text-[11px] leading-relaxed text-foreground">
       {serialized}
     </pre>
   );
@@ -91,8 +91,8 @@ function ExpandButton({ tool }: { readonly tool: ToolPart }): React.JSX.Element 
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="w-full sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle className="font-mono text-sm">{tool.name}</SheetTitle>
+        <SheetHeader className="border-b border-border/50 pb-3">
+          <SheetTitle className="font-mono text-sm tracking-tight">{tool.name}</SheetTitle>
           <SheetDescription>Full input + output payload for this tool invocation.</SheetDescription>
         </SheetHeader>
         <div className="space-y-4 overflow-auto px-4 pb-6">
@@ -143,7 +143,7 @@ function ToolHeader({
 
 function ToolBody({ tool }: { readonly tool: ToolPart }): React.JSX.Element {
   return (
-    <div className="space-y-3 border-t border-border bg-muted/20 px-4 py-3">
+    <div className="space-y-3 border-t border-border/40 bg-muted/10 px-4 py-3">
       <ToolPayloadSections
         tool={tool}
         errorBlockClass="rounded-md border border-status-destructive-border bg-status-destructive p-2 text-xs text-status-destructive-foreground"
@@ -157,7 +157,7 @@ export function ExtractionCard({ tool }: { readonly tool: ToolPart }): React.JSX
   return (
     <article
       className={cn(
-        "rounded-lg border border-border bg-card shadow-elev-1",
+        "animate-rise rounded-xl border border-border/60 bg-card shadow-elev-1 lift-on-hover",
         tool.state === "output-error" && "border-status-destructive-border",
       )}
     >

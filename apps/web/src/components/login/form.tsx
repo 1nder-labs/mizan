@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { LoginSchema, type LoginInput } from "@mizan/shared";
 import { authClient } from "@/lib/auth-client.ts";
@@ -70,10 +70,10 @@ function PasswordField({ form }: { readonly form: UseFormReturn<LoginInput> }): 
 
 function SubmitButton({ pending }: { readonly pending: boolean }): React.JSX.Element {
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button type="submit" className="mt-2 w-full" disabled={pending}>
       {pending ? (
         <>
-          <Loader2 className="mr-2 size-4 animate-spin" />
+          <LoaderCircle className="mr-2 size-4 animate-spin" />
           Signing in
         </>
       ) : (
@@ -113,7 +113,7 @@ export function LoginForm({ onAuthenticated }: LoginFormProps): React.JSX.Elemen
         </Alert>
       ) : null}
       <Form {...form}>
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <EmailField form={form} />
           <PasswordField form={form} />
           <SubmitButton pending={form.formState.isSubmitting} />

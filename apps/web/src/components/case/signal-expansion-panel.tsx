@@ -9,7 +9,7 @@
  * — Phase 8/9 will populate). All visible strings come from `COPY`.
  */
 import { useState } from "react";
-import { ChevronRight, Loader2, ShieldQuestion } from "lucide-react";
+import { ChevronRight, LoaderCircle, ShieldQuestion } from "lucide-react";
 import type { CaseSignalEntry, CaseSignalsResponse, SignalType } from "@mizan/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { useCaseSignals } from "@/hooks/use-case-signals.ts";
@@ -56,7 +56,7 @@ function SignalBody({
     return <VouchingChainBody payload={entry.payload_json} />;
   }
   return (
-    <pre className="overflow-x-auto rounded-md border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
+    <pre className="overflow-x-auto rounded-xl border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
       {JSON.stringify(entry.payload_json, null, 2)}
     </pre>
   );
@@ -83,7 +83,7 @@ function SignalRowHeader({
       <span className="flex items-center gap-3">
         <span
           className={cn(
-            "text-[11px] uppercase tracking-wider",
+            "text-[11px] uppercase tracking-wider tabular",
             hasEntry ? "text-muted-foreground" : "text-muted-foreground/70",
           )}
         >
@@ -116,9 +116,10 @@ function SignalRow({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border bg-card/70 transition-all duration-200",
+        "relative overflow-hidden rounded-xl border bg-card/70 transition-all duration-200",
         hasEntry ? "border-border/60" : "border-border/30 opacity-70",
-        open && "border-foreground/30 shadow-elev-1",
+        open &&
+          "border-foreground/20 shadow-elev-1 before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-r-full before:bg-foreground",
       )}
     >
       <button
@@ -145,12 +146,14 @@ export function SignalExpansionPanel({ caseId }: SignalExpansionPanelProps): Rea
   return (
     <Card className="border-border/80 shadow-elev-1">
       <CardHeader>
-        <CardTitle className="text-sm font-medium">{COPY.signals.panelTitle}</CardTitle>
+        <CardTitle className="text-base font-semibold tracking-[-0.01em]">
+          {COPY.signals.panelTitle}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         {query.isPending ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
+            <LoaderCircle className="size-3.5 animate-spin" />
             {COPY.signals.loadingLabel}
           </div>
         ) : null}

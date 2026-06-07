@@ -21,11 +21,15 @@ export function RationaleField({
       name="rationale"
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{requiresRationale ? "Rationale required" : "Rationale (optional)"}</FormLabel>
+          <FormLabel className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            {requiresRationale ? "Rationale required" : "Rationale (optional)"}
+          </FormLabel>
           <FormControl>
             <Textarea
               {...field}
               disabled={pending}
+              className="resize-none text-sm"
+              rows={3}
               placeholder={
                 requiresRationale
                   ? "Explain why (≥ 8 characters for override and block)"

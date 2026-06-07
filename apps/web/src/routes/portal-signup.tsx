@@ -23,6 +23,33 @@ export const Route = createFileRoute("/portal-signup")({
   component: PortalSignupRoutePage,
 });
 
+const SIGNUP_STEPS = [
+  COPY.portal.listEmptyStep1,
+  COPY.portal.listEmptyStep2,
+  COPY.portal.listEmptyStep3,
+] as const;
+
+/** Ordered list of onboarding steps shown below the signup card. */
+function SignupSteps(): React.JSX.Element {
+  return (
+    <div className="mt-8">
+      <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+        {COPY.portal.signupStepsTitle}
+      </p>
+      <ol className="mt-4 space-y-3">
+        {SIGNUP_STEPS.map((step, i) => (
+          <li key={step} className="flex items-start gap-3 text-sm text-muted-foreground">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted font-numeric text-[11px] font-semibold">
+              {i + 1}
+            </span>
+            <span className="leading-relaxed">{step}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export function PortalSignupRoutePage(): React.JSX.Element {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -36,38 +63,24 @@ export function PortalSignupRoutePage(): React.JSX.Element {
   return (
     <main className="grid min-h-screen place-items-center bg-background px-6 py-12">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <div className="mb-8 flex items-center gap-2 text-sm font-semibold text-foreground">
           <ShieldCheck className="size-4" />
           <span>{COPY.portal.brand}</span>
         </div>
-        <Card className="border-border/80 shadow-elev-1">
-          <CardHeader className="space-y-1.5">
-            <CardTitle className="text-xl tracking-tight">{COPY.portal.signupTitle}</CardTitle>
-            <CardDescription>{COPY.portal.signupSubtitle}</CardDescription>
+        <Card className="rounded-xl border-border shadow-elev-1">
+          <CardHeader className="space-y-1.5 pb-5">
+            <CardTitle className="text-2xl font-semibold text-display">
+              {COPY.portal.signupTitle}
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              {COPY.portal.signupSubtitle}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <PortalSignupForm onAuthenticated={handleAuthenticated} />
           </CardContent>
         </Card>
-        <div className="mt-6">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {COPY.portal.signupStepsTitle}
-          </p>
-          <ol className="mt-3 space-y-2.5">
-            {[
-              COPY.portal.listEmptyStep1,
-              COPY.portal.listEmptyStep2,
-              COPY.portal.listEmptyStep3,
-            ].map((step, i) => (
-              <li key={step} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold tabular">
-                  {i + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
+        <SignupSteps />
       </div>
     </main>
   );

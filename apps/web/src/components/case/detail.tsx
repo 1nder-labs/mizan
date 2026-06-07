@@ -105,7 +105,7 @@ function DetailLayout({
   onStreamError,
 }: DetailLayoutProps): React.JSX.Element {
   return (
-    <article className="w-full space-y-6 px-6 py-8">
+    <article className="w-full space-y-8 px-6 py-8">
       <CaseHeader caseRow={caseRow} clientResponded={clientResponded} />
       <CaseTabs
         caseRow={caseRow}

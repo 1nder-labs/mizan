@@ -14,7 +14,7 @@ interface QueueErrorProps {
 
 export function QueueError({ onRetry, retrying }: QueueErrorProps): React.JSX.Element {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-status-destructive-border bg-status-destructive p-4 text-sm text-status-destructive-foreground">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-status-destructive-border bg-status-destructive p-4 text-sm text-status-destructive-foreground">
       <span>Failed to load cases.</span>
       <Button
         type="button"

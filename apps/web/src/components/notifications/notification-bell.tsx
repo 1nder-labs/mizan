@@ -40,17 +40,17 @@ function NotificationItem({
       type="button"
       variants={fadeUp}
       onClick={() => onSelect(note)}
-      className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left hover:bg-muted/50"
+      className="flex w-full flex-col items-start gap-1 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
     >
       <div className="flex w-full items-center justify-between gap-2">
-        <span className="text-sm font-medium text-foreground">{note.title}</span>
+        <span className="text-sm font-medium text-foreground leading-snug">{note.title}</span>
         {note.read ? null : <span className="size-2 shrink-0 rounded-full bg-primary" />}
       </div>
       {note.caseTitle ? (
-        <span className="text-xs font-medium text-muted-foreground">{note.caseTitle}</span>
+        <span className="text-xs text-muted-foreground">{note.caseTitle}</span>
       ) : null}
-      <span className="text-sm text-muted-foreground break-words">{note.body}</span>
-      <span className="text-[11px] text-muted-foreground tabular">
+      <span className="text-xs text-muted-foreground break-words leading-relaxed">{note.body}</span>
+      <span className="font-mono font-numeric text-[11px] text-muted-foreground/70 tabular mt-0.5">
         {new Date(note.createdAt).toLocaleString()}
       </span>
     </m.button>
@@ -66,7 +66,7 @@ function NotificationList({
 }): React.JSX.Element {
   if (notes.length === 0) {
     return (
-      <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+      <p className="px-3 py-8 text-center text-sm text-muted-foreground">
         {COPY.notifications.empty}
       </p>
     );
@@ -76,7 +76,7 @@ function NotificationList({
       variants={staggerParent}
       initial="hidden"
       animate="show"
-      className="max-h-80 space-y-1 overflow-y-auto"
+      className="max-h-80 space-y-0.5 overflow-y-auto"
     >
       {notes.map((note) => (
         <NotificationItem key={note.id} note={note} onSelect={onSelect} />
@@ -165,14 +165,16 @@ export function NotificationBell(): React.JSX.Element {
       <PopoverTrigger asChild>
         <BellButton unread={unread} />
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-2">
-        <div className="flex items-center justify-between px-1 pb-2">
-          <span className="text-sm font-semibold">{COPY.notifications.title}</span>
+      <PopoverContent align="end" className="w-80 p-0 shadow-elev-2">
+        <div className="flex items-center justify-between border-b border-border/50 px-3 py-3">
+          <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            {COPY.notifications.title}
+          </span>
           {unread > 0 ? (
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-xs"
+              className="h-6 px-2 text-[11px]"
               onClick={onReadAll}
               disabled={readingAll}
             >
@@ -180,7 +182,9 @@ export function NotificationBell(): React.JSX.Element {
             </Button>
           ) : null}
         </div>
-        <NotificationList notes={notes} onSelect={handleSelect} />
+        <div className="p-1.5">
+          <NotificationList notes={notes} onSelect={handleSelect} />
+        </div>
       </PopoverContent>
     </Popover>
   );

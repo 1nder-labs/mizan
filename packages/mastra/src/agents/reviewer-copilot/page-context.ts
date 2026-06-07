@@ -27,9 +27,15 @@ function openCaseBlock(caseId: string, route: string | undefined): string {
 CURRENT CONTEXT:
 The reviewer is looking at case ${caseId} right now${where}. When they say "this
 case", "this campaign", "the case in front of me", or ask a case question
-without naming one, they mean THIS case — call get_case with caseId="${caseId}".
-Carry this id across the whole conversation; every follow-up about "it" or "the
-campaign" refers to the same case unless the reviewer names a different one.
+without naming one, they mean THIS case (id ${caseId}).
+
+Call get_case for it ONCE — the first time you need its details. After that, REUSE
+the get_case result already in this conversation and answer directly; do NOT call
+get_case again for the same case on every follow-up. Re-fetch only if the reviewer
+just took an action that may have changed it, or asks about a different case. Carry
+this id across the whole conversation; "it" / "the campaign" means the same case
+unless the reviewer names another.
+
 If get_case shows the case is still in DRAFT or has no brief yet, do NOT call
 get_brief — instead tell the reviewer plainly that the campaign has not been
 briefed yet (a reviewer runs Generate-brief), and that once it is briefed you

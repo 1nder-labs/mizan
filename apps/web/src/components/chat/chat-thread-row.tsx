@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreHorizontal, Pencil, Trash2, type LucideIcon } from "lucide-react";
+import { Ellipsis, Pencil, Trash2, type LucideIcon } from "lucide-react";
 import type { ChatThread } from "@mizan/shared";
 import { COPY } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
@@ -32,11 +32,11 @@ function MenuButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted",
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted transition-colors",
         danger && "text-destructive hover:bg-destructive/10",
       )}
     >
-      <Icon className="size-3.5" />
+      <Icon className="size-3.5 shrink-0" />
       {label}
     </button>
   );
@@ -79,6 +79,27 @@ function MenuActions({
   );
 }
 
+/** Hover-revealed kebab trigger for the thread menu. */
+function ThreadMenuTrigger(): React.JSX.Element {
+  return (
+    <PopoverTrigger asChild>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        aria-label={COPY.chat.threadActions}
+        className={[
+          "size-5 shrink-0 opacity-0 transition-opacity",
+          "group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
+          "text-muted-foreground hover:text-foreground",
+        ].join(" ")}
+      >
+        <Ellipsis className="size-3" />
+      </Button>
+    </PopoverTrigger>
+  );
+}
+
 /** Kebab menu: Rename (starts inline edit) + Delete (two-step inline confirm). */
 function ThreadMenu({
   onRename,
@@ -95,18 +116,8 @@ function ThreadMenu({
   };
   return (
     <Popover open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          aria-label={COPY.chat.threadActions}
-          className="size-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-        >
-          <MoreHorizontal className="size-3.5" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={4} className="w-44 p-1">
+      <ThreadMenuTrigger />
+      <PopoverContent align="end" sideOffset={4} className="w-40 p-1 shadow-elev-2">
         {confirming ? (
           <DeleteConfirm
             onCancel={() => setConfirming(false)}
@@ -157,8 +168,58 @@ function RenameInput({
         if (event.key === "Enter") onCommit(value);
         if (event.key === "Escape") onCancel();
       }}
-      className="h-7 text-xs"
+      className="h-7 text-xs mx-1"
     />
+  );
+}
+
+/** Resting (non-editing) thread row: title + relative time + kebab menu. */
+function ThreadRowContent({
+  thread,
+  active,
+  onSelect,
+  onRenameStart,
+  onDelete,
+}: {
+  readonly thread: ChatThread;
+  readonly active: boolean;
+  readonly onSelect: (id: string) => void;
+  readonly onRenameStart: () => void;
+  readonly onDelete: () => void;
+}): React.JSX.Element {
+  return (
+    <li className="group relative">
+      <div
+        className={cn(
+          "relative flex items-center gap-1 rounded-md pr-1 transition-colors",
+          active
+            ? [
+                "bg-muted before:absolute before:inset-y-1.5 before:left-0",
+                "before:w-[3px] before:rounded-r-full before:bg-foreground",
+              ].join(" ")
+            : "hover:bg-muted/50",
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => onSelect(thread.id)}
+          className="flex min-w-0 flex-1 flex-col gap-0.5 px-3 py-1.5 text-left"
+        >
+          <span
+            className={cn(
+              "truncate text-xs leading-snug",
+              active ? "font-medium text-foreground" : "text-foreground/80",
+            )}
+          >
+            {thread.title}
+          </span>
+          <span className="font-numeric text-[10px] text-muted-foreground tabular-nums">
+            {formatRelativeTime(thread.updatedAt)}
+          </span>
+        </button>
+        <ThreadMenu onRename={onRenameStart} onDelete={onDelete} />
+      </div>
+    </li>
   );
 }
 
@@ -186,25 +247,12 @@ export function ThreadRow({
     );
   }
   return (
-    <li className="group relative">
-      <div
-        className={cn(
-          "flex items-center gap-1 rounded-md pr-1",
-          active ? "bg-muted" : "hover:bg-muted/60",
-        )}
-      >
-        <button
-          type="button"
-          onClick={() => onSelect(thread.id)}
-          className="flex min-w-0 flex-1 flex-col gap-0.5 px-2 py-1.5 text-left"
-        >
-          <span className={cn("truncate text-xs", active && "font-medium")}>{thread.title}</span>
-          <span className="text-[10px] text-muted-foreground">
-            {formatRelativeTime(thread.updatedAt)}
-          </span>
-        </button>
-        <ThreadMenu onRename={() => setRenaming(true)} onDelete={() => onDelete(thread.id)} />
-      </div>
-    </li>
+    <ThreadRowContent
+      thread={thread}
+      active={active}
+      onSelect={onSelect}
+      onRenameStart={() => setRenaming(true)}
+      onDelete={() => onDelete(thread.id)}
+    />
   );
 }

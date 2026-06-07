@@ -14,11 +14,23 @@ import { Skeleton } from "@/components/ui/skeleton.tsx";
 function NoteCard({ note }: { readonly note: CaseNote }): React.JSX.Element {
   const authorLabel =
     note.authorRole === "client" ? COPY.portal.noteFromYou : COPY.portal.noteFromReviewer;
+  const isClient = note.authorRole === "client";
   return (
-    <m.div variants={fadeUp} className="rounded-lg border border-border/60 bg-card p-4 space-y-1.5">
+    <m.div
+      variants={fadeUp}
+      className="rounded-xl border border-border/60 bg-card p-4 shadow-elev-1 space-y-1.5"
+    >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-foreground">{authorLabel}</span>
-        <span className="text-xs text-muted-foreground tabular">
+        <span
+          className={
+            isClient
+              ? "text-xs font-semibold text-foreground"
+              : "text-xs font-medium text-muted-foreground"
+          }
+        >
+          {authorLabel}
+        </span>
+        <span className="font-numeric text-xs text-muted-foreground tabular">
           {new Date(note.createdAt).toLocaleString()}
         </span>
       </div>
@@ -47,7 +59,7 @@ export function NoteThread({ campaignId }: NoteThreadProps): React.JSX.Element {
 
   if (notes.length === 0) {
     return (
-      <p className="rounded-md border border-dashed border-border/40 bg-card/60 p-6 text-center text-sm text-muted-foreground">
+      <p className="rounded-xl border border-dashed border-border/40 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
         {COPY.portal.detailNotesEmpty}
       </p>
     );

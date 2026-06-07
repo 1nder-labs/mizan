@@ -3,7 +3,7 @@
  */
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { SignupSchema, type SignupInput } from "@mizan/shared";
 import { authClient } from "@/lib/auth-client.ts";
@@ -133,12 +133,12 @@ export function SignupForm({
         </Alert>
       ) : null}
       <Form {...form}>
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <SignupFields form={form} emailReadonly={emailReadonly} />
-          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          <Button type="submit" className="mt-2 w-full" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting ? (
               <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
+                <LoaderCircle className="mr-2 size-4 animate-spin" />
                 Creating account
               </>
             ) : (

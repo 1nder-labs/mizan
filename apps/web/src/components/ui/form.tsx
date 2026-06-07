@@ -79,7 +79,7 @@ function FormItem({ className, ref, ...props }: React.ComponentProps<"div">) {
 
   return (
     <FormItemContext.Provider value={ctxValue}>
-      <div ref={ref} className={cn("space-y-2", className)} {...props} />
+      <div ref={ref} className={cn("space-y-1.5", className)} {...props} />
     </FormItemContext.Provider>
   );
 }

@@ -28,13 +28,14 @@ function MessageBubble({ note, mine }: { readonly note: CaseNote; readonly mine:
     >
       <div
         className={cn(
-          "max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm leading-relaxed",
+          "max-w-[85%] whitespace-pre-wrap break-words rounded-2xl",
+          "px-3 py-2 text-sm leading-relaxed",
           mine ? "rounded-br-sm bg-primary text-primary-foreground" : "rounded-bl-sm bg-muted",
         )}
       >
         {note.body}
       </div>
-      <span className="px-1 text-[10px] text-muted-foreground tabular">
+      <span className="font-numeric px-1 text-[10px] tabular text-muted-foreground">
         <span>{mine ? COPY.reviewerNotes.fromYou : who}</span> ·{" "}
         {new Date(note.createdAt).toLocaleString()}
       </span>
@@ -110,9 +111,11 @@ export function MessageThread({
     if (node) node.scrollTop = node.scrollHeight;
   }, [notes.length]);
   return (
-    <div className="flex h-[26rem] min-h-0 flex-col rounded-lg border border-border/50 bg-card">
-      <div className="shrink-0 border-b border-border/40 px-4 py-2.5">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+    <div className="flex h-[26rem] min-h-0 flex-col rounded-xl border border-border/60 bg-card shadow-elev-1">
+      <div className="shrink-0 border-b border-border/50 px-4 py-3">
+        <h3 className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          {title}
+        </h3>
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
         {notes.length === 0 ? (
@@ -125,7 +128,7 @@ export function MessageThread({
           </m.div>
         )}
       </div>
-      <div className="shrink-0 border-t border-border/40 p-3">
+      <div className="shrink-0 border-t border-border/50 p-3">
         <ThreadComposer placeholder={placeholder} pending={pending} onCompose={onCompose} />
       </div>
     </div>

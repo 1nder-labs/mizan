@@ -8,6 +8,7 @@
  * `VouchingChainVariantSchema`), not the LLM envelope — readers
  * access `payload.structure` without an extra `.chain` hop.
  */
+import { Waypoints } from "lucide-react";
 import type { VouchingChain } from "@mizan/shared";
 
 interface VouchingChainBodyProps {
@@ -29,7 +30,8 @@ export function VouchingChainBody({ payload: chain }: VouchingChainBodyProps): R
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full border border-border/60 bg-muted px-2.5 py-0.5 text-[11px] uppercase tracking-wider text-foreground">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted px-2.5 py-0.5 text-[11px] uppercase tracking-wider text-foreground">
+          <Waypoints className="size-3" aria-hidden />
           {STRUCTURE_LABEL[chain.structure]}
         </span>
         {partnerOrg ? (
@@ -38,7 +40,7 @@ export function VouchingChainBody({ payload: chain }: VouchingChainBodyProps): R
           </span>
         ) : null}
       </div>
-      <div className="rounded-md border border-border/40 bg-muted/20 p-3">
+      <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
         <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Weakest link</p>
         <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
           {chain.weakest_link_narrative}
