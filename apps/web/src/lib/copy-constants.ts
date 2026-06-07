@@ -204,6 +204,7 @@ export const COPY = {
     internalTab: "Internal notes",
     fromClient: "Client",
     fromReviewer: "Reviewer",
+    fromYou: "You",
     messagePlaceholder: "Write a message to the client…",
     internalPlaceholder: "Add an internal note (not visible to client)…",
     sendMessage: "Send message",

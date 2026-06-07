@@ -25,6 +25,7 @@ const FIXTURE: CaseNotesResponse = {
     {
       id: "note-1",
       authorRole: "reviewer",
+      authorUserId: "reviewer-1",
       visibility: "client_facing",
       body: "Please provide a bank statement for the last three months.",
       createdAt: 1_700_000_000_000,
@@ -32,6 +33,7 @@ const FIXTURE: CaseNotesResponse = {
     {
       id: "note-2",
       authorRole: "client",
+      authorUserId: "client-1",
       visibility: "client_facing",
       body: "I have uploaded the bank statement now.",
       createdAt: 1_700_000_100_000,
@@ -39,6 +41,7 @@ const FIXTURE: CaseNotesResponse = {
     {
       id: "note-3",
       authorRole: "reviewer",
+      authorUserId: "reviewer-1",
       visibility: "internal",
       body: "Escalate to senior reviewer — address does not match.",
       createdAt: 1_700_000_200_000,

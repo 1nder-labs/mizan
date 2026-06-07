@@ -18,6 +18,7 @@ export const CaseNoteSchema = z
   .object({
     id: z.string(),
     authorRole: NoteAuthorRoleEnum,
+    authorUserId: z.string(),
     visibility: NoteVisibilityEnum,
     body: z.string(),
     createdAt: z.number(),

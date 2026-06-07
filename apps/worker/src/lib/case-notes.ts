@@ -53,6 +53,7 @@ export async function readCaseNotes(
     .select({
       id: caseNotes.id,
       authorRole: caseNotes.author_role,
+      authorUserId: caseNotes.author_user_id,
       visibility: caseNotes.visibility,
       body: caseNotes.body,
       createdAt: caseNotes.created_at,
@@ -64,6 +65,7 @@ export async function readCaseNotes(
   return rows.map((r) => ({
     id: r.id,
     authorRole: r.authorRole,
+    authorUserId: r.authorUserId,
     visibility: r.visibility,
     body: r.body,
     createdAt: r.createdAt.getTime(),
