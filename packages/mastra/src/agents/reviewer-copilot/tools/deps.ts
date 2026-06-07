@@ -15,6 +15,13 @@ import type {
 export interface CopilotRuntimeBag {
   readonly viewer: ViewerContext;
   readonly db: Db;
+  /**
+   * The case the reviewer currently has open, injected by the chat route from
+   * the page context. `get_case` falls back to this when the model supplies
+   * neither a usable id nor a title — so "what's missing on this case?" resolves
+   * even if the model fumbles the tool-call arguments.
+   */
+  readonly pageCaseId?: string;
 }
 
 /** Brief row returned by the copilot get_brief handler. */

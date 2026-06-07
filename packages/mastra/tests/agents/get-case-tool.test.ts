@@ -93,4 +93,41 @@ describe("get_case copilot tool", () => {
       /no case titled "Nonexistent Campaign"/,
     );
   });
+
+  it("falls back to the open page case when the model's caseId is malformed", async () => {
+    let fetchedId: string | undefined;
+    const deps = buildDeps({
+      parseRuntime: () => ({ viewer: VIEWER, db: stubDb, pageCaseId: CASE_UUID }),
+      resolveCaseIdByTitle: async () => {
+        throw new Error("title resolution must not run");
+      },
+      fetchCaseDetail: async (id) => {
+        fetchedId = id;
+        return null;
+      },
+    });
+    const tool = createGetCaseTool(deps);
+    await expect(tool.execute?.({ caseId: `${CASE_UUID}}},{` }, contextWith())).rejects.toThrow();
+    expect(fetchedId).toBe(CASE_UUID);
+  });
+
+  it("falls back to the open page case when no id or title is given", async () => {
+    let fetchedId: string | undefined;
+    const deps = buildDeps({
+      parseRuntime: () => ({ viewer: VIEWER, db: stubDb, pageCaseId: CASE_UUID }),
+      fetchCaseDetail: async (id) => {
+        fetchedId = id;
+        return null;
+      },
+    });
+    const tool = createGetCaseTool(deps);
+    await expect(tool.execute?.({}, contextWith())).rejects.toThrow();
+    expect(fetchedId).toBe(CASE_UUID);
+  });
+
+  it("throws when neither input nor an open case is available", async () => {
+    const deps = buildDeps({});
+    const tool = createGetCaseTool(deps);
+    await expect(tool.execute?.({}, contextWith())).rejects.toThrow(/no case is open/);
+  });
 });
