@@ -132,6 +132,42 @@ describe("portal campaign list + detail", () => {
     });
   });
 
+  it("a plain conversation note never flips the case off needs_evidence", async () => {
+    const id = await createCampaign(clientACookie);
+    await insertRequestDocs(id, reviewerId);
+    const noteRes = await exports.default.fetch(
+      new Request(`${CAMPAIGNS_URL}/${id}/notes`, {
+        method: "POST",
+        headers: { Cookie: clientACookie, "Content-Type": "application/json" },
+        body: JSON.stringify({ body: "Thanks, I am gathering the statement." }),
+      }),
+    );
+    expect(noteRes.status).toBe(201);
+    const detail = ClientCaseDetailSchema.parse(
+      await (await getJson(`${CAMPAIGNS_URL}/${id}`, clientACookie)).json(),
+    );
+    expect(detail.status).toBe("needs_evidence");
+    expect(detail.organizerAsk).not.toBeNull();
+  });
+
+  it("an explicit re-submit after a doc request hands the case back to the reviewer", async () => {
+    const id = await createCampaign(clientACookie);
+    await insertRequestDocs(id, reviewerId);
+    /** Backdate submit + action (submit < action) so the re-submit's now() is deterministically newer. */
+    await env.DB.prepare(`UPDATE cases SET submitted_at = ? WHERE id = ?`)
+      .bind(Date.now() - 10_000, id)
+      .run();
+    await env.DB.prepare(`UPDATE reviewer_actions SET acted_at = ? WHERE case_id = ?`)
+      .bind(Date.now() - 5_000, id)
+      .run();
+    await submitCampaign(id, clientACookie);
+    const detail = ClientCaseDetailSchema.parse(
+      await (await getJson(`${CAMPAIGNS_URL}/${id}`, clientACookie)).json(),
+    );
+    expect(detail.status).toBe("under_review");
+    expect(detail.organizerAsk).toBeNull();
+  });
+
   it("lists only the viewer's own campaigns", async () => {
     const ownerCookie = (await signUp(`pd-owner-${Date.now()}@test.local`, "Owner", "client"))
       .cookie;

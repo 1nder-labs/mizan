@@ -1,7 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import {
   briefs,
-  caseNotes,
   cases,
   currentExtractedKeys,
   reviewer_actions,
@@ -21,12 +20,7 @@ import {
   type ReviewerAction,
   type ViewerContext,
 } from "@mizan/shared";
-import {
-  clientRespondedFor,
-  isClientResponded,
-  latestReviewerAction,
-  readCaseNotes,
-} from "./case-notes.ts";
+import { isClientResponded, latestReviewerAction, readCaseNotes } from "./case-notes.ts";
 
 type OwnedCampaign = typeof cases.$inferSelect;
 
@@ -60,11 +54,10 @@ function buildEvidenceList(keys: ExtractedDocumentKeys) {
 }
 
 /**
- * Correlated subqueries that fold the "client responded" signal into the list
- * query: the latest reviewer action + its `acted_at` + the newest client note.
- * Both times are raw `timestamp_ms` integers (epoch-ms), so `isClientResponded`
- * compares like units — this keeps the list at ONE query instead of the old
- * 2N-per-campaign `clientResponded` round-trips.
+ * Correlated subqueries that fold the latest reviewer action + its `acted_at`
+ * into the list query (both raw `timestamp_ms`). The "client responded" signal
+ * is then `submitted_at > acted_at` — an explicit re-submission, NOT a note — so
+ * no note subquery is needed and the list stays at ONE query.
  */
 function campaignSummaryColumns() {
   return {
@@ -74,9 +67,6 @@ function campaignSummaryColumns() {
     latestActionAtMs: sql<
       number | null
     >`(SELECT ${reviewer_actions.acted_at} FROM ${reviewer_actions} WHERE ${reviewer_actions.case_id} = ${cases.id} ORDER BY ${reviewer_actions.acted_at} DESC LIMIT 1)`,
-    clientNoteMaxMs: sql<
-      number | null
-    >`(SELECT MAX(${caseNotes.created_at}) FROM ${caseNotes} WHERE ${caseNotes.case_id} = ${cases.id} AND ${caseNotes.author_role} = 'client' AND ${caseNotes.visibility} = 'client_facing')`,
   };
 }
 
@@ -120,7 +110,7 @@ function toCampaignSummary(r: CampaignRow): ClientCampaignSummary {
       r.status,
       action,
       r.submittedAt !== null,
-      isClientResponded(latest, r.clientNoteMaxMs),
+      isClientResponded(latest, r.submittedAt?.getTime() ?? null),
     ),
     createdAt: r.createdAt.getTime(),
     updatedAt: r.updatedAt.getTime(),
@@ -153,7 +143,7 @@ export async function buildClientCaseDetail(
       campaign.status,
       latest?.action ?? null,
       campaign.submitted_at !== null,
-      await clientRespondedFor(db, campaign.id, latest),
+      isClientResponded(latest, campaign.submitted_at?.getTime() ?? null),
     ),
   );
   const overlay = CaseOverlaySchema.safeParse(campaign.brief_partial_json);

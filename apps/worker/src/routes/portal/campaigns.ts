@@ -18,7 +18,12 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
-import { latestReviewerAction, readCaseNotes, writeCaseNote } from "../../lib/case-notes.ts";
+import {
+  isClientAwaitingAction,
+  latestReviewerAction,
+  readCaseNotes,
+  writeCaseNote,
+} from "../../lib/case-notes.ts";
 import { excerpt, notifyCaseReviewer } from "../../lib/notifications.ts";
 import { buildClientCaseDetail, listClientCampaigns } from "../../lib/client-views.ts";
 import type { ViewerVariables } from "../../middleware/require-role.ts";
@@ -71,10 +76,13 @@ function createCampaign(db: Db, viewer: ViewerContext, input: CampaignCreate) {
 }
 
 /**
- * Best-effort client_facing note recording an evidence upload — this is what
- * flags `clientResponded` for the reviewer (KTD-7). A note-write failure must
- * not fail the upload (the object + overlay key are already persisted), so it
- * is logged at this single seam rather than rethrown into a 500.
+ * Best-effort `client_facing` note recording an evidence upload, for the
+ * conversation thread only. It deliberately does NOT change case status: a
+ * mid-upload must never flip the case back to the reviewer. The case re-enters
+ * review solely via an explicit re-submit (`POST /:id/submit` again, which
+ * re-stamps `submitted_at`).
+ * A note-write failure must not fail the upload (the object + overlay key are
+ * already persisted), so it is logged at this single seam, not rethrown.
  */
 async function attachEvidenceNote(
   db: Db,
@@ -113,6 +121,41 @@ async function isCampaignDecided(
   const latest = await latestReviewerAction(db, caseId);
   const clientStatus = toClientStatus(status, latest?.action ?? null, submitted, false);
   return clientStatus === "approved" || clientStatus === "not_approved";
+}
+
+/**
+ * Hands the case to the reviewer — the SAME endpoint for the first submit and
+ * every later re-submit. Re-stamps `submitted_at = now` when the case was never
+ * submitted, OR it is submitted and the reviewer's latest action awaits the
+ * client (REQUEST_DOCS / ESCALATE). That re-stamp — strictly newer than the
+ * action — is the ONLY signal that flips the disposition to CLIENT_REPLIED, so
+ * conversation + uploads never disturb the review flow. Any other state (in
+ * review, already decided) is a no-op. A re-submit pings the reviewer; the first
+ * submit does not (it already appears in the queue).
+ */
+async function handToReviewer(
+  db: Db,
+  viewer: ViewerContext,
+  caseId: string,
+  submittedAt: Date | null,
+): Promise<void> {
+  const firstSubmit = submittedAt === null;
+  const latest = firstSubmit ? null : await latestReviewerAction(db, caseId);
+  if (!firstSubmit && !isClientAwaitingAction(latest?.action ?? null)) return;
+  const guard = firstSubmit
+    ? and(eq(cases.id, caseId), eq(cases.created_by, viewer.userId), isNull(cases.submitted_at))
+    : and(eq(cases.id, caseId), eq(cases.created_by, viewer.userId));
+  await db
+    .update(cases)
+    .set({ submitted_at: new Date(), updated_at: new Date() })
+    .where(guard)
+    .run();
+  if (!firstSubmit)
+    await notifyCaseReviewer(db, caseId, viewer.userId, {
+      type: "message",
+      title: "Client re-submitted for review",
+      body: "The campaign creator re-submitted after your document request.",
+    });
 }
 
 /**
@@ -248,15 +291,7 @@ export const campaignRoutes = new Hono<{
     const viewer = c.var.viewer;
     const owned = await loadOwnedCampaign(db, viewer, id);
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
-    if (owned.campaign.submitted_at === null) {
-      await db
-        .update(cases)
-        .set({ submitted_at: new Date(), updated_at: new Date() })
-        .where(
-          and(eq(cases.id, id), eq(cases.created_by, viewer.userId), isNull(cases.submitted_at)),
-        )
-        .run();
-    }
+    await handToReviewer(db, viewer, id, owned.campaign.submitted_at);
     return c.json(CampaignMutationResponseSchema.parse({ id, status: owned.campaign.status }), 200);
   })
   .delete("/:id", zValidator("param", CampaignParamSchema), async (c) => {

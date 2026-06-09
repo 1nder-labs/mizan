@@ -303,6 +303,12 @@ export const COPY = {
     detailNotesTitle: "Messages",
     detailNotesEmpty: "No messages yet.",
     detailAskTitle: "The reviewer needs more from you",
+    detailAskCtaTitle: "Ready to continue?",
+    detailAskCtaBody:
+      "Add or replace the documents below, then re-submit. Your reviewer is only notified once you re-submit — messages here won't restart the review.",
+    resubmit: "I've added my documents — re-submit",
+    resubmitting: "Re-submitting…",
+    resubmitError: "Could not re-submit. Please try again.",
     evidenceUploaded: "Uploaded",
     evidenceMissing: "Not uploaded",
     evidenceUpload: "Upload",

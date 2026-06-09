@@ -39,17 +39,20 @@ function DetailSkeleton(): React.JSX.Element {
 }
 
 function OrganizerAskCard({
+  campaignId,
   ask,
 }: {
+  readonly campaignId: string;
   readonly ask: NonNullable<ClientCaseDetail["organizerAsk"]>;
 }): React.JSX.Element {
+  const resubmit = useSubmitCampaign(campaignId, COPY.portal.resubmitError);
   return (
     <Card className="rounded-xl border border-status-warning-border shadow-elev-1">
       <CardHeader>
         <CardTitle className="text-sm font-medium">{COPY.portal.detailAskTitle}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <p className="text-sm">{ask.message}</p>
+      <CardContent className="space-y-4">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{ask.message}</p>
         {ask.missingItems.length > 0 ? (
           <ul className="space-y-1 pl-4 list-disc">
             {ask.missingItems.map((item) => (
@@ -59,6 +62,13 @@ function OrganizerAskCard({
             ))}
           </ul>
         ) : null}
+        <div className="space-y-2 rounded-lg border border-border/60 bg-background/60 p-3">
+          <p className="text-sm font-medium text-foreground">{COPY.portal.detailAskCtaTitle}</p>
+          <p className="text-sm text-muted-foreground">{COPY.portal.detailAskCtaBody}</p>
+          <Button size="sm" onClick={() => resubmit.mutate()} disabled={resubmit.isPending}>
+            {resubmit.isPending ? COPY.portal.resubmitting : COPY.portal.resubmit}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -111,17 +121,28 @@ function buildInitial(detail: ClientCaseDetail): Partial<CampaignCreate> {
   };
 }
 
-function useDraftActions(campaignId: string) {
-  const navigate = useNavigate();
+/**
+ * Submit / re-submit mutation. The SAME `/submit` endpoint serves the first
+ * submit and every later re-submit (after a reviewer doc request) — re-stamping
+ * `submitted_at` is the only signal that re-enters review, so a conversation
+ * never disturbs it. `errorCopy` lets the two call sites surface their own toast.
+ */
+function useSubmitCampaign(campaignId: string, errorCopy: string) {
   const queryClient = useQueryClient();
-  const submit = useMutation({
+  return useMutation({
     mutationFn: () => submitCampaign(campaignId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaign(campaignId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaigns() });
     },
-    onError: (e: Error) => toast.error(e.message || COPY.portal.draftSubmitError),
+    onError: (e: Error) => toast.error(e.message || errorCopy),
   });
+}
+
+function useDraftActions(campaignId: string) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const submit = useSubmitCampaign(campaignId, COPY.portal.draftSubmitError);
   const remove = useMutation({
     mutationFn: () => deleteCampaign(campaignId),
     onSuccess: async () => {
@@ -206,7 +227,9 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
           />
         </section>
       ) : null}
-      {detail.organizerAsk ? <OrganizerAskCard ask={detail.organizerAsk} /> : null}
+      {detail.organizerAsk ? (
+        <OrganizerAskCard campaignId={detail.id} ask={detail.organizerAsk} />
+      ) : null}
       <Separator />
       <EvidenceSection detail={detail} readOnly={evidenceReadOnly} />
       <Separator />
