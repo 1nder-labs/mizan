@@ -35,6 +35,7 @@ function useActionMutation(caseId: string) {
         queryKey: queryKeys.cases.detail(caseId),
         refetchType: "all",
       });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.cases.lists });
     },
     onError: (error) => {
       toast.error(describeActionError(error));
