@@ -164,6 +164,8 @@ function case004ExtractorBlock(): Record<string, unknown> {
     },
     "extractBankStatement.extract": {
       account_holder_name: "Mizan Demo Caregiver",
+      matches_organizer_name: true,
+      organizer_name_match_reason: "Account holder is the organizer.",
       currency: "IDR",
       statement_period_iso: "2026-02",
       latest_balance_redacted: "****",

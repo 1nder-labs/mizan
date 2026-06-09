@@ -38,12 +38,15 @@ const HIGH_CREATOR = {
   issue_date_iso: "2020-01-01",
   expiry_date_iso: "2030-01-01",
   matches_organizer_name: true,
+  organizer_name_match_reason: "ID names the organizer.",
   confidence: 88,
   image_authenticity: AUTH,
 };
 
 const HIGH_BANK = {
   account_holder_name: "A",
+  matches_organizer_name: true,
+  organizer_name_match_reason: "Account holder is the organizer.",
   currency: "USD",
   statement_period_iso: "2026-01",
   latest_balance_redacted: "****",

@@ -1,11 +1,12 @@
 /**
- * `ocr_mismatch` signal body — does the name on the creator's government ID
- * match the claimed organizer (and bank-statement holder)?
+ * `ocr_mismatch` signal body — is the name on the creator's government ID, and
+ * the bank-statement holder, the same person as the claimed organizer?
  *
- * The verdict banner reflects the vision-LLM's semantic judgment
- * (`name_matches_organizer`), which is the gate — it survives the
- * transliteration / name-order variance a raw similarity score false-flags. The
- * Jaro-Winkler similarities below it are secondary, reviewer-facing context.
+ * Both verdicts are the vision-LLM's semantic identity judgment, each shown with
+ * its one-line reason. There is deliberately no similarity percentage: a
+ * character-distance score floors unrelated names around 40–60% (reading as a
+ * partial match) and false-flags transliteration variants, so the model's
+ * reasoning is the reviewer-facing signal instead.
  */
 import type { OcrMismatchPayload } from "@mizan/shared";
 import { ShieldCheck, ShieldX } from "lucide-react";
@@ -26,13 +27,40 @@ function Field({
   );
 }
 
+function VerdictField({
+  label,
+  matches,
+  reason,
+}: {
+  readonly label: string;
+  readonly matches: boolean;
+  readonly reason: string;
+}): React.JSX.Element {
+  return (
+    <div className="space-y-1">
+      <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          "text-sm font-medium",
+          matches ? "text-status-success-foreground" : "text-status-destructive-foreground",
+        )}
+      >
+        {matches ? "Same person" : "Different person"}
+      </dd>
+      {reason.length > 0 ? (
+        <p className="text-xs leading-relaxed text-muted-foreground">{reason}</p>
+      ) : null}
+    </div>
+  );
+}
+
 export function OcrMismatchBody({
   payload,
 }: {
   readonly payload: OcrMismatchPayload;
 }): React.JSX.Element {
   const matched = payload.name_matches_organizer;
-  const bankSim = payload.bank_organizer_similarity;
+  const bankMatches = payload.bank_account_holder_matches;
   return (
     <div className="space-y-4">
       <div
@@ -56,13 +84,14 @@ export function OcrMismatchBody({
           label="Name on ID"
           value={payload.id_full_name.length > 0 ? payload.id_full_name : "—"}
         />
+        <VerdictField label="ID identity" matches={matched} reason={payload.id_match_reason} />
         <Field label="Bank account holder" value={payload.bank_account_holder_name ?? "—"} />
-        <Field
-          label="ID ↔ organizer similarity"
-          value={`${(payload.id_organizer_similarity * 100).toFixed(0)}%`}
-        />
-        {bankSim !== null ? (
-          <Field label="Bank ↔ organizer similarity" value={`${(bankSim * 100).toFixed(0)}%`} />
+        {bankMatches !== null ? (
+          <VerdictField
+            label="Bank account identity"
+            matches={bankMatches}
+            reason={payload.bank_match_reason ?? ""}
+          />
         ) : null}
       </dl>
     </div>

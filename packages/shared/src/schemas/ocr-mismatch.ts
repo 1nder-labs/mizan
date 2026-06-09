@@ -2,16 +2,17 @@ import { z } from "zod";
 
 /**
  * Identity OCR-match trust signal (`ocr_mismatch`). Surfaces whether the name on
- * the creator's government ID matches the claimed organizer (and bank-statement
- * holder).
+ * the creator's government ID — and the bank-statement holder — is the same
+ * person as the claimed organizer.
  *
- * The VERDICT — `name_matches_organizer` — is the vision-LLM's semantic judgment
- * carried over from the ID extraction (`CreatorId.matches_organizer_name`). It is
- * the gate precisely because a character-distance metric false-flags the
- * transliteration (Mohammed / Muhammad / Mohamed), name-order, and dropped-
+ * Both verdicts are the vision-LLM's SEMANTIC judgment carried over from the
+ * extractions, each with a one-line reason. The signal deliberately carries no
+ * character-distance score: a metric like Jaro-Winkler floors unrelated names
+ * around 40–60% by shared letters (so "Omar Farouk" vs "David Thompson" reads as
+ * a partial match) AND false-flags the transliteration / name-order / dropped-
  * middle-name variance that pervades a global Muslim-charity platform. The
- * Jaro-Winkler `*_similarity` scores are SECONDARY detail for the reviewer — a
- * quantified surface-form closeness — and never gate the signal.
+ * model's identity judgment + rationale is the signal; the raw surface-form
+ * number misled in both directions, so it is gone.
  */
 export const OcrMismatchPayloadSchema = z
   .object({
@@ -19,8 +20,9 @@ export const OcrMismatchPayloadSchema = z
     id_full_name: z.string(),
     bank_account_holder_name: z.string().nullable(),
     name_matches_organizer: z.boolean(),
-    id_organizer_similarity: z.number(),
-    bank_organizer_similarity: z.number().nullable(),
+    id_match_reason: z.string(),
+    bank_account_holder_matches: z.boolean().nullable(),
+    bank_match_reason: z.string().nullable(),
     summary: z.string(),
   })
   .strict();

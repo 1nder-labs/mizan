@@ -10,6 +10,13 @@ export const CreatorIdSchema = z.object({
   issue_date_iso: z.string().nullable(),
   expiry_date_iso: z.string().nullable(),
   matches_organizer_name: z.boolean(),
+  /**
+   * One-line semantic explanation of how the ID name relates to the claimed
+   * organizer — e.g. "same person, romanized spelling variant" or "different
+   * individual entirely". This is the reviewer-facing rationale behind
+   * `matches_organizer_name`, replacing a meaningless character-distance score.
+   */
+  organizer_name_match_reason: z.string(),
   confidence: z.number(),
   /**
    * Image-authenticity read of the ID photo, produced by the SAME vision call

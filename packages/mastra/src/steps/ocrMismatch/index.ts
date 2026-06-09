@@ -27,11 +27,15 @@ export const ocrMismatch = createStep({
     const caseRow = await loadCaseContext(env, inputData.caseId);
     abortSignal?.throwIfAborted();
     const creatorId = inputData.extractions?.extractCreatorIdDoc;
+    const bank = inputData.extractions?.extractBankStatement;
     const payload = composeOcrMismatch({
       organizerName: caseRow.organizer_name,
       idFullName: creatorId?.full_name,
       idMatchesOrganizer: creatorId?.matches_organizer_name,
-      bankAccountHolder: inputData.extractions?.extractBankStatement?.account_holder_name,
+      idMatchReason: creatorId?.organizer_name_match_reason,
+      bankAccountHolder: bank?.account_holder_name,
+      bankMatchesOrganizer: bank?.matches_organizer_name,
+      bankMatchReason: bank?.organizer_name_match_reason,
     });
     await upsertSignal({
       env,

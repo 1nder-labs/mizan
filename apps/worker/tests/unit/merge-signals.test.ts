@@ -57,8 +57,9 @@ const OCR: OcrMismatchPayload = {
   id_full_name: "Test Organizer",
   bank_account_holder_name: null,
   name_matches_organizer: true,
-  id_organizer_similarity: 1,
-  bank_organizer_similarity: null,
+  id_match_reason: "ID names the organizer.",
+  bank_account_holder_matches: null,
+  bank_match_reason: null,
   summary: "ID name matches organizer.",
 };
 
@@ -173,6 +174,7 @@ describe("mergeParallelSignals", () => {
                 issue_date_iso: "2020-01-01",
                 expiry_date_iso: "2030-01-01",
                 matches_organizer_name: true,
+                organizer_name_match_reason: "ok",
                 confidence: 90,
                 image_authenticity: {
                   authenticity_risk: "low",

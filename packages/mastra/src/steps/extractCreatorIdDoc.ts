@@ -12,7 +12,12 @@ export const extractCreatorIdDoc = makeExtractor({
     const bytes = new Uint8Array(await obj.arrayBuffer());
     return {
       system:
-        "Extract structured fields from the creator government-issued ID. " +
+        "Extract structured fields from the creator government-issued ID. Set " +
+        "`matches_organizer_name` to whether the ID identifies the SAME PERSON as the claimed " +
+        "organizer — judge identity, not spelling, so transliteration, romanization, name order, " +
+        "and a dropped middle name still count as the same person — and " +
+        '`organizer_name_match_reason` to a one-line reason for that call (e.g. "same person, ' +
+        'spelling variant" or "different individual — unrelated name"). ' +
         "Then rate `image_authenticity`. `authenticity_risk` (low/medium/high/very_high) is how " +
         "likely this is NOT a genuine ID, judged against what a real ID of its type should show — " +
         "a clear photograph of the holder, consistent typography and layout, and the expected " +

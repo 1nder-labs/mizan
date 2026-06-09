@@ -15,12 +15,15 @@ export const BASE_CREATOR = {
   issue_date_iso: "2020-01-01",
   expiry_date_iso: "2030-01-01",
   matches_organizer_name: true,
+  organizer_name_match_reason: "ID names the claimed organizer.",
   confidence: 85,
   image_authenticity: BASE_AUTHENTICITY,
 };
 
 export const BASE_BANK = {
   account_holder_name: "Mizan Demo",
+  matches_organizer_name: true,
+  organizer_name_match_reason: "Account holder is the claimed organizer.",
   currency: "USD",
   statement_period_iso: "2026-01/2026-03",
   latest_balance_redacted: "****500",
