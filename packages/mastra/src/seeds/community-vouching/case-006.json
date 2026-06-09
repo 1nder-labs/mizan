@@ -1,0 +1,16 @@
+{
+  "id": "11111111-1111-4111-8111-111111111106",
+  "status": "DRAFT",
+  "title": "Family food & medicine appeal — Sanaa",
+  "category": "emergency_relief",
+  "geography": "YE",
+  "claimed_zakat_category": "emergency",
+  "organizer_name": "Mizan Demo Yemen Family",
+  "story": "Our family in Sanaa needs urgent food and medicine support. Neighbors and local community leaders vouch for this household through our extended family network.",
+  "vouching_narrative": "Verified by three community elders who know the family personally; funds flow individual-to-individual through trusted neighbors.",
+  "r2_keys": {
+    "creator_id": "community-vouching/case-006/creator-id.png",
+    "bank_statement": "community-vouching/case-006/bank-statement.png",
+    "category_doc": "community-vouching/case-006/supporting-doc.png"
+  }
+}

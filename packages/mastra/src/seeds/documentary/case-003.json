@@ -1,0 +1,15 @@
+{
+  "id": "11111111-1111-4111-8111-111111111103",
+  "status": "DRAFT",
+  "title": "Relief org registration — Karachi",
+  "category": "org-registration",
+  "geography": "PK",
+  "claimed_zakat_category": "org-registration",
+  "organizer_name": "Mizan Demo Org",
+  "story": "Mizan Demo Org seeks zakat-eligible registration verification for relief work in Karachi. 501(c)(3) equivalent pending.",
+  "r2_keys": {
+    "creator_id": "case-003-creator-id.png",
+    "bank_statement": "case-003-bank-statement.png",
+    "category_doc": "case-003-org-registration.png"
+  }
+}

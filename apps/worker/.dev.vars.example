@@ -1,0 +1,35 @@
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+OPENROUTER_API_KEY=
+BETTER_AUTH_SECRET=
+
+# Single designated review org that client self-signups join as `client`
+# members. Run `bun run seed:users` against the local worker — it prints the
+# seeded admin's org id — then paste it here and restart the worker.
+# Empty/unset makes client signup fail loud (resolveReviewOrgId throws);
+# internal + invited signups are unaffected.
+REVIEW_ORG_ID=
+
+# R2 API token — create at Cloudflare dashboard → R2 → Manage R2 API Tokens.
+# Scope MUST be "Object Read Only" on the `mizan-uploads` bucket.
+# Account ID + bucket name live in `wrangler.jsonc` `vars` (non-secret).
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+
+# Provider auto-resolves to the first key present (anthropic → openai → openrouter).
+# Set only one key and the workflow routes to that provider automatically.
+# Override with DEFAULT_LLM_PROVIDER=openai|anthropic|openrouter to force a specific one.
+# DEFAULT_LLM_PROVIDER=
+
+# Langfuse — managed cloud observability (https://cloud.langfuse.com).
+# Create a project, copy its public/secret keys, and set the region host
+# (https://us.cloud.langfuse.com or https://eu.cloud.langfuse.com).
+# Leave ALL THREE empty/unset to disable — the exporter returns null and
+# observability is silently skipped (fail-closed gate; zero overhead).
+# NOTE: spans carry campaign PII — only point a real project at REAL data
+# once Phase 10 span masking lands. Use synthetic seed data otherwise.
+LANGFUSE_HOST=
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+
+# MOCK_LLM_RESPONSES={"extractCreatorIdDoc.extract":{}}

@@ -1,0 +1,166 @@
+import { createStep } from "@mastra/core/workflows";
+import type { VerificationPath } from "@mizan/shared";
+import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/partial-brief-state.ts";
+import type { CategoryDocVariantSchema } from "../schemas/extractions/category-docs.ts";
+import type { BankStatementSchema } from "../schemas/extractions/bank-statement.ts";
+import type { CreatorIdSchema } from "../schemas/extractions/creator-id.ts";
+import type { z } from "zod";
+
+/**
+ * Minimum confidence each extractor must report to count as supplying
+ * documentary evidence. Placeholder PNG fixtures (and adversarial
+ * low-quality real uploads) fall below this floor and route to the
+ * `none` path so the forced-escalate gate fires on OFAC geographies.
+ *
+ * Exported so test fixtures + canned-response builders pin to the same
+ * threshold as the runtime predicate.
+ */
+export const DOCUMENTARY_MIN_CONFIDENCE = 60;
+
+type CreatorId = z.infer<typeof CreatorIdSchema>;
+type BankStatement = z.infer<typeof BankStatementSchema>;
+type CategoryDocVariant = z.infer<typeof CategoryDocVariantSchema>;
+
+/**
+ * Collapses extractor + vouching outputs into the canonical verification path.
+ *
+ * Decision order is vouching-explicit-wins, then confidence-gated documentary:
+ *
+ *   1. `structure ∈ { org-direct, individual-via-partner-org }`
+ *      → `institutional_vouching` (the LLM has classified an org chain).
+ *   2. `structure === individual-to-individual`
+ *      → `community_vouching`.
+ *   3. `structure === none` OR vouching not yet computed
+ *      → require ALL three extractors AND each above
+ *        `DOCUMENTARY_MIN_CONFIDENCE` AND each looking like real evidence
+ *        (non-empty critical fields). Extractor *presence* alone is not
+ *        enough — a miscalibrated OCR returning high confidence on a
+ *        blank placeholder PNG would otherwise mask a high-risk
+ *        no-evidence case. Falls back to `none` if any check fails.
+ */
+export function deriveVerificationPath(state: PartialBriefState): VerificationPath {
+  const structure = state.signals?.vouching?.structure;
+  if (structure === "org-direct" || structure === "individual-via-partner-org") {
+    return "institutional_vouching";
+  }
+  if (structure === "individual-to-individual") {
+    return "community_vouching";
+  }
+  return documentaryOrNone(state);
+}
+
+function documentaryOrNone(state: PartialBriefState): VerificationPath {
+  const ext = state.extractions;
+  if (!ext) return "none";
+  const creator = ext.extractCreatorIdDoc;
+  const bank = ext.extractBankStatement;
+  const category = ext.extractCategoryDocs;
+  if (!creator || !bank || !category) return "none";
+  const categoryVariant = category.doc;
+  if (
+    !meetsConfidenceFloor(creator) ||
+    !meetsConfidenceFloor(bank) ||
+    !meetsConfidenceFloor(categoryVariant)
+  ) {
+    return "none";
+  }
+  if (
+    !looksLikeRealCreatorId(creator) ||
+    !looksLikeRealBank(bank) ||
+    !looksLikeRealCategory(categoryVariant)
+  ) {
+    return "none";
+  }
+  return "documentary";
+}
+
+function meetsConfidenceFloor(extraction: { confidence: number }): boolean {
+  return (
+    Number.isFinite(extraction.confidence) && extraction.confidence >= DOCUMENTARY_MIN_CONFIDENCE
+  );
+}
+
+function isNonEmpty(value: string | null | undefined): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function looksLikeRealCreatorId(creator: CreatorId): boolean {
+  return (
+    isNonEmpty(creator.full_name) &&
+    isNonEmpty(creator.document_number_redacted) &&
+    isNonEmpty(creator.issuing_country_iso)
+  );
+}
+
+function looksLikeRealBank(bank: BankStatement): boolean {
+  return (
+    isNonEmpty(bank.account_holder_name) &&
+    isNonEmpty(bank.currency) &&
+    isNonEmpty(bank.statement_period_iso)
+  );
+}
+
+function looksLikeRealCategory(variant: CategoryDocVariant): boolean {
+  switch (variant.doc_kind) {
+    case "medical":
+      return isNonEmpty(variant.patient_name) && isNonEmpty(variant.provider_name);
+    case "school":
+      return isNonEmpty(variant.student_name) && isNonEmpty(variant.institution_name);
+    case "org_registration":
+      return (
+        isNonEmpty(variant.org_name) &&
+        isNonEmpty(variant.registration_number) &&
+        isNonEmpty(variant.jurisdiction)
+      );
+  }
+}
+
+/**
+ * Asserts the workflow state required by `computeVerificationPath`.
+ *
+ * The workflow guarantees `classify` and `signals.vouching` are
+ * populated before this step runs (classifyCampaign + classifyVouchingChain
+ * → mergeSignals). Treating either as "fall through" would let a refactor
+ * that skipped or reordered upstream steps silently fail-open — routing
+ * to `documentary` based on extractor evidence alone, exactly the bug
+ * class Review 2 caught. Lifted to a pure helper so unit tests can pin
+ * the throws without spinning up a Mastra runtime.
+ */
+export function assertComputeVerificationPathInputs(
+  state: PartialBriefState,
+): NonNullable<PartialBriefState["classify"]> {
+  if (!state.classify) {
+    throw new Error(
+      `computeVerificationPath: classify missing for case ${state.caseId} run ${state.runId} — classifyCampaign must run first`,
+    );
+  }
+  if (!state.signals?.vouching) {
+    throw new Error(
+      `computeVerificationPath: signals.vouching missing for case ${state.caseId} run ${state.runId} — classifyVouchingChain / mergeSignals must run first`,
+    );
+  }
+  return state.classify;
+}
+
+/**
+ * Deterministic step that overwrites `classify.verification_path`.
+ *
+ * Throws when `classifyCampaign` or `classifyVouchingChain` / `mergeSignals`
+ * has not run — leaving either unknown downstream would let
+ * `forcedEscalateGate` silently no-op on OFAC cases. The pure
+ * `deriveVerificationPath` predicate is intentionally permissive for
+ * unit-test callers; the step is strict.
+ */
+export const computeVerificationPath = createStep({
+  id: "computeVerificationPath",
+  inputSchema: PartialBriefStateSchema,
+  outputSchema: PartialBriefStateSchema,
+  execute: async ({ inputData }) => {
+    const classify = assertComputeVerificationPathInputs(inputData);
+    const verification_path = deriveVerificationPath(inputData);
+    return {
+      ...inputData,
+      classify: { ...classify, verification_path },
+    };
+  },
+});

@@ -1,0 +1,74 @@
+import {
+  batchTransitionWithEmits,
+  buildActionEmits,
+  buildStatusChangedEmits,
+  type Db,
+} from "@mizan/db";
+import type { ReviewerAction } from "@mizan/shared";
+
+interface FinalizeActionInput {
+  readonly caseId: string;
+  readonly runId: string;
+  readonly reviewerId: string;
+  readonly organizationId: string;
+  readonly action: ReviewerAction;
+  readonly actionId: string;
+}
+
+/**
+ * Flips a claimed case to ACTIONED and emits org/case live events atomically.
+ * The caller already holds the viewer's `organizationId` (the action route
+ * scoped the case load to it), so we thread it through rather than re-reading
+ * the row — one fewer D1 round-trip and no TOCTOU re-resolve window.
+ */
+export async function finalizeActionWithLiveEvents(
+  db: Db,
+  input: FinalizeActionInput,
+): Promise<void> {
+  const flipped = await batchTransitionWithEmits(
+    db,
+    {
+      caseId: input.caseId,
+      runId: input.runId,
+      from: "RUNNING",
+      to: "ACTIONED",
+    },
+    buildActionEmits({
+      caseId: input.caseId,
+      organizationId: input.organizationId,
+      actionId: input.actionId,
+      reviewerId: input.reviewerId,
+      action: input.action,
+    }),
+  );
+  if (!flipped) {
+    throw new Error(`action: case ${input.caseId} not RUNNING at finalize (run ${input.runId})`);
+  }
+}
+
+/**
+ * Reverts a failed post-action chain back to SUSPENDED_HITL and emits the
+ * status change so SSE subscribers see the case leave RUNNING — without this,
+ * a board watching the case stays stuck on RUNNING (live events are push-only,
+ * no background poll). `actorUserId` is null: the revert is system-driven
+ * compensation, not a reviewer action.
+ */
+export async function revertActionClaim(
+  db: Db,
+  caseId: string,
+  runId: string,
+  organizationId: string,
+): Promise<boolean> {
+  const reverted = await batchTransitionWithEmits(
+    db,
+    { caseId, runId, from: "RUNNING", to: "SUSPENDED_HITL" },
+    buildStatusChangedEmits({
+      caseId,
+      organizationId,
+      fromStatus: "RUNNING",
+      toStatus: "SUSPENDED_HITL",
+      actorUserId: null,
+    }),
+  );
+  return Boolean(reverted);
+}

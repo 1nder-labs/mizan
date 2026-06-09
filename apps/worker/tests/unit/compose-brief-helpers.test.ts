@@ -1,0 +1,86 @@
+import { describe, expect, it } from "bun:test";
+import {
+  applyCitationFilter,
+  buildClauseIdSchema,
+  buildPromptWithClauses,
+} from "@mizan/mastra/testing";
+
+describe("composeBrief helpers", () => {
+  it("buildClauseIdSchema accepts listed ids and rejects hallucinations", () => {
+    const schema = buildClauseIdSchema(["zakat.3.1", "zakat.3.2"]);
+    expect(schema.parse("zakat.3.1")).toBe("zakat.3.1");
+    expect(() => schema.parse("hallucinated.99")).toThrow();
+  });
+
+  it("buildClauseIdSchema falls back to string when no ids are available", () => {
+    const schema = buildClauseIdSchema([]);
+    expect(schema.parse("anything")).toBe("anything");
+  });
+
+  it("applyCitationFilter keeps only allowed clauseIds", () => {
+    const filtered = applyCitationFilter(
+      {
+        policy_citations: [
+          { clauseId: "zakat.3.1", source: "zakat", excerpt: "a", relevance: 1 },
+          { clauseId: "hallucinated.99", source: "zakat", excerpt: "b", relevance: 1 },
+        ],
+      },
+      new Set(["zakat.3.1"]),
+    );
+    expect(filtered.policy_citations).toHaveLength(1);
+    expect(filtered.policy_citations[0]?.clauseId).toBe("zakat.3.1");
+  });
+
+  it("buildPromptWithClauses embeds available clause ids", () => {
+    const payload = buildPromptWithClauses(
+      {
+        caseId: "case-1",
+        category: "medical",
+        geography: "US",
+        verification_path: "documentary",
+        geography_tier: "SAFE",
+        extractions: {},
+        signals: {},
+        prior_decision: null,
+      },
+      [{ clauseId: "zakat.5.1", source: "zakat", excerpt: "Medical", relevance: 0.9 }],
+    );
+    expect(payload.available_clause_ids).toEqual(["zakat.5.1"]);
+    expect(payload.policy_clause_list).toContain("zakat.5.1");
+    expect(payload.prior_decision).toBeNull();
+  });
+
+  it("buildPromptWithClauses carries prior_decision through for re-review", () => {
+    const payload = buildPromptWithClauses(
+      {
+        caseId: "case-2",
+        category: "medical",
+        geography: "US",
+        verification_path: "documentary",
+        geography_tier: "SAFE",
+        extractions: {},
+        signals: {},
+        prior_decision: {
+          prior_recommendation: "REQUEST_DOCS",
+          prior_confidence: 55,
+          prior_missing_docs: ["bank_statement: last 3 months missing"],
+          reviewer_action: "REQUEST_DOCS",
+          reviewer_rationale: "Need an updated bank statement before deciding",
+        },
+      },
+      [],
+    );
+    expect(payload.prior_decision?.reviewer_action).toBe("REQUEST_DOCS");
+    expect(payload.prior_decision?.prior_recommendation).toBe("REQUEST_DOCS");
+    expect(payload.prior_decision?.prior_missing_docs).toContain(
+      "bank_statement: last 3 months missing",
+    );
+  });
+});
+
+describe("buildClauseIdSchema union edge", () => {
+  it("supports a single available clause id", () => {
+    const schema = buildClauseIdSchema(["zakat.1"]);
+    expect(schema.parse("zakat.1")).toBe("zakat.1");
+  });
+});

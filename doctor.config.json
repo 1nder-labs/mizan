@@ -1,0 +1,31 @@
+{
+  "$schema": "https://unpkg.com/react-doctor/schema.json",
+  "ignore": {
+    "files": ["**/components/ui/**", "**/routeTree.gen.ts"],
+    "overrides": [
+      { "files": ["**/routes/**"], "rules": ["react-doctor/only-export-components"] },
+      { "files": ["**/chat/chat-panel-open.tsx"], "rules": ["react-doctor/prefer-tag-over-role"] },
+      { "files": ["**/case/documents-panel.tsx"], "rules": ["react-doctor/no-event-handler"] },
+      {
+        "files": ["**/queue/kanban-card.tsx"],
+        "rules": ["react-doctor/no-noninteractive-element-to-interactive-role"]
+      },
+      {
+        "files": ["**/brief/use-inflight-poll.ts"],
+        "rules": ["react-doctor/no-cascading-set-state"]
+      },
+      {
+        "files": ["**/hooks/use-chat-panel-resize.ts"],
+        "rules": ["react-doctor/exhaustive-deps"]
+      },
+      {
+        "files": ["**/chat/tool-bodies/tool-list-body.tsx"],
+        "rules": ["react-doctor/no-array-index-as-key"]
+      },
+      {
+        "files": ["**/chat/chat-thread-row.tsx"],
+        "rules": ["react-doctor/no-derived-useState"]
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "node", "bun", "@cloudflare/workers-types"],
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@mizan/db": ["../../packages/db/src/index.ts"],
+      "@mizan/db/*": ["../../packages/db/src/*"],
+      "@mizan/mastra": ["../../packages/mastra/src/index.ts"],
+      "@mizan/mastra/*": ["../../packages/mastra/src/*"],
+      "@mizan/shared": ["../../packages/shared/src/index.ts"],
+      "@mizan/shared/*": ["../../packages/shared/src/*"],
+      "@mizan/eval": ["../../packages/eval/src/index.ts"],
+      "@mizan/eval/*": ["../../packages/eval/src/*"]
+    }
+  },
+  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./vite.config.ts"]
+}

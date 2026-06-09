@@ -1,0 +1,103 @@
+{
+  "source": "safety",
+  "corpusVersion": "2026-05-21",
+  "policyUrl": "https://www.launchgood.com/safety",
+  "fetchedAt": "2026-05-21T00:00:00Z",
+  "clauses": [
+    {
+      "clauseId": "safety.intro",
+      "title": "Trust and safety overview",
+      "body": "LaunchGood's dedicated campaign approval team works around the clock to make sure the causes you support are legitimate and authentic. Donors must make the final determination as to the value and appropriateness of supporting any campaign, organizer, or charity, but LaunchGood applies layered verification before campaigns go live."
+    },
+    {
+      "clauseId": "safety.1.1",
+      "title": "Sanctions screening",
+      "body": "As part of Know Your Customer laws, every account on LaunchGood is screened through global sanctions lists, regulatory and Anti Money Laundering enforcement lists. Beneficiaries are also screened for accounts raising funds on behalf of someone else."
+    },
+    {
+      "clauseId": "safety.1.2",
+      "title": "Request documentation",
+      "body": "LaunchGood reviews necessary documentation in support of the fundraising cause. The team verifies that the bank account connected is the appropriate one to ensure a clear path of funds distribution to the stated beneficiary or purpose."
+    },
+    {
+      "clauseId": "safety.1.3",
+      "title": "Enhanced due diligence",
+      "body": "For campaigns raising funds outside of G7 countries, and especially in OFAC sanctioned jurisdictions, LaunchGood conducts Enhanced Due Diligence checks and screens several layers to verify all associated parties."
+    },
+    {
+      "clauseId": "safety.2.1",
+      "title": "Manual reviews",
+      "body": "Every campaign is manually reviewed to ensure it follows LaunchGood website guidelines. Campaigns must not incite hate or violence towards any party and must focus on their stated fundraising goals."
+    },
+    {
+      "clauseId": "safety.2.2",
+      "title": "Fraud screens",
+      "body": "Using cutting edge technologies and specialist review, LaunchGood reviews donations on campaigns to detect fraudulent behavior. The team may contact donors to confirm donations when suspicious activity is detected."
+    },
+    {
+      "clauseId": "safety.3.1",
+      "title": "Campaign verification timing",
+      "body": "Campaigns undergo risk-based verification with initial screening before going live. Most fundraisers are reviewed within one to six hours of submission, though campaigns involving OFAC-sanctioned areas may require twenty-four to forty-eight hours or longer."
+    },
+    {
+      "clauseId": "safety.3.2",
+      "title": "Pending verification state",
+      "body": "Campaigns pending verification are not fully live for public fundraising until the approval team completes documentary and sanctions review. Organizers must respond promptly to documentation requests."
+    },
+    {
+      "clauseId": "safety.4.1",
+      "title": "Organizer identity verification",
+      "body": "Organizers must provide government-issued identification or equivalent documentation where required. Identity documents must match the organizer name on the campaign and align with bank account holder information when the organizer receives funds directly."
+    },
+    {
+      "clauseId": "safety.4.2",
+      "title": "Bank statement review",
+      "body": "Bank statements or equivalent financial documentation help confirm account holder identity and detect suspicious activity. Reviewers compare account holder names against organizer and beneficiary claims."
+    },
+    {
+      "clauseId": "safety.4.3",
+      "title": "Category-specific documentation",
+      "body": "Medical campaigns require evidence such as receipts or provider letters. Education campaigns require tuition or enrollment documentation. Organization campaigns require registration or tax-exempt proof appropriate to jurisdiction."
+    },
+    {
+      "clauseId": "safety.5.1",
+      "title": "Campaign creation requirements",
+      "body": "Campaign creators must follow location-specific requirements including organization registration details where applicable, official contact information, and website or social media links that substantiate the fundraising entity or personal cause."
+    },
+    {
+      "clauseId": "safety.5.2",
+      "title": "Nonprofit registration",
+      "body": "Registered nonprofits may need to provide jurisdiction-appropriate registration such as 501(c)(3) status in the United States or CRA registration in Canada. Unsupported or unverifiable registration claims require additional review."
+    },
+    {
+      "clauseId": "safety.6.1",
+      "title": "Misuse and fraud reporting",
+      "body": "LaunchGood takes possible fraudulent activity and misuse of funds very seriously. Users who believe a campaign organizer is not raising or using funds for stated purposes should alert the team via support@launchgood.com or compliance@launchgood.com for investigation."
+    },
+    {
+      "clauseId": "safety.6.2",
+      "title": "Data use and donor protection",
+      "body": "LaunchGood uses donor and organizer data in accordance with its privacy practices to prevent fraud, satisfy regulatory obligations, and maintain platform integrity. Suspicious patterns may trigger additional verification steps."
+    },
+    {
+      "clauseId": "safety.7.1",
+      "title": "Unsupported geographies",
+      "body": "Some countries or payment corridors may be unsupported due to sanctions, banking, or compliance constraints. Campaigns attempting to raise or disburse through unsupported routes require escalation and may be blocked."
+    },
+    {
+      "clauseId": "safety.7.2",
+      "title": "First-party donations",
+      "body": "LaunchGood monitors first-party donation patterns and related abuse signals as part of its fraud prevention program. Unusual self-donation or circular funding patterns may trigger manual review."
+    },
+    {
+      "clauseId": "safety.8.1",
+      "title": "Reviewer escalation triggers",
+      "body": "Reviewers should escalate when documentation is materially inconsistent, sanctions hits cannot be cleared, bank paths are opaque, or campaign narrative contradicts submitted evidence."
+    },
+    {
+      "clauseId": "safety.8.2",
+      "title": "Block and request-docs actions",
+      "body": "Campaigns that fail safety verification may be blocked from fundraising. Campaigns with remediable gaps may remain in review while organizers supply missing documents through the standard request-docs workflow."
+    }
+  ]
+}
