@@ -77,6 +77,36 @@ function postAction(caseId: string, cookie: string, body: Record<string, unknown
   });
 }
 
+/**
+ * Seeds a brief whose `reviewer_questions[0]` carries an unexpected legacy key
+ * (`suggestedAnswer`). It parses under an older schema but fails the current
+ * strict `BriefPayloadSchema` — the exact shape that, before the harden, threw
+ * in `buildResponse` AFTER the action had already committed.
+ */
+async function seedBriefWithLegacyKey(
+  caseId: string,
+  runId: string,
+  organizationId: string,
+): Promise<void> {
+  const payload = JSON.stringify({
+    recommendation: "READY_FOR_REVIEW",
+    verification_path: "documentary",
+    geography_tier: "SAFE",
+    policy_grounded: true,
+    missing_docs: [],
+    reviewer_questions: [{ question: "Confirm the beneficiary?", suggestedAnswer: "legacy" }],
+    extracted_claims: "claims",
+    confidence: 80,
+    policy_citations: [],
+  });
+  await env.DB.prepare(
+    `INSERT INTO briefs (id, case_id, run_id, recommendation, confidence, composed_at, payload_json, organization_id)
+     VALUES (?, ?, ?, 'READY_FOR_REVIEW', 80, ?, ?, ?)`,
+  )
+    .bind(crypto.randomUUID(), caseId, runId, Date.now(), payload, organizationId)
+    .run();
+}
+
 describe("POST /api/cases/:id/action", () => {
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
@@ -182,5 +212,42 @@ describe("POST /api/cases/:id/action", () => {
     expect(res.status).toBe(409);
     const body = (await res.json()) as { error?: string };
     expect(body.error).toBe("no_run");
+  });
+
+  it("a brief that fails strict parse reverts the claim cleanly — never commits then 500s", async () => {
+    const { cookie, userId, organizationId } = await seedReviewer();
+    const caseId = crypto.randomUUID();
+    const runId = crypto.randomUUID();
+    await insertCase({
+      id: caseId,
+      status: "SUSPENDED_HITL",
+      createdBy: userId,
+      organizationId,
+      currentRunId: runId,
+    });
+    await seedBriefWithLegacyKey(caseId, runId, organizationId);
+
+    const res = await exports.default.fetch(
+      postAction(caseId, cookie, {
+        action: "ESCALATE",
+        rationale: "",
+        action_id: crypto.randomUUID(),
+      }),
+    );
+
+    expect(res.status).toBe(500);
+    expect((await res.json()) as { error?: string }).toEqual({ error: "workflow_failed" });
+
+    const caseRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string }>();
+    expect(caseRow?.status).toBe("SUSPENDED_HITL");
+
+    const actionRow = await env.DB.prepare(
+      "SELECT id FROM reviewer_actions WHERE case_id = ? LIMIT 1",
+    )
+      .bind(caseId)
+      .first<{ id: string }>();
+    expect(actionRow).toBeNull();
   });
 });

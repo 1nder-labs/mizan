@@ -45,8 +45,8 @@ import {
 } from "@mizan/db";
 import {
   ActionErrorBodySchema,
+  BriefPayloadSchema,
   ReviewerActionRequestSchema,
-  ReviewerActionResponseSchema,
   type ActionErrorCode,
   type BriefPayload,
   type Recommendation,
@@ -100,14 +100,25 @@ async function loadLatestBrief(
     .limit(1)
     .get();
   if (!row) return null;
-  return { recommendation: row.recommendation, payload: row.payload_json };
+  return {
+    recommendation: row.recommendation,
+    payload: BriefPayloadSchema.parse(row.payload_json),
+  };
 }
 
+/**
+ * Builds the success envelope from already-validated inputs. `brief` is
+ * runtime-parsed at `loadLatestBrief` (BEFORE the commit chain writes any row),
+ * and `body` was validated by the route's `zValidator`. So this never re-parses
+ * — re-strict-parsing committed data here is exactly what produced a 500 AFTER
+ * a partial commit when the brief schema later tightened. The cache layer still
+ * `safeParse`s the envelope on read, keeping the wire contract enforced.
+ */
 function buildResponse(
   brief: BriefPayload | null,
   body: ReviewerActionRequest,
 ): ReviewerActionResponse {
-  return ReviewerActionResponseSchema.parse({ status: "success", brief, action: body });
+  return { status: "success", brief, action: body };
 }
 
 /**
