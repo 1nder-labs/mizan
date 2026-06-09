@@ -44,7 +44,7 @@ interface Scenario {
 const SCENARIOS: readonly Scenario[] = [
   {
     name: "unsubmitted dominates every other input",
-    status: "READY_FOR_REVIEW",
+    status: "SUSPENDED_HITL",
     latestAction: "APPROVE",
     clientResponded: true,
     submitted: false,
@@ -171,8 +171,8 @@ const SCENARIOS: readonly Scenario[] = [
     expected: "IN_REVIEW",
   },
   {
-    name: "READY_FOR_REVIEW + no action → in review",
-    status: "READY_FOR_REVIEW",
+    name: "RUNNING + no action → in review",
+    status: "RUNNING",
     latestAction: null,
     clientResponded: false,
     submitted: true,
@@ -188,7 +188,7 @@ const SCENARIOS: readonly Scenario[] = [
   },
   {
     name: "clientResponded is ignored when no action requires it",
-    status: "READY_FOR_REVIEW",
+    status: "RUNNING",
     latestAction: null,
     clientResponded: true,
     submitted: true,

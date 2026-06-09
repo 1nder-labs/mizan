@@ -1,6 +1,6 @@
 /**
  * Integration: case-detail container routes by status across non-stream
- * modes — DRAFT empty card, FAILED destructive alert, READY_FOR_REVIEW
+ * modes — DRAFT empty card, FAILED destructive alert, ACTIONED
  * persisted summary, and the degraded-brief retry affordance. RUNNING
  * mount + stream lifecycle integration lives in
  * `case-detail-stream.test.tsx` (BriefStream is mocked there to keep
