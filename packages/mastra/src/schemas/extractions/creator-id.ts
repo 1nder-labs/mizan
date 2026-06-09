@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ImageAuthenticitySchema } from "@mizan/shared";
 
 /** Structured fields extracted from the creator government-issued ID document. */
 export const CreatorIdSchema = z.object({
@@ -10,4 +11,9 @@ export const CreatorIdSchema = z.object({
   expiry_date_iso: z.string().nullable(),
   matches_organizer_name: z.boolean(),
   confidence: z.number(),
+  /**
+   * Image-authenticity read of the ID photo, produced by the SAME vision call
+   * that extracts the fields above — the model already has the image in context.
+   */
+  image_authenticity: ImageAuthenticitySchema,
 });

@@ -12,8 +12,14 @@ type CategoryVariant = CategoryDocsValue["doc"];
  * requires. Keeps test fixtures focused on the variant fields under
  * test without dragging the wrapper through every call site.
  */
+const AUTH = {
+  ai_generated_likelihood: "low" as const,
+  shows_tampering_signs: false,
+  assessment: "ok",
+};
+
 function category(variant: CategoryVariant): CategoryDocsValue {
-  return { doc: variant };
+  return { doc: variant, image_authenticity: AUTH };
 }
 
 function baseState(overrides: Partial<PartialBriefState> = {}): PartialBriefState {
@@ -33,6 +39,7 @@ const HIGH_CREATOR = {
   expiry_date_iso: "2030-01-01",
   matches_organizer_name: true,
   confidence: 88,
+  image_authenticity: AUTH,
 };
 
 const HIGH_BANK = {

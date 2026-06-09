@@ -14,14 +14,30 @@ const CLASSIFY = {
   geography_tier: "OFAC_ADJACENT" as const,
 };
 
+const EXIF_NONE = {
+  has_capture_metadata: false,
+  camera_make: null,
+  camera_model: null,
+  captured_at: null,
+  has_gps: false,
+} as const;
+
 const PHOTO: PhotoSignalPayload = {
   creator_id: {
-    reverseImage: { hits: [], checked_at: "2026-05-21T00:00:00.000Z" },
-    aiGen: { probability: "low", model: "stub-v1" },
+    authenticity: {
+      ai_generated_likelihood: "low",
+      shows_tampering_signs: false,
+      assessment: "Genuine ID.",
+    },
+    exif: EXIF_NONE,
   },
   category_doc: {
-    reverseImage: { hits: [], checked_at: "2026-05-21T00:00:00.000Z" },
-    aiGen: { probability: "low", model: "stub-v1" },
+    authenticity: {
+      ai_generated_likelihood: "low",
+      shows_tampering_signs: false,
+      assessment: "Genuine bill.",
+    },
+    exif: EXIF_NONE,
   },
 };
 
@@ -158,6 +174,11 @@ describe("mergeParallelSignals", () => {
                 expiry_date_iso: "2030-01-01",
                 matches_organizer_name: true,
                 confidence: 90,
+                image_authenticity: {
+                  ai_generated_likelihood: "low",
+                  shows_tampering_signs: false,
+                  assessment: "ok",
+                },
               },
             },
           },

@@ -11,7 +11,12 @@ export const extractCreatorIdDoc = makeExtractor({
     if (!obj) throw new Error(`creator-id doc missing for case ${caseRow.id}`);
     const bytes = new Uint8Array(await obj.arrayBuffer());
     return {
-      system: "Extract structured fields from the creator government-issued ID.",
+      system:
+        "Extract structured fields from the creator government-issued ID. " +
+        "Also assess the image's authenticity: set `image_authenticity.ai_generated_likelihood` " +
+        "(low/medium/high/very_high) for how likely the image is AI-generated or synthetic, " +
+        "`shows_tampering_signs` if you see editing/manipulation (inconsistent fonts, misaligned " +
+        "fields, cloning, mismatched lighting), and a one-sentence `assessment`.",
       messages: [
         {
           role: "user",

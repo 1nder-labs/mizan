@@ -27,17 +27,6 @@ export {
 } from "./schemas/queue-search.ts";
 
 export {
-  AiGenProbabilitySchema,
-  AiGenResultSchema,
-  ReverseImageHitSchema,
-  ReverseImageResultSchema,
-  type AiGenProbability,
-  type AiGenResult,
-  type ReverseImageHit,
-  type ReverseImageResult,
-} from "./schemas/tool-shapes.ts";
-
-export {
   BriefPayloadSchema,
   DraftedOrganizerMessageSchema,
   GeographyTierSchema,
@@ -146,8 +135,14 @@ export {
 } from "./schemas/team.ts";
 
 export {
+  AiGeneratedLikelihoodSchema,
+  ExifSummarySchema,
+  ImageAuthenticitySchema,
   PhotoAssetSignalSchema,
   PhotoSignalPayloadSchema,
+  type AiGeneratedLikelihood,
+  type ExifSummary,
+  type ImageAuthenticity,
   type PhotoAssetSignal,
   type PhotoSignalPayload,
 } from "./schemas/photo-signal.ts";

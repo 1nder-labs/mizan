@@ -1,55 +1,70 @@
 import { describe, expect, it } from "bun:test";
 import { composePhotoSignalPayload } from "@mizan/mastra/testing";
 
-const REVERSE_EMPTY = { hits: [], checked_at: "2026-05-23T00:00:00.000Z" };
-const REVERSE_HIT = {
-  hits: [{ url: "https://example.com/match", confidence: 0.72 }],
-  checked_at: "2026-05-23T00:00:00.000Z",
+const AUTH_CLEAN = {
+  ai_generated_likelihood: "low" as const,
+  shows_tampering_signs: false,
+  assessment: "genuine document",
 };
-const AI_LOW = { probability: "low" as const, model: "stub-v1" };
-const AI_HIGH = { probability: "very_high" as const, model: "stub-v1" };
+const AUTH_FLAG = {
+  ai_generated_likelihood: "very_high" as const,
+  shows_tampering_signs: true,
+  assessment: "appears generated",
+};
+const EXIF_NONE = {
+  has_capture_metadata: false,
+  camera_make: null,
+  camera_model: null,
+  captured_at: null,
+  has_gps: false,
+};
+const EXIF_CAMERA = {
+  has_capture_metadata: true,
+  camera_make: "Canon",
+  camera_model: "EOS R5",
+  captured_at: "2026:05:01 10:00:00",
+  has_gps: true,
+};
 
 /**
- * `composePhotoSignalPayload` is pure: a positional rearrangement of
- * four stub outputs into the persisted `PhotoSignalPayload` shape.
- * Pinning the mapping prevents a silent field-shuffle regression where
- * `creator_id.reverseImage` and `category_doc.reverseImage` could
- * accidentally swap (a class of bug the workflow integration tests
- * would catch only by examining persisted payload contents).
+ * `composePhotoSignalPayload` is pure: a positional rearrangement of each
+ * image's authenticity read + parsed EXIF into the persisted
+ * `PhotoSignalPayload`. Pinning the mapping prevents a silent field-shuffle
+ * where the creator-ID and category-document slots could cross-wire.
  */
 describe("composePhotoSignalPayload", () => {
-  it("places each stub output in its expected slot", () => {
+  it("places each authenticity + exif input in its expected slot", () => {
     const payload = composePhotoSignalPayload({
-      creatorIdReverse: REVERSE_EMPTY,
-      creatorIdAiGen: AI_LOW,
-      categoryDocReverse: REVERSE_HIT,
-      categoryDocAiGen: AI_HIGH,
+      creatorAuthenticity: AUTH_CLEAN,
+      creatorExif: EXIF_CAMERA,
+      categoryAuthenticity: AUTH_FLAG,
+      categoryExif: EXIF_NONE,
     });
-    expect(payload.creator_id.reverseImage).toBe(REVERSE_EMPTY);
-    expect(payload.creator_id.aiGen).toBe(AI_LOW);
-    expect(payload.category_doc.reverseImage).toBe(REVERSE_HIT);
-    expect(payload.category_doc.aiGen).toBe(AI_HIGH);
+    expect(payload.creator_id.authenticity).toBe(AUTH_CLEAN);
+    expect(payload.creator_id.exif).toBe(EXIF_CAMERA);
+    expect(payload.category_doc.authenticity).toBe(AUTH_FLAG);
+    expect(payload.category_doc.exif).toBe(EXIF_NONE);
   });
 
-  it("does not cross-wire creator and category reverse-image results", () => {
+  it("does not cross-wire creator and category authenticity", () => {
     const payload = composePhotoSignalPayload({
-      creatorIdReverse: REVERSE_HIT,
-      creatorIdAiGen: AI_HIGH,
-      categoryDocReverse: REVERSE_EMPTY,
-      categoryDocAiGen: AI_LOW,
+      creatorAuthenticity: AUTH_FLAG,
+      creatorExif: EXIF_NONE,
+      categoryAuthenticity: AUTH_CLEAN,
+      categoryExif: EXIF_NONE,
     });
-    expect(payload.creator_id.reverseImage.hits).toHaveLength(1);
-    expect(payload.category_doc.reverseImage.hits).toHaveLength(0);
+    expect(payload.creator_id.authenticity.ai_generated_likelihood).toBe("very_high");
+    expect(payload.category_doc.authenticity.ai_generated_likelihood).toBe("low");
   });
 
-  it("does not cross-wire creator and category aiGen results", () => {
+  it("does not cross-wire creator and category exif", () => {
     const payload = composePhotoSignalPayload({
-      creatorIdReverse: REVERSE_EMPTY,
-      creatorIdAiGen: AI_HIGH,
-      categoryDocReverse: REVERSE_EMPTY,
-      categoryDocAiGen: AI_LOW,
+      creatorAuthenticity: AUTH_CLEAN,
+      creatorExif: EXIF_CAMERA,
+      categoryAuthenticity: AUTH_CLEAN,
+      categoryExif: EXIF_NONE,
     });
-    expect(payload.creator_id.aiGen.probability).toBe("very_high");
-    expect(payload.category_doc.aiGen.probability).toBe("low");
+    expect(payload.creator_id.exif.has_capture_metadata).toBe(true);
+    expect(payload.category_doc.exif.has_capture_metadata).toBe(false);
   });
 });
