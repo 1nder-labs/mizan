@@ -19,7 +19,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
 import {
-  isClientAwaitingAction,
+  canResubmit,
   latestReviewerAction,
   readCaseNotes,
   writeCaseNote,
@@ -126,12 +126,13 @@ async function isCampaignDecided(
 /**
  * Hands the case to the reviewer — the SAME endpoint for the first submit and
  * every later re-submit. Re-stamps `submitted_at = now` when the case was never
- * submitted, OR it is submitted and the reviewer's latest action awaits the
- * client (REQUEST_DOCS / ESCALATE). That re-stamp — strictly newer than the
- * action — is the ONLY signal that flips the disposition to CLIENT_REPLIED, so
- * conversation + uploads never disturb the review flow. Any other state (in
- * review, already decided) is a no-op. A re-submit pings the reviewer; the first
- * submit does not (it already appears in the queue).
+ * submitted, OR it is submitted, the reviewer's latest action awaits the client
+ * (REQUEST_DOCS / ESCALATE), AND a document was uploaded/replaced since that
+ * request. That re-stamp — strictly newer than the action — is the ONLY signal
+ * that flips the disposition to CLIENT_REPLIED, so conversation never disturbs
+ * review and an unchanged case can't be bounced back. Any other state (in
+ * review, decided, no new docs) is a no-op. A re-submit pings the reviewer; the
+ * first submit does not (it already appears in the queue).
  */
 async function handToReviewer(
   db: Db,
@@ -141,7 +142,7 @@ async function handToReviewer(
 ): Promise<void> {
   const firstSubmit = submittedAt === null;
   const latest = firstSubmit ? null : await latestReviewerAction(db, caseId);
-  if (!firstSubmit && !isClientAwaitingAction(latest?.action ?? null)) return;
+  if (!firstSubmit && !(await canResubmit(db, viewer.organizationId, caseId, latest))) return;
   const guard = firstSubmit
     ? and(eq(cases.id, caseId), eq(cases.created_by, viewer.userId), isNull(cases.submitted_at))
     : and(eq(cases.id, caseId), eq(cases.created_by, viewer.userId));

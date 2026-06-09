@@ -50,6 +50,7 @@ export {
   currentExtractedKeys,
   documentById,
   insertDocumentIfOwned,
+  latestDocumentUploadMs,
   listCaseDocuments,
   type DocumentRow,
   type ExtractedDocumentKeys,

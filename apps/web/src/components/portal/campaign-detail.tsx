@@ -39,19 +39,16 @@ function DetailSkeleton(): React.JSX.Element {
 }
 
 function OrganizerAskCard({
-  campaignId,
   ask,
 }: {
-  readonly campaignId: string;
   readonly ask: NonNullable<ClientCaseDetail["organizerAsk"]>;
 }): React.JSX.Element {
-  const resubmit = useSubmitCampaign(campaignId, COPY.portal.resubmitError);
   return (
     <Card className="rounded-xl border border-status-warning-border shadow-elev-1">
       <CardHeader>
         <CardTitle className="text-sm font-medium">{COPY.portal.detailAskTitle}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{ask.message}</p>
         {ask.missingItems.length > 0 ? (
           <ul className="space-y-1 pl-4 list-disc">
@@ -62,15 +59,39 @@ function OrganizerAskCard({
             ))}
           </ul>
         ) : null}
-        <div className="space-y-2 rounded-lg border border-border/60 bg-background/60 p-3">
-          <p className="text-sm font-medium text-foreground">{COPY.portal.detailAskCtaTitle}</p>
-          <p className="text-sm text-muted-foreground">{COPY.portal.detailAskCtaBody}</p>
-          <Button size="sm" onClick={() => resubmit.mutate()} disabled={resubmit.isPending}>
-            {resubmit.isPending ? COPY.portal.resubmitting : COPY.portal.resubmit}
-          </Button>
-        </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Re-submit action bar, rendered BELOW the documents so the flow reads
+ * read-the-ask → add-documents → re-submit. The button stays disabled until the
+ * server confirms a document landed since the reviewer's request (`canResubmit`),
+ * so an unchanged case can never be bounced back.
+ */
+function ResubmitBar({
+  campaignId,
+  canResubmit,
+}: {
+  readonly campaignId: string;
+  readonly canResubmit: boolean;
+}): React.JSX.Element {
+  const resubmit = useSubmitCampaign(campaignId, COPY.portal.resubmitError);
+  return (
+    <div className="space-y-2 rounded-xl border border-status-warning-border bg-status-warning/10 p-4 shadow-elev-1">
+      <p className="text-sm font-medium text-foreground">{COPY.portal.detailAskCtaTitle}</p>
+      <p className="text-sm text-muted-foreground">
+        {canResubmit ? COPY.portal.detailAskCtaBody : COPY.portal.resubmitNeedsDocs}
+      </p>
+      <Button
+        size="sm"
+        onClick={() => resubmit.mutate()}
+        disabled={!canResubmit || resubmit.isPending}
+      >
+        {resubmit.isPending ? COPY.portal.resubmitting : COPY.portal.resubmit}
+      </Button>
+    </div>
   );
 }
 
@@ -227,11 +248,12 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
           />
         </section>
       ) : null}
-      {detail.organizerAsk ? (
-        <OrganizerAskCard campaignId={detail.id} ask={detail.organizerAsk} />
-      ) : null}
+      {detail.organizerAsk ? <OrganizerAskCard ask={detail.organizerAsk} /> : null}
       <Separator />
       <EvidenceSection detail={detail} readOnly={evidenceReadOnly} />
+      {detail.status === "needs_evidence" ? (
+        <ResubmitBar campaignId={detail.id} canResubmit={detail.canResubmit} />
+      ) : null}
       <Separator />
       <section className="space-y-4">
         <h2 className="text-xl font-semibold tracking-[-0.01em]">{COPY.portal.detailNotesTitle}</h2>

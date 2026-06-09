@@ -51,6 +51,13 @@ export const ClientCaseDetailSchema = z
     updatedAt: z.number(),
     evidence: z.array(ClientEvidenceItemSchema),
     organizerAsk: OrganizerAskSchema.nullable(),
+    /**
+     * True only when the reviewer is awaiting the client AND at least one
+     * document was uploaded/replaced since that request — the precondition for a
+     * meaningful re-submit. Gates the re-submit button so an unchanged case can
+     * never be bounced back to the reviewer.
+     */
+    canResubmit: z.boolean(),
     notes: z.array(CaseNoteSchema),
   })
   .strict();

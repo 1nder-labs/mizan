@@ -1,5 +1,5 @@
 import { and, asc, desc, eq } from "drizzle-orm";
-import { caseNotes, cases, reviewer_actions, type Db } from "@mizan/db";
+import { caseNotes, cases, latestDocumentUploadMs, reviewer_actions, type Db } from "@mizan/db";
 import {
   type CaseNote,
   type NoteAuthorRole,
@@ -104,6 +104,23 @@ const CLIENT_AWAITING_ACTIONS = new Set<ReviewerAction>(["REQUEST_DOCS", "ESCALA
 /** True when a reviewer action hands the ball back to the client (doc request / escalation). */
 export function isClientAwaitingAction(action: ReviewerAction | null): boolean {
   return action !== null && CLIENT_AWAITING_ACTIONS.has(action);
+}
+
+/**
+ * True when a re-submit would meaningfully re-enter review: the reviewer awaits
+ * the client (REQUEST_DOCS / ESCALATE) AND a document was uploaded/replaced
+ * strictly after that request. Shared by the client detail (button gate) and the
+ * `/submit` route (authoritative re-stamp gate) so UI + server never disagree.
+ */
+export async function canResubmit(
+  db: Db,
+  organizationId: string,
+  caseId: string,
+  latest: { action: ReviewerAction; actedAtMs: number } | null,
+): Promise<boolean> {
+  if (!latest || !isClientAwaitingAction(latest.action)) return false;
+  const lastUpload = await latestDocumentUploadMs(db, caseId, organizationId);
+  return lastUpload !== null && lastUpload > latest.actedAtMs;
 }
 
 /**

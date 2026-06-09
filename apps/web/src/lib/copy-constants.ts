@@ -305,10 +305,12 @@ export const COPY = {
     detailAskTitle: "The reviewer needs more from you",
     detailAskCtaTitle: "Ready to continue?",
     detailAskCtaBody:
-      "Add or replace the documents below, then re-submit. Your reviewer is only notified once you re-submit — messages here won't restart the review.",
-    resubmit: "I've added my documents — re-submit",
-    resubmitting: "Re-submitting…",
-    resubmitError: "Could not re-submit. Please try again.",
+      "Your documents are attached. Send them to your reviewer whenever you're ready.",
+    resubmitNeedsDocs:
+      "Add or replace the requested documents above, then send your campaign back for review.",
+    resubmit: "Send for review",
+    resubmitting: "Sending…",
+    resubmitError: "Could not send your campaign. Please try again.",
     evidenceUploaded: "Uploaded",
     evidenceMissing: "Not uploaded",
     evidenceUpload: "Upload",

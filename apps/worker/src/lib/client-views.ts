@@ -20,7 +20,12 @@ import {
   type ReviewerAction,
   type ViewerContext,
 } from "@mizan/shared";
-import { isClientResponded, latestReviewerAction, readCaseNotes } from "./case-notes.ts";
+import {
+  canResubmit,
+  isClientResponded,
+  latestReviewerAction,
+  readCaseNotes,
+} from "./case-notes.ts";
 
 type OwnedCampaign = typeof cases.$inferSelect;
 
@@ -166,6 +171,7 @@ export async function buildClientCaseDetail(
     updatedAt: campaign.updated_at.getTime(),
     evidence: buildEvidenceList(await currentExtractedKeys(db, campaign.id, viewer.organizationId)),
     organizerAsk,
+    canResubmit: await canResubmit(db, viewer.organizationId, campaign.id, latest),
     notes,
   });
 }
