@@ -1,8 +1,7 @@
 /**
  * Queue outcome-disposition SQL: the latest-reviewer-action projection, the
- * `outcome` filter translation, and the escalated-first ordering. Split from
- * `cases-handler.ts` so that file stays under the 400-LOC cap and the
- * disposition concern lives in one place.
+ * `outcome` filter translation, and the escalated-first ordering. Separated
+ * from `cases-handler.ts` so the disposition concern lives in one place.
  *
  * The board shows raw pipeline `status` lanes; these helpers let a reviewer
  * narrow by OUTCOME (escalated / needs-docs / approved / declined / awaiting)

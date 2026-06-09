@@ -1,8 +1,7 @@
 /**
  * Form-state helpers for the campaign intake form: RHF default values, the
- * create/edit mutation, and the pre-first-save localStorage autosave. Split out
- * of `intake-form.tsx` to keep that file within the 400-LOC budget and to keep
- * the persistence wiring testable in isolation.
+ * create/edit mutation, and the pre-first-save localStorage autosave. Separated
+ * from `intake-form.tsx` so the persistence wiring is testable in isolation.
  */
 import { useEffect } from "react";
 import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";

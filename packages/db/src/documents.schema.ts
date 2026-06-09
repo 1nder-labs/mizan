@@ -1,9 +1,8 @@
 /**
  * The append-only `documents` table — the single source of truth for uploaded
- * evidence. Split from `schema.ts` to keep that module under the 400-LOC cap.
- * Registered in `drizzle.config.ts`'s schema array and merged into the runtime
- * client in `index.ts`, so it participates in migrations + queries identically
- * to the core tables.
+ * evidence. Registered in `drizzle.config.ts`'s schema array and merged into the
+ * runtime client in `index.ts`, so it participates in migrations + queries
+ * identically to the core tables.
  */
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { organizations } from "./auth.schema.ts";

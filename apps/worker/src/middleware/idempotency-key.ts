@@ -105,9 +105,7 @@ async function cacheResponse(kv: KVNamespace, key: string, res: Response): Promi
       JSON.stringify({ status: res.status, body, headers: { "Content-Type": CONTENT_TYPE_JSON } }),
       { expirationTtl: IDEM_TTL_SECONDS },
     );
-  } catch {
-    /* JSDoc above documents the deliberate skip-on-malformed-JSON behaviour. */
-  }
+  } catch {}
 }
 
 /**
