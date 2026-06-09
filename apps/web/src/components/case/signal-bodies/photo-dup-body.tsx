@@ -15,6 +15,7 @@ import { useState } from "react";
 import { FileText } from "lucide-react";
 import { useDocumentUrl } from "@/hooks/use-document-url.ts";
 import { cn } from "@/lib/utils.ts";
+import { Button } from "@/components/ui/button.tsx";
 import { classifyDocumentKind } from "../document-kind.ts";
 import { DocumentViewerDialog } from "../document-viewer-dialog.tsx";
 
@@ -110,14 +111,14 @@ function DocPreviewButton({
   const preview = query.data ?? null;
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => setOpen(true)}
         aria-label={`Open ${label}`}
-        className="rounded-md transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="h-auto rounded-md p-0 transition-opacity hover:bg-transparent hover:opacity-80"
       >
         <DocThumbnail preview={preview} label={label} />
-      </button>
+      </Button>
       <DocumentViewerDialog
         open={open}
         onOpenChange={setOpen}
