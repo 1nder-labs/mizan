@@ -4,9 +4,10 @@
  * reviewer sees WHY the AI scored the way it did, not just the
  * collapsed `confidence` integer on the brief.
  *
- * Placeholder rows render for known signal types that haven't been
- * persisted yet (`registry_lookup`, `sanctions_screen`, `ocr_mismatch`
- * — Phase 8/9 will populate). All visible strings come from `COPY`.
+ * Shows the four signals the workflow actually persists (`photo_dup`,
+ * `story_coherence`, `vouching_chain`, `ocr_mismatch`). The reserved
+ * `registry_lookup` + `sanctions_screen` DB enum values have no producer and
+ * are intentionally not rendered. All visible strings come from `COPY`.
  */
 import { useState } from "react";
 import { ChevronRight, LoaderCircle, ShieldQuestion } from "lucide-react";
@@ -15,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.t
 import { useCaseSignals } from "@/hooks/use-case-signals.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
+import { OcrMismatchBody } from "./signal-bodies/ocr-mismatch-body.tsx";
 import { PhotoDupBody } from "./signal-bodies/photo-dup-body.tsx";
 import { StoryCoherenceBody } from "./signal-bodies/story-coherence-body.tsx";
 import { VouchingChainBody } from "./signal-bodies/vouching-chain-body.tsx";
@@ -27,8 +29,6 @@ const SIGNAL_ROWS: readonly { signal_type: SignalType; label: string }[] = [
   { signal_type: "photo_dup", label: COPY.signals.photoDupLabel },
   { signal_type: "story_coherence", label: COPY.signals.storyCoherenceLabel },
   { signal_type: "vouching_chain", label: COPY.signals.vouchingChainLabel },
-  { signal_type: "registry_lookup", label: COPY.signals.registryLookupLabel },
-  { signal_type: "sanctions_screen", label: COPY.signals.sanctionsScreenLabel },
   { signal_type: "ocr_mismatch", label: COPY.signals.ocrMismatchLabel },
 ];
 
@@ -54,6 +54,9 @@ function SignalBody({
   }
   if (entry.signal_type === "vouching_chain") {
     return <VouchingChainBody payload={entry.payload_json} />;
+  }
+  if (entry.signal_type === "ocr_mismatch") {
+    return <OcrMismatchBody payload={entry.payload_json} />;
   }
   return (
     <pre className="overflow-x-auto rounded-xl border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">

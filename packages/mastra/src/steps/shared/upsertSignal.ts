@@ -6,14 +6,20 @@ import {
   type NewSignal,
 } from "@mizan/db";
 import type { CloudflareBindings } from "@mizan/shared";
-import type { PhotoSignalPayload, StoryCoherencePayload, VouchingChain } from "@mizan/shared";
+import type {
+  OcrMismatchPayload,
+  PhotoSignalPayload,
+  StoryCoherencePayload,
+  VouchingChain,
+} from "@mizan/shared";
 import { emitLiveEventsBestEffort } from "./emit-live-events.ts";
 
-/** Discriminated union of (signal_type, payload) pairs upsertable from Phase 4 steps. */
+/** Discriminated union of (signal_type, payload) pairs upsertable from the trust-signal steps. */
 export type SignalUpsertInput =
   | { readonly signalType: "photo_dup"; readonly payload: PhotoSignalPayload }
   | { readonly signalType: "story_coherence"; readonly payload: StoryCoherencePayload }
-  | { readonly signalType: "vouching_chain"; readonly payload: VouchingChain };
+  | { readonly signalType: "vouching_chain"; readonly payload: VouchingChain }
+  | { readonly signalType: "ocr_mismatch"; readonly payload: OcrMismatchPayload };
 
 /**
  * Upserts one signal row keyed by `(case_id, run_id, signal_type)`.

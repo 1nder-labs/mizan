@@ -152,6 +152,8 @@ export {
   type PhotoSignalPayload,
 } from "./schemas/photo-signal.ts";
 
+export { OcrMismatchPayloadSchema, type OcrMismatchPayload } from "./schemas/ocr-mismatch.ts";
+
 export {
   VouchingChainEnvelopeSchema,
   VouchingChainVariantSchema,

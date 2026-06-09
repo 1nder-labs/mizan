@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   BriefPayloadSchema,
   GeographyTierSchema,
+  OcrMismatchPayloadSchema,
   PhotoSignalPayloadSchema,
   PolicyCitationSchema,
   StoryCoherencePayloadSchema,
@@ -34,6 +35,7 @@ export const PartialBriefStateSchema = z.object({
       photo: PhotoSignalPayloadSchema.optional(),
       story: StoryCoherencePayloadSchema.optional(),
       vouching: VouchingChainVariantSchema.optional(),
+      ocr: OcrMismatchPayloadSchema.optional(),
     })
     .optional(),
   brief: BriefPayloadSchema.optional(),

@@ -14,6 +14,7 @@ import { extractStoryClaims } from "../steps/extractStoryClaims.ts";
 import { forcedEscalateGate } from "../steps/forcedEscalateGate/index.ts";
 import { matchPolicy } from "../steps/matchPolicy/index.ts";
 import { mergeSignals } from "../steps/mergeSignals.ts";
+import { ocrMismatch } from "../steps/ocrMismatch/index.ts";
 import { photoSignal } from "../steps/photoSignal/index.ts";
 import { storyCoherence } from "../steps/storyCoherence/index.ts";
 
@@ -64,7 +65,7 @@ export const briefWorkflow = createWorkflow({
   .then(extractBankStatement)
   .then(extractCategoryDocs)
   .then(extractStoryClaims)
-  .parallel([photoSignal, storyCoherence, classifyVouchingChain])
+  .parallel([photoSignal, storyCoherence, classifyVouchingChain, ocrMismatch])
   .then(mergeSignals)
   .then(computeVerificationPath)
   .then(matchPolicy)
