@@ -332,7 +332,9 @@ export {
   ClientCampaignsResponseSchema,
   ClientCampaignSummarySchema,
   ClientCaseDetailSchema,
+  ClientReviewRequestSchema,
   type ClientCampaignsResponse,
   type ClientCampaignSummary,
   type ClientCaseDetail,
+  type ClientReviewRequest,
 } from "./schemas/client-case-detail.ts";

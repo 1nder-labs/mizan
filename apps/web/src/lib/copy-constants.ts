@@ -311,6 +311,10 @@ export const COPY = {
     resubmit: "Send for review",
     resubmitting: "Sending…",
     resubmitError: "Could not send your campaign. Please try again.",
+    reviewHistoryShow: (count: number) =>
+      `Earlier ${count === 1 ? "request" : "requests"} from your reviewer (${count})`,
+    reviewHistoryHide: "Hide earlier requests",
+    reviewHistoryNeeded: "Documents requested",
     evidenceUploaded: "Uploaded",
     evidenceMissing: "Not uploaded",
     evidenceUpload: "Upload",

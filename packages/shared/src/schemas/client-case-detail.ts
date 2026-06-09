@@ -13,6 +13,21 @@ export const OrganizerAskSchema = z
   .object({ message: z.string(), missingItems: z.array(z.string()) })
   .strict();
 
+/**
+ * One past reviewer request in the client's review timeline — the drafted
+ * message + missing items from a single composed brief, with when it was sent.
+ * The newest entry is the current ask when the case still needs evidence.
+ */
+export const ClientReviewRequestSchema = z
+  .object({
+    id: z.string(),
+    at: z.number(),
+    message: z.string(),
+    missingItems: z.array(z.string()),
+  })
+  .strict();
+export type ClientReviewRequest = z.infer<typeof ClientReviewRequestSchema>;
+
 /** One row in the client's campaign list. */
 export const ClientCampaignSummarySchema = z
   .object({
@@ -58,6 +73,8 @@ export const ClientCaseDetailSchema = z
      * never be bounced back to the reviewer.
      */
     canResubmit: z.boolean(),
+    /** Every past reviewer request for this campaign, newest first (timeline). */
+    reviewHistory: z.array(ClientReviewRequestSchema),
     notes: z.array(CaseNoteSchema),
   })
   .strict();

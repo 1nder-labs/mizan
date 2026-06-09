@@ -20,6 +20,7 @@ import { EvidencePanel } from "@/components/portal/evidence-panel.tsx";
 import { SupplementaryDocs } from "@/components/portal/supplementary-docs.tsx";
 import { NoteThread } from "@/components/portal/note-thread.tsx";
 import { ClientNoteComposer } from "@/components/portal/note-composer.tsx";
+import { ReviewHistory } from "@/components/portal/review-history.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -238,6 +239,8 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
   const [editing, setEditing] = useState(false);
   const evidenceReadOnly = detail.status === "approved" || detail.status === "not_approved";
   useScrollToMessages();
+  const earlierRequests =
+    detail.status === "needs_evidence" ? detail.reviewHistory.slice(1) : detail.reviewHistory;
 
   function handleEditDone(): void {
     setEditing(false);
@@ -260,6 +263,7 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
         </section>
       ) : null}
       {detail.organizerAsk ? <OrganizerAskCard ask={detail.organizerAsk} /> : null}
+      <ReviewHistory entries={earlierRequests} />
       <Separator />
       <EvidenceSection detail={detail} readOnly={evidenceReadOnly} />
       {detail.status === "needs_evidence" ? (

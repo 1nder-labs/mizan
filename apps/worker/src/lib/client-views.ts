@@ -17,6 +17,7 @@ import {
   toClientStatus,
   type ClientCampaignSummary,
   type ClientCaseDetail,
+  type ClientReviewRequest,
   type ReviewerAction,
   type ViewerContext,
 } from "@mizan/shared";
@@ -35,19 +36,37 @@ function parseAction(raw: string | null): ReviewerAction | null {
   return parsed.success ? parsed.data : null;
 }
 
-/** The latest brief's drafted organizer ask, when one has been composed. */
-async function fetchOrganizerAsk(db: Db, caseId: string, organizationId: string) {
-  const row = await db
-    .select({ payload: briefs.payload_json })
+/**
+ * Every past reviewer request for the case, newest first — one entry per
+ * composed brief that carried a drafted organizer message. Powers the client's
+ * review timeline; the newest entry is the active ask when the case still needs
+ * evidence.
+ */
+async function fetchReviewHistory(
+  db: Db,
+  caseId: string,
+  organizationId: string,
+): Promise<ClientReviewRequest[]> {
+  const rows = await db
+    .select({ id: briefs.id, composedAt: briefs.composed_at, payload: briefs.payload_json })
     .from(briefs)
     .where(and(eq(briefs.case_id, caseId), eq(briefs.organization_id, organizationId)))
     .orderBy(desc(briefs.composed_at))
-    .limit(1)
-    .get();
-  if (!row) return null;
-  const parsed = BriefPayloadSchema.safeParse(row.payload);
-  const ask = parsed.success ? parsed.data.drafted_organizer_message : undefined;
-  return ask ? { message: ask.message, missingItems: ask.missing_items } : null;
+    .all();
+  const out: ClientReviewRequest[] = [];
+  for (const row of rows) {
+    const parsed = BriefPayloadSchema.safeParse(row.payload);
+    const ask = parsed.success ? parsed.data.drafted_organizer_message : undefined;
+    if (ask) {
+      out.push({
+        id: row.id,
+        at: row.composedAt.getTime(),
+        message: ask.message,
+        missingItems: ask.missing_items,
+      });
+    }
+  }
+  return out;
 }
 
 /** Per-slot upload state from the current document versions (non-empty key = uploaded). */
@@ -153,9 +172,11 @@ export async function buildClientCaseDetail(
   );
   const overlay = CaseOverlaySchema.safeParse(campaign.brief_partial_json);
   const overlayData = overlay.success ? overlay.data : null;
+  const reviewHistory = await fetchReviewHistory(db, campaign.id, viewer.organizationId);
+  const latestRequest = reviewHistory[0];
   const organizerAsk =
-    status === "needs_evidence"
-      ? await fetchOrganizerAsk(db, campaign.id, viewer.organizationId)
+    status === "needs_evidence" && latestRequest
+      ? { message: latestRequest.message, missingItems: latestRequest.missingItems }
       : null;
   const notes = await readCaseNotes(db, viewer, campaign.id);
   return ClientCaseDetailSchema.parse({
@@ -172,6 +193,7 @@ export async function buildClientCaseDetail(
     evidence: buildEvidenceList(await currentExtractedKeys(db, campaign.id, viewer.organizationId)),
     organizerAsk,
     canResubmit: await canResubmit(db, viewer.organizationId, campaign.id, latest),
+    reviewHistory,
     notes,
   });
 }
