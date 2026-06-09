@@ -71,6 +71,12 @@ export function dispatchLiveEvent(queryClient: QueryClient, event: LiveEventRow)
     case "notification.new":
       coalesceInvalidate(queryClient, queryKeys.notifications.all);
       return;
+    case "case.message_added":
+      if (caseId) {
+        coalesceInvalidate(queryClient, queryKeys.cases.notes(caseId));
+        coalesceInvalidate(queryClient, queryKeys.portal.notes(caseId));
+      }
+      return;
     default: {
       const _exhaustive: never = event.payload;
       return _exhaustive;

@@ -10,7 +10,12 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../env.ts";
 import { caseInViewerOrg, readCaseNotes, writeCaseNote } from "../lib/case-notes.ts";
-import { excerpt, notifyCaseClient, notifyInternalNote } from "../lib/notifications.ts";
+import {
+  emitMessageAdded,
+  excerpt,
+  notifyCaseClient,
+  notifyInternalNote,
+} from "../lib/notifications.ts";
 import type { ViewerVariables } from "../middleware/require-role.ts";
 
 const NoteParamSchema = z.object({ id: z.string().uuid() });
@@ -68,6 +73,7 @@ export const caseNotesRoutes = new Hono<{
         title: "Message from your reviewer",
         body: excerpt(body),
       });
+      await emitMessageAdded(db, id, c.var.viewer.userId, true);
       return c.json({ ok: true }, 201);
     },
   )
@@ -83,6 +89,7 @@ export const caseNotesRoutes = new Hono<{
       const body = c.req.valid("json").body;
       await persistReviewerNote(db, c.var.viewer, id, body, "internal");
       await notifyInternalNote(db, id, c.var.viewer, body);
+      await emitMessageAdded(db, id, c.var.viewer.userId, false);
       return c.json({ ok: true }, 201);
     },
   );

@@ -24,7 +24,7 @@ import {
   readCaseNotes,
   writeCaseNote,
 } from "../../lib/case-notes.ts";
-import { excerpt, notifyCaseReviewer } from "../../lib/notifications.ts";
+import { emitMessageAdded, excerpt, notifyCaseReviewer } from "../../lib/notifications.ts";
 import { buildClientCaseDetail, listClientCampaigns } from "../../lib/client-views.ts";
 import type { ViewerVariables } from "../../middleware/require-role.ts";
 import { readEvidenceInput } from "./evidence-upload.ts";
@@ -283,6 +283,7 @@ export const campaignRoutes = new Hono<{
         title: "New message from the campaign creator",
         body: excerpt(body),
       });
+      await emitMessageAdded(db, id, viewer.userId, true);
       return c.json({ ok: true }, 201);
     },
   )

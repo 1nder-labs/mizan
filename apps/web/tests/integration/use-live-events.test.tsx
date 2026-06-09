@@ -110,6 +110,38 @@ describe("subscribeLiveEvents", () => {
     });
   });
 
+  test("invalidates both reviewer + client note threads on case.message_added", async () => {
+    vi.stubGlobal("EventSource", MockEventSource);
+    vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
+    vi.stubGlobal("navigator", { locks: undefined });
+    const queryClient = new QueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    subscribeLiveEvents("case:case-1", queryClient, undefined, true);
+    const source = MockEventSource.instances[0];
+    source?.emit(
+      "case.message_added",
+      JSON.stringify({
+        topic: "case:case-1",
+        seq: 1,
+        event_type: "case.message_added",
+        payload: { event_type: "case.message_added", case_id: "case-1" },
+        emitted_at: Date.now(),
+        actor_user_id: "user-1",
+        organization_id: "org-1",
+      }),
+    );
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: queryKeys.cases.notes("case-1"),
+        refetchType: "all",
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: queryKeys.portal.notes("case-1"),
+        refetchType: "all",
+      });
+    });
+  });
+
   test("skips schema-invalid rows without closing the source", async () => {
     vi.stubGlobal("EventSource", MockEventSource);
     vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
