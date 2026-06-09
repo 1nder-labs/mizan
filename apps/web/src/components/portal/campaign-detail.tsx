@@ -4,9 +4,9 @@
  * header, organizer ask card, evidence panel, and note thread. An
  * inline edit form toggles when the campaign is still in submitted state.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
+import { getRouteApi, Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { CampaignCategoryEnum, ZakatCategoryEnum } from "@mizan/shared";
 import type { ClientCaseDetail, CampaignCreate } from "@mizan/shared";
@@ -224,9 +224,20 @@ function EvidenceSection({
   );
 }
 
+/** Scrolls the Messages section into view when navigated with `#messages` (e.g. from a notification). */
+function useScrollToMessages(): void {
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash === "messages") {
+      document.getElementById("messages")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [hash]);
+}
+
 function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JSX.Element {
   const [editing, setEditing] = useState(false);
   const evidenceReadOnly = detail.status === "approved" || detail.status === "not_approved";
+  useScrollToMessages();
 
   function handleEditDone(): void {
     setEditing(false);
@@ -255,7 +266,7 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
         <ResubmitBar campaignId={detail.id} canResubmit={detail.canResubmit} />
       ) : null}
       <Separator />
-      <section className="space-y-4">
+      <section id="messages" className="scroll-mt-20 space-y-4">
         <h2 className="text-xl font-semibold tracking-[-0.01em]">{COPY.portal.detailNotesTitle}</h2>
         <NoteThread campaignId={detail.id} />
         {detail.status === "approved" || detail.status === "not_approved" ? (
