@@ -267,6 +267,10 @@ export const COPY = {
     intakeSectionAbout: "About the campaign",
     intakeSectionClassify: "Classification",
     intakeSectionCommunity: "Community",
+    intakeCampaignTitle: "Campaign title",
+    intakeCampaignTitlePlaceholder: "e.g. Help Yusuf recover from heart surgery",
+    intakeCampaignTitleHelp:
+      "A short headline for your campaign — what the reviewer and donors see first.",
     intakeStory: "Campaign story",
     intakeStoryPlaceholder: "Describe what you are raising funds for…",
     intakeStoryHelp: "A few sentences on who this helps and why now.",
@@ -297,6 +301,7 @@ export const COPY = {
     intakeCancel: "Cancel",
     intakeError: "Could not save your campaign. Check the fields and try again.",
     detailBack: "Back to my campaigns",
+    detailOrganizerPrefix: "Organized by",
     detailLoadError: "Could not load this campaign.",
     detailEvidenceTitle: "Documents",
     detailEvidenceSubtitle: "Upload the three documents the reviewer needs.",

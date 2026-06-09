@@ -28,6 +28,7 @@ export function buildDefaultValues(
   initial: CampaignDraft | undefined,
 ): DefaultValues<CampaignCreate> {
   return {
+    title: initial?.title ?? "",
     story: initial?.story ?? "",
     organizer_name: initial?.organizer_name ?? "",
     geography: initial?.geography ?? "",

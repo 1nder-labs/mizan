@@ -64,7 +64,7 @@ function createCampaign(db: Db, viewer: ViewerContext, input: CampaignCreate) {
     .insert(cases)
     .values({
       status: "DRAFT",
-      title: input.organizer_name,
+      title: input.title,
       category: input.category,
       geography: input.geography,
       claimed_zakat_category: input.claimed_zakat_category ?? null,
@@ -202,7 +202,7 @@ export const campaignRoutes = new Hono<{
       const updated = await db
         .update(cases)
         .set({
-          title: input.organizer_name,
+          title: input.title,
           category: input.category,
           geography: input.geography,
           claimed_zakat_category: input.claimed_zakat_category ?? null,

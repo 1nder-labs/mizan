@@ -115,9 +115,12 @@ function DetailHeader({
           {COPY.portal.detailBack}
         </Link>
         <div className="mt-2 flex items-center gap-2">
-          <h1 className="text-3xl font-semibold text-display">{detail.organizerName}</h1>
+          <h1 className="text-3xl font-semibold text-display">{detail.title}</h1>
           <ClientStatusBadge status={detail.status} />
         </div>
+        <p className="text-sm text-muted-foreground">
+          {COPY.portal.detailOrganizerPrefix} {detail.organizerName}
+        </p>
       </div>
       {detail.status === "submitted" || detail.status === "draft" ? (
         <Button variant="outline" size="sm" onClick={onEditToggle} disabled={editing}>
@@ -134,6 +137,7 @@ function buildInitial(detail: ClientCaseDetail): Partial<CampaignCreate> {
     ? ZakatCategoryEnum.safeParse(detail.claimedZakatCategory)
     : undefined;
   return {
+    title: detail.title,
     story: detail.story,
     organizer_name: detail.organizerName,
     geography: detail.geography,

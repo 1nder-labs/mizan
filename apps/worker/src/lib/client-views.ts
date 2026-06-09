@@ -182,6 +182,7 @@ export async function buildClientCaseDetail(
   return ClientCaseDetailSchema.parse({
     id: campaign.id,
     status,
+    title: campaign.title,
     category: campaign.category,
     geography: campaign.geography,
     claimedZakatCategory: campaign.claimed_zakat_category,

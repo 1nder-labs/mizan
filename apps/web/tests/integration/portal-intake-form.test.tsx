@@ -53,6 +53,7 @@ describe("<IntakeForm /> (create)", () => {
     const onDone = vi.fn();
     const ui = mount(onDone);
 
+    await user.type(ui.getByLabelText(/campaign title/i), "Clean-water wells initiative");
     await user.type(ui.getByLabelText(/campaign story/i), "Clean-water wells for the village.");
     await user.type(ui.getByLabelText(/organizer name/i), "Ahmad Hassan");
 
@@ -67,7 +68,11 @@ describe("<IntakeForm /> (create)", () => {
     await waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
     expect(onDone).toHaveBeenCalledWith("campaign-1");
     expect(createMock).toHaveBeenCalledWith(
-      expect.objectContaining({ category: "food_security", geography: "KE" }),
+      expect.objectContaining({
+        title: "Clean-water wells initiative",
+        category: "food_security",
+        geography: "KE",
+      }),
     );
   });
 });

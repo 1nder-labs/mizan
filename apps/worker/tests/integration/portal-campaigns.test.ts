@@ -19,6 +19,7 @@ import { BASE, REVIEW_ORG_ID, seedReviewOrgWithAdmin, send, signUp } from "./por
 const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 
 const VALID_BODY = {
+  title: "Clean-water wells initiative",
   story: "We are raising funds to build clean-water wells in rural villages.",
   organizer_name: "Ahmad Hassan",
   category: "food_security",
@@ -99,7 +100,7 @@ describe("portal campaigns", () => {
     expect(row?.status).toBe("DRAFT");
     expect(row?.organization_id).toBe(REVIEW_ORG_ID);
     expect(row?.created_by).toBe(clientAId);
-    expect(row?.title).toBe(VALID_BODY.organizer_name);
+    expect(row?.title).toBe(VALID_BODY.title);
     expect(row?.category).toBe(VALID_BODY.category);
     expect(row?.claimed_zakat_category).toBe(VALID_BODY.claimed_zakat_category);
 
@@ -149,6 +150,7 @@ describe("portal campaigns", () => {
     await seedDocRow(id, REVIEW_ORG_ID, "creator_id", `${id}/creator_id/uuid-xyz`);
 
     const res = await send("PATCH", `${CAMPAIGNS_URL}/${id}`, clientACookie, {
+      title: VALID_BODY.title,
       story: "Cleared the vouching narrative.",
       organizer_name: VALID_BODY.organizer_name,
       category: VALID_BODY.category,

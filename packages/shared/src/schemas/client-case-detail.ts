@@ -56,6 +56,7 @@ export const ClientCaseDetailSchema = z
   .object({
     id: z.string(),
     status: ClientStatusEnum,
+    title: z.string(),
     category: z.string(),
     geography: z.string(),
     claimedZakatCategory: z.string().nullable(),

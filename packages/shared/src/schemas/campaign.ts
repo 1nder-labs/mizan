@@ -17,9 +17,11 @@ import { COUNTRY_CODE_SET } from "../data/countries.ts";
  */
 const STORY_MAX = 5000;
 const NAME_MAX = 200;
+const TITLE_MAX = 120;
 
 export const CampaignCreateSchema = z
   .object({
+    title: z.string().min(3).max(TITLE_MAX),
     story: z.string().min(1).max(STORY_MAX),
     organizer_name: z.string().min(1).max(NAME_MAX),
     category: CampaignCategoryEnum,
