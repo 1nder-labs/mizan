@@ -66,3 +66,10 @@ apps/web/.playwright/
 
 # Local dev upload fixtures (sample documents, generated)
 /fixtures/
+
+# Synthetic campaign packets — commit the usable data (campaign.json + the PDF
+# evidence + README/INDEX), NOT the weasyprint HTML / generation scratch.
+/synthetic-campaigns/**/*.html
+/synthetic-campaigns/**/*.js
+/synthetic-campaigns/**/*.py
+/synthetic-campaigns/**/*.sh
