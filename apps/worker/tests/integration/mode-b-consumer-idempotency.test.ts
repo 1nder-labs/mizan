@@ -52,7 +52,7 @@ describe("Mode B consumer idempotency", () => {
       const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
         .bind(caseId)
         .first<{ status: string }>();
-      expect(row?.status).toBe("READY_FOR_REVIEW");
+      expect(row?.status).toBe("SUSPENDED_HITL");
       const signalCount = await env.DB.prepare(
         "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
       )
@@ -144,7 +144,7 @@ describe("Mode B consumer idempotency", () => {
       const finalRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
         .bind(caseId)
         .first<{ status: string }>();
-      expect(finalRow?.status).toBe("READY_FOR_REVIEW");
+      expect(finalRow?.status).toBe("SUSPENDED_HITL");
     },
     60_000,
   );
@@ -226,7 +226,7 @@ describe("Mode B consumer idempotency", () => {
       const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
         .bind(caseId)
         .first<{ status: string }>();
-      expect(row?.status).toBe("READY_FOR_REVIEW");
+      expect(row?.status).toBe("SUSPENDED_HITL");
       const signalCount = await env.DB.prepare(
         "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
       )

@@ -91,7 +91,7 @@ interface CaseOpts {
 /** Inserts a minimal case row with the required organization_id. */
 async function insertCase(opts: CaseOpts): Promise<void> {
   const now = Date.now();
-  const status = opts.status ?? "READY_FOR_REVIEW";
+  const status = opts.status ?? "SUSPENDED_HITL";
   await env.DB.prepare(
     `INSERT INTO cases
        (id, status, category, geography, claimed_zakat_category, brief_partial_json,

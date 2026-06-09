@@ -29,7 +29,7 @@ describe.skipIf(!RUN_REMOTE_VECTORIZE)("Mode B consumer concurrency", () => {
     env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
   }, 60_000);
 
-  it("processes four queued cases to READY_FOR_REVIEW under parallel delivery", async () => {
+  it("processes four queued cases to SUSPENDED_HITL under parallel delivery", async () => {
     const jobs = Array.from({ length: 4 }, () => ({
       caseId: crypto.randomUUID(),
       runId: crypto.randomUUID(),
@@ -59,7 +59,7 @@ describe.skipIf(!RUN_REMOTE_VECTORIZE)("Mode B consumer concurrency", () => {
       const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
         .bind(job.caseId)
         .first<{ status: string }>();
-      expect(row?.status).toBe("READY_FOR_REVIEW");
+      expect(row?.status).toBe("SUSPENDED_HITL");
     }
   }, 120_000);
 
@@ -93,7 +93,7 @@ describe.skipIf(!RUN_REMOTE_VECTORIZE)("Mode B consumer concurrency", () => {
     const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
       .bind(caseId)
       .first<{ status: string }>();
-    expect(row?.status).toBe("READY_FOR_REVIEW");
+    expect(row?.status).toBe("SUSPENDED_HITL");
     const signalCount = await env.DB.prepare(
       "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
     )

@@ -55,7 +55,7 @@ async function insertCase(
   const now = Date.now();
   await env.DB.prepare(
     `INSERT INTO cases (id, status, category, geography, claimed_zakat_category, brief_partial_json, assigned_to, created_by, organization_id, created_at, updated_at)
-     VALUES (?, 'READY_FOR_REVIEW', 'humanitarian', 'US', NULL, NULL, ?, ?, ?, ?, ?)`,
+     VALUES (?, 'SUSPENDED_HITL', 'humanitarian', 'US', NULL, NULL, ?, ?, ?, ?, ?)`,
   )
     .bind(id, assignedTo, createdBy, orgId, now, now)
     .run();
