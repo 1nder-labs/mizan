@@ -46,7 +46,6 @@ const COLUMN_SPECS: readonly KanbanColumnSpec[] = [
   { status: "QUEUED", readOnly: false },
   { status: "RUNNING", readOnly: true },
   { status: "SUSPENDED_HITL", readOnly: false },
-  { status: "READY_FOR_REVIEW", readOnly: false },
   { status: "ACTIONED", readOnly: false },
   { status: "FAILED", readOnly: true },
 ];
@@ -57,7 +56,6 @@ function emptyGroups(): Record<CaseStatus, CaseRow[]> {
     QUEUED: [],
     RUNNING: [],
     SUSPENDED_HITL: [],
-    READY_FOR_REVIEW: [],
     ACTIONED: [],
     FAILED: [],
   };

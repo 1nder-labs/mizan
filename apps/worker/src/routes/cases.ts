@@ -54,7 +54,7 @@ function wantsEventStream(c: BriefContext): boolean {
 /**
  * Flips the case to FAILED when a brief SSE stream finishes without the
  * workflow having advanced the row off RUNNING. The workflow self-transitions
- * to READY_FOR_REVIEW / SUSPENDED_HITL on success, so the guarded transition
+ * to SUSPENDED_HITL on success, so the guarded transition
  * is a no-op there; only a genuinely stuck run — a step threw mid-stream, which
  * the workflow stream serialises as a silent `{ status: "failed" }` with no
  * error text — is failed + emitted. Without this the row sticks in RUNNING,
@@ -240,7 +240,7 @@ export const caseRoutes = new Hono<{
  * Both the runId guard and the `status='RUNNING'` guard ensure we only
  * mutate the case row whose run THIS handler started AND has not yet
  * advanced past RUNNING — a concurrent reviewer action or finalisation
- * that already reached READY_FOR_REVIEW / ACTIONED is preserved.
+ * that already reached SUSPENDED_HITL / ACTIONED is preserved.
  * Abort (client disconnect) → DRAFT so the reviewer can retry.
  * Pre-stream throw → FAILED so the row surfaces in operator queries
  * for stuck / broken cases instead of looking like a fresh draft.

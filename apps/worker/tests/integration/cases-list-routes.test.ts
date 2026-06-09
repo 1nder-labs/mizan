@@ -52,7 +52,7 @@ describe("GET /api/cases — queue list route", () => {
 
     await insertCase({
       id: CASE_A_ID,
-      status: "READY_FOR_REVIEW",
+      status: "SUSPENDED_HITL",
       category: "medical",
       geography: "US",
       createdBy: reviewerUserId,
@@ -74,7 +74,7 @@ describe("GET /api/cases — queue list route", () => {
 
     await insertCase({
       id: CASE_C_ID,
-      status: "READY_FOR_REVIEW",
+      status: "SUSPENDED_HITL",
       category: "medical",
       geography: "CA",
       createdBy: reviewerUserId,
@@ -154,14 +154,14 @@ describe("GET /api/cases — queue list route", () => {
     expect(() => QueueResponseSchema.parse(body)).not.toThrow();
   });
 
-  it("?status=READY_FOR_REVIEW returns only READY_FOR_REVIEW cases", async () => {
+  it("?status=SUSPENDED_HITL returns only SUSPENDED_HITL cases", async () => {
     const res = await exports.default.fetch(
-      new Request(`${BASE}/api/cases?status=READY_FOR_REVIEW`, {
+      new Request(`${BASE}/api/cases?status=SUSPENDED_HITL`, {
         headers: { Cookie: reviewerCookie },
       }),
     );
     const body = QueueResponseSchema.parse(await res.json());
-    expect(body.cases.every((c) => c.status === "READY_FOR_REVIEW")).toBe(true);
+    expect(body.cases.every((c) => c.status === "SUSPENDED_HITL")).toBe(true);
     expect(body.total).toBe(2);
   });
 
@@ -189,7 +189,7 @@ describe("GET /api/cases — queue list route", () => {
 
   it("combined filters intersect correctly", async () => {
     const res = await exports.default.fetch(
-      new Request(`${BASE}/api/cases?status=READY_FOR_REVIEW&category=medical&geography=US`, {
+      new Request(`${BASE}/api/cases?status=SUSPENDED_HITL&category=medical&geography=US`, {
         headers: { Cookie: reviewerCookie },
       }),
     );
@@ -255,7 +255,7 @@ describe("GET /api/cases — queue list route", () => {
 
   it("case with brief surfaces latest_brief: { recommendation, verification_path }", async () => {
     const res = await exports.default.fetch(
-      new Request(`${BASE}/api/cases?status=READY_FOR_REVIEW&geography=US`, {
+      new Request(`${BASE}/api/cases?status=SUSPENDED_HITL&geography=US`, {
         headers: { Cookie: reviewerCookie },
       }),
     );

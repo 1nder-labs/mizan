@@ -119,15 +119,15 @@ function buildPromptBody(
 /**
  * Persists the composed brief without flipping case status.
  *
- * `cases.status = READY_FOR_REVIEW` is intentionally deferred to a
- * terminal step (`finalizeCaseStatus`) that runs after
+ * The status flip to SUSPENDED_HITL is intentionally deferred to the
+ * terminal `awaitReviewerAction` step, which runs after
  * `draftOrganizerMessage` and `forcedEscalateGate`. The old
- * "insert-brief-and-flip-status" batch let a reviewer poll
- * `READY_FOR_REVIEW` for the 1–5s window between composeBrief and the
- * gate firing, observing a stale REQUEST_DOCS recommendation that would
- * be overwritten to ESCALATE moments later. Splitting persistence from
- * status transition keeps the case in RUNNING until every post-LLM
- * mutation has committed.
+ * "insert-brief-and-flip-status" batch let a reviewer poll the awaiting
+ * state for the 1–5s window between composeBrief and the gate firing,
+ * observing a stale REQUEST_DOCS recommendation that would be overwritten
+ * to ESCALATE moments later. Splitting persistence from the status
+ * transition keeps the case in RUNNING until every post-LLM mutation
+ * has committed.
  *
  * Uses `onConflictDoUpdate` (not `onConflictDoNothing`) so a
  * compose-only retry — queue redelivery between composeBrief and the

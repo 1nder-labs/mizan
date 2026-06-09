@@ -365,7 +365,6 @@ const STATUS_DISPLAY: Readonly<Record<CaseStatus, string>> = {
   QUEUED: "Queued",
   RUNNING: "In progress",
   SUSPENDED_HITL: "Awaiting reviewer",
-  READY_FOR_REVIEW: "Ready for review",
   ACTIONED: "Actioned",
   FAILED: "Failed",
 };

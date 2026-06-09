@@ -61,9 +61,9 @@ export interface ClassifyTimeInputs {
  *     is the mutex; Mastra's runId-keyed D1 persistence is the
  *     double-execution backstop against the same run.
  *
- * SUSPENDED_HITL / READY_FOR_REVIEW / ACTIONED / FAILED are terminal
- * for this consumer (FAILED is terminal for this runId — the DLQ
- * flipped it; producer retry mints a fresh runId).
+ * SUSPENDED_HITL / ACTIONED / FAILED are terminal for this consumer
+ * (FAILED is terminal for this runId — the DLQ flipped it; producer
+ * retry mints a fresh runId).
  *
  * DRAFT is structurally orphan (producer-guard always mints QUEUED
  * before send). Log + ack.
@@ -80,7 +80,6 @@ export function classifyRedelivery(
 ): RedeliveryAction {
   if (row.current_run_id !== runId) return "ack-mismatch";
   switch (row.status) {
-    case "READY_FOR_REVIEW":
     case "ACTIONED":
     case "SUSPENDED_HITL":
     case "FAILED":

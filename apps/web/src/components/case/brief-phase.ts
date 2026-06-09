@@ -35,10 +35,7 @@ export type PhaseEvent =
 
 export const INITIAL_PHASE: StreamPhase = { userTriggered: false, streamErrored: false };
 
-const SHOW_PERSISTED_STATUSES: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
-  "READY_FOR_REVIEW",
-  "ACTIONED",
-]);
+const SHOW_PERSISTED_STATUSES: ReadonlySet<CaseStatus> = new Set<CaseStatus>(["ACTIONED"]);
 
 export function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase {
   switch (event.type) {

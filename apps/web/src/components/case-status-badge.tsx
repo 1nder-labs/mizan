@@ -36,10 +36,6 @@ const STATUS_VARIANT: Record<
     container: "bg-status-warning text-status-warning-foreground border-status-warning-border",
     dot: "bg-status-warning-foreground",
   },
-  READY_FOR_REVIEW: {
-    container: "bg-status-success text-status-success-foreground border-status-success-border",
-    dot: "bg-status-success-foreground",
-  },
   ACTIONED: {
     container:
       "bg-status-success-strong text-status-success-strong-foreground border-status-success-strong",

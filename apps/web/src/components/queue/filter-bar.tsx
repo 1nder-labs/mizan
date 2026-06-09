@@ -40,7 +40,6 @@ const ALL_VALUE = "__all__";
 const FILTER_STATUSES: readonly CaseStatus[] = [
   "QUEUED",
   "RUNNING",
-  "READY_FOR_REVIEW",
   "SUSPENDED_HITL",
   "ACTIONED",
   "FAILED",

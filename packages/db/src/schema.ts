@@ -46,15 +46,7 @@ export const cases = sqliteTable(
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     status: text("status", {
-      enum: [
-        "DRAFT",
-        "QUEUED",
-        "RUNNING",
-        "SUSPENDED_HITL",
-        "READY_FOR_REVIEW",
-        "ACTIONED",
-        "FAILED",
-      ] as const,
+      enum: ["DRAFT", "QUEUED", "RUNNING", "SUSPENDED_HITL", "ACTIONED", "FAILED"] as const,
     })
       .notNull()
       .default("DRAFT"),

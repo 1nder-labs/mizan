@@ -36,15 +36,7 @@ describe("classifyRedelivery", () => {
     expect(classifyRedelivery(row, RUN_ID, 1, FRESH)).toBe("ack-mismatch");
   });
 
-  it("returns ack-terminal for READY_FOR_REVIEW, ACTIONED, SUSPENDED_HITL, FAILED", () => {
-    expect(
-      classifyRedelivery(
-        makeCase({ status: "READY_FOR_REVIEW", current_run_id: RUN_ID }),
-        RUN_ID,
-        1,
-        FRESH,
-      ),
-    ).toBe("ack-terminal");
+  it("returns ack-terminal for ACTIONED, SUSPENDED_HITL, FAILED", () => {
     expect(
       classifyRedelivery(
         makeCase({ status: "ACTIONED", current_run_id: RUN_ID }),

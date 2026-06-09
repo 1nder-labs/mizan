@@ -2,12 +2,10 @@ import type { CaseStatus } from "./queue-search.ts";
 
 /**
  * Statuses where the case has stopped progressing on its own — either
- * reviewer-actioned, terminally failed, or awaiting first-look-only.
- * Used by the SSE stream route to skip live-tail polling and by the
- * web client to derive UI panel modes.
+ * reviewer-actioned or terminally failed. Used by the SSE stream route to
+ * skip live-tail polling and by the web client to derive UI panel modes.
  */
 export const TERMINAL_CASE_STATUSES: ReadonlySet<CaseStatus> = new Set<CaseStatus>([
-  "READY_FOR_REVIEW",
   "ACTIONED",
   "FAILED",
 ]);

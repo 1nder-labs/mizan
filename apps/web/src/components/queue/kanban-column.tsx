@@ -30,7 +30,6 @@ const STATUS_TONE: Readonly<Record<CaseStatus, string>> = {
   QUEUED: "bg-status-info",
   RUNNING: "bg-status-info-foreground",
   SUSPENDED_HITL: "bg-status-warning-border",
-  READY_FOR_REVIEW: "bg-status-neutral-foreground",
   ACTIONED: "bg-status-success-border",
   FAILED: "bg-status-destructive-border",
 };
@@ -40,7 +39,6 @@ const STATUS_RAIL: Readonly<Record<CaseStatus, string>> = {
   QUEUED: "from-status-info/0 via-status-info/40 to-status-info/0",
   RUNNING: "from-status-info/0 via-status-info/60 to-status-info/0",
   SUSPENDED_HITL: "from-status-warning/0 via-status-warning/40 to-status-warning/0",
-  READY_FOR_REVIEW: "from-status-neutral/0 via-status-neutral/60 to-status-neutral/0",
   ACTIONED: "from-status-success/0 via-status-success/40 to-status-success/0",
   FAILED: "from-status-destructive/0 via-status-destructive/40 to-status-destructive/0",
 };
