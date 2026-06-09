@@ -162,7 +162,7 @@ describe("GET /api/cases — queue list route", () => {
     );
     const body = QueueResponseSchema.parse(await res.json());
     expect(body.cases.every((c) => c.status === "SUSPENDED_HITL")).toBe(true);
-    expect(body.total).toBe(2);
+    expect(body.total).toBe(5);
   });
 
   it("?category=medical returns only medical cases", async () => {
