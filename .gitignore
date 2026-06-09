@@ -71,5 +71,9 @@ apps/web/.playwright/
 # evidence + README/INDEX), NOT the weasyprint HTML / generation scratch.
 /synthetic-campaigns/**/*.html
 /synthetic-campaigns/**/*.js
+/synthetic-campaigns/**/*.mjs
 /synthetic-campaigns/**/*.py
 /synthetic-campaigns/**/*.sh
+/synthetic-campaigns/**/*.jpg
+/synthetic-campaigns/**/*.jpeg
+/synthetic-campaigns/**/*.png
