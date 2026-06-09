@@ -10,6 +10,8 @@ import {
   CAMPAIGN_CATEGORY_OPTIONS,
   COUNTRIES,
   isCaseStatus,
+  REVIEWER_DISPOSITION_LABEL,
+  type CaseDisposition,
   type CaseStatus,
   type QueueSearch,
 } from "@mizan/shared";
@@ -48,6 +50,16 @@ const FILTER_STATUSES: readonly CaseStatus[] = [
 const STATUS_TABS: readonly { readonly value: "all" | CaseStatus; readonly label: string }[] = [
   { value: "all", label: "All" },
   ...FILTER_STATUSES.map((status) => ({ value: status, label: CASE_STATUS_LABEL[status] })),
+];
+
+/** Outcome buckets a reviewer triages by — the post-decision subset of dispositions. */
+const FILTER_OUTCOMES: readonly CaseDisposition[] = [
+  "AWAITING_REVIEWER",
+  "NEEDS_CLIENT_DOCS",
+  "CLIENT_REPLIED",
+  "ESCALATED",
+  "APPROVED",
+  "DECLINED",
 ];
 
 interface FilterBarProps {
@@ -149,6 +161,36 @@ function CategorySelect({
   );
 }
 
+/** Outcome dropdown — narrows the queue to one canonical disposition bucket. */
+function OutcomeSelect({
+  value,
+  onChange,
+}: {
+  readonly value: CaseDisposition | undefined;
+  readonly onChange: (next: CaseDisposition | undefined) => void;
+}): React.JSX.Element {
+  return (
+    <Select
+      value={value ?? ALL_VALUE}
+      onValueChange={(next) =>
+        onChange(next === ALL_VALUE ? undefined : FILTER_OUTCOMES.find((o) => o === next))
+      }
+    >
+      <SelectTrigger className="h-9 w-48" aria-label="Filter by outcome">
+        <SelectValue placeholder="Outcome" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_VALUE}>All outcomes</SelectItem>
+        {FILTER_OUTCOMES.map((outcome) => (
+          <SelectItem key={outcome} value={outcome}>
+            {REVIEWER_DISPOSITION_LABEL[outcome]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 /** The "all" sentinel + one option per country, with a selected check. */
 function CountryOptions({
   value,
@@ -228,6 +270,10 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
           key={`title-${search.title ?? ""}`}
           value={search.title}
           onCommit={(next) => onSearchChange({ title: next })}
+        />
+        <OutcomeSelect
+          value={search.outcome}
+          onChange={(next) => onSearchChange({ outcome: next })}
         />
         <CategorySelect
           value={search.category}

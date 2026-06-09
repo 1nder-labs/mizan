@@ -14,8 +14,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useNavigate } from "@tanstack/react-router";
 import { Clock, ContactRound } from "lucide-react";
-import type { CaseRow } from "@mizan/shared";
+import { deriveCaseDisposition, type CaseRow } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
+import { CaseDispositionBadge } from "@/components/case-disposition-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Card } from "@/components/ui/card.tsx";
@@ -63,7 +64,37 @@ function MetaLine({
   );
 }
 
-/** Footer: AI recommendation, assignee (when set), and the last-updated stamp. */
+/** One labelled verdict row: the outcome badge once actioned, else the AI rec. */
+function CardVerdict({ row }: { readonly row: CaseRow }): React.JSX.Element | null {
+  const label = (
+    <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
+      {row.latest_action ? "Outcome" : "AI rec"}
+    </span>
+  );
+  if (row.latest_action) {
+    const disposition = deriveCaseDisposition({
+      status: row.status,
+      latestAction: row.latest_action,
+      clientResponded: row.client_responded,
+      submitted: true,
+    });
+    return (
+      <div className="flex items-center justify-between gap-2">
+        {label}
+        <CaseDispositionBadge disposition={disposition} />
+      </div>
+    );
+  }
+  if (!row.latest_brief) return null;
+  return (
+    <div className="flex items-center justify-between gap-2">
+      {label}
+      <RecommendationBadge recommendation={row.latest_brief.recommendation} />
+    </div>
+  );
+}
+
+/** Footer: the case verdict, assignee (when set), and the last-updated stamp. */
 function CardMeta({
   row,
   assigneeName,
@@ -73,14 +104,7 @@ function CardMeta({
 }): React.JSX.Element {
   return (
     <div className="space-y-2 border-t border-border/40 pt-2.5">
-      {row.latest_brief ? (
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
-            AI rec
-          </span>
-          <RecommendationBadge recommendation={row.latest_brief.recommendation} />
-        </div>
-      ) : null}
+      <CardVerdict row={row} />
       {row.assigned_to ? (
         <MetaLine icon={ContactRound}>
           Assigned to{" "}

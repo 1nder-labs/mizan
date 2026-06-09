@@ -1,7 +1,7 @@
 /**
  * Shared case read helpers for HTTP routes and Mastra chat tools.
  */
-import { and, asc, count, desc, eq, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, isNull, or, sql, type SQL } from "drizzle-orm";
 import {
   briefs as briefsTable,
   caseListProjection,
@@ -9,6 +9,13 @@ import {
   members,
   type Db,
 } from "@mizan/db";
+import {
+  buildOutcomeFilter,
+  buildQueueOrder,
+  clientRespondedFromRow,
+  latestActionCols,
+  mapCaseRow,
+} from "./queue-disposition.ts";
 import {
   BRIEF_HISTORY_LIMIT,
   CaseDetailResponseSchema,
@@ -33,39 +40,6 @@ export class NotFoundError extends Error {
     super(message);
     this.name = "NotFoundError";
   }
-}
-
-interface PublicCaseColumns {
-  readonly id: string;
-  readonly status: CaseRow["status"];
-  readonly title: string;
-  readonly category: string;
-  readonly geography: string;
-  readonly claimed_zakat_category: string | null;
-  readonly created_at: Date;
-  readonly updated_at: Date;
-  readonly assigned_to: string | null;
-}
-
-/** Maps shared public case columns + a resolved brief to the wire `CaseRow`. */
-function mapCaseRow(
-  row: PublicCaseColumns,
-  latestBrief: LatestBriefProjection | null,
-  clientSubmitted: boolean,
-): CaseRow {
-  return {
-    id: row.id,
-    status: row.status,
-    title: row.title,
-    category: row.category,
-    geography: row.geography,
-    claimed_zakat_category: row.claimed_zakat_category,
-    created_at: row.created_at.getTime(),
-    updated_at: row.updated_at.getTime(),
-    latest_brief: latestBrief,
-    assigned_to: row.assigned_to,
-    client_submitted: clientSubmitted,
-  };
 }
 
 /**
@@ -131,15 +105,10 @@ function buildFilters(search: QueueSearch, viewer: ViewerContext): SQL {
   if (search.category) filters.push(sql`LOWER(${casesTable.category}) = LOWER(${search.category})`);
   if (search.geography)
     filters.push(sql`LOWER(${casesTable.geography}) = LOWER(${search.geography})`);
+  if (search.outcome) filters.push(...buildOutcomeFilter(search.outcome));
   const assignee = resolveAssigneeFilter(search, viewer);
   if (assignee) filters.push(assignee);
   return and(...filters) ?? eq(casesTable.organization_id, viewer.organizationId);
-}
-
-function buildOrder(sort: QueueSearch["sort"]): SQL {
-  if (sort === "updated_asc") return asc(casesTable.updated_at);
-  if (sort === "created_desc") return desc(casesTable.created_at);
-  return desc(casesTable.updated_at);
 }
 
 function latestBriefSubquery(caseIdCol: SQL) {
@@ -191,6 +160,19 @@ function resolveOverlay(raw: unknown): CaseOverlay | null {
   return parsed.success ? parsed.data : null;
 }
 
+/** Maps a persisted brief row to the wire `BriefSummary`, or null when absent. */
+function toBriefSummary(
+  brief: Awaited<ReturnType<typeof fetchLatestBriefRow>>,
+): BriefSummary | null {
+  if (!brief) return null;
+  return {
+    recommendation: brief.recommendation,
+    confidence: brief.confidence,
+    composed_at: brief.composed_at.getTime(),
+    payload_json: brief.payload_json,
+  };
+}
+
 /** Lists cases visible to the viewer within their active organization. */
 export async function listCasesForViewer(
   input: QueueSearch,
@@ -198,17 +180,22 @@ export async function listCasesForViewer(
   db: Db,
 ): Promise<QueueResponse> {
   const where = buildFilters(input, viewer);
-  const orderBy = buildOrder(input.sort);
   const offset = (input.page - 1) * QUEUE_PAGE_SIZE;
   const projection = caseListProjection();
   const briefCols = latestBriefSubquery(sql`${casesTable.id}`);
 
   const [rows, totalRows] = await Promise.all([
     db
-      .select({ ...projection, ...briefCols, clientSubmitted: clientSubmittedExpr() })
+      .select({
+        ...projection,
+        ...briefCols,
+        ...latestActionCols(),
+        clientSubmitted: clientSubmittedExpr(),
+        submittedAtMs: casesTable.submitted_at,
+      })
       .from(casesTable)
       .where(where)
-      .orderBy(orderBy)
+      .orderBy(...buildQueueOrder(input.sort))
       .limit(QUEUE_PAGE_SIZE)
       .offset(offset)
       .all(),
@@ -218,11 +205,16 @@ export async function listCasesForViewer(
   const total = totalRows[0]?.value ?? 0;
   return {
     cases: rows.map((row) =>
-      mapCaseRow(
-        row,
-        resolveLatestBrief(row.latestRecommendation, row.latestVerificationPath),
-        row.clientSubmitted === 1,
-      ),
+      mapCaseRow(row, {
+        latestBrief: resolveLatestBrief(row.latestRecommendation, row.latestVerificationPath),
+        clientSubmitted: row.clientSubmitted === 1,
+        latestAction: row.latestAction,
+        clientResponded: clientRespondedFromRow(
+          row.latestAction,
+          row.latestActedAt,
+          row.submittedAtMs?.getTime() ?? null,
+        ),
+      }),
     ),
     page: input.page,
     pageSize: QUEUE_PAGE_SIZE,
@@ -318,18 +310,17 @@ export async function fetchCaseDetail(
     ? resolveLatestBrief(brief.recommendation, brief.payload_json?.verification_path ?? null)
     : null;
   const latest = await latestReviewerAction(db, caseId);
+  const clientResponded = isClientResponded(latest, row.submittedAtMs?.getTime() ?? null);
   const draft: CaseDetailDraft = {
-    case: mapCaseRow(row, latestBrief, row.clientSubmitted === 1),
-    brief: brief
-      ? {
-          recommendation: brief.recommendation,
-          confidence: brief.confidence,
-          composed_at: brief.composed_at.getTime(),
-          payload_json: brief.payload_json,
-        }
-      : null,
+    case: mapCaseRow(row, {
+      latestBrief,
+      clientSubmitted: row.clientSubmitted === 1,
+      latestAction: latest?.action ?? null,
+      clientResponded,
+    }),
+    brief: toBriefSummary(brief),
     overlay: resolveOverlay(row.brief_partial_json),
-    client_responded: isClientResponded(latest, row.submittedAtMs?.getTime() ?? null),
+    client_responded: clientResponded,
     latest_action: latest?.action ?? null,
   };
   return parseCaseDetail(draft);

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { CaseStatus } from "./queue-search.ts";
 import type { ReviewerAction } from "./reviewer-action.ts";
 
@@ -41,6 +42,9 @@ const CASE_DISPOSITION_VALUES = [
 ] as const;
 
 export type CaseDisposition = (typeof CASE_DISPOSITION_VALUES)[number];
+
+/** Zod enum over the canonical disposition values — the queue `outcome` filter vocabulary. */
+export const CaseDispositionEnum = z.enum(CASE_DISPOSITION_VALUES);
 
 interface DispositionInput {
   readonly status: CaseStatus;

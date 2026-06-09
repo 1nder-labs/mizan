@@ -28,8 +28,8 @@ describe("QueueSearchSchema", () => {
   });
 
   test("accepts a known status enum value", () => {
-    const parsed = QueueSearchSchema.parse({ status: "READY_FOR_REVIEW" });
-    expect(parsed.status).toBe("READY_FOR_REVIEW");
+    const parsed = QueueSearchSchema.parse({ status: "SUSPENDED_HITL" });
+    expect(parsed.status).toBe("SUSPENDED_HITL");
   });
 
   test("drops unknown status via .catch(undefined)", () => {
@@ -40,7 +40,7 @@ describe("QueueSearchSchema", () => {
 
 describe("isCaseStatus", () => {
   test("returns true for known values", () => {
-    expect(isCaseStatus("READY_FOR_REVIEW")).toBe(true);
+    expect(isCaseStatus("SUSPENDED_HITL")).toBe(true);
     expect(isCaseStatus("DRAFT")).toBe(true);
   });
 

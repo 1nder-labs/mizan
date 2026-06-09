@@ -7,8 +7,14 @@
  */
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { CaseRow, QueueSearch, QueueSort } from "@mizan/shared";
+import {
+  deriveCaseDisposition,
+  type CaseRow,
+  type QueueSearch,
+  type QueueSort,
+} from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
+import { CaseDispositionBadge } from "@/components/case-disposition-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { formatCountry, humanVerification } from "@/lib/display-labels.ts";
@@ -108,6 +114,24 @@ const recommendationColumn: ColumnDef<CaseRow> = {
     ),
 };
 
+const outcomeColumn: ColumnDef<CaseRow> = {
+  id: "outcome",
+  header: "Outcome",
+  cell: ({ row }) =>
+    row.original.latest_action ? (
+      <CaseDispositionBadge
+        disposition={deriveCaseDisposition({
+          status: row.original.status,
+          latestAction: row.original.latest_action,
+          clientResponded: row.original.client_responded,
+          submitted: true,
+        })}
+      />
+    ) : (
+      <span className="text-xs text-muted-foreground">{EMPTY_CELL}</span>
+    ),
+};
+
 const verificationColumn: ColumnDef<CaseRow> = {
   id: "verification_path",
   header: "Verification",
@@ -128,6 +152,7 @@ function staticColumns(): ColumnDef<CaseRow>[] {
     geographyColumn,
     statusColumn,
     recommendationColumn,
+    outcomeColumn,
     verificationColumn,
   ];
 }

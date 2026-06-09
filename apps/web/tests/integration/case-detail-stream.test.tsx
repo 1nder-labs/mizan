@@ -46,12 +46,17 @@ import { CaseDetail } from "../../src/components/case/detail.tsx";
 const baseCase: CaseRow = {
   id: "11111111-1111-4111-8111-111111111111",
   status: "RUNNING",
+  title: "Test campaign",
   category: "humanitarian",
   geography: "PS",
   claimed_zakat_category: null,
   created_at: 1_700_000_000_000,
   updated_at: 1_700_000_500_000,
   latest_brief: null,
+  assigned_to: null,
+  client_submitted: false,
+  latest_action: null,
+  client_responded: false,
 };
 
 async function renderDetail(element: React.ReactNode): Promise<void> {
@@ -72,28 +77,60 @@ async function renderDetail(element: React.ReactNode): Promise<void> {
 describe("<CaseDetail /> stream routing", () => {
   test("RUNNING status does NOT auto-mount <BriefStream> (no page-load POST)", async () => {
     briefStreamSpy.onStreamError = undefined;
-    await renderDetail(<CaseDetail caseRow={baseCase} brief={null} />);
+    await renderDetail(
+      <CaseDetail
+        caseRow={baseCase}
+        brief={null}
+        overlay={null}
+        clientResponded={false}
+        latestAction={null}
+      />,
+    );
     expect(await screen.findByText(/workflow running/i)).toBeInTheDocument();
     expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
   });
 
   test("QUEUED status renders inflight panel, no BriefStream", async () => {
     briefStreamSpy.onStreamError = undefined;
-    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "QUEUED" }} brief={null} />);
+    await renderDetail(
+      <CaseDetail
+        caseRow={{ ...baseCase, status: "QUEUED" }}
+        brief={null}
+        overlay={null}
+        clientResponded={false}
+        latestAction={null}
+      />,
+    );
     expect(await screen.findByText(/queued for background processing/i)).toBeInTheDocument();
     expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
   });
 
   test("DRAFT does NOT mount <BriefStream>", async () => {
     briefStreamSpy.onStreamError = undefined;
-    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "DRAFT" }} brief={null} />);
+    await renderDetail(
+      <CaseDetail
+        caseRow={{ ...baseCase, status: "DRAFT" }}
+        brief={null}
+        overlay={null}
+        clientResponded={false}
+        latestAction={null}
+      />,
+    );
     expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
     expect(await screen.findByText(/no brief yet/i)).toBeInTheDocument();
   });
 
   test("user clicks Generate → BriefStream mounts; stream error → inflight; click Generate again → stream", async () => {
     briefStreamSpy.onStreamError = undefined;
-    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "DRAFT" }} brief={null} />);
+    await renderDetail(
+      <CaseDetail
+        caseRow={{ ...baseCase, status: "DRAFT" }}
+        brief={null}
+        overlay={null}
+        clientResponded={false}
+        latestAction={null}
+      />,
+    );
     const generateInitial = await screen.findByRole("button", { name: /generate brief/i });
     await userEvent.setup().click(generateInitial);
 
