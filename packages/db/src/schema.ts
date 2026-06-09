@@ -71,6 +71,12 @@ export const cases = sqliteTable(
      * created cases (their creator is not a `client`, so the queue shows them).
      */
     submitted_at: integer("submitted_at", { mode: "timestamp_ms" }),
+    /**
+     * Set when the case is archived — BLOCK auto-archives, and a reviewer may
+     * archive manually. Archived cases drop off the active queue (hidden unless
+     * the Archived filter is on) without losing their history.
+     */
+    archived_at: integer("archived_at", { mode: "timestamp_ms" }),
     created_by: text("created_by")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),

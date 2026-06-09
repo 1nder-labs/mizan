@@ -75,6 +75,7 @@ export function CaseDetailPage(): React.JSX.Element {
         overlay={data.overlay}
         clientResponded={data.client_responded}
         latestAction={data.latest_action}
+        archived={data.archived}
       />
     </AuthenticatedShell>
   );

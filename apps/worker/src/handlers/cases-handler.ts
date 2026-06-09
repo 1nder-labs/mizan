@@ -1,7 +1,7 @@
 /**
  * Shared case read helpers for HTTP routes and Mastra chat tools.
  */
-import { and, count, desc, eq, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import {
   briefs as briefsTable,
   caseListProjection,
@@ -106,6 +106,9 @@ function buildFilters(search: QueueSearch, viewer: ViewerContext): SQL {
   if (search.geography)
     filters.push(sql`LOWER(${casesTable.geography}) = LOWER(${search.geography})`);
   if (search.outcome) filters.push(...buildOutcomeFilter(search.outcome));
+  filters.push(
+    search.archived ? isNotNull(casesTable.archived_at) : isNull(casesTable.archived_at),
+  );
   const assignee = resolveAssigneeFilter(search, viewer);
   if (assignee) filters.push(assignee);
   return and(...filters) ?? eq(casesTable.organization_id, viewer.organizationId);
@@ -266,6 +269,7 @@ interface CaseDetailDraft {
   readonly overlay: CaseOverlay | null;
   readonly client_responded: boolean;
   readonly latest_action: ReviewerAction | null;
+  readonly archived: boolean;
 }
 
 /**
@@ -291,6 +295,7 @@ export async function fetchCaseDetail(
     brief_partial_json: casesTable.brief_partial_json,
     clientSubmitted: clientSubmittedExpr(),
     submittedAtMs: casesTable.submitted_at,
+    archivedAtMs: casesTable.archived_at,
   };
   const row = await db
     .select(projection)
@@ -322,6 +327,7 @@ export async function fetchCaseDetail(
     overlay: resolveOverlay(row.brief_partial_json),
     client_responded: clientResponded,
     latest_action: latest?.action ?? null,
+    archived: row.archivedAtMs !== null,
   };
   return parseCaseDetail(draft);
 }

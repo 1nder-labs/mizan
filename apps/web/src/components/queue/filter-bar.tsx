@@ -4,7 +4,7 @@
  * `onSearchChange`; the worker ANDs them into a single case-insensitive query,
  * so "Education + PK" returns exactly the cases matching both.
  */
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Archive, Check, ChevronsUpDown, Search } from "lucide-react";
 import { useState } from "react";
 import {
   CAMPAIGN_CATEGORY_OPTIONS,
@@ -283,6 +283,16 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
           value={search.geography}
           onChange={(next) => onSearchChange({ geography: next })}
         />
+        <Button
+          variant={search.archived ? "default" : "outline"}
+          size="sm"
+          className="h-9"
+          aria-pressed={search.archived ?? false}
+          onClick={() => onSearchChange({ archived: search.archived ? undefined : true })}
+        >
+          <Archive className="mr-1.5 size-3.5" />
+          Archived
+        </Button>
       </div>
     </div>
   );

@@ -43,6 +43,13 @@
       "when": 1780817929329,
       "tag": "0005_perpetual_preak",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1781009436164,
+      "tag": "0006_lethal_stark_industries",
+      "breakpoints": true
     }
   ]
 }

@@ -30,6 +30,8 @@ const TOOL_OUTPUT = {
     brief: null,
     overlay: { story: "Rebuilding a flooded school." },
     client_responded: false,
+    latest_action: null,
+    archived: false,
   },
 };
 

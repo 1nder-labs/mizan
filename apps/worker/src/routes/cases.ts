@@ -23,6 +23,7 @@ import { requireRole } from "../middleware/require-role.ts";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { actionRoutes } from "./actions.ts";
+import { archiveRoutes } from "./archive.ts";
 import { assignmentsRoutes } from "./assignments.ts";
 import { caseDocumentsRoutes } from "./case-documents.ts";
 import { caseNotesRoutes } from "./case-notes.ts";
@@ -223,6 +224,7 @@ export const caseRoutes = new Hono<{
   .use("/:id/*", requireCaseAccess)
   .route("/", casesListRoutes)
   .route("/", actionRoutes)
+  .route("/", archiveRoutes)
   .route("/", documentsRoutes)
   .route("/", caseDocumentsRoutes)
   .route("/", signalsRoutes)

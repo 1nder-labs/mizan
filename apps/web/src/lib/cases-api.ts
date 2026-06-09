@@ -54,6 +54,8 @@ function toQuery(search: QueueSearch): Record<string, string> {
   if (search.category) query.category = search.category;
   if (search.geography) query.geography = search.geography;
   if (search.assignee) query.assignee = search.assignee;
+  if (search.outcome) query.outcome = search.outcome;
+  if (search.archived) query.archived = "true";
   return query;
 }
 
@@ -108,6 +110,15 @@ export function caseBriefsQueryOptions(id: string) {
 async function readActionErrorCode(raw: unknown): Promise<ActionErrorCode | undefined> {
   const parsed = ActionErrorBodySchema.safeParse(raw);
   return parsed.success ? parsed.data.error : undefined;
+}
+
+/** Archives or unarchives a case; archived cases drop off the active queue. */
+export async function setCaseArchived(caseId: string, archived: boolean): Promise<void> {
+  const res = archived
+    ? await apiMutate.cases[":id"].archive.$post({ param: { id: caseId } })
+    : await apiMutate.cases[":id"].unarchive.$post({ param: { id: caseId } });
+  assertAuthorized(res.status);
+  if (!res.ok) throw await apiError(res);
 }
 
 export async function submitReviewerAction(

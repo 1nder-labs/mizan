@@ -36,6 +36,8 @@ export const CaseDetailResponseSchema = z.object({
   client_responded: z.boolean(),
   /** The most recent reviewer action on the case (null if none yet) — input to the disposition. */
   latest_action: ReviewerActionEnum.nullable(),
+  /** True when the case has been archived (BLOCK auto-archives, or a manual archive). */
+  archived: z.boolean(),
 });
 
 export type CaseDetailResponse = z.infer<typeof CaseDetailResponseSchema>;

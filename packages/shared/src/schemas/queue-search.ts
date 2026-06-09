@@ -60,6 +60,8 @@ export const QueueSearchSchema = z
     assignee: QueueAssigneeFilterEnum.optional().catch(undefined),
     /** Narrows by canonical outcome (CaseDisposition) — orthogonal to the pipeline `status` filter. */
     outcome: CaseDispositionEnum.optional().catch(undefined),
+    /** When true, shows ONLY archived cases; otherwise archived cases are hidden from the queue. */
+    archived: z.coerce.boolean().optional().catch(undefined),
   })
   .strict();
 

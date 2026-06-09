@@ -209,8 +209,18 @@ async function runPostActionChain(db: Db, input: PostActionInput): Promise<Brief
     actionId: input.actionId,
   });
   await emitTerminalEventBestEffort(db, input);
+  await archiveIfBlocked(db, input);
   await notifyCaseClient(db, input.caseId, input.reviewerId, decisionNotice(input.action));
   return brief.payload;
+}
+
+/** A BLOCK decision archives the case so it drops off the active queue. */
+async function archiveIfBlocked(db: Db, input: PostActionInput): Promise<void> {
+  if (input.action !== "BLOCK") return;
+  await db
+    .update(cases)
+    .set({ archived_at: new Date() })
+    .where(and(eq(cases.id, input.caseId), eq(cases.organization_id, input.organizationId)));
 }
 
 /** Friendly client-facing notice for a terminal reviewer action. */

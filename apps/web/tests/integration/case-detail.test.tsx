@@ -84,6 +84,7 @@ describe("<CaseDetail /> integration", () => {
         overlay={null}
         clientResponded={false}
         latestAction={null}
+        archived={false}
       />,
     );
     expect(await screen.findByText(/no brief yet/i)).toBeInTheDocument();
@@ -97,6 +98,7 @@ describe("<CaseDetail /> integration", () => {
         overlay={null}
         clientResponded={false}
         latestAction={null}
+        archived={false}
       />,
     );
     expect(await screen.findByText(/generation failed/i)).toBeInTheDocument();
@@ -110,6 +112,7 @@ describe("<CaseDetail /> integration", () => {
         overlay={null}
         clientResponded={false}
         latestAction={null}
+        archived={false}
       />,
     );
     expect(await screen.findByText("Recommendation")).toBeInTheDocument();
@@ -125,6 +128,7 @@ describe("<CaseDetail /> integration", () => {
         overlay={null}
         clientResponded={false}
         latestAction={null}
+        archived={false}
       />,
     );
     expect(await screen.findByText(/no brief on file/i)).toBeInTheDocument();
@@ -139,6 +143,7 @@ describe("<CaseDetail /> integration", () => {
         overlay={null}
         clientResponded={false}
         latestAction={null}
+        archived={false}
       />,
     );
     expect(await screen.findByRole("button", { name: /^submit$/i })).toBeInTheDocument();

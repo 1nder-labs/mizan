@@ -44,6 +44,7 @@ interface CaseDetailProps {
   readonly overlay: CaseOverlay | null;
   readonly clientResponded: boolean;
   readonly latestAction: ReviewerAction | null;
+  readonly archived: boolean;
 }
 
 interface DetailLayoutProps {
@@ -51,6 +52,7 @@ interface DetailLayoutProps {
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
   readonly disposition: CaseDisposition;
+  readonly archived: boolean;
   readonly canRerun: boolean;
   readonly mode: BriefPanelMode;
   readonly onGenerate: () => void;
@@ -63,6 +65,7 @@ function DetailLayout({
   brief,
   overlay,
   disposition,
+  archived,
   canRerun,
   mode,
   onGenerate,
@@ -70,7 +73,7 @@ function DetailLayout({
 }: DetailLayoutProps): React.JSX.Element {
   return (
     <article className="w-full space-y-8 px-6 py-8">
-      <CaseHeader caseRow={caseRow} disposition={disposition} />
+      <CaseHeader caseRow={caseRow} disposition={disposition} archived={archived} />
       <CaseTabs
         caseRow={caseRow}
         brief={brief}
@@ -90,6 +93,7 @@ export function CaseDetail({
   overlay,
   clientResponded,
   latestAction,
+  archived,
 }: CaseDetailProps): React.JSX.Element {
   const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
   const tapeEnabled =
@@ -117,6 +121,7 @@ export function CaseDetail({
       brief={brief}
       overlay={overlay}
       disposition={disposition}
+      archived={archived}
       canRerun={!isTerminalDisposition(disposition)}
       mode={deriveMode(caseRow.status, brief, phase)}
       onGenerate={() => dispatchPhase({ type: "user-generated" })}

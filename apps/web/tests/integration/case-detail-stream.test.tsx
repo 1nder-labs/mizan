@@ -84,6 +84,7 @@ describe("<CaseDetail /> stream routing", () => {
         overlay={null}
         clientResponded={false}
         latestAction={null}
+        archived={false}
       />,
     );
     expect(await screen.findByText(/workflow running/i)).toBeInTheDocument();
@@ -99,6 +100,7 @@ describe("<CaseDetail /> stream routing", () => {
         overlay={null}
         clientResponded={false}
         latestAction={null}
+        archived={false}
       />,
     );
     expect(await screen.findByText(/queued for background processing/i)).toBeInTheDocument();
@@ -114,6 +116,7 @@ describe("<CaseDetail /> stream routing", () => {
         overlay={null}
         clientResponded={false}
         latestAction={null}
+        archived={false}
       />,
     );
     expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
@@ -129,6 +132,7 @@ describe("<CaseDetail /> stream routing", () => {
         overlay={null}
         clientResponded={false}
         latestAction={null}
+        archived={false}
       />,
     );
     const generateInitial = await screen.findByRole("button", { name: /generate brief/i });
