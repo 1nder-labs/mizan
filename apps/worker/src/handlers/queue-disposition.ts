@@ -8,7 +8,7 @@
  * and surface the per-row action so the card can render its disposition badge.
  */
 import { asc, desc, eq, inArray, not, sql, type SQL } from "drizzle-orm";
-import { cases as casesTable, reviewer_actions } from "@mizan/db";
+import { cases as casesTable } from "@mizan/db";
 import { isClientResponded } from "../lib/case-notes.ts";
 import type {
   CaseDisposition,
@@ -56,21 +56,29 @@ export function mapCaseRow(row: PublicCaseColumns, extras: CaseRowExtras): CaseR
   };
 }
 
-/** Correlated subquery: the action of the most recent reviewer action on a case. */
+/**
+ * Correlated subqueries against the latest reviewer action for a case. The outer
+ * `cases.id` correlation MUST be written as a literal qualified identifier:
+ * `${casesTable.id}` renders unqualified (`"id"`) inside a SELECT-list subquery,
+ * which then binds to `reviewer_actions.id` (the column exists there too) instead
+ * of the outer case — so the projection silently returns null even when the same
+ * expression matches in a WHERE clause. Literal `cases.id` is unambiguous, mirroring
+ * `latestBriefSubquery` in `cases-handler.ts`.
+ */
 function latestActionExpr(): SQL<ReviewerAction | null> {
   return sql<ReviewerAction | null>`(
-    SELECT ${reviewer_actions.action} FROM ${reviewer_actions}
-    WHERE ${reviewer_actions.case_id} = ${casesTable.id}
-    ORDER BY ${reviewer_actions.acted_at} DESC LIMIT 1
+    SELECT action FROM reviewer_actions
+    WHERE reviewer_actions.case_id = cases.id
+    ORDER BY acted_at DESC LIMIT 1
   )`;
 }
 
-/** Correlated subquery: the epoch-ms timestamp of that most recent action. */
+/** Epoch-ms timestamp of the most recent reviewer action — same correlation caveat as above. */
 function latestActedAtExpr(): SQL<number | null> {
   return sql<number | null>`(
-    SELECT ${reviewer_actions.acted_at} FROM ${reviewer_actions}
-    WHERE ${reviewer_actions.case_id} = ${casesTable.id}
-    ORDER BY ${reviewer_actions.acted_at} DESC LIMIT 1
+    SELECT acted_at FROM reviewer_actions
+    WHERE reviewer_actions.case_id = cases.id
+    ORDER BY acted_at DESC LIMIT 1
   )`;
 }
 
