@@ -265,15 +265,11 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
       {search.view === "board" ? null : (
         <StatusTabs search={search} onSearchChange={onSearchChange} />
       )}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-1 flex-wrap items-center gap-2">
         <SearchBar
           key={`title-${search.title ?? ""}`}
           value={search.title}
           onCommit={(next) => onSearchChange({ title: next })}
-        />
-        <OutcomeSelect
-          value={search.outcome}
-          onChange={(next) => onSearchChange({ outcome: next })}
         />
         <CategorySelect
           value={search.category}
@@ -283,16 +279,22 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
           value={search.geography}
           onChange={(next) => onSearchChange({ geography: next })}
         />
-        <Button
-          variant={search.archived ? "default" : "outline"}
-          size="sm"
-          className="h-9"
-          aria-pressed={search.archived ?? false}
-          onClick={() => onSearchChange({ archived: search.archived ? undefined : true })}
-        >
-          <Archive className="mr-1.5 size-3.5" />
-          Archived
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <OutcomeSelect
+            value={search.outcome}
+            onChange={(next) => onSearchChange({ outcome: next })}
+          />
+          <Button
+            variant={search.archived ? "default" : "outline"}
+            size="sm"
+            className="h-9"
+            aria-pressed={search.archived ?? false}
+            onClick={() => onSearchChange({ archived: search.archived ? undefined : true })}
+          >
+            <Archive className="mr-1.5 size-3.5" />
+            Archived
+          </Button>
+        </div>
       </div>
     </div>
   );

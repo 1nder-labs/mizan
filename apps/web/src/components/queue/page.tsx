@@ -7,10 +7,12 @@
  * original high-density table. Both surfaces consume the same paged
  * `cases` list.
  */
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { type QueueSearch } from "@mizan/shared";
 import { casesListQueryOptions } from "@/lib/cases-api.ts";
+import { saveQueueSearch } from "@/lib/queue-nav-memory.ts";
 import { QueueFilterBar } from "@/components/queue/filter-bar.tsx";
 import { QueueSkeleton } from "@/components/queue/skeleton.tsx";
 import { QueueTable } from "@/components/queue/table.tsx";
@@ -46,6 +48,7 @@ export function QueuePage(): React.JSX.Element {
   const query = useQuery(casesListQueryOptions(search));
   const { orgId, userId } = useViewerTopics();
   useQueueLiveEvents(orgId, userId);
+  useEffect(() => saveQueueSearch(search), [search]);
 
   function setSearch(next: Partial<QueueSearch>): void {
     void navigate({ search: (prev) => ({ ...prev, ...next, page: next.page ?? 1 }) });

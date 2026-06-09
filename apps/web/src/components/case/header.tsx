@@ -11,6 +11,7 @@ import type { CaseDisposition, CaseRow } from "@mizan/shared";
 import { CaseDispositionBadge } from "@/components/case-disposition-badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { useArchiveCase } from "@/hooks/use-archive-case.ts";
+import { loadQueueSearch } from "@/lib/queue-nav-memory.ts";
 import { formatShortDateTime } from "@/lib/format.ts";
 import { formatCountry } from "@/lib/display-labels.ts";
 import { CaseAssignment } from "./case-assignment.tsx";
@@ -82,7 +83,7 @@ export function CaseHeader({ caseRow, disposition, archived }: CaseHeaderProps):
           size="sm"
           className="-ml-2 text-muted-foreground hover:text-foreground"
         >
-          <Link to="/queue" search={{ page: 1, sort: "updated_desc", view: "board" }}>
+          <Link to="/queue" search={loadQueueSearch()}>
             <ArrowLeft className="mr-1.5 size-3.5" />
             Back to queue
           </Link>
