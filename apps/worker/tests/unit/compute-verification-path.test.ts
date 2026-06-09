@@ -13,7 +13,7 @@ type CategoryVariant = CategoryDocsValue["doc"];
  * test without dragging the wrapper through every call site.
  */
 const AUTH = {
-  ai_generated_likelihood: "low" as const,
+  authenticity_risk: "low" as const,
   shows_tampering_signs: false,
   assessment: "ok",
 };

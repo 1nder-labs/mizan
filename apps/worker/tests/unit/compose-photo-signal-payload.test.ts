@@ -2,12 +2,12 @@ import { describe, expect, it } from "bun:test";
 import { composePhotoSignalPayload } from "@mizan/mastra/testing";
 
 const AUTH_CLEAN = {
-  ai_generated_likelihood: "low" as const,
+  authenticity_risk: "low" as const,
   shows_tampering_signs: false,
   assessment: "genuine document",
 };
 const AUTH_FLAG = {
-  ai_generated_likelihood: "very_high" as const,
+  authenticity_risk: "very_high" as const,
   shows_tampering_signs: true,
   assessment: "appears generated",
 };
@@ -53,8 +53,8 @@ describe("composePhotoSignalPayload", () => {
       categoryAuthenticity: AUTH_CLEAN,
       categoryExif: EXIF_NONE,
     });
-    expect(payload.creator_id.authenticity.ai_generated_likelihood).toBe("very_high");
-    expect(payload.category_doc.authenticity.ai_generated_likelihood).toBe("low");
+    expect(payload.creator_id.authenticity.authenticity_risk).toBe("very_high");
+    expect(payload.category_doc.authenticity.authenticity_risk).toBe("low");
   });
 
   it("does not cross-wire creator and category exif", () => {

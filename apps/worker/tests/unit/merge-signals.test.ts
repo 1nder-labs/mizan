@@ -25,7 +25,7 @@ const EXIF_NONE = {
 const PHOTO: PhotoSignalPayload = {
   creator_id: {
     authenticity: {
-      ai_generated_likelihood: "low",
+      authenticity_risk: "low",
       shows_tampering_signs: false,
       assessment: "Genuine ID.",
     },
@@ -33,7 +33,7 @@ const PHOTO: PhotoSignalPayload = {
   },
   category_doc: {
     authenticity: {
-      ai_generated_likelihood: "low",
+      authenticity_risk: "low",
       shows_tampering_signs: false,
       assessment: "Genuine bill.",
     },
@@ -175,7 +175,7 @@ describe("mergeParallelSignals", () => {
                 matches_organizer_name: true,
                 confidence: 90,
                 image_authenticity: {
-                  ai_generated_likelihood: "low",
+                  authenticity_risk: "low",
                   shows_tampering_signs: false,
                   assessment: "ok",
                 },

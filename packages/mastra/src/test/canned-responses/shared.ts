@@ -2,7 +2,7 @@ import type { BriefPayload } from "@mizan/shared";
 
 /** Canned vision-LLM image-authenticity read — a clean, genuine-looking document. */
 export const BASE_AUTHENTICITY = {
-  ai_generated_likelihood: "low" as const,
+  authenticity_risk: "low" as const,
   shows_tampering_signs: false,
   assessment: "Appears to be a genuine document; no manipulation observed.",
 };

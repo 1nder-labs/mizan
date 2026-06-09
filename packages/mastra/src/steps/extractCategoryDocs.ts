@@ -14,10 +14,15 @@ export const extractCategoryDocs = makeExtractor({
     return {
       system:
         `Extract structured fields from the ${category} supporting document. ` +
-        "Also assess the image's authenticity: set `image_authenticity.ai_generated_likelihood` " +
-        "(low/medium/high/very_high) for how likely the document image is AI-generated or " +
-        "synthetic, `shows_tampering_signs` if you see editing/manipulation (inconsistent fonts, " +
-        "misaligned fields, altered totals, cloning), and a one-sentence `assessment`.",
+        "Then rate `image_authenticity`. `authenticity_risk` (low/medium/high/very_high) is how " +
+        "likely this document is fabricated or altered. Supporting documents — bills, invoices, " +
+        "statements, letters — are NORMALLY computer-generated PDFs, so clean digital rendering " +
+        "is NOT itself a risk. Raise the risk only for fabrication signals: internal " +
+        "inconsistencies (mismatched fonts, misaligned fields, altered or non-adding totals), " +
+        "cut-and-paste or cloning, AI-generation artifacts (warped text, nonsensical figures), " +
+        "or specimen / sample / template markings. Set `shows_tampering_signs` for signs of " +
+        "editing, and give a one-sentence `assessment` citing the concrete observations behind " +
+        "the rating.",
       messages: [
         {
           role: "user",

@@ -135,12 +135,12 @@ export {
 } from "./schemas/team.ts";
 
 export {
-  AiGeneratedLikelihoodSchema,
+  AuthenticityRiskSchema,
   ExifSummarySchema,
   ImageAuthenticitySchema,
   PhotoAssetSignalSchema,
   PhotoSignalPayloadSchema,
-  type AiGeneratedLikelihood,
+  type AuthenticityRisk,
   type ExifSummary,
   type ImageAuthenticity,
   type PhotoAssetSignal,

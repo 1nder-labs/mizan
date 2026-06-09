@@ -27,7 +27,7 @@ const TEST_CASE_ID = "22222222-2222-4222-8222-222222222001";
 const TEST_RUN_ID = "33333333-3333-4333-8333-333333333001";
 const CLEAN_ASSET = {
   authenticity: {
-    ai_generated_likelihood: "low" as const,
+    authenticity_risk: "low" as const,
     shows_tampering_signs: false,
     assessment: "genuine",
   },
@@ -48,7 +48,7 @@ const UPDATED_PHOTO: PhotoSignalPayload = {
   creator_id: {
     ...SAMPLE_PHOTO.creator_id,
     authenticity: {
-      ai_generated_likelihood: "very_high",
+      authenticity_risk: "very_high",
       shows_tampering_signs: true,
       assessment: "looks generated",
     },
@@ -144,7 +144,7 @@ describe("upsertSignal idempotency", () => {
     const row = await loadSignalRow(TEST_CASE_ID, TEST_RUN_ID, "photo_dup");
     expect(row.recorded_at).toBe(2000);
     const persisted = JSON.parse(row.payload_json) as PhotoSignalPayload;
-    expect(persisted.creator_id.authenticity.ai_generated_likelihood).toBe("very_high");
+    expect(persisted.creator_id.authenticity.authenticity_risk).toBe("very_high");
   });
 
   it("different signal_type for same (case_id, run_id) inserts a separate row", async () => {
@@ -249,7 +249,7 @@ describe("upsertSignal wrapper", () => {
   it("upserts a photo_dup payload via the wrapper and overwrites on re-call", async () => {
     const cleanAsset = {
       authenticity: {
-        ai_generated_likelihood: "low" as const,
+        authenticity_risk: "low" as const,
         shows_tampering_signs: false,
         assessment: "genuine",
       },
@@ -279,7 +279,7 @@ describe("upsertSignal wrapper", () => {
       creator_id: {
         ...first.creator_id,
         authenticity: {
-          ai_generated_likelihood: "very_high",
+          authenticity_risk: "very_high",
           shows_tampering_signs: true,
           assessment: "looks generated",
         },
@@ -295,7 +295,7 @@ describe("upsertSignal wrapper", () => {
     expect(await countSignalRows(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "photo_dup")).toBe(1);
     const row = await loadSignalRow(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "photo_dup");
     const persisted = JSON.parse(row.payload_json) as PhotoSignalPayload;
-    expect(persisted.creator_id.authenticity.ai_generated_likelihood).toBe("very_high");
+    expect(persisted.creator_id.authenticity.authenticity_risk).toBe("very_high");
   });
 
   it("upserts a story_coherence payload via the wrapper and overwrites on re-call", async () => {

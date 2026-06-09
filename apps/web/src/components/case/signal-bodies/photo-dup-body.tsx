@@ -1,12 +1,12 @@
 /**
  * `photo_dup` signal body — image-authenticity read of both document images: the
- * vision LLM's AI-generation likelihood + tampering assessment (from the same
+ * vision LLM's authenticity-risk + tampering assessment (from the same
  * extraction call that read the image), and the real EXIF capture metadata
  * parsed from the bytes. Thumbnails come from the existing R2 presigned-URL hook
  * so signal evidence rides the same auth-gated flow as the documents panel.
  */
 import type {
-  AiGeneratedLikelihood,
+  AuthenticityRisk,
   DocumentUrlResponse,
   PhotoAssetSignal,
   PhotoSignalPayload,
@@ -62,15 +62,15 @@ export function DocThumbnail({
   );
 }
 
-const LIKELIHOOD_LABEL: Record<AiGeneratedLikelihood, string> = {
+const RISK_LABEL: Record<AuthenticityRisk, string> = {
   low: "Low",
   medium: "Medium",
   high: "High",
   very_high: "Very high",
 };
 
-/** AI-gen likelihood low → success tone, high → destructive. */
-function likelihoodTone(level: AiGeneratedLikelihood): string {
+/** Low authenticity risk → success tone, high → destructive. */
+function riskTone(level: AuthenticityRisk): string {
   if (level === "low") return "text-status-success-foreground";
   if (level === "medium") return "text-status-warning-foreground";
   return "text-status-destructive-foreground";
@@ -148,9 +148,9 @@ function AuthenticityHeader({
       <div className="min-w-0 space-y-1.5 text-sm">
         <p className="font-medium text-foreground">{label}</p>
         <p className="text-xs text-muted-foreground">
-          AI-generated likelihood:{" "}
-          <span className={cn("font-medium", likelihoodTone(authenticity.ai_generated_likelihood))}>
-            {LIKELIHOOD_LABEL[authenticity.ai_generated_likelihood]}
+          Authenticity risk:{" "}
+          <span className={cn("font-medium", riskTone(authenticity.authenticity_risk))}>
+            {RISK_LABEL[authenticity.authenticity_risk]}
           </span>
         </p>
         <p className="text-xs text-muted-foreground">

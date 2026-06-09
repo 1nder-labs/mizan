@@ -13,10 +13,16 @@ export const extractCreatorIdDoc = makeExtractor({
     return {
       system:
         "Extract structured fields from the creator government-issued ID. " +
-        "Also assess the image's authenticity: set `image_authenticity.ai_generated_likelihood` " +
-        "(low/medium/high/very_high) for how likely the image is AI-generated or synthetic, " +
-        "`shows_tampering_signs` if you see editing/manipulation (inconsistent fonts, misaligned " +
-        "fields, cloning, mismatched lighting), and a one-sentence `assessment`.",
+        "Then rate `image_authenticity`. `authenticity_risk` (low/medium/high/very_high) is how " +
+        "likely this is NOT a genuine ID, judged against what a real ID of its type should show — " +
+        "a clear photograph of the holder, consistent typography and layout, and the expected " +
+        "identity/security elements (e.g. a passport's machine-readable zone). Raise the risk for " +
+        "things a real ID would not have: a blank or placeholder where the photo should be, " +
+        "missing or garbled machine-readable data, absent security features, specimen / sample / " +
+        "template markings, AI-generation artifacts, or inconsistent fonts, alignment, lighting, " +
+        "or cloning. A clean, ordinary scan or photo of a real ID is low risk. Set " +
+        "`shows_tampering_signs` only for post-hoc edits of an otherwise-real document, and give " +
+        "a one-sentence `assessment` citing the concrete observations behind the rating.",
       messages: [
         {
           role: "user",

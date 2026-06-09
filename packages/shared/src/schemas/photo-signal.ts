@@ -1,18 +1,21 @@
 import { z } from "zod";
 
-/** Likelihood the document image was AI-generated, as judged by the vision LLM that read it. */
-export const AiGeneratedLikelihoodSchema = z.enum(["low", "medium", "high", "very_high"]);
+/** Risk level that a document image is fabricated / not a genuine original. */
+export const AuthenticityRiskSchema = z.enum(["low", "medium", "high", "very_high"]);
 
 /**
- * The vision LLM's authenticity read of one document image. Emitted by the SAME
+ * The vision LLM's authenticity read of one document image, emitted by the SAME
  * extractor call that already passes the image to the model — no separate vision
- * call. While extracting the document's structured fields the model also rates
- * how likely the image is AI-generated, whether it shows tampering / manipulation
- * signs, and gives a short rationale.
+ * call. `authenticity_risk` is the overall likelihood the image is NOT a genuine
+ * original, judged against what a real document OF THAT TYPE should look like —
+ * so it spans AI/synthetic generation, template / placeholder / specimen
+ * artifacts, and missing expected security features, not merely whether the
+ * pixels are AI-made. `shows_tampering_signs` is the narrower question of
+ * post-hoc edits to an otherwise-real document.
  */
 export const ImageAuthenticitySchema = z
   .object({
-    ai_generated_likelihood: AiGeneratedLikelihoodSchema,
+    authenticity_risk: AuthenticityRiskSchema,
     shows_tampering_signs: z.boolean(),
     assessment: z.string(),
   })
@@ -51,7 +54,7 @@ export const PhotoSignalPayloadSchema = z
   })
   .strict();
 
-export type AiGeneratedLikelihood = z.infer<typeof AiGeneratedLikelihoodSchema>;
+export type AuthenticityRisk = z.infer<typeof AuthenticityRiskSchema>;
 export type ImageAuthenticity = z.infer<typeof ImageAuthenticitySchema>;
 export type ExifSummary = z.infer<typeof ExifSummarySchema>;
 export type PhotoAssetSignal = z.infer<typeof PhotoAssetSignalSchema>;

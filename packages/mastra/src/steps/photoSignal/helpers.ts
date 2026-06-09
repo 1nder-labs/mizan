@@ -8,7 +8,7 @@ import type { ExifSummary, ImageAuthenticity, PhotoSignalPayload } from "@mizan/
  * confident verdict.
  */
 export const UNASSESSED_AUTHENTICITY: ImageAuthenticity = {
-  ai_generated_likelihood: "low",
+  authenticity_risk: "low",
   shows_tampering_signs: false,
   assessment: "Image authenticity was not assessed — the document extraction was unavailable.",
 };
