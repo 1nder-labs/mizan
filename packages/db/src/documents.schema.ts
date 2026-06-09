@@ -11,7 +11,10 @@ import { cases } from "./schema.ts";
 
 export const EXTRACTED_DOCUMENT_KINDS = ["creator_id", "bank_statement", "category_doc"] as const;
 
-export const DOCUMENT_KIND_VALUES = [...EXTRACTED_DOCUMENT_KINDS, "supplementary"] as const;
+/** Client-attached evidence beyond the three required slots (invoices, EOBs, bills). */
+export const SUPPLEMENTARY_DOC_KIND = "supplementary" as const;
+
+export const DOCUMENT_KIND_VALUES = [...EXTRACTED_DOCUMENT_KINDS, SUPPLEMENTARY_DOC_KIND] as const;
 
 export type ExtractedDocumentKind = (typeof EXTRACTED_DOCUMENT_KINDS)[number];
 
@@ -22,7 +25,8 @@ export type DocumentKindValue = (typeof DOCUMENT_KIND_VALUES)[number];
  * overwritten); the CURRENT version of a slot is the row with the greatest
  * `uploaded_at` for that `(case_id, doc_kind)`. The three extraction slots feed
  * the workflow via `case-loader`, which reads the current key per slot here;
- * `supplementary` rows are reviewer-facing evidence only and never extracted.
+ * `supplementary` rows are read by `extractSupplementaryDocs`, which summarizes
+ * them into the brief so client-attached evidence is never seen as missing.
  * `r2_key` is unique per upload (`<caseId>/<doc_kind>/<uuid>`) so versions never
  * collide in R2.
  */
