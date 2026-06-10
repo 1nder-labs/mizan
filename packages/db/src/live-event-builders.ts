@@ -214,6 +214,33 @@ export async function batchTransitionWithEmits(
   return row;
 }
 
+interface ArchivedEmitInput {
+  readonly caseId: string;
+  readonly organizationId: string;
+  readonly archived: boolean;
+  readonly actorUserId: string;
+}
+
+/**
+ * Builds org + case emits when a reviewer manually archives or unarchives a
+ * case, so other open boards drop/restore the row without waiting for a poll.
+ */
+export function buildArchivedEmits(input: ArchivedEmitInput): EmitLiveEventInput[] {
+  const payload: LiveEventPayload = {
+    event_type: "case.archived",
+    case_id: input.caseId,
+    archived: input.archived,
+    actor_user_id: input.actorUserId,
+  };
+  const base = {
+    eventType: payload.event_type,
+    payload,
+    organizationId: input.organizationId,
+    actorUserId: input.actorUserId,
+  } satisfies Omit<EmitLiveEventInput, "topic">;
+  return fanOrgCase(base, input.organizationId, input.caseId);
+}
+
 interface SignalPersistedInput {
   readonly caseId: string;
   readonly runId: string;

@@ -60,6 +60,7 @@ export { emitLiveEvent, executeEmit, type EmitLiveEventInput } from "./emit-live
 export {
   batchTransitionWithEmits,
   buildActionEmits,
+  buildArchivedEmits,
   buildAssignmentEmits,
   buildBriefReadyEmits,
   buildSignalPersistedEmits,

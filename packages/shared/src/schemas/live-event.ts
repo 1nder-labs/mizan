@@ -10,6 +10,7 @@ export const LiveEventTypeEnum = z.enum([
   "case.unassigned",
   "case.brief_ready",
   "case.actioned",
+  "case.archived",
   "audit.new",
   "signal.persisted",
   "workflow.event",
@@ -65,6 +66,15 @@ const CaseActionedPayloadSchema = z
   })
   .strict();
 
+const CaseArchivedPayloadSchema = z
+  .object({
+    event_type: z.literal("case.archived"),
+    case_id: z.string(),
+    archived: z.boolean(),
+    actor_user_id: z.string(),
+  })
+  .strict();
+
 const AuditNewPayloadSchema = z
   .object({
     event_type: z.literal("audit.new"),
@@ -113,6 +123,7 @@ export const LiveEventPayloadSchema = z.discriminatedUnion("event_type", [
   CaseUnassignedPayloadSchema,
   CaseBriefReadyPayloadSchema,
   CaseActionedPayloadSchema,
+  CaseArchivedPayloadSchema,
   AuditNewPayloadSchema,
   SignalPersistedPayloadSchema,
   WorkflowEventPayloadSchema,
