@@ -315,6 +315,10 @@ export const campaignRoutes = new Hono<{
     const viewer = c.var.viewer;
     const owned = await loadOwnedCampaign(db, viewer, id);
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
+    if (
+      await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null)
+    )
+      return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
     if (owned.campaign.archived_at !== null)
       return c.json(PortalErrorBodySchema.parse({ error: "case_archived" }), 409);
     const firstSubmit = owned.campaign.submitted_at === null;

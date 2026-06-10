@@ -78,10 +78,12 @@ describe("portal campaigns", () => {
   let clientACookie = "";
   let clientBCookie = "";
   let clientAId = "";
+  let reviewAdminId = "";
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
     const reviewAdmin = await signUp(`pc-admin-${Date.now()}@test.local`, "Review Admin");
+    reviewAdminId = reviewAdmin.userId;
     await seedReviewOrgWithAdmin(reviewAdmin.userId);
     const clientA = await signUp(`pc-clienta-${Date.now()}@test.local`, "Client A", "client");
     const clientB = await signUp(`pc-clientb-${Date.now()}@test.local`, "Client B", "client");
@@ -187,5 +189,31 @@ describe("portal campaigns", () => {
     const id = await createCampaign(clientACookie);
     const res = await send("PATCH", `${CAMPAIGNS_URL}/${id}`, clientBCookie, VALID_BODY);
     expect(res.status).toBe(404);
+  });
+
+  it("returns 409 case_decided when submitting a campaign a reviewer already approved", async () => {
+    const id = await createCampaign(clientACookie);
+    const now = Date.now();
+    await env.DB.prepare("UPDATE cases SET status = 'ACTIONED', submitted_at = ? WHERE id = ?")
+      .bind(now, id)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, acted_at, action_id, organization_id)
+       VALUES (?, ?, ?, ?, 'APPROVE', 'x', ?, ?, ?)`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        id,
+        crypto.randomUUID(),
+        reviewAdminId,
+        now,
+        crypto.randomUUID(),
+        REVIEW_ORG_ID,
+      )
+      .run();
+
+    const res = await send("POST", `${CAMPAIGNS_URL}/${id}/submit`, clientACookie);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "case_decided" });
   });
 });
