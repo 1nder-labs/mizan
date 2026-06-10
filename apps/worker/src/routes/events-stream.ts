@@ -58,11 +58,14 @@ async function authorizeTopic(
   if (kind === "case") {
     const db = makeDb(c.env.DB);
     const row = await db
-      .select({ organization_id: cases.organization_id })
+      .select({ organization_id: cases.organization_id, assigned_to: cases.assigned_to })
       .from(cases)
       .where(eq(cases.id, id))
       .get();
     if (!row || row.organization_id !== viewer.organizationId) return { ok: false, status: 403 };
+    if (viewer.role !== "admin" && row.assigned_to !== viewer.userId) {
+      return { ok: false, status: 403 };
+    }
   }
   return { ok: true };
 }
