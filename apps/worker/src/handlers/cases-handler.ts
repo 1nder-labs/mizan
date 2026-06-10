@@ -6,6 +6,7 @@ import { briefs as briefsTable, caseListProjection, cases as casesTable, type Db
 import {
   buildQueueOrder,
   clientRespondedFromRow,
+  isSubmittedForReview,
   latestActionCols,
   mapCaseRow,
 } from "./queue-disposition.ts";
@@ -137,7 +138,7 @@ export async function listCasesForViewer(
           row.latestActedAt,
           row.submittedAtMs?.getTime() ?? null,
         ),
-        submitted: row.clientSubmitted !== 1 || row.submittedAtMs !== null,
+        submitted: isSubmittedForReview(row.clientSubmitted, row.submittedAtMs),
       }),
     ),
     page: input.page,
@@ -242,7 +243,7 @@ export async function fetchCaseDetail(
       clientSubmitted: row.clientSubmitted === 1,
       latestAction: row.latestAction,
       clientResponded: clientRespondedFromRow(row.latestAction, row.latestActedAt, submittedAtMs),
-      submitted: row.clientSubmitted !== 1 || row.submittedAtMs !== null,
+      submitted: isSubmittedForReview(row.clientSubmitted, row.submittedAtMs),
     }),
     brief: toBriefSummary(brief),
     overlay: resolveOverlay(row.brief_partial_json),

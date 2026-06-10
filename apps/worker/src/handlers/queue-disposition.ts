@@ -71,6 +71,16 @@ export function latestActionCols() {
   return { latestAction: latestActionSql(), latestActedAt: latestActedAtSql() } as const;
 }
 
+/**
+ * True once a campaign has entered review: a reviewer-seeded case (no client
+ * draft) or a client draft that has been submitted. `clientSubmitted` is the
+ * raw `clientSubmittedExpr()` flag (1 when the row is an unsubmitted client
+ * draft); `submittedAtMs` is the case `submitted_at`.
+ */
+export function isSubmittedForReview(clientSubmitted: number, submittedAtMs: Date | null): boolean {
+  return clientSubmitted !== 1 || submittedAtMs !== null;
+}
+
 /** Re-derives `client_responded` from a queue row's projected action timing. */
 export function clientRespondedFromRow(
   latestAction: ReviewerAction | null,

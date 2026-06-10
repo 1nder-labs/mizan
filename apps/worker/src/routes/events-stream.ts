@@ -172,20 +172,21 @@ async function writeLiveRow(
  * advances past dropped rows too, so a filtered event is never re-fetched.
  */
 async function writeAuthorizedBatch(
-  c: StreamContext,
   stream: StreamApi,
   db: ReturnType<typeof makeDb>,
+  viewer: StreamContext["var"]["viewer"],
   topic: string,
   batch: Awaited<ReturnType<typeof fetchEventsAfterSeq>>,
   lastSeen: number,
 ): Promise<number> {
   if (batch.length === 0) return lastSeen;
-  const allow = await assignedAllowList(db, c.var.viewer, topic, batch);
+  const allow = await assignedAllowList(db, viewer, topic, batch);
   let last = lastSeen;
   for (const row of batch) {
     const caseId = caseIdOf(row.payload_json);
-    if (allow === null || caseId === undefined || allow.has(caseId))
+    if (allow === null || caseId === undefined || allow.has(caseId)) {
       await writeLiveRow(stream, row);
+    }
     last = row.seq;
   }
   return last;
@@ -203,14 +204,14 @@ async function streamTopicEvents(
 
   const catchUp = await safeFetch(db, topic, lastSeen, stream);
   if (catchUp === undefined) return;
-  lastSeen = await writeAuthorizedBatch(c, stream, db, topic, catchUp, lastSeen);
+  lastSeen = await writeAuthorizedBatch(stream, db, c.var.viewer, topic, catchUp, lastSeen);
 
   while (!c.req.raw.signal.aborted && Date.now() - startedAt < STREAM_WALL_CLOCK_MS) {
     await stream.sleep(LIVE_TAIL_INTERVAL_MS);
     if (c.req.raw.signal.aborted) return;
     const fresh = await safeFetch(db, topic, lastSeen, stream);
     if (fresh === undefined) return;
-    lastSeen = await writeAuthorizedBatch(c, stream, db, topic, fresh, lastSeen);
+    lastSeen = await writeAuthorizedBatch(stream, db, c.var.viewer, topic, fresh, lastSeen);
   }
 }
 
