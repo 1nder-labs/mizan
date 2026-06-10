@@ -1,12 +1,12 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   briefs,
   cases,
   currentExtractedKeys,
-  reviewer_actions,
   type Db,
   type ExtractedDocumentKeys,
 } from "@mizan/db";
+import { latestActedAtSql, latestActionSql } from "./latest-action-sql.ts";
 import {
   BriefPayloadSchema,
   CaseOverlaySchema,
@@ -78,20 +78,14 @@ function buildEvidenceList(keys: ExtractedDocumentKeys) {
 }
 
 /**
- * Correlated subqueries that fold the latest reviewer action + its `acted_at`
- * into the list query (both raw `timestamp_ms`). The "client responded" signal
- * is then `submitted_at > acted_at` — an explicit re-submission, NOT a note — so
- * no note subquery is needed and the list stays at ONE query.
+ * Folds the latest reviewer action + its `acted_at` into the list query via the
+ * shared correlated subqueries (literal `cases.id` correlation — see
+ * `latest-action-sql.ts`). The "client responded" signal is then
+ * `submitted_at > acted_at` — an explicit re-submission, NOT a note — so no note
+ * subquery is needed and the list stays at ONE query.
  */
 function campaignSummaryColumns() {
-  return {
-    latestAction: sql<
-      string | null
-    >`(SELECT ${reviewer_actions.action} FROM ${reviewer_actions} WHERE ${reviewer_actions.case_id} = ${cases.id} ORDER BY ${reviewer_actions.acted_at} DESC LIMIT 1)`,
-    latestActionAtMs: sql<
-      number | null
-    >`(SELECT ${reviewer_actions.acted_at} FROM ${reviewer_actions} WHERE ${reviewer_actions.case_id} = ${cases.id} ORDER BY ${reviewer_actions.acted_at} DESC LIMIT 1)`,
-  };
+  return { latestAction: latestActionSql(), latestActionAtMs: latestActedAtSql() };
 }
 
 /** Selects the viewer's own campaigns + the folded client-responded columns. */
@@ -174,8 +168,9 @@ export async function buildClientCaseDetail(
   const overlayData = overlay.success ? overlay.data : null;
   const reviewHistory = await fetchReviewHistory(db, campaign.id, viewer.organizationId);
   const latestRequest = reviewHistory[0];
+  const awaitingClient = status === "needs_evidence" || status === "under_further_review";
   const organizerAsk =
-    status === "needs_evidence" && latestRequest
+    awaitingClient && latestRequest
       ? { message: latestRequest.message, missingItems: latestRequest.missingItems }
       : null;
   const notes = await readCaseNotes(db, viewer, campaign.id);

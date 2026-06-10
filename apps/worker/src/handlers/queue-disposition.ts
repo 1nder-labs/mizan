@@ -10,6 +10,7 @@
 import { asc, desc, eq, inArray, not, sql, type SQL } from "drizzle-orm";
 import { cases as casesTable } from "@mizan/db";
 import { isClientResponded } from "../lib/case-notes.ts";
+import { latestActedAtSql, latestActionSql } from "../lib/latest-action-sql.ts";
 import type {
   CaseDisposition,
   CaseRow,
@@ -56,35 +57,9 @@ export function mapCaseRow(row: PublicCaseColumns, extras: CaseRowExtras): CaseR
   };
 }
 
-/**
- * Correlated subqueries against the latest reviewer action for a case. The outer
- * `cases.id` correlation MUST be written as a literal qualified identifier:
- * `${casesTable.id}` renders unqualified (`"id"`) inside a SELECT-list subquery,
- * which then binds to `reviewer_actions.id` (the column exists there too) instead
- * of the outer case — so the projection silently returns null even when the same
- * expression matches in a WHERE clause. Literal `cases.id` is unambiguous, mirroring
- * `latestBriefSubquery` in `cases-handler.ts`.
- */
-function latestActionExpr(): SQL<ReviewerAction | null> {
-  return sql<ReviewerAction | null>`(
-    SELECT action FROM reviewer_actions
-    WHERE reviewer_actions.case_id = cases.id
-    ORDER BY acted_at DESC LIMIT 1
-  )`;
-}
-
-/** Epoch-ms timestamp of the most recent reviewer action — same correlation caveat as above. */
-function latestActedAtExpr(): SQL<number | null> {
-  return sql<number | null>`(
-    SELECT acted_at FROM reviewer_actions
-    WHERE reviewer_actions.case_id = cases.id
-    ORDER BY acted_at DESC LIMIT 1
-  )`;
-}
-
 /** Projection columns the queue row needs to derive its disposition badge. */
 export function latestActionCols() {
-  return { latestAction: latestActionExpr(), latestActedAt: latestActedAtExpr() } as const;
+  return { latestAction: latestActionSql(), latestActedAt: latestActedAtSql() } as const;
 }
 
 /** Re-derives `client_responded` from a queue row's projected action timing. */
@@ -103,12 +78,12 @@ export function clientRespondedFromRow(
  * input is interpolated, so the `sql` plumbing carries no injection surface.
  */
 function respondedExpr(): SQL {
-  return sql`${casesTable.submitted_at} IS NOT NULL AND ${casesTable.submitted_at} > ${latestActedAtExpr()}`;
+  return sql`(${casesTable.submitted_at} IS NOT NULL AND ${casesTable.submitted_at} > ${latestActedAtSql()})`;
 }
 
 /** `status = ACTIONED` AND the latest action equals `action` (value bound by `eq`). */
 function actionedWith(action: ReviewerAction): SQL[] {
-  return [eq(casesTable.status, "ACTIONED"), eq(latestActionExpr(), action)];
+  return [eq(casesTable.status, "ACTIONED"), eq(latestActionSql(), action)];
 }
 
 /**
@@ -138,7 +113,7 @@ export function buildOutcomeFilter(outcome: CaseDisposition): SQL[] {
     case "CLIENT_REPLIED":
       return [
         eq(casesTable.status, "ACTIONED"),
-        inArray(latestActionExpr(), ["REQUEST_DOCS", "ESCALATE"]),
+        inArray(latestActionSql(), ["REQUEST_DOCS", "ESCALATE"]),
         respondedExpr(),
       ];
     case "APPROVED":
@@ -155,7 +130,7 @@ export function buildOutcomeFilter(outcome: CaseDisposition): SQL[] {
  * of the reviewer's chosen sort, so an admin scanning the board sees them first.
  */
 export function buildQueueOrder(sort: QueueSort): SQL[] {
-  const escalatedFirst = sql`CASE WHEN ${latestActionExpr()} = 'ESCALATE' THEN 0 ELSE 1 END`;
+  const escalatedFirst = sql`CASE WHEN ${latestActionSql()} = 'ESCALATE' THEN 0 ELSE 1 END`;
   if (sort === "updated_asc") return [escalatedFirst, asc(casesTable.updated_at)];
   if (sort === "created_desc") return [escalatedFirst, desc(casesTable.created_at)];
   return [escalatedFirst, desc(casesTable.updated_at)];
