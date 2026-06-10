@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { cases, makeDb, type Db } from "@mizan/db";
+import { latestActedAtSql, latestActionSql } from "../../lib/latest-action-sql.ts";
 import {
   CampaignCreateSchema,
   CampaignMutationResponseSchema,
@@ -19,7 +20,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
 import {
-  canResubmit,
+  CLIENT_AWAITING_ACTION_VALUES,
   latestReviewerAction,
   readCaseNotes,
   writeCaseNote,
@@ -139,24 +140,29 @@ async function handToReviewer(
   viewer: ViewerContext,
   caseId: string,
   submittedAt: Date | null,
-): Promise<void> {
+): Promise<boolean> {
   const firstSubmit = submittedAt === null;
-  const latest = firstSubmit ? null : await latestReviewerAction(db, caseId);
-  if (!firstSubmit && !(await canResubmit(db, viewer.organizationId, caseId, latest))) return;
   const guard = firstSubmit
     ? and(eq(cases.id, caseId), eq(cases.created_by, viewer.userId), isNull(cases.submitted_at))
-    : and(eq(cases.id, caseId), eq(cases.created_by, viewer.userId));
-  await db
+    : and(
+        eq(cases.id, caseId),
+        eq(cases.created_by, viewer.userId),
+        inArray(latestActionSql(), CLIENT_AWAITING_ACTION_VALUES),
+        sql`(SELECT MAX(uploaded_at) FROM documents WHERE documents.case_id = cases.id) > ${latestActedAtSql()}`,
+      );
+  const updated = await db
     .update(cases)
     .set({ submitted_at: new Date(), updated_at: new Date() })
     .where(guard)
-    .run();
-  if (!firstSubmit)
+    .returning({ id: cases.id });
+  const handed = updated.length > 0;
+  if (!firstSubmit && handed)
     await notifyCaseReviewer(db, caseId, viewer.userId, {
       type: "message",
       title: "Client re-submitted for review",
       body: "The campaign creator re-submitted after your document request.",
     });
+  return handed;
 }
 
 /**
@@ -233,6 +239,8 @@ export const campaignRoutes = new Hono<{
       await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null)
     )
       return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
+    if (owned.campaign.archived_at !== null)
+      return c.json(PortalErrorBodySchema.parse({ error: "case_archived" }), 409);
     const body = await c.req.parseBody().catch(() => null);
     if (body === null)
       return c.json(PortalErrorBodySchema.parse({ error: "invalid_evidence" }), 400);
@@ -269,6 +277,8 @@ export const campaignRoutes = new Hono<{
         await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null)
       )
         return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
+      if (owned.campaign.archived_at !== null)
+        return c.json(PortalErrorBodySchema.parse({ error: "case_archived" }), 409);
       const body = c.req.valid("json").body;
       await writeCaseNote(db, {
         caseId: id,
@@ -293,7 +303,12 @@ export const campaignRoutes = new Hono<{
     const viewer = c.var.viewer;
     const owned = await loadOwnedCampaign(db, viewer, id);
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
-    await handToReviewer(db, viewer, id, owned.campaign.submitted_at);
+    if (owned.campaign.archived_at !== null)
+      return c.json(PortalErrorBodySchema.parse({ error: "case_archived" }), 409);
+    const firstSubmit = owned.campaign.submitted_at === null;
+    const handed = await handToReviewer(db, viewer, id, owned.campaign.submitted_at);
+    if (!firstSubmit && !handed)
+      return c.json(PortalErrorBodySchema.parse({ error: "resubmit_not_allowed" }), 409);
     return c.json(CampaignMutationResponseSchema.parse({ id, status: owned.campaign.status }), 200);
   })
   .delete("/:id", zValidator("param", CampaignParamSchema), async (c) => {

@@ -317,6 +317,7 @@ export const actionRoutes = new Hono<{
       .where(and(eq(cases.id, caseId), eq(cases.organization_id, c.var.viewer.organizationId)))
       .get();
     if (!caseRow) return c.json(errorBody("not_found"), 404);
+    if (caseRow.archived_at !== null) return c.json(errorBody("case_archived"), 409);
     if (!caseRow.current_run_id) return c.json(errorBody("no_run"), 409);
     const runId = caseRow.current_run_id;
 

@@ -99,7 +99,9 @@ export async function latestReviewerAction(
  * left the ESCALATE branch permanently dead — a client reply to an escalated
  * case never registered, so the client saw "under further review" forever.
  */
-const CLIENT_AWAITING_ACTIONS = new Set<ReviewerAction>(["REQUEST_DOCS", "ESCALATE"]);
+export const CLIENT_AWAITING_ACTION_VALUES = ["REQUEST_DOCS", "ESCALATE"] as const;
+
+const CLIENT_AWAITING_ACTIONS = new Set<ReviewerAction>(CLIENT_AWAITING_ACTION_VALUES);
 
 /** True when a reviewer action hands the ball back to the client (doc request / escalation). */
 export function isClientAwaitingAction(action: ReviewerAction | null): boolean {

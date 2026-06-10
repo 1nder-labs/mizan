@@ -152,14 +152,21 @@ describe("portal campaign list + detail", () => {
     expect(detail.canResubmit).toBe(false);
   });
 
-  it("re-submit without a new document is a no-op (server-gated on fresh evidence)", async () => {
+  it("re-submit without a new document is rejected (server-gated on fresh evidence)", async () => {
     const id = await createCampaign(clientACookie);
     await insertRequestDocs(id, reviewerId);
     await env.DB.prepare(`UPDATE cases SET submitted_at = ? WHERE id = ?`).bind(1000, id).run();
     await env.DB.prepare(`UPDATE reviewer_actions SET acted_at = ? WHERE case_id = ?`)
       .bind(2000, id)
       .run();
-    await submitCampaign(id, clientACookie);
+    const res = await exports.default.fetch(
+      new Request(`${CAMPAIGNS_URL}/${id}/submit`, {
+        method: "POST",
+        headers: { Cookie: clientACookie },
+      }),
+    );
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "resubmit_not_allowed" });
     const detail = ClientCaseDetailSchema.parse(
       await (await getJson(`${CAMPAIGNS_URL}/${id}`, clientACookie)).json(),
     );

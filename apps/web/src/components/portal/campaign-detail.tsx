@@ -243,8 +243,11 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
   const [editing, setEditing] = useState(false);
   const evidenceReadOnly = detail.status === "approved" || detail.status === "not_approved";
   useScrollToMessages();
-  const earlierRequests =
-    detail.status === "needs_evidence" ? detail.reviewHistory.slice(1) : detail.reviewHistory;
+  const awaitingClient =
+    detail.status === "needs_evidence" || detail.status === "under_further_review";
+  const earlierRequests = detail.organizerAsk
+    ? detail.reviewHistory.slice(1)
+    : detail.reviewHistory;
 
   function handleEditDone(): void {
     setEditing(false);
@@ -270,7 +273,7 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
       <ReviewHistory entries={earlierRequests} />
       <Separator />
       <EvidenceSection detail={detail} readOnly={evidenceReadOnly} />
-      {detail.status === "needs_evidence" ? (
+      {awaitingClient ? (
         <ResubmitBar campaignId={detail.id} canResubmit={detail.canResubmit} />
       ) : null}
       <Separator />
