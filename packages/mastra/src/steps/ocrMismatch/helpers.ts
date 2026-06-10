@@ -23,7 +23,7 @@ export interface OcrMismatchInput {
 export function composeOcrMismatch(input: OcrMismatchInput): OcrMismatchPayload {
   const idName = input.idFullName ?? "";
   const bankName = input.bankAccountHolder ?? null;
-  const matches = input.idMatchesOrganizer ?? false;
+  const matches = idName.length > 0 ? (input.idMatchesOrganizer ?? false) : false;
   return {
     claimed_organizer_name: input.organizerName,
     id_full_name: idName,

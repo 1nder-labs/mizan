@@ -39,6 +39,24 @@ function findEntry(
   return signals.find((entry) => entry.signal_type === signalType);
 }
 
+/** Raw payload dump for the opaque (registry / sanctions) signals that carry no dedicated body. */
+function RawSignalBody({ payload }: { readonly payload: unknown }): React.JSX.Element {
+  return (
+    <pre className="overflow-x-auto rounded-xl border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
+      {JSON.stringify(payload, null, 2)}
+    </pre>
+  );
+}
+
+/**
+ * Compile-time exhaustiveness guard: with every `signal_type` handled, the switch
+ * default narrows `entry` to `never`, so adding a new signal type makes this call
+ * error instead of silently falling through. Throws at runtime — unreachable.
+ */
+function assertNeverSignal(entry: never): never {
+  throw new Error(`unhandled signal entry: ${JSON.stringify(entry)}`);
+}
+
 function SignalBody({
   entry,
   caseId,
@@ -55,12 +73,11 @@ function SignalBody({
       return <VouchingChainBody payload={entry.payload_json} />;
     case "ocr_mismatch":
       return <OcrMismatchBody payload={entry.payload_json} />;
+    case "registry_lookup":
+    case "sanctions_screen":
+      return <RawSignalBody payload={entry.payload_json} />;
     default:
-      return (
-        <pre className="overflow-x-auto rounded-xl border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
-          {JSON.stringify(entry.payload_json, null, 2)}
-        </pre>
-      );
+      return assertNeverSignal(entry);
   }
 }
 
