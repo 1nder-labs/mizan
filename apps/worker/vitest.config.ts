@@ -1,3 +1,4 @@
+import os from "node:os";
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
@@ -36,6 +37,25 @@ import { defineConfig } from "vitest/config";
  */
 const RUN_REMOTE = process.env.RUN_REMOTE_INTEGRATION === "1";
 
+/**
+ * Each isolated test file boots its own workerd that re-evaluates the full
+ * Mastra import graph (~30s), so the serial `maxWorkers: 1` was the suite's
+ * dominant cost. The workerd instances are native processes bounded by system
+ * RAM (not the host node heap the remote proxy exhausts), so files parallelise
+ * safely under the local default — `isolate` stays ON, keeping each file's D1/
+ * R2/KV separate (the `--no-isolate` shared-storage fast path is incompatible
+ * with this suite's per-file fresh-DB assumptions). Scale the worker count to
+ * the host's RAM, budgeting ~4 GB per workerd — empirically the benefit plateaus
+ * and tests turn flaky from contention past that (16 GB → 4 is the sweet spot;
+ * 6 was no faster and flaked). So it is fast on a dev box and never OOMs a small
+ * CI runner. The remote-proxy path keeps 1: that node subprocess exhausts the
+ * heap, so concurrency there OOMs.
+ */
+const LOCAL_MAX_WORKERS = Math.max(
+  1,
+  Math.min(os.cpus().length - 1, Math.floor(os.totalmem() / (4 * 1024 ** 3))),
+);
+
 export default defineConfig({
   test: {
     projects: [
@@ -71,16 +91,7 @@ export default defineConfig({
           name: "integration",
           include: ["tests/integration/**/*.test.ts", "tests/eval/**/*.test.ts"],
           globalSetup: ["./tests/setup/migrations.ts"],
-          /**
-           * Each test file spins up its own workerd isolate that bundles the full
-           * Mastra graph (~80s cold), so running them serially is the suite's
-           * dominant cost. Under the local default (`remoteBindings: false`) the
-           * workerd instances are separate native processes bounded by system RAM,
-           * not the host node heap, so files parallelise safely — `isolatedStorage`
-           * gives each its own D1/R2/KV. The remote-proxy path keeps `1`: that
-           * subprocess exhausts the node heap, so concurrency there OOMs.
-           */
-          maxWorkers: RUN_REMOTE ? 1 : 4,
+          maxWorkers: RUN_REMOTE ? 1 : LOCAL_MAX_WORKERS,
           minWorkers: 1,
         },
       },
