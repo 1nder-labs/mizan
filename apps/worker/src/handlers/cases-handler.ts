@@ -1,7 +1,7 @@
 /**
  * Shared case read helpers for HTTP routes and Mastra chat tools.
  */
-import { and, count, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { briefs as briefsTable, caseListProjection, cases as casesTable, type Db } from "@mizan/db";
 import {
   buildQueueOrder,
@@ -10,7 +10,8 @@ import {
   latestActionCols,
   mapCaseRow,
 } from "./queue-disposition.ts";
-import { buildFilters, clientSubmittedExpr, reviewerAssigneeFilter } from "./queue-filters.ts";
+import { clientSubmittedExpr } from "./case-submitted-sql.ts";
+import { buildFilters, reviewerAssigneeFilter } from "./queue-filters.ts";
 import {
   BRIEF_HISTORY_LIMIT,
   CaseDetailResponseSchema,
@@ -35,17 +36,24 @@ export class NotFoundError extends Error {
   }
 }
 
-function latestBriefSubquery(caseIdCol: SQL) {
+/**
+ * Latest-brief projection for a queue row. The `briefs.case_id = cases.id`
+ * correlation MUST be a LITERAL qualified identifier: `briefs` has its own `id`
+ * column, so an interpolated `${cases.id}` renders unqualified inside this
+ * SELECT-list subquery and binds to `briefs.id`, silently returning null. Same
+ * footgun documented in `latest-action-sql.ts`.
+ */
+function latestBriefSubquery() {
   return {
     latestRecommendation: sql<string | null>`(
       SELECT recommendation FROM briefs
-      WHERE briefs.case_id = ${caseIdCol}
+      WHERE briefs.case_id = cases.id
       ORDER BY briefs.composed_at DESC
       LIMIT 1
     )`,
     latestVerificationPath: sql<string | null>`(
       SELECT json_extract(payload_json, '$.verification_path') FROM briefs
-      WHERE briefs.case_id = ${caseIdCol}
+      WHERE briefs.case_id = cases.id
       ORDER BY briefs.composed_at DESC
       LIMIT 1
     )`,
@@ -106,7 +114,7 @@ export async function listCasesForViewer(
   const where = buildFilters(input, viewer);
   const offset = (input.page - 1) * QUEUE_PAGE_SIZE;
   const projection = caseListProjection();
-  const briefCols = latestBriefSubquery(sql`${casesTable.id}`);
+  const briefCols = latestBriefSubquery();
 
   const [rows, totalRows] = await Promise.all([
     db

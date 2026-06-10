@@ -5,17 +5,10 @@
  * the query-shaping logic lives in one place.
  */
 import { and, eq, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
-import { cases as casesTable, members } from "@mizan/db";
+import { cases as casesTable } from "@mizan/db";
 import type { QueueSearch, ViewerContext } from "@mizan/shared";
+import { submittedSql } from "./case-submitted-sql.ts";
 import { buildOutcomeFilter } from "./queue-disposition.ts";
-
-/**
- * SQL expression returning 1 when the case creator is a `client` member of the
- * org, else 0. Used as a queue triage signal without exposing `created_by`.
- */
-export function clientSubmittedExpr() {
-  return sql<number>`(CASE WHEN (SELECT ${members.role} FROM ${members} WHERE ${members.userId} = ${casesTable.created_by} AND ${members.organizationId} = ${casesTable.organization_id}) = 'client' THEN 1 ELSE 0 END)`;
-}
 
 /**
  * RBAC scope for the queue list. A reviewer is HARD-scoped to cases assigned to
@@ -67,7 +60,7 @@ function titleLikeFilter(term: string): SQL {
 /** Combines RBAC scope + every active queue filter into one WHERE clause. */
 export function buildFilters(search: QueueSearch, viewer: ViewerContext): SQL {
   const filters: SQL[] = [eq(casesTable.organization_id, viewer.organizationId)];
-  filters.push(sql`NOT (${clientSubmittedExpr()} = 1 AND ${casesTable.submitted_at} IS NULL)`);
+  filters.push(submittedSql());
   if (search.status) filters.push(eq(casesTable.status, search.status));
   if (search.title) filters.push(titleLikeFilter(search.title));
   if (search.category) filters.push(sql`LOWER(${casesTable.category}) = LOWER(${search.category})`);

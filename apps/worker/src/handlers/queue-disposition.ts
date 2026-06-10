@@ -11,6 +11,7 @@ import { asc, desc, eq, inArray, not, sql, type SQL } from "drizzle-orm";
 import { cases as casesTable } from "@mizan/db";
 import { isClientResponded } from "../lib/case-notes.ts";
 import { latestActedAtSql, latestActionSql } from "../lib/latest-action-sql.ts";
+import { submittedSql } from "./case-submitted-sql.ts";
 import { deriveCaseDisposition } from "@mizan/shared";
 import type {
   CaseDisposition,
@@ -116,9 +117,13 @@ function actionedWith(action: ReviewerAction): SQL[] {
 export function buildOutcomeFilter(outcome: CaseDisposition): SQL[] {
   switch (outcome) {
     case "DRAFT":
-      return [eq(casesTable.status, "DRAFT")];
+      return [not(submittedSql())];
     case "SUBMITTED":
-      return [eq(casesTable.status, "QUEUED")];
+      return [
+        submittedSql(),
+        inArray(casesTable.status, ["DRAFT", "QUEUED"]),
+        sql`${latestActionSql()} IS NULL`,
+      ];
     case "IN_REVIEW":
       return [eq(casesTable.status, "RUNNING")];
     case "AWAITING_REVIEWER":

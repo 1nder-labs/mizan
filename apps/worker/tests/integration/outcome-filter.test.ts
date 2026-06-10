@@ -66,6 +66,8 @@ describe("queue ?outcome= filter", () => {
       { key: "escalated", status: "ACTIONED", action: "ESCALATE" },
       { key: "needs_docs", status: "ACTIONED", action: "REQUEST_DOCS" },
       { key: "awaiting", status: "SUSPENDED_HITL", action: null },
+      { key: "submitted_draft", status: "DRAFT", action: null },
+      { key: "submitted_queued", status: "QUEUED", action: null },
     ];
     for (const c of cases) {
       const id = crypto.randomUUID();
@@ -100,5 +102,15 @@ describe("queue ?outcome= filter", () => {
 
   it("AWAITING_REVIEWER returns only the suspended case", async () => {
     expect(await idsForOutcome("AWAITING_REVIEWER", cookie)).toEqual([ids.awaiting]);
+  });
+
+  it("SUBMITTED returns reviewer-seeded DRAFT and QUEUED, not just QUEUED", async () => {
+    expect((await idsForOutcome("SUBMITTED", cookie)).sort()).toEqual(
+      [ids.submitted_draft, ids.submitted_queued].sort(),
+    );
+  });
+
+  it("DRAFT is empty on the active queue — unsubmitted drafts are excluded upstream", async () => {
+    expect(await idsForOutcome("DRAFT", cookie)).toEqual([]);
   });
 });
