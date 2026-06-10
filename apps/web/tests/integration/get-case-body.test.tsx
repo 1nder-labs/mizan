@@ -26,6 +26,7 @@ const TOOL_OUTPUT = {
       title: "Hira Welfare Trust",
       category: "education",
       status: "DRAFT",
+      disposition: "SUBMITTED",
     },
     brief: null,
     overlay: { story: "Rebuilding a flooded school." },

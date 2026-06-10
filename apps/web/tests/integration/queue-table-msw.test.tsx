@@ -38,6 +38,7 @@ const FIXTURE: QueueResponse = {
       client_submitted: false,
       latest_action: null,
       client_responded: false,
+      disposition: "AWAITING_REVIEWER",
     },
     {
       id: "22222222-2222-4222-8222-222222222222",
@@ -53,6 +54,7 @@ const FIXTURE: QueueResponse = {
       client_submitted: false,
       latest_action: null,
       client_responded: false,
+      disposition: "SUBMITTED",
     },
   ],
   page: 1,

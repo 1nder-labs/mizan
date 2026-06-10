@@ -25,12 +25,10 @@ import { useEffect, useReducer } from "react";
 import {
   ACTIVE_CASE_STATUSES,
   HITL_SUSPENDED_STATUS,
-  deriveCaseDisposition,
   isTerminalDisposition,
   type CaseDisposition,
   type CaseOverlay,
   type CaseRow,
-  type ReviewerAction,
 } from "@mizan/shared";
 import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-tape-invalidation.ts";
 import { useCaseDetailLiveEvents } from "@/hooks/use-case-detail-live-events.ts";
@@ -42,8 +40,6 @@ interface CaseDetailProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
-  readonly clientResponded: boolean;
-  readonly latestAction: ReviewerAction | null;
   readonly archived: boolean;
 }
 
@@ -91,8 +87,6 @@ export function CaseDetail({
   caseRow,
   brief,
   overlay,
-  clientResponded,
-  latestAction,
   archived,
 }: CaseDetailProps): React.JSX.Element {
   const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
@@ -108,12 +102,7 @@ export function CaseDetail({
     dispatchPhase({ type: "status-changed", status: caseRow.status });
   }, [caseRow.status]);
 
-  const disposition = deriveCaseDisposition({
-    status: caseRow.status,
-    latestAction,
-    clientResponded,
-    submitted: true,
-  });
+  const disposition = caseRow.disposition;
 
   return (
     <DetailLayout

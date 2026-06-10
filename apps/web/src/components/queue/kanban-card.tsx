@@ -14,7 +14,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useNavigate } from "@tanstack/react-router";
 import { Clock, ContactRound } from "lucide-react";
-import { deriveCaseDisposition, type CaseRow } from "@mizan/shared";
+import type { CaseRow } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { CaseDispositionBadge } from "@/components/case-disposition-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
@@ -72,16 +72,10 @@ function CardVerdict({ row }: { readonly row: CaseRow }): React.JSX.Element | nu
     </span>
   );
   if (row.latest_action) {
-    const disposition = deriveCaseDisposition({
-      status: row.status,
-      latestAction: row.latest_action,
-      clientResponded: row.client_responded,
-      submitted: true,
-    });
     return (
       <div className="flex items-center justify-between gap-2">
         {label}
-        <CaseDispositionBadge disposition={disposition} />
+        <CaseDispositionBadge disposition={row.disposition} />
       </div>
     );
   }

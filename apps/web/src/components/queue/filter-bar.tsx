@@ -74,7 +74,7 @@ function StatusTabs({ search, onSearchChange }: FilterBarProps): React.JSX.Eleme
       onSearchChange({ status: undefined });
       return;
     }
-    if (isCaseStatus(value)) onSearchChange({ status: value });
+    if (isCaseStatus(value)) onSearchChange({ status: value, outcome: undefined });
   }
   return (
     <Tabs value={activeTab} onValueChange={handleChange}>
@@ -282,7 +282,7 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
         <div className="ml-auto flex items-center gap-2">
           <OutcomeSelect
             value={search.outcome}
-            onChange={(next) => onSearchChange({ outcome: next })}
+            onChange={(next) => onSearchChange({ outcome: next, status: undefined })}
           />
           <Button
             variant={search.archived ? "default" : "outline"}

@@ -97,6 +97,8 @@ export const CaseRowSchema = z.object({
   latest_action: ReviewerActionEnum.nullable(),
   /** True when the client supplied fresh evidence after the latest reviewer ask. */
   client_responded: z.boolean(),
+  /** The canonical disposition, computed server-side so every surface reads one value. */
+  disposition: CaseDispositionEnum,
 });
 export type CaseRow = z.infer<typeof CaseRowSchema>;
 

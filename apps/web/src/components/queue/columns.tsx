@@ -7,12 +7,7 @@
  */
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  deriveCaseDisposition,
-  type CaseRow,
-  type QueueSearch,
-  type QueueSort,
-} from "@mizan/shared";
+import type { CaseRow, QueueSearch, QueueSort } from "@mizan/shared";
 import { CaseStatusBadge } from "@/components/case-status-badge.tsx";
 import { CaseDispositionBadge } from "@/components/case-disposition-badge.tsx";
 import { RecommendationBadge } from "@/components/case/recommendation-badge.tsx";
@@ -119,14 +114,7 @@ const outcomeColumn: ColumnDef<CaseRow> = {
   header: "Outcome",
   cell: ({ row }) =>
     row.original.latest_action ? (
-      <CaseDispositionBadge
-        disposition={deriveCaseDisposition({
-          status: row.original.status,
-          latestAction: row.original.latest_action,
-          clientResponded: row.original.client_responded,
-          submitted: true,
-        })}
-      />
+      <CaseDispositionBadge disposition={row.original.disposition} />
     ) : (
       <span className="text-xs text-muted-foreground">{EMPTY_CELL}</span>
     ),

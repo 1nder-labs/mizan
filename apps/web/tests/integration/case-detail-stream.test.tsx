@@ -57,6 +57,7 @@ const baseCase: CaseRow = {
   client_submitted: false,
   latest_action: null,
   client_responded: false,
+  disposition: "IN_REVIEW",
 };
 
 async function renderDetail(element: React.ReactNode): Promise<void> {
@@ -78,14 +79,7 @@ describe("<CaseDetail /> stream routing", () => {
   test("RUNNING status does NOT auto-mount <BriefStream> (no page-load POST)", async () => {
     briefStreamSpy.onStreamError = undefined;
     await renderDetail(
-      <CaseDetail
-        caseRow={baseCase}
-        brief={null}
-        overlay={null}
-        clientResponded={false}
-        latestAction={null}
-        archived={false}
-      />,
+      <CaseDetail caseRow={baseCase} brief={null} overlay={null} archived={false} />,
     );
     expect(await screen.findByText(/workflow running/i)).toBeInTheDocument();
     expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
@@ -98,8 +92,6 @@ describe("<CaseDetail /> stream routing", () => {
         caseRow={{ ...baseCase, status: "QUEUED" }}
         brief={null}
         overlay={null}
-        clientResponded={false}
-        latestAction={null}
         archived={false}
       />,
     );
@@ -114,8 +106,6 @@ describe("<CaseDetail /> stream routing", () => {
         caseRow={{ ...baseCase, status: "DRAFT" }}
         brief={null}
         overlay={null}
-        clientResponded={false}
-        latestAction={null}
         archived={false}
       />,
     );
@@ -130,8 +120,6 @@ describe("<CaseDetail /> stream routing", () => {
         caseRow={{ ...baseCase, status: "DRAFT" }}
         brief={null}
         overlay={null}
-        clientResponded={false}
-        latestAction={null}
         archived={false}
       />,
     );

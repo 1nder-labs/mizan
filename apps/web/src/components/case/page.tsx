@@ -73,8 +73,6 @@ export function CaseDetailPage(): React.JSX.Element {
         caseRow={data.case}
         brief={data.brief}
         overlay={data.overlay}
-        clientResponded={data.case.client_responded}
-        latestAction={data.case.latest_action}
         archived={data.archived}
       />
     </AuthenticatedShell>

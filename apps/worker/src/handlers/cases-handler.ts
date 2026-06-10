@@ -26,7 +26,6 @@ import {
   type QueueSearch,
   type ViewerContext,
 } from "@mizan/shared";
-import { isClientResponded, latestReviewerAction } from "../lib/case-notes.ts";
 
 export class NotFoundError extends Error {
   constructor(message: string) {
@@ -138,6 +137,7 @@ export async function listCasesForViewer(
           row.latestActedAt,
           row.submittedAtMs?.getTime() ?? null,
         ),
+        submitted: row.clientSubmitted !== 1 || row.submittedAtMs !== null,
       }),
     ),
     page: input.page,
@@ -212,6 +212,7 @@ export async function fetchCaseDetail(
 ): Promise<CaseDetailResponse | null> {
   const projection = {
     ...caseListProjection(),
+    ...latestActionCols(),
     brief_partial_json: casesTable.brief_partial_json,
     clientSubmitted: clientSubmittedExpr(),
     submittedAtMs: casesTable.submitted_at,
@@ -234,14 +235,14 @@ export async function fetchCaseDetail(
   const latestBrief = brief
     ? resolveLatestBrief(brief.recommendation, brief.payload_json?.verification_path ?? null)
     : null;
-  const latest = await latestReviewerAction(db, caseId);
-  const clientResponded = isClientResponded(latest, row.submittedAtMs?.getTime() ?? null);
+  const submittedAtMs = row.submittedAtMs?.getTime() ?? null;
   const draft: CaseDetailDraft = {
     case: mapCaseRow(row, {
       latestBrief,
       clientSubmitted: row.clientSubmitted === 1,
-      latestAction: latest?.action ?? null,
-      clientResponded,
+      latestAction: row.latestAction,
+      clientResponded: clientRespondedFromRow(row.latestAction, row.latestActedAt, submittedAtMs),
+      submitted: row.clientSubmitted !== 1 || row.submittedAtMs !== null,
     }),
     brief: toBriefSummary(brief),
     overlay: resolveOverlay(row.brief_partial_json),

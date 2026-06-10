@@ -41,6 +41,7 @@ const baseCase: CaseRow = {
   client_submitted: false,
   latest_action: null,
   client_responded: false,
+  disposition: "SUBMITTED",
 };
 
 const briefFixture: NonNullable<CaseDetailResponse["brief"]> = {
@@ -82,8 +83,6 @@ describe("<CaseDetail /> integration", () => {
         caseRow={{ ...baseCase, status: "DRAFT" }}
         brief={null}
         overlay={null}
-        clientResponded={false}
-        latestAction={null}
         archived={false}
       />,
     );
@@ -96,8 +95,6 @@ describe("<CaseDetail /> integration", () => {
         caseRow={{ ...baseCase, status: "FAILED" }}
         brief={null}
         overlay={null}
-        clientResponded={false}
-        latestAction={null}
         archived={false}
       />,
     );
@@ -110,8 +107,6 @@ describe("<CaseDetail /> integration", () => {
         caseRow={{ ...baseCase, status: "SUSPENDED_HITL" }}
         brief={briefFixture}
         overlay={null}
-        clientResponded={false}
-        latestAction={null}
         archived={false}
       />,
     );
@@ -126,8 +121,6 @@ describe("<CaseDetail /> integration", () => {
         caseRow={{ ...baseCase, status: "ACTIONED" }}
         brief={null}
         overlay={null}
-        clientResponded={false}
-        latestAction={null}
         archived={false}
       />,
     );
@@ -141,8 +134,6 @@ describe("<CaseDetail /> integration", () => {
         caseRow={{ ...baseCase, status: "SUSPENDED_HITL" }}
         brief={briefFixture}
         overlay={null}
-        clientResponded={false}
-        latestAction={null}
         archived={false}
       />,
     );

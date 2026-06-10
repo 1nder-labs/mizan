@@ -37,6 +37,7 @@ function makeRow(index: number): CaseRow {
     client_submitted: false,
     latest_action: null,
     client_responded: false,
+    disposition: "AWAITING_REVIEWER",
   };
 }
 

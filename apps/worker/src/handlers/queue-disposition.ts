@@ -11,6 +11,7 @@ import { asc, desc, eq, inArray, not, sql, type SQL } from "drizzle-orm";
 import { cases as casesTable } from "@mizan/db";
 import { isClientResponded } from "../lib/case-notes.ts";
 import { latestActedAtSql, latestActionSql } from "../lib/latest-action-sql.ts";
+import { deriveCaseDisposition } from "@mizan/shared";
 import type {
   CaseDisposition,
   CaseRow,
@@ -36,6 +37,8 @@ export interface CaseRowExtras {
   readonly clientSubmitted: boolean;
   readonly latestAction: ReviewerAction | null;
   readonly clientResponded: boolean;
+  /** True once the campaign has entered review — a reviewer-seeded case, or a submitted client draft. */
+  readonly submitted: boolean;
 }
 
 /** Maps shared public case columns + the resolved disposition extras to a wire `CaseRow`. */
@@ -54,6 +57,12 @@ export function mapCaseRow(row: PublicCaseColumns, extras: CaseRowExtras): CaseR
     client_submitted: extras.clientSubmitted,
     latest_action: extras.latestAction,
     client_responded: extras.clientResponded,
+    disposition: deriveCaseDisposition({
+      status: row.status,
+      latestAction: extras.latestAction,
+      clientResponded: extras.clientResponded,
+      submitted: extras.submitted,
+    }),
   };
 }
 
