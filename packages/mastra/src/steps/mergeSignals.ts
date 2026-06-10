@@ -39,7 +39,7 @@ function parseParallelBranches(input: unknown): ParallelSignalsInput {
 /**
  * Combines parallel-branch outputs into a single PartialBriefState.
  *
- * Validates that all three branches agree on caseId, runId, classify,
+ * Validates that all four branches agree on caseId, runId, classify,
  * extractions, and policy_matches before picking the photoSignal branch
  * as the canonical non-signals carrier. Silent divergence would let an
  * upstream parallel step's concurrent mutation drop another branch's

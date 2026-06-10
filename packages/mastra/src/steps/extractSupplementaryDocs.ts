@@ -34,21 +34,32 @@ function mergeInto(inputData: PartialBriefState, extracted: SupplementaryDocs): 
   };
 }
 
-/** Fetches each supplementary doc from R2 and builds a single captioned user turn. */
+/**
+ * Fetches each supplementary doc from R2 and builds one captioned user turn. The
+ * leading count reflects the documents ACTUALLY attached (R2 blobs that resolve),
+ * not the row count — a missing blob is dropped rather than claimed, so the model
+ * never sees "3 documents" with two images and infers a third. Returns null when
+ * no blob resolved, so the caller skips the LLM entirely.
+ */
 async function buildMessages(
   env: ReturnType<typeof getEnv>,
   docs: readonly DocumentRow[],
-): Promise<readonly StructuredLlmMessage[]> {
-  const content: StructuredLlmMessage["content"][number][] = [
-    { type: "text", text: `The organizer attached ${docs.length} supplementary document(s).` },
-  ];
-  for (const [i, doc] of docs.entries()) {
+): Promise<readonly StructuredLlmMessage[] | null> {
+  const parts: StructuredLlmMessage["content"][number][] = [];
+  let attached = 0;
+  for (const doc of docs) {
     const obj = await env.R2_BUCKET.get(doc.r2_key);
     if (!obj) continue;
+    attached += 1;
     const bytes = new Uint8Array(await obj.arrayBuffer());
-    content.push({ type: "text", text: `Document ${i + 1} (${doc.filename || "unnamed"}):` });
-    content.push(toDocumentPart(bytes));
+    parts.push({ type: "text", text: `Document ${attached} (${doc.filename || "unnamed"}):` });
+    parts.push(toDocumentPart(bytes));
   }
+  if (attached === 0) return null;
+  const content: StructuredLlmMessage["content"][number][] = [
+    { type: "text", text: `The organizer attached ${attached} supplementary document(s).` },
+    ...parts,
+  ];
   return [{ role: "user", content }];
 }
 
@@ -73,6 +84,7 @@ export const extractSupplementaryDocs = createStep({
     const supp = all.filter((d) => d.doc_kind === SUPPLEMENTARY_DOC_KIND);
     if (supp.length === 0) return mergeInto(inputData, EMPTY);
     const messages = await buildMessages(env, supp);
+    if (messages === null) return mergeInto(inputData, EMPTY);
     abortSignal?.throwIfAborted();
     const extracted = await runStructuredLlmWithMessages({
       env,

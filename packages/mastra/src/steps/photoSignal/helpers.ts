@@ -4,11 +4,12 @@ import type { ExifSummary, ImageAuthenticity, PhotoSignalPayload } from "@mizan/
  * Authenticity fallback for the rare case where a document extraction degraded
  * and produced no read. The photo signal runs in the parallel branch AFTER the
  * extractors, so in practice the extraction is present; this keeps the step
- * total over the optional `extractions` state shape without silently inventing a
- * confident verdict.
+ * total over the optional `extractions` state shape. Surfaces as `medium` — a
+ * caution, never a green `low` pass — so a degraded read never reads to the
+ * reviewer as "looks authentic"; the assessment text states it was not assessed.
  */
 export const UNASSESSED_AUTHENTICITY: ImageAuthenticity = {
-  authenticity_risk: "low",
+  authenticity_risk: "medium",
   shows_tampering_signs: false,
   assessment: "Image authenticity was not assessed — the document extraction was unavailable.",
 };

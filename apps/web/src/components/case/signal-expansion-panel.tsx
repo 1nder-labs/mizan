@@ -46,23 +46,22 @@ function SignalBody({
   readonly entry: CaseSignalEntry;
   readonly caseId: string;
 }): React.JSX.Element {
-  if (entry.signal_type === "photo_dup") {
-    return <PhotoDupBody caseId={caseId} payload={entry.payload_json} />;
+  switch (entry.signal_type) {
+    case "photo_dup":
+      return <PhotoDupBody caseId={caseId} payload={entry.payload_json} />;
+    case "story_coherence":
+      return <StoryCoherenceBody payload={entry.payload_json} />;
+    case "vouching_chain":
+      return <VouchingChainBody payload={entry.payload_json} />;
+    case "ocr_mismatch":
+      return <OcrMismatchBody payload={entry.payload_json} />;
+    default:
+      return (
+        <pre className="overflow-x-auto rounded-xl border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
+          {JSON.stringify(entry.payload_json, null, 2)}
+        </pre>
+      );
   }
-  if (entry.signal_type === "story_coherence") {
-    return <StoryCoherenceBody payload={entry.payload_json} />;
-  }
-  if (entry.signal_type === "vouching_chain") {
-    return <VouchingChainBody payload={entry.payload_json} />;
-  }
-  if (entry.signal_type === "ocr_mismatch") {
-    return <OcrMismatchBody payload={entry.payload_json} />;
-  }
-  return (
-    <pre className="overflow-x-auto rounded-xl border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
-      {JSON.stringify(entry.payload_json, null, 2)}
-    </pre>
-  );
 }
 
 function SignalRowHeader({

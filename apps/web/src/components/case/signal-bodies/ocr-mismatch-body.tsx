@@ -61,17 +61,18 @@ export function OcrMismatchBody({
 }): React.JSX.Element {
   const matched = payload.name_matches_organizer;
   const bankMatches = payload.bank_account_holder_matches;
+  const allClear = matched && bankMatches !== false;
   return (
     <div className="space-y-4">
       <div
         className={cn(
           "flex items-center gap-2.5 rounded-xl border p-3 text-[13px] leading-relaxed",
-          matched
+          allClear
             ? "border-status-success-foreground/30 bg-status-success-foreground/10 text-foreground"
             : "border-status-destructive-foreground/30 bg-status-destructive-foreground/10 text-foreground",
         )}
       >
-        {matched ? (
+        {allClear ? (
           <ShieldCheck className="size-4 shrink-0 text-status-success-foreground" />
         ) : (
           <ShieldX className="size-4 shrink-0 text-status-destructive-foreground" />
