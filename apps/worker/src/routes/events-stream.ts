@@ -1,7 +1,7 @@
 /**
  * Org-wide live event SSE stream at `GET /api/events/stream?topic=...`.
  */
-import { and, eq, gt, live_events, makeDb, cases } from "@mizan/db";
+import { and, eq, gt, inArray, live_events, makeDb, cases } from "@mizan/db";
 import { LiveEventRowSchema } from "@mizan/shared";
 import { zValidator } from "@hono/zod-validator";
 import type { Context } from "hono";
@@ -79,6 +79,45 @@ async function fetchEventsAfterSeq(db: ReturnType<typeof makeDb>, topic: string,
     .all();
 }
 
+/** The `case_id` carried by a live-event row, or undefined for an org-level event. */
+function caseIdOf(payload: unknown): string | undefined {
+  if (payload !== null && typeof payload === "object" && "case_id" in payload) {
+    const value = payload.case_id;
+    if (typeof value === "string") return value;
+  }
+  return undefined;
+}
+
+/**
+ * Per-poll authorization for the `org:` + `case:` topics. The `org:` topic fans
+ * EVERY case's events to every org member, and the `case:` auth is only checked
+ * once at subscribe — so a non-admin reviewer would receive decisions for cases
+ * they are not assigned to (leak), and keep receiving a case's events after being
+ * unassigned mid-stream. Returns the set of case ids currently assigned to the
+ * viewer (rows for other cases are dropped); `null` means "send everything"
+ * (admins, who see all cases, and `user:` topics, which are already self-scoped).
+ * Re-querying each poll re-validates assignment continuously.
+ */
+async function assignedAllowList(
+  db: ReturnType<typeof makeDb>,
+  viewer: StreamContext["var"]["viewer"],
+  topic: string,
+  rows: Awaited<ReturnType<typeof fetchEventsAfterSeq>>,
+): Promise<ReadonlySet<string> | null> {
+  if (viewer.role === "admin") return null;
+  if (!topic.startsWith("org:") && !topic.startsWith("case:")) return null;
+  const ids = [
+    ...new Set(rows.map((r) => caseIdOf(r.payload_json)).filter((x) => x !== undefined)),
+  ];
+  if (ids.length === 0) return new Set();
+  const assigned = await db
+    .select({ id: cases.id })
+    .from(cases)
+    .where(and(inArray(cases.id, ids), eq(cases.assigned_to, viewer.userId)))
+    .all();
+  return new Set(assigned.map((r) => r.id));
+}
+
 /**
  * Wraps the tape read so a transient D1 failure backs the client off with a
  * `retry:` directive instead of killing the stream. Mirrors the per-case
@@ -127,6 +166,31 @@ async function writeLiveRow(
   });
 }
 
+/**
+ * Writes a fetched batch, dropping rows the viewer is no longer authorized for
+ * (see `assignedAllowList`), and returns the new high-water seq. `lastSeen`
+ * advances past dropped rows too, so a filtered event is never re-fetched.
+ */
+async function writeAuthorizedBatch(
+  c: StreamContext,
+  stream: StreamApi,
+  db: ReturnType<typeof makeDb>,
+  topic: string,
+  batch: Awaited<ReturnType<typeof fetchEventsAfterSeq>>,
+  lastSeen: number,
+): Promise<number> {
+  if (batch.length === 0) return lastSeen;
+  const allow = await assignedAllowList(db, c.var.viewer, topic, batch);
+  let last = lastSeen;
+  for (const row of batch) {
+    const caseId = caseIdOf(row.payload_json);
+    if (allow === null || caseId === undefined || allow.has(caseId))
+      await writeLiveRow(stream, row);
+    last = row.seq;
+  }
+  return last;
+}
+
 /** Streams events for a topic already authorized by the route handler. */
 async function streamTopicEvents(
   c: StreamContext,
@@ -139,20 +203,14 @@ async function streamTopicEvents(
 
   const catchUp = await safeFetch(db, topic, lastSeen, stream);
   if (catchUp === undefined) return;
-  for (const row of catchUp) {
-    await writeLiveRow(stream, row);
-    lastSeen = row.seq;
-  }
+  lastSeen = await writeAuthorizedBatch(c, stream, db, topic, catchUp, lastSeen);
 
   while (!c.req.raw.signal.aborted && Date.now() - startedAt < STREAM_WALL_CLOCK_MS) {
     await stream.sleep(LIVE_TAIL_INTERVAL_MS);
     if (c.req.raw.signal.aborted) return;
     const fresh = await safeFetch(db, topic, lastSeen, stream);
     if (fresh === undefined) return;
-    for (const row of fresh) {
-      await writeLiveRow(stream, row);
-      lastSeen = row.seq;
-    }
+    lastSeen = await writeAuthorizedBatch(c, stream, db, topic, fresh, lastSeen);
   }
 }
 
