@@ -31,10 +31,11 @@ export function ActionForm({
   onSubmit,
   recommendation,
 }: ActionFormProps): React.JSX.Element {
+  const suggestedAction = recommendation ? RECOMMENDATION_TO_ACTION[recommendation] : null;
   const form = useForm<ReviewerActionRequest>({
     resolver: zodResolver(ReviewerActionRequestSchema),
     defaultValues: {
-      action: "APPROVE",
+      action: suggestedAction ?? "APPROVE",
       rationale: "",
       action_id: crypto.randomUUID(),
     },
@@ -43,7 +44,6 @@ export function ActionForm({
 
   const selectedAction = form.watch("action");
   const requiresRationale = RATIONALE_REQUIRED_ACTIONS.has(selectedAction);
-  const suggestedAction = recommendation ? RECOMMENDATION_TO_ACTION[recommendation] : null;
 
   return (
     <Form {...form}>
