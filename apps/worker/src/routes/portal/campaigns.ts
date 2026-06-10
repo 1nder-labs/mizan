@@ -21,6 +21,7 @@ import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
 import {
   CLIENT_AWAITING_ACTION_VALUES,
+  isClientAwaitingAction,
   latestReviewerAction,
   readCaseNotes,
   writeCaseNote,
@@ -166,6 +167,16 @@ async function handToReviewer(
 }
 
 /**
+ * True when the latest reviewer action is an open ask to the client. Only then is
+ * a re-submit that landed no row a real rejection (no new evidence after a docs
+ * request); otherwise a redundant submit is an idempotent no-op, not an error.
+ */
+async function hasPendingClientAsk(db: Db, caseId: string): Promise<boolean> {
+  const latest = await latestReviewerAction(db, caseId);
+  return isClientAwaitingAction(latest?.action ?? null);
+}
+
+/**
  * Client campaign intake (`/api/portal/campaigns`). Create lands a DRAFT case
  * in the review org owned by the client; edit re-submits the intake fields but
  * only while the case is still DRAFT. The edit is a single conditional UPDATE
@@ -307,7 +318,7 @@ export const campaignRoutes = new Hono<{
       return c.json(PortalErrorBodySchema.parse({ error: "case_archived" }), 409);
     const firstSubmit = owned.campaign.submitted_at === null;
     const handed = await handToReviewer(db, viewer, id, owned.campaign.submitted_at);
-    if (!firstSubmit && !handed)
+    if (!firstSubmit && !handed && (await hasPendingClientAsk(db, id)))
       return c.json(PortalErrorBodySchema.parse({ error: "resubmit_not_allowed" }), 409);
     return c.json(CampaignMutationResponseSchema.parse({ id, status: owned.campaign.status }), 200);
   })

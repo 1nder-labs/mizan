@@ -71,7 +71,16 @@ export default defineConfig({
           name: "integration",
           include: ["tests/integration/**/*.test.ts", "tests/eval/**/*.test.ts"],
           globalSetup: ["./tests/setup/migrations.ts"],
-          maxWorkers: 1,
+          /**
+           * Each test file spins up its own workerd isolate that bundles the full
+           * Mastra graph (~80s cold), so running them serially is the suite's
+           * dominant cost. Under the local default (`remoteBindings: false`) the
+           * workerd instances are separate native processes bounded by system RAM,
+           * not the host node heap, so files parallelise safely — `isolatedStorage`
+           * gives each its own D1/R2/KV. The remote-proxy path keeps `1`: that
+           * subprocess exhausts the node heap, so concurrency there OOMs.
+           */
+          maxWorkers: RUN_REMOTE ? 1 : 4,
           minWorkers: 1,
         },
       },
