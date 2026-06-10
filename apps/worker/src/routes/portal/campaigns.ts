@@ -150,6 +150,7 @@ async function handToReviewer(
         eq(cases.created_by, viewer.userId),
         inArray(latestActionSql(), CLIENT_AWAITING_ACTION_VALUES),
         sql`(SELECT MAX(uploaded_at) FROM documents WHERE documents.case_id = cases.id) > ${latestActedAtSql()}`,
+        sql`${cases.submitted_at} <= ${latestActedAtSql()}`,
       );
   const updated = await db
     .update(cases)

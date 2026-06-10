@@ -22,10 +22,12 @@ type ArchiveContext = Context<{ Bindings: CloudflareBindings; Variables: ViewerV
 /** Sets or clears `archived_at` for an org-scoped case and echoes the new state. */
 async function setArchived(c: ArchiveContext, id: string, archived: boolean): Promise<Response> {
   const db = makeDb(c.env.DB);
-  await db
+  const updated = await db
     .update(cases)
     .set({ archived_at: archived ? new Date() : null })
-    .where(and(eq(cases.id, id), eq(cases.organization_id, c.var.viewer.organizationId)));
+    .where(and(eq(cases.id, id), eq(cases.organization_id, c.var.viewer.organizationId)))
+    .returning({ id: cases.id });
+  if (updated.length === 0) return c.json({ error: "not_found" }, 404);
   return c.json(ArchiveResponseSchema.parse({ archived }));
 }
 

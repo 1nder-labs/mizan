@@ -3,7 +3,7 @@ import { z } from "zod";
 import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/partial-brief-state.ts";
 
 /**
- * Re-joins the three signal-emitting parallel branches back into a single
+ * Re-joins the four signal-emitting parallel branches back into a single
  * `PartialBriefStateSchema`. Mastra `.parallel([...])` produces an object
  * keyed by step id; `mergeSignals` is the canonical "wide branch → narrow
  * state" reducer so every downstream step keeps the standard input shape.
@@ -77,7 +77,7 @@ export function mergeParallelSignals(input: ParallelSignalsInput): PartialBriefS
 type SignalsSlot = NonNullable<PartialBriefState["signals"]>;
 
 /**
- * Throws if any of the three parallel branches did not write its
+ * Throws if any of the four parallel branches did not write its
  * signal slot. Each branch is a `.then`-compatible step whose contract
  * is "populate exactly one slot in `state.signals`"; a missing slot at
  * this seam means that step degraded silently (caught its own error,
