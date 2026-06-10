@@ -19,6 +19,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   ActionErrorBodySchema,
+  ArchiveResponseSchema,
   BriefHistoryResponseSchema,
   CaseDetailResponseSchema,
   QueueResponseSchema,
@@ -112,13 +113,14 @@ async function readActionErrorCode(raw: unknown): Promise<ActionErrorCode | unde
   return parsed.success ? parsed.data.error : undefined;
 }
 
-/** Archives or unarchives a case; archived cases drop off the active queue. */
-export async function setCaseArchived(caseId: string, archived: boolean): Promise<void> {
+/** Archives or unarchives a case; archived cases drop off the active queue. Returns the new state. */
+export async function setCaseArchived(caseId: string, archived: boolean): Promise<boolean> {
   const res = archived
     ? await apiMutate.cases[":id"].archive.$post({ param: { id: caseId } })
     : await apiMutate.cases[":id"].unarchive.$post({ param: { id: caseId } });
   assertAuthorized(res.status);
   if (!res.ok) throw await apiError(res);
+  return ArchiveResponseSchema.parse(await res.json()).archived;
 }
 
 export async function submitReviewerAction(

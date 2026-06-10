@@ -9,11 +9,19 @@ import { DEFAULT_QUEUE_SEARCH, QueueSearchSchema, type QueueSearch } from "@miza
 
 const STORAGE_KEY = "mizan.queue.search";
 
-/** Persists the current queue search for later restoration. Never throws. */
+/** Names a storage failure (QuotaExceeded / SecurityError in private mode) for a log line. */
+function describeStorageError(error: unknown): string {
+  if (error instanceof DOMException) return error.name;
+  return error instanceof Error ? error.message : "unknown error";
+}
+
+/** Persists the current queue search for later restoration. Resilient to storage being unavailable. */
 export function saveQueueSearch(search: QueueSearch): void {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(search));
-  } catch {}
+  } catch (error) {
+    console.warn(`queue filters not persisted: ${describeStorageError(error)}`);
+  }
 }
 
 /**
@@ -26,7 +34,8 @@ export function loadQueueSearch(): QueueSearch {
     if (raw === null) return DEFAULT_QUEUE_SEARCH;
     const parsed = QueueSearchSchema.safeParse(JSON.parse(raw));
     return parsed.success ? parsed.data : DEFAULT_QUEUE_SEARCH;
-  } catch {
+  } catch (error) {
+    console.warn(`queue filters not restored: ${describeStorageError(error)}`);
     return DEFAULT_QUEUE_SEARCH;
   }
 }

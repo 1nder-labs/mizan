@@ -186,6 +186,8 @@ export {
   type ActionErrorCode,
 } from "./schemas/action-errors.ts";
 
+export { ArchiveResponseSchema, type ArchiveResponse } from "./schemas/archive.ts";
+
 export {
   ACTIVE_CASE_STATUSES,
   HITL_SUSPENDED_STATUS,

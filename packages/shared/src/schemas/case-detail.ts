@@ -2,7 +2,6 @@ import { z } from "zod";
 import { CaseRowSchema } from "./queue-search.ts";
 import { BriefPayloadSchema, RecommendationEnum } from "./brief.ts";
 import { CaseOverlaySchema } from "./case-overlay.ts";
-import { ReviewerActionEnum } from "./reviewer-action.ts";
 
 /** Summary row from the `briefs` table joined to a case-detail fetch. */
 export const BriefSummarySchema = z.object({
@@ -28,14 +27,6 @@ export const CaseDetailResponseSchema = z.object({
   case: CaseRowSchema,
   brief: BriefSummarySchema.nullable(),
   overlay: CaseOverlaySchema.nullable(),
-  /**
-   * True when a client has posted a client-facing note newer than the latest
-   * reviewer action on a non-terminal case — the "client responded" badge
-   * (KTD-5). Derived server-side; not persisted.
-   */
-  client_responded: z.boolean(),
-  /** The most recent reviewer action on the case (null if none yet) — input to the disposition. */
-  latest_action: ReviewerActionEnum.nullable(),
   /** True when the case has been archived (BLOCK auto-archives, or a manual archive). */
   archived: z.boolean(),
 });

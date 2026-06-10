@@ -8,6 +8,7 @@
  */
 import { zValidator } from "@hono/zod-validator";
 import { and, cases, eq, makeDb } from "@mizan/db";
+import { ArchiveResponseSchema } from "@mizan/shared";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { z } from "zod";
@@ -25,7 +26,7 @@ async function setArchived(c: ArchiveContext, id: string, archived: boolean): Pr
     .update(cases)
     .set({ archived_at: archived ? new Date() : null })
     .where(and(eq(cases.id, id), eq(cases.organization_id, c.var.viewer.organizationId)));
-  return c.json({ archived });
+  return c.json(ArchiveResponseSchema.parse({ archived }));
 }
 
 export const archiveRoutes = new Hono<{
