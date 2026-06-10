@@ -32,8 +32,12 @@ import {
 } from "@mizan/shared";
 import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-tape-invalidation.ts";
 import { useCaseDetailLiveEvents } from "@/hooks/use-case-detail-live-events.ts";
+import { useNavigate } from "@tanstack/react-router";
+import { CaseTabEnum } from "@mizan/shared";
 import { CaseHeader } from "./header.tsx";
 import { CaseTabs, type BriefPanelMode } from "./case-tabs.tsx";
+import { RerunBar } from "./brief-history.tsx";
+import { COPY } from "@/lib/copy-constants.ts";
 import { INITIAL_PHASE, deriveMode, phaseReducer, type BriefSummary } from "./brief-phase.ts";
 
 interface CaseDetailProps {
@@ -67,9 +71,18 @@ function DetailLayout({
   onGenerate,
   onStreamError,
 }: DetailLayoutProps): React.JSX.Element {
+  const navigate = useNavigate();
+  /** Top re-trigger: jump to the Brief tab so the re-run's progress is visible. */
+  function handleClientRepliedRerun(): void {
+    void navigate({ to: ".", search: (prev) => ({ ...prev, tab: CaseTabEnum.enum.brief }) });
+    onGenerate();
+  }
   return (
     <article className="w-full space-y-8 px-6 py-8">
       <CaseHeader caseRow={caseRow} disposition={disposition} archived={archived} />
+      {disposition === "CLIENT_REPLIED" && mode === "summary" ? (
+        <RerunBar onGenerate={handleClientRepliedRerun} hint={COPY.caseBrief.clientRepliedHint} />
+      ) : null}
       <CaseTabs
         caseRow={caseRow}
         brief={brief}
@@ -111,7 +124,7 @@ export function CaseDetail({
       overlay={overlay}
       disposition={disposition}
       archived={archived}
-      canRerun={!isTerminalDisposition(disposition)}
+      canRerun={!isTerminalDisposition(disposition) && disposition !== "CLIENT_REPLIED"}
       mode={deriveMode(caseRow.status, brief, phase)}
       onGenerate={() => dispatchPhase({ type: "user-generated" })}
       onStreamError={() => dispatchPhase({ type: "stream-errored" })}

@@ -232,6 +232,8 @@ export const COPY = {
     versionLabel: "Brief version",
     viewingPrevious: "You're viewing an earlier brief for this case.",
     backToLatest: "Back to latest",
+    clientRepliedHint:
+      "The campaign creator added new documents and re-submitted. Re-run the review to analyze the new evidence before you decide.",
   },
   portal: {
     brand: "Mizan",

@@ -70,10 +70,21 @@ function VersionSelect({
   );
 }
 
-function RerunBar({ onGenerate }: { readonly onGenerate: () => void }): React.JSX.Element {
+/**
+ * Re-run affordance. `hint` overrides the default copy so the same control can
+ * front the client-replied re-trigger at the top of the case without forking a
+ * second component.
+ */
+export function RerunBar({
+  onGenerate,
+  hint = COPY.caseBrief.rerunHint,
+}: {
+  readonly onGenerate: () => void;
+  readonly hint?: string;
+}): React.JSX.Element {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/40 px-4 py-2.5">
-      <p className="text-xs text-muted-foreground">{COPY.caseBrief.rerunHint}</p>
+      <p className="text-xs text-muted-foreground">{hint}</p>
       <Button size="sm" variant="outline" onClick={onGenerate}>
         <RotateCw className="mr-2 size-3.5" />
         {COPY.caseBrief.rerunAction}
