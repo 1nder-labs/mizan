@@ -24,8 +24,9 @@
 import { useEffect, useReducer } from "react";
 import {
   ACTIVE_CASE_STATUSES,
+  briefRerunAffordance,
   HITL_SUSPENDED_STATUS,
-  isTerminalDisposition,
+  type BriefRerunAffordance,
   type CaseDisposition,
   type CaseOverlay,
   type CaseRow,
@@ -53,7 +54,7 @@ interface DetailLayoutProps {
   readonly overlay: CaseOverlay | null;
   readonly disposition: CaseDisposition;
   readonly archived: boolean;
-  readonly canRerun: boolean;
+  readonly rerunAffordance: BriefRerunAffordance;
   readonly mode: BriefPanelMode;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
@@ -66,7 +67,7 @@ function DetailLayout({
   overlay,
   disposition,
   archived,
-  canRerun,
+  rerunAffordance,
   mode,
   onGenerate,
   onStreamError,
@@ -80,7 +81,7 @@ function DetailLayout({
   return (
     <article className="w-full space-y-8 px-6 py-8">
       <CaseHeader caseRow={caseRow} disposition={disposition} archived={archived} />
-      {disposition === "CLIENT_REPLIED" && mode === "summary" ? (
+      {rerunAffordance === "promoted-bar" && mode === "summary" ? (
         <RerunBar onGenerate={handleClientRepliedRerun} hint={COPY.caseBrief.clientRepliedHint} />
       ) : null}
       <CaseTabs
@@ -88,7 +89,7 @@ function DetailLayout({
         brief={brief}
         overlay={overlay}
         mode={mode}
-        canRerun={canRerun}
+        canRerun={rerunAffordance === "in-tab"}
         onGenerate={onGenerate}
         onStreamError={onStreamError}
       />
@@ -124,7 +125,7 @@ export function CaseDetail({
       overlay={overlay}
       disposition={disposition}
       archived={archived}
-      canRerun={!isTerminalDisposition(disposition) && disposition !== "CLIENT_REPLIED"}
+      rerunAffordance={briefRerunAffordance(disposition)}
       mode={deriveMode(caseRow.status, brief, phase)}
       onGenerate={() => dispatchPhase({ type: "user-generated" })}
       onStreamError={() => dispatchPhase({ type: "stream-errored" })}

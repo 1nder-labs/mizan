@@ -53,6 +53,17 @@ describe("<ActionForm />", () => {
     expect(payload.action).toBe("REQUEST_DOCS");
   });
 
+  test("pre-selects the ESCALATE radio when the brief recommends escalate", () => {
+    render(<ActionForm pending={false} onSubmit={async () => {}} recommendation="ESCALATE" />);
+    expect(screen.getByLabelText(/^escalate$/i)).toBeChecked();
+    expect(screen.getByLabelText(/^approve$/i)).not.toBeChecked();
+  });
+
+  test("pre-selects the BLOCK radio when the brief recommends block", () => {
+    render(<ActionForm pending={false} onSubmit={async () => {}} recommendation="BLOCK" />);
+    expect(screen.getByLabelText(/^block$/i)).toBeChecked();
+  });
+
   test("defaults to APPROVE only when there is no recommendation", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => {});

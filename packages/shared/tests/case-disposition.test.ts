@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  briefRerunAffordance,
   deriveCaseDisposition,
   isTerminalDisposition,
   REVIEWER_DISPOSITION_LABEL,
@@ -255,6 +256,32 @@ describe("isTerminalDisposition", () => {
     const nonTerminal = ALL_DISPOSITIONS.filter((d) => d !== "APPROVED" && d !== "DECLINED");
     for (const d of nonTerminal) {
       expect(isTerminalDisposition(d)).toBe(false);
+    }
+  });
+});
+
+describe("briefRerunAffordance", () => {
+  test("terminal dispositions hide the re-run", () => {
+    expect(briefRerunAffordance("APPROVED")).toBe("hidden");
+    expect(briefRerunAffordance("DECLINED")).toBe("hidden");
+  });
+
+  test("CLIENT_REPLIED gets the promoted bar", () => {
+    expect(briefRerunAffordance("CLIENT_REPLIED")).toBe("promoted-bar");
+  });
+
+  test("every other non-terminal disposition gets the in-tab re-run", () => {
+    const inTab = ALL_DISPOSITIONS.filter(
+      (d) => d !== "APPROVED" && d !== "DECLINED" && d !== "CLIENT_REPLIED",
+    );
+    for (const d of inTab) {
+      expect(briefRerunAffordance(d)).toBe("in-tab");
+    }
+  });
+
+  test("is total over every disposition (no undefined arm)", () => {
+    for (const d of ALL_DISPOSITIONS) {
+      expect(["hidden", "in-tab", "promoted-bar"]).toContain(briefRerunAffordance(d));
     }
   });
 });

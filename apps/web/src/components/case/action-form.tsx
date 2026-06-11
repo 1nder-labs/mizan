@@ -12,7 +12,12 @@ import { ActionRadioField } from "./action-form-fields.tsx";
 import { RationaleField } from "./rationale-field.tsx";
 import { SubmitActionButton } from "./submit-action-button.tsx";
 
-/** Maps the AI brief recommendation to the reviewer action it suggests. */
+/**
+ * Maps the AI brief recommendation to the reviewer action it suggests (and which
+ * radio the form pre-selects). `READY_FOR_REVIEW` maps to `APPROVE`: the brief's
+ * "ready for review" verdict means nothing is blocking approval, so APPROVE is
+ * the action it suggests — the reviewer still confirms by submitting.
+ */
 const RECOMMENDATION_TO_ACTION: Record<Recommendation, ReviewerAction> = {
   READY_FOR_REVIEW: "APPROVE",
   REQUEST_DOCS: "REQUEST_DOCS",

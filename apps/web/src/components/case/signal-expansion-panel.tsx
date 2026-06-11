@@ -39,7 +39,14 @@ function findEntry(
   return signals.find((entry) => entry.signal_type === signalType);
 }
 
-/** Raw payload dump for the opaque (registry / sanctions) signals that carry no dedicated body. */
+/**
+ * Raw payload dump for the opaque (registry / sanctions) signals that carry no
+ * dedicated body. These arms exist only to keep the `SignalBody` switch
+ * exhaustive over the discriminated union — `SIGNAL_ROWS` lists only the four
+ * produced signals, so the panel never actually mounts a row for them. If a
+ * producer is added for these types, add them to `SIGNAL_ROWS` and this body
+ * becomes the (intentional) reachable fallback.
+ */
 function RawSignalBody({ payload }: { readonly payload: unknown }): React.JSX.Element {
   return (
     <pre className="overflow-x-auto rounded-xl border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground">
