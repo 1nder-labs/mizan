@@ -56,6 +56,7 @@ export {
   type ExtractedDocumentKeys,
   type InsertDocumentInput,
 } from "./document-queries.ts";
+export { archiveCase } from "./archive-case.ts";
 export { emitLiveEvent, executeEmit, type EmitLiveEventInput } from "./emit-live-event.ts";
 export {
   batchTransitionWithEmits,

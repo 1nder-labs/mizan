@@ -34,13 +34,15 @@ import { zValidator } from "@hono/zod-validator";
 import { emitWorkflowEvent, promoteEvalRow } from "@mizan/mastra";
 import {
   and,
+  archiveCase,
+  batchTransitionWithEmits,
   briefs,
+  buildStatusChangedEmits,
   cases,
   desc,
   eq,
   makeDb,
   reviewer_actions,
-  transitionCase,
   type Db,
 } from "@mizan/db";
 import {
@@ -209,18 +211,34 @@ async function runPostActionChain(db: Db, input: PostActionInput): Promise<Brief
     actionId: input.actionId,
   });
   await emitTerminalEventBestEffort(db, input);
-  await archiveIfBlocked(db, input);
+  await archiveIfBlockedBestEffort(db, input);
   await notifyCaseClient(db, input.caseId, input.reviewerId, decisionNotice(input.action));
   return brief.payload;
 }
 
-/** A BLOCK decision archives the case so it drops off the active queue. */
-async function archiveIfBlocked(db: Db, input: PostActionInput): Promise<void> {
+/**
+ * A BLOCK decision archives the case (drops it off the active queue) + fans the
+ * `case.archived` event, via the SAME `archiveCase` helper the manual route uses
+ * so the two paths can't diverge. Best-effort: this runs AFTER the action is
+ * already committed to ACTIONED, so a throw here would trigger a no-op revert
+ * (the case is no longer RUNNING) and surface a misleading 500 for committed
+ * work — log loudly and return, exactly like `emitTerminalEventBestEffort`.
+ */
+async function archiveIfBlockedBestEffort(db: Db, input: PostActionInput): Promise<void> {
   if (input.action !== "BLOCK") return;
-  await db
-    .update(cases)
-    .set({ archived_at: new Date() })
-    .where(and(eq(cases.id, input.caseId), eq(cases.organization_id, input.organizationId)));
+  try {
+    await archiveCase(db, {
+      caseId: input.caseId,
+      organizationId: input.organizationId,
+      archived: true,
+      actorUserId: input.reviewerId,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[action] BLOCK auto-archive failed post-commit (case=${input.caseId} run=${input.runId}): ${reason}`,
+    );
+  }
 }
 
 /** Friendly client-facing notice for a terminal reviewer action. */
@@ -321,12 +339,17 @@ export const actionRoutes = new Hono<{
     if (!caseRow.current_run_id) return c.json(errorBody("no_run"), 409);
     const runId = caseRow.current_run_id;
 
-    const claimed = await transitionCase(db, {
-      caseId,
-      runId,
-      from: ["SUSPENDED_HITL"],
-      to: "RUNNING",
-    });
+    const claimed = await batchTransitionWithEmits(
+      db,
+      { caseId, runId, from: ["SUSPENDED_HITL"], to: "RUNNING", requireNotArchived: true },
+      buildStatusChangedEmits({
+        caseId,
+        organizationId: c.var.viewer.organizationId,
+        fromStatus: "SUSPENDED_HITL",
+        toStatus: "RUNNING",
+        actorUserId: c.var.viewer.userId,
+      }),
+    );
     if (!claimed) return c.json(errorBody("not_suspended_or_claimed"), 409);
 
     const outcome = await commitAction(c, db, caseId, runId, body);

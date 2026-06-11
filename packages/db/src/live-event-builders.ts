@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { CaseStatus, LiveEventPayload, ReviewerAction } from "@mizan/shared";
 import { emitLiveEvent, type EmitLiveEventInput } from "./emit-live-event.ts";
 import { cases } from "./schema.ts";
@@ -193,20 +193,22 @@ export async function batchTransitionWithEmits(
     readonly runId: string;
     readonly from: Case["status"] | readonly Case["status"][];
     readonly to: Case["status"];
+    /** Pins `archived_at IS NULL` into the WHERE so a concurrent archive can't be claimed. */
+    readonly requireNotArchived?: boolean;
   },
   emits: readonly EmitLiveEventInput[],
 ): Promise<Case | undefined> {
   const sources = Array.isArray(transition.from) ? [...transition.from] : [transition.from];
+  const guards = [
+    eq(cases.id, transition.caseId),
+    eq(cases.current_run_id, transition.runId),
+    inArray(cases.status, sources),
+  ];
+  if (transition.requireNotArchived) guards.push(isNull(cases.archived_at));
   const updated = await db
     .update(cases)
     .set({ status: transition.to, updated_at: new Date() })
-    .where(
-      and(
-        eq(cases.id, transition.caseId),
-        eq(cases.current_run_id, transition.runId),
-        inArray(cases.status, sources),
-      ),
-    )
+    .where(and(...guards))
     .returning();
   const row = updated[0];
   if (!row) return undefined;

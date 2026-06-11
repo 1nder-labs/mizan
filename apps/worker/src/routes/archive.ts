@@ -7,7 +7,7 @@
  * checked; the UPDATE re-scopes to the org as defense in depth.
  */
 import { zValidator } from "@hono/zod-validator";
-import { and, buildArchivedEmits, cases, emitLiveEventsBestEffort, eq, makeDb } from "@mizan/db";
+import { archiveCase, makeDb } from "@mizan/db";
 import { ArchiveResponseSchema } from "@mizan/shared";
 import { Hono } from "hono";
 import type { Context } from "hono";
@@ -23,21 +23,13 @@ type ArchiveContext = Context<{ Bindings: CloudflareBindings; Variables: ViewerV
 async function setArchived(c: ArchiveContext, id: string, archived: boolean): Promise<Response> {
   const db = makeDb(c.env.DB);
   const viewer = c.var.viewer;
-  const updated = await db
-    .update(cases)
-    .set({ archived_at: archived ? new Date() : null })
-    .where(and(eq(cases.id, id), eq(cases.organization_id, viewer.organizationId)))
-    .returning({ id: cases.id });
-  if (updated.length === 0) return c.json({ error: "not_found" }, 404);
-  await emitLiveEventsBestEffort(
-    db,
-    buildArchivedEmits({
-      caseId: id,
-      organizationId: viewer.organizationId,
-      archived,
-      actorUserId: viewer.userId,
-    }),
-  );
+  const ok = await archiveCase(db, {
+    caseId: id,
+    organizationId: viewer.organizationId,
+    archived,
+    actorUserId: viewer.userId,
+  });
+  if (!ok) return c.json({ error: "not_found" }, 404);
   return c.json(ArchiveResponseSchema.parse({ archived }));
 }
 
