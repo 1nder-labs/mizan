@@ -243,6 +243,33 @@ export function buildArchivedEmits(input: ArchivedEmitInput): EmitLiveEventInput
   return fanOrgCase(base, input.organizationId, input.caseId);
 }
 
+interface ResubmittedEmitInput {
+  readonly caseId: string;
+  readonly organizationId: string;
+  readonly actorUserId: string;
+}
+
+/**
+ * Builds org + case emits when a client re-submits a campaign after a docs
+ * request, so the reviewer's open board + case detail refetch and surface the
+ * CLIENT_REPLIED disposition (and its re-run prompt) live — without it the
+ * change is invisible until a manual reload.
+ */
+export function buildResubmittedEmits(input: ResubmittedEmitInput): EmitLiveEventInput[] {
+  const payload: LiveEventPayload = {
+    event_type: "case.resubmitted",
+    case_id: input.caseId,
+    actor_user_id: input.actorUserId,
+  };
+  const base = {
+    eventType: payload.event_type,
+    payload,
+    organizationId: input.organizationId,
+    actorUserId: input.actorUserId,
+  } satisfies Omit<EmitLiveEventInput, "topic">;
+  return fanOrgCase(base, input.organizationId, input.caseId);
+}
+
 interface SignalPersistedInput {
   readonly caseId: string;
   readonly runId: string;

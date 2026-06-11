@@ -54,6 +54,7 @@ export function dispatchLiveEvent(queryClient: QueryClient, event: LiveEventRow)
     case "case.brief_ready":
     case "case.actioned":
     case "case.archived":
+    case "case.resubmitted":
       coalesceInvalidate(queryClient, queryKeys.cases.lists);
       if (caseId) coalesceInvalidate(queryClient, queryKeys.cases.detail(caseId));
       return;

@@ -62,6 +62,7 @@ export {
   batchTransitionWithEmits,
   buildActionEmits,
   buildArchivedEmits,
+  buildResubmittedEmits,
   buildAssignmentEmits,
   buildBriefReadyEmits,
   buildSignalPersistedEmits,

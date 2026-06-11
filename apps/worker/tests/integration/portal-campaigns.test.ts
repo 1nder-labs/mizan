@@ -216,4 +216,40 @@ describe("portal campaigns", () => {
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "case_decided" });
   });
+
+  it("re-submitting after a docs request emits case.resubmitted on org + case topics", async () => {
+    const id = await createCampaign(clientACookie);
+    const now = Date.now();
+    const actedAt = now - 10_000;
+    await env.DB.prepare("UPDATE cases SET status = 'ACTIONED', submitted_at = ? WHERE id = ?")
+      .bind(now - 20_000, id)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, acted_at, action_id, organization_id)
+       VALUES (?, ?, ?, ?, 'REQUEST_DOCS', 'x', ?, ?, ?)`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        id,
+        crypto.randomUUID(),
+        reviewAdminId,
+        actedAt,
+        crypto.randomUUID(),
+        REVIEW_ORG_ID,
+      )
+      .run();
+    await seedDocRow(id, REVIEW_ORG_ID, "supplementary", `${id}/supplementary/after-ask`);
+
+    const res = await send("POST", `${CAMPAIGNS_URL}/${id}/submit`, clientACookie);
+    expect(res.status).toBe(200);
+
+    const events = await env.DB.prepare(
+      `SELECT topic FROM live_events WHERE event_type = 'case.resubmitted'
+       AND json_extract(payload_json, '$.case_id') = ? ORDER BY topic`,
+    )
+      .bind(id)
+      .all<{ topic: string }>();
+    const topics = (events.results ?? []).map((r) => r.topic).sort();
+    expect(topics).toEqual([`case:${id}`, `org:${REVIEW_ORG_ID}`]);
+  });
 });

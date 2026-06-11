@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
-import { cases, makeDb, type Db } from "@mizan/db";
+import { buildResubmittedEmits, cases, emitLiveEventsBestEffort, makeDb, type Db } from "@mizan/db";
 import { latestActedAtSql, latestActionSql } from "../../lib/latest-action-sql.ts";
 import {
   CampaignCreateSchema,
@@ -158,12 +158,21 @@ async function handToReviewer(
     .where(guard)
     .returning({ id: cases.id });
   const handed = updated.length > 0;
-  if (!firstSubmit && handed)
+  if (!firstSubmit && handed) {
     await notifyCaseReviewer(db, caseId, viewer.userId, {
       type: "message",
       title: "Client re-submitted for review",
       body: "The campaign creator re-submitted after your document request.",
     });
+    await emitLiveEventsBestEffort(
+      db,
+      buildResubmittedEmits({
+        caseId,
+        organizationId: viewer.organizationId,
+        actorUserId: viewer.userId,
+      }),
+    );
+  }
   return handed;
 }
 
