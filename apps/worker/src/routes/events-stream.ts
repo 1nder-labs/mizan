@@ -1,7 +1,7 @@
 /**
  * Org-wide live event SSE stream at `GET /api/events/stream?topic=...`.
  */
-import { and, eq, gt, inArray, live_events, makeDb, cases } from "@mizan/db";
+import { and, eq, gt, live_events, makeDb, cases, sql } from "@mizan/db";
 import { LiveEventRowSchema } from "@mizan/shared";
 import { zValidator } from "@hono/zod-validator";
 import type { Context } from "hono";
@@ -70,52 +70,55 @@ async function authorizeTopic(
   return { ok: true };
 }
 
-async function fetchEventsAfterSeq(db: ReturnType<typeof makeDb>, topic: string, afterSeq: number) {
-  return db
-    .select()
-    .from(live_events)
-    .where(and(eq(live_events.topic, topic), gt(live_events.seq, afterSeq)))
-    .orderBy(live_events.seq)
-    .all();
-}
+type StreamViewer = StreamContext["var"]["viewer"];
 
-/** The `case_id` carried by a live-event row, or undefined for an org-level event. */
-function caseIdOf(payload: unknown): string | undefined {
-  if (payload !== null && typeof payload === "object" && "case_id" in payload) {
-    const value = payload.case_id;
-    if (typeof value === "string") return value;
-  }
-  return undefined;
+/**
+ * Whether the viewer's events must be scoped to cases assigned to them. The
+ * `org:` topic fans EVERY case's events to every org member, and the `case:`
+ * subscribe-time check goes stale on mid-stream reassignment — so a non-admin on
+ * either topic must have each event re-checked against live assignment. Admins
+ * see all cases; `user:` topics are already self-scoped (and carry non-case
+ * events like `notification.new`), so neither is scoped.
+ */
+function scopesByAssignment(viewer: StreamViewer, topic: string): boolean {
+  if (viewer.role === "admin") return false;
+  return topic.startsWith("org:") || topic.startsWith("case:");
 }
 
 /**
- * Per-poll authorization for the `org:` + `case:` topics. The `org:` topic fans
- * EVERY case's events to every org member, and the `case:` auth is only checked
- * once at subscribe — so a non-admin reviewer would receive decisions for cases
- * they are not assigned to (leak), and keep receiving a case's events after being
- * unassigned mid-stream. Returns the set of case ids currently assigned to the
- * viewer (rows for other cases are dropped); `null` means "send everything"
- * (admins, who see all cases, and `user:` topics, which are already self-scoped).
- * Re-querying each poll re-validates assignment continuously.
+ * Reads the tape after `afterSeq`, computing per-row authorization IN the query:
+ * when the viewer is assignment-scoped, a LEFT JOIN on the payload's `case_id`
+ * resolves the case's current `assigned_to`, and `authorized` is 1 only when it
+ * matches the viewer. One query — no second assignment lookup, no JSON
+ * duck-typing in JS — and every row (authorized or not) is still returned so the
+ * caller can advance the cursor past dropped rows. `case_id`-less rows on a
+ * non-scoped topic stay authorized; on a scoped topic they have no producer.
  */
-async function assignedAllowList(
+export async function fetchEventsAfterSeq(
   db: ReturnType<typeof makeDb>,
-  viewer: StreamContext["var"]["viewer"],
+  viewer: StreamViewer,
   topic: string,
-  rows: Awaited<ReturnType<typeof fetchEventsAfterSeq>>,
-): Promise<ReadonlySet<string> | null> {
-  if (viewer.role === "admin") return null;
-  if (!topic.startsWith("org:") && !topic.startsWith("case:")) return null;
-  const ids = [
-    ...new Set(rows.map((r) => caseIdOf(r.payload_json)).filter((x) => x !== undefined)),
-  ];
-  if (ids.length === 0) return new Set();
-  const assigned = await db
-    .select({ id: cases.id })
-    .from(cases)
-    .where(and(inArray(cases.id, ids), eq(cases.assigned_to, viewer.userId)))
+  afterSeq: number,
+) {
+  const authorized = scopesByAssignment(viewer, topic)
+    ? sql<number>`CASE WHEN ${cases.assigned_to} = ${viewer.userId} THEN 1 ELSE 0 END`
+    : sql<number>`1`;
+  return db
+    .select({
+      topic: live_events.topic,
+      seq: live_events.seq,
+      event_type: live_events.event_type,
+      payload_json: live_events.payload_json,
+      emitted_at: live_events.emitted_at,
+      actor_user_id: live_events.actor_user_id,
+      organization_id: live_events.organization_id,
+      authorized,
+    })
+    .from(live_events)
+    .leftJoin(cases, sql`${cases.id} = json_extract(${live_events.payload_json}, '$.case_id')`)
+    .where(and(eq(live_events.topic, topic), gt(live_events.seq, afterSeq)))
+    .orderBy(live_events.seq)
     .all();
-  return new Set(assigned.map((r) => r.id));
 }
 
 /**
@@ -126,12 +129,13 @@ async function assignedAllowList(
  */
 async function safeFetch(
   db: ReturnType<typeof makeDb>,
+  viewer: StreamViewer,
   topic: string,
   afterSeq: number,
   stream: StreamApi,
 ): Promise<Awaited<ReturnType<typeof fetchEventsAfterSeq>> | undefined> {
   try {
-    return await fetchEventsAfterSeq(db, topic, afterSeq);
+    return await fetchEventsAfterSeq(db, viewer, topic, afterSeq);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     console.error(
@@ -167,26 +171,19 @@ async function writeLiveRow(
 }
 
 /**
- * Writes a fetched batch, dropping rows the viewer is no longer authorized for
- * (see `assignedAllowList`), and returns the new high-water seq. `lastSeen`
- * advances past dropped rows too, so a filtered event is never re-fetched.
+ * Writes a fetched batch, skipping rows the fetch marked unauthorized (`authorized
+ * = 0`), and returns the new high-water seq. `lastSeen` advances past skipped
+ * rows too, so a dropped event is never re-fetched and the cursor can't stall on
+ * a high-seq event for an unassigned case.
  */
 async function writeAuthorizedBatch(
   stream: StreamApi,
-  db: ReturnType<typeof makeDb>,
-  viewer: StreamContext["var"]["viewer"],
-  topic: string,
   batch: Awaited<ReturnType<typeof fetchEventsAfterSeq>>,
   lastSeen: number,
 ): Promise<number> {
-  if (batch.length === 0) return lastSeen;
-  const allow = await assignedAllowList(db, viewer, topic, batch);
   let last = lastSeen;
   for (const row of batch) {
-    const caseId = caseIdOf(row.payload_json);
-    if (allow === null || caseId === undefined || allow.has(caseId)) {
-      await writeLiveRow(stream, row);
-    }
+    if (row.authorized === 1) await writeLiveRow(stream, row);
     last = row.seq;
   }
   return last;
@@ -199,19 +196,20 @@ async function streamTopicEvents(
   topic: string,
 ): Promise<void> {
   const db = makeDb(c.env.DB);
+  const viewer = c.var.viewer;
   let lastSeen = parseLastEventId(c.req.header("Last-Event-ID"));
   const startedAt = Date.now();
 
-  const catchUp = await safeFetch(db, topic, lastSeen, stream);
+  const catchUp = await safeFetch(db, viewer, topic, lastSeen, stream);
   if (catchUp === undefined) return;
-  lastSeen = await writeAuthorizedBatch(stream, db, c.var.viewer, topic, catchUp, lastSeen);
+  lastSeen = await writeAuthorizedBatch(stream, catchUp, lastSeen);
 
   while (!c.req.raw.signal.aborted && Date.now() - startedAt < STREAM_WALL_CLOCK_MS) {
     await stream.sleep(LIVE_TAIL_INTERVAL_MS);
     if (c.req.raw.signal.aborted) return;
-    const fresh = await safeFetch(db, topic, lastSeen, stream);
+    const fresh = await safeFetch(db, viewer, topic, lastSeen, stream);
     if (fresh === undefined) return;
-    lastSeen = await writeAuthorizedBatch(stream, db, c.var.viewer, topic, fresh, lastSeen);
+    lastSeen = await writeAuthorizedBatch(stream, fresh, lastSeen);
   }
 }
 
