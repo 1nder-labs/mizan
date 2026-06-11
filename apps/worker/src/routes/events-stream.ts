@@ -12,6 +12,7 @@ import type { CloudflareBindings } from "../env.ts";
 import { requireRole, type ViewerVariables } from "../middleware/require-role.ts";
 import {
   LIVE_TAIL_INTERVAL_MS,
+  onSseStreamError,
   RECONNECT_BACKOFF_MS,
   STREAM_WALL_CLOCK_MS,
 } from "./sse-constants.ts";
@@ -224,5 +225,9 @@ export const eventsStreamRoutes = new Hono<{
     if (!authz.ok) {
       return c.json({ error: authz.status === 400 ? "invalid_topic" : "forbidden" }, authz.status);
     }
-    return streamSSE(c, (stream) => streamTopicEvents(c, stream, topic));
+    return streamSSE(
+      c,
+      (stream) => streamTopicEvents(c, stream, topic),
+      onSseStreamError("events-stream"),
+    );
   });
