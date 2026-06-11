@@ -1,8 +1,5 @@
 import {
   VouchingChainEnvelopeSchema,
-  assertCommunityVouchingCorroborated,
-  assertPartnerOrgCorroborated,
-  assertVouchingChain,
   type VouchingChain,
   type VouchingChainEnvelope,
 } from "@mizan/shared";
@@ -17,6 +14,7 @@ import {
   type PartialBriefState,
 } from "../../schemas/partial-brief-state.ts";
 import { CLASSIFY_VOUCHING_SYSTEM, buildVouchingPayload } from "./prompt.ts";
+import { corroborateOrDegrade } from "./corroborate.ts";
 
 /**
  * Minimum `vouching_narrative` length (post-trim) required to even
@@ -109,12 +107,8 @@ async function classifyOrDefault(args: {
     abortSignal: args.abortSignal,
     tracingContext: args.tracingContext,
   });
-  const corroborationSource = {
+  return corroborateOrDegrade(envelope.chain, {
     story: args.caseRow.story,
     vouching_narrative: args.caseRow.vouching_narrative ?? null,
-  };
-  return assertCommunityVouchingCorroborated(
-    assertPartnerOrgCorroborated(assertVouchingChain(envelope.chain), corroborationSource),
-    corroborationSource,
-  );
+  });
 }
