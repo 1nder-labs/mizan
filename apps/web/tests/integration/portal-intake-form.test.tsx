@@ -74,5 +74,13 @@ describe("<IntakeForm /> (create)", () => {
         geography: "KE",
       }),
     );
-  });
+    /**
+     * 20s timeout (default 5s): this case drives ~90 chars of `userEvent.type`
+     * plus two combobox interactions; under the integration pool's parallel CPU
+     * load the per-keystroke work occasionally crosses 5s and times out, though
+     * it runs in ~2s in isolation. The extra headroom keeps it deterministic
+     * without changing event timing (a `delay: null` setup breaks click-driven
+     * sibling tests by removing the microtask yields they rely on).
+     */
+  }, 20_000);
 });
