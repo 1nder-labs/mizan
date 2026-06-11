@@ -12,6 +12,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
+    "incremental": true,
 
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -29,6 +30,7 @@
     "paths": {
       "@mizan/db": ["./packages/db/src/index.ts"],
       "@mizan/mastra": ["./packages/mastra/src/index.ts"],
+      "@mizan/mastra/runtime": ["./packages/mastra/src/runtime.ts"],
       "@mizan/mastra/testing": ["./packages/mastra/src/testing.ts"],
       "@mizan/shared": ["./packages/shared/src/index.ts"],
       "@mizan/shared/testing": ["./packages/shared/src/testing.ts"],
