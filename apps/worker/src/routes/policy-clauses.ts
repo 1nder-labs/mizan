@@ -13,7 +13,7 @@
  * already) but to keep clause enumeration off the anonymous surface.
  */
 import { zValidator } from "@hono/zod-validator";
-import { getClauseById } from "@mizan/mastra";
+import { getClauseById } from "@mizan/mastra/runtime";
 import {
   PolicyClauseErrorBodySchema,
   PolicyClauseQuerySchema,

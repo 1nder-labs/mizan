@@ -38,10 +38,12 @@ import { defineConfig } from "vitest/config";
 const RUN_REMOTE = process.env.RUN_REMOTE_INTEGRATION === "1";
 
 /**
- * Each isolated test file boots its own workerd that re-evaluates the full
- * Mastra import graph (~30s), so the serial `maxWorkers: 1` was the suite's
- * dominant cost. The workerd instances are native processes bounded by system
- * RAM (not the host node heap the remote proxy exhausts), so files parallelise
+ * Each isolated test file boots its own workerd that evaluates the worker
+ * entry's STATIC module graph. That graph is deliberately light — the heavy
+ * Mastra/AI-SDK surface is reached only via dynamic `import()` in handlers and
+ * `scripts/check-worker-entry-graph.ts` gates it — so a typical file boots in
+ * seconds; only files that import `@mizan/mastra(/testing)` directly or drive
+ * the brief/chat paths at runtime evaluate the heavy graph. Files parallelise
  * safely under the local default — `isolate` stays ON, keeping each file's D1/
  * R2/KV separate (the `--no-isolate` shared-storage fast path is incompatible
  * with this suite's per-file fresh-DB assumptions). Scale the worker count to

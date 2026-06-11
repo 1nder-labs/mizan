@@ -19,7 +19,7 @@
  * on Cloudflare Workers. The chain is deterministic D1 writes — direct calls keep
  * it a single cross-request-completable surface.
  */
-import { emitWorkflowEvent, promoteEvalRow } from "@mizan/mastra";
+import { emitWorkflowEvent, promoteEvalRow } from "@mizan/mastra/runtime";
 import { archiveCase, briefs, and, desc, eq, reviewer_actions, type Db } from "@mizan/db";
 import {
   BriefPayloadSchema,

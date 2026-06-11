@@ -10,7 +10,7 @@ import { applyD1Migrations } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { beforeAll, describe, expect, inject, it } from "vitest";
 import { makeDb } from "@mizan/db";
-import { promoteEvalRow } from "@mizan/mastra";
+import { promoteEvalRow } from "@mizan/mastra/runtime";
 
 async function seedRow(
   caseId: string,

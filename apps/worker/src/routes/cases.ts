@@ -7,11 +7,8 @@
  * 3. producerGuard (Layer 2 workflow dedup — RUNNING for SSE, QUEUED for JSON)
  */
 
-import { createBriefRun, flushLangfuse } from "@mizan/mastra";
-import { toAISdkStream } from "@mastra/ai-sdk";
 import { makeDb, transitionCase, type Case } from "@mizan/db";
 import { BriefQueueMessageSchema } from "@mizan/shared";
-import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { CloudflareBindings } from "../env.ts";
@@ -68,13 +65,35 @@ function failBriefRunIfStuck(c: BriefContext, caseId: string, runId: string): vo
   c.executionCtx.waitUntil(failCaseToFailed(makeDb(c.env.DB), caseId, runId));
 }
 
+/**
+ * Lazily loads the brief-streaming dependency graph (Mastra + the AI SDK
+ * stream adapters) so the worker's static boot stays light — see
+ * `@mizan/mastra/runtime`'s docstring. Modules are evaluated once per
+ * isolate on the first brief request.
+ */
+async function loadBriefStreamDeps() {
+  const [mastra, mastraAiSdk, ai] = await Promise.all([
+    import("@mizan/mastra"),
+    import("@mastra/ai-sdk"),
+    import("ai"),
+  ]);
+  return {
+    createBriefRun: mastra.createBriefRun,
+    flushLangfuse: mastra.flushLangfuse,
+    toAISdkStream: mastraAiSdk.toAISdkStream,
+    createUIMessageStream: ai.createUIMessageStream,
+    createUIMessageStreamResponse: ai.createUIMessageStreamResponse,
+  };
+}
+
 async function streamBriefResponse(
   c: BriefContext,
   caseId: string,
   runId: string,
   caseRow: Case,
 ): Promise<Response> {
-  const { run, requestContext, langfuse, tracingOptions } = await createBriefRun(c.env, {
+  const deps = await loadBriefStreamDeps();
+  const { run, requestContext, langfuse, tracingOptions } = await deps.createBriefRun(c.env, {
     caseId,
     runId,
     reviewerId: c.var.viewer.userId,
@@ -94,17 +113,17 @@ async function streamBriefResponse(
       requestContext,
       tracingOptions,
     });
-    const aiSdkStream = toAISdkStream(workflowStream, { from: "workflow", version: "v6" });
-    const uiStream = createUIMessageStream({
+    const aiSdkStream = deps.toAISdkStream(workflowStream, { from: "workflow", version: "v6" });
+    const uiStream = deps.createUIMessageStream({
       execute: ({ writer }) => {
         writer.merge(aiSdkStream);
       },
       onFinish: () => {
-        flushLangfuse(langfuse, c.executionCtx);
+        deps.flushLangfuse(langfuse, c.executionCtx);
         failBriefRunIfStuck(c, caseId, runId);
       },
     });
-    return createUIMessageStreamResponse({ stream: uiStream });
+    return deps.createUIMessageStreamResponse({ stream: uiStream });
   } finally {
     c.req.raw.signal.removeEventListener("abort", onAbort);
     if (c.req.raw.signal.aborted) {

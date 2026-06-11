@@ -13,7 +13,7 @@ import { applyD1Migrations } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { beforeAll, describe, expect, inject, it } from "vitest";
 import { makeDb } from "@mizan/db";
-import { emitWorkflowEvent } from "@mizan/mastra";
+import { emitWorkflowEvent } from "@mizan/mastra/runtime";
 
 async function seedCase(caseId: string, runId: string): Promise<void> {
   const now = Date.now();
