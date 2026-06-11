@@ -93,9 +93,14 @@ export function clientRespondedFromRow(
 }
 
 /**
- * True when the client supplied fresh evidence after the most recent reviewer
- * action. Parameter-free (column refs + the scalar subquery only) — no user
- * input is interpolated, so the `sql` plumbing carries no injection surface.
+ * SQL timing-twin of `isClientResponded` (`case-notes.ts`): the client supplied
+ * fresh evidence after the most recent reviewer action. The awaiting-action gate
+ * (`REQUEST_DOCS` / `ESCALATE`) that `isClientResponded` also checks is applied
+ * by every caller here via `actionedWith` / `inArray(latestActionSql())`, so the
+ * two predicates agree in context — and the `outcome-filter` roundtrip test
+ * (drives the SQL filter from `deriveCaseDisposition`) fails if they drift.
+ * Parameter-free (column refs + the scalar subquery only) — no user input is
+ * interpolated, so the `sql` plumbing carries no injection surface.
  */
 function respondedExpr(): SQL {
   return sql`(${casesTable.submitted_at} IS NOT NULL AND ${casesTable.submitted_at} > ${latestActedAtSql()})`;

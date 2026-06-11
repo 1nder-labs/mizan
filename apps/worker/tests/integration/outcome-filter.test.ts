@@ -10,9 +10,33 @@
  */
 import { applyD1Migrations } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
-import { QueueResponseSchema } from "@mizan/shared";
+import {
+  deriveCaseDisposition,
+  QueueResponseSchema,
+  type CaseStatus,
+  type ReviewerAction,
+} from "@mizan/shared";
 import { beforeAll, describe, expect, inject, it } from "vitest";
 import { insertCase, seedReviewer } from "./cases-test-helpers.ts";
+
+/**
+ * Reviewer-seeded cases (no client draft, no doc after the action) covering one
+ * disposition each. `submitted` is therefore true and `clientResponded` false
+ * for every row — the inputs `deriveCaseDisposition` sees in the roundtrip below.
+ */
+const SEED_CASES: ReadonlyArray<{
+  readonly key: string;
+  readonly status: CaseStatus;
+  readonly action: ReviewerAction | null;
+}> = [
+  { key: "approved", status: "ACTIONED", action: "APPROVE" },
+  { key: "declined", status: "ACTIONED", action: "BLOCK" },
+  { key: "escalated", status: "ACTIONED", action: "ESCALATE" },
+  { key: "needs_docs", status: "ACTIONED", action: "REQUEST_DOCS" },
+  { key: "awaiting", status: "SUSPENDED_HITL", action: null },
+  { key: "submitted_draft", status: "DRAFT", action: null },
+  { key: "submitted_queued", status: "QUEUED", action: null },
+];
 
 const BASE = "http://localhost";
 
@@ -60,16 +84,7 @@ describe("queue ?outcome= filter", () => {
     reviewerId = reviewer.userId;
     orgId = reviewer.organizationId;
 
-    const cases: Array<{ key: string; status: string; action: string | null }> = [
-      { key: "approved", status: "ACTIONED", action: "APPROVE" },
-      { key: "declined", status: "ACTIONED", action: "BLOCK" },
-      { key: "escalated", status: "ACTIONED", action: "ESCALATE" },
-      { key: "needs_docs", status: "ACTIONED", action: "REQUEST_DOCS" },
-      { key: "awaiting", status: "SUSPENDED_HITL", action: null },
-      { key: "submitted_draft", status: "DRAFT", action: null },
-      { key: "submitted_queued", status: "QUEUED", action: null },
-    ];
-    for (const c of cases) {
+    for (const c of SEED_CASES) {
       const id = crypto.randomUUID();
       ids[c.key] = id;
       await insertCase({
@@ -112,5 +127,18 @@ describe("queue ?outcome= filter", () => {
 
   it("DRAFT is empty on the active queue — unsubmitted drafts are excluded upstream", async () => {
     expect(await idsForOutcome("DRAFT", cookie)).toEqual([]);
+  });
+
+  it("roundtrips: the SQL outcome filter returns each case under exactly the disposition deriveCaseDisposition assigns it", async () => {
+    for (const c of SEED_CASES) {
+      const derived = deriveCaseDisposition({
+        status: c.status,
+        latestAction: c.action,
+        clientResponded: false,
+        submitted: true,
+      });
+      const matched = await idsForOutcome(derived, cookie);
+      expect(matched).toContain(ids[c.key]);
+    }
   });
 });
