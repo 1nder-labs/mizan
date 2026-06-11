@@ -1,16 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { DocThumbnail } from "../../src/components/case/signal-bodies/photo-dup-body.tsx";
+import { DocumentThumbnail } from "../../src/components/case/document-preview.tsx";
 
 /**
  * Regression: a PDF Creator ID / category document must NOT be piped into an
  * `<img>` (which renders a broken-image box). It falls back to a labelled
  * file-type placeholder, while genuine image documents still render inline.
  */
-describe("<DocThumbnail />", () => {
+describe("<DocumentThumbnail />", () => {
   test("renders a PDF placeholder (no <img>) for a PDF document", () => {
     const { container } = render(
-      <DocThumbnail
+      <DocumentThumbnail
         preview={{ url: "/api/raw", contentType: "application/pdf" }}
         label="Creator ID"
       />,
@@ -21,7 +21,7 @@ describe("<DocThumbnail />", () => {
 
   test("renders an inline <img> for an image document", () => {
     const { container } = render(
-      <DocThumbnail
+      <DocumentThumbnail
         preview={{ url: "/api/raw.png", contentType: "image/png" }}
         label="Creator ID"
       />,
@@ -32,7 +32,7 @@ describe("<DocThumbnail />", () => {
   });
 
   test("shows a loading hint before the document URL resolves", () => {
-    render(<DocThumbnail preview={null} label="Creator ID" />);
+    render(<DocumentThumbnail preview={null} label="Creator ID" />);
     expect(screen.getByText("loading…")).toBeInTheDocument();
   });
 });
