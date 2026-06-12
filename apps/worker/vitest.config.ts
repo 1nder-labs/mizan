@@ -58,6 +58,18 @@ const LOCAL_MAX_WORKERS = Math.max(
   Math.min(os.cpus().length - 1, Math.floor(os.totalmem() / (4 * 1024 ** 3))),
 );
 
+/**
+ * Vitest's 5s default `testTimeout` is tuned for in-process unit tests. Every
+ * test in this project instead drives a real workerd + D1/R2/KV through HTTP,
+ * and the heavier paths chain multiple `better-auth` sign-ups (each a `scrypt`
+ * password hash) with several sequential campaign writes — 6+ round-trips that
+ * legitimately exceed 5s on a loaded CI shard while passing on a quiet dev box.
+ * That timing-dependent gap is a flaky-by-construction default, not a code
+ * fault, so the whole project gets an I/O-realistic budget. `hookTimeout`
+ * matches because per-file `beforeAll` seeds run the same real I/O.
+ */
+const INTEGRATION_IO_TIMEOUT_MS = 30_000;
+
 export default defineConfig({
   test: {
     projects: [
@@ -93,6 +105,8 @@ export default defineConfig({
           name: "integration",
           include: ["tests/integration/**/*.test.ts", "tests/eval/**/*.test.ts"],
           globalSetup: ["./tests/setup/migrations.ts"],
+          testTimeout: INTEGRATION_IO_TIMEOUT_MS,
+          hookTimeout: INTEGRATION_IO_TIMEOUT_MS,
           maxWorkers: RUN_REMOTE ? 1 : LOCAL_MAX_WORKERS,
           minWorkers: 1,
         },
