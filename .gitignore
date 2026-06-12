@@ -65,6 +65,10 @@ logs/
 /*.jpeg
 /*.webp
 
+# Brand + web assets are real source, not screenshot scratch — exempt the
+# committed icon/OG set from the global `*.png` ignore above.
+!apps/web/public/*.png
+
 # Playwright / agent-browser run artifacts — never committed (root + per-app)
 test-results/
 playwright-report/

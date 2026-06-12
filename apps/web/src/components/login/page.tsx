@@ -15,7 +15,6 @@
  */
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Scale } from "lucide-react";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
 import { SESSION_QUERY_KEY } from "@/lib/auth-client.ts";
 import { meQueryOptions } from "@/lib/me-api.ts";
@@ -57,13 +56,21 @@ export function LoginPage(): React.JSX.Element {
   return (
     <main className="grid min-h-dvh place-items-center bg-background px-6 py-12">
       <div className="w-full max-w-sm animate-rise">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="btn-primary-surface flex size-8 items-center justify-center rounded-md">
-            <Scale className="size-4" />
-          </div>
-          <div className="flex flex-col gap-0">
-            <span className="text-sm font-semibold leading-tight tracking-tight">Mizan</span>
-            <span className="text-xs text-muted-foreground">Reviewer console</span>
+        <div className="mb-8 flex flex-col items-center gap-4 text-center">
+          <picture>
+            <source srcSet="/logo.webp" type="image/webp" />
+            <img
+              src="/logo.png"
+              alt="Mizan"
+              width={64}
+              height={64}
+              className="size-16 select-none"
+              draggable={false}
+            />
+          </picture>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-display text-2xl font-semibold tracking-tight">Mizan</h1>
+            <p className="text-sm text-muted-foreground">Trust &amp; Safety review console</p>
           </div>
         </div>
         <Card className="border-border shadow-elev-2">
