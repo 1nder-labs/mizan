@@ -57,7 +57,7 @@ function resolveProvider(env: CloudflareBindings): LlmProvider {
   if (isLlmProvider(env.DEFAULT_LLM_PROVIDER) && hasProviderKey(env, env.DEFAULT_LLM_PROVIDER)) {
     return env.DEFAULT_LLM_PROVIDER;
   }
-  const fallbackOrder: LlmProvider[] = ["anthropic", "openai", "openrouter"];
+  const fallbackOrder: LlmProvider[] = ["openai", "anthropic", "openrouter"];
   for (const candidate of fallbackOrder) {
     if (hasProviderKey(env, candidate)) return candidate;
   }
