@@ -177,6 +177,7 @@ export const COPY = {
     sendLabel: "Send",
     stopLabel: "Stop",
     stoppedMarker: "(stopped)",
+    thinking: "Thinking…",
     newConversation: "New conversation",
     emptyTitle: "Understand the campaign in front of you",
     emptyDescription:
