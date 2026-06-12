@@ -86,8 +86,8 @@ async function persistLatestUserMessage(
   return validated;
 }
 
-function registerCopilotAgent(env: CloudflareBindings, viewerRole: CopilotRole) {
-  const tools = buildCopilotTools(env, viewerRole);
+function registerCopilotAgent(env: CloudflareBindings, viewerRole: CopilotRole, caseOpen: boolean) {
+  const tools = buildCopilotTools(env, viewerRole, { caseOpen });
   const copilotAgent = createReviewerCopilotAgent(env, tools);
   return createMastra(env, { agents: { reviewerCopilot: copilotAgent } });
 }
@@ -130,7 +130,11 @@ export async function handleChatPost(
   executionCtx.waitUntil(
     maybeGenerateThreadTitle(c.env, db, body.threadId, firstUserText(validated)),
   );
-  const { mastra, langfuse } = registerCopilotAgent(c.env, viewer.role);
+  const { mastra, langfuse } = registerCopilotAgent(
+    c.env,
+    viewer.role,
+    Boolean(body.context.caseId),
+  );
   const agent = mastra.getAgent("reviewerCopilot");
   const requestContext = buildChatRequestContext(viewer, db, body.context);
 

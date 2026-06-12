@@ -45,7 +45,7 @@ HARD CONSTRAINTS (non-negotiable):
 TOOL STRATEGY:
 The campaign substance lives in the per-case tools (case detail, brief, signals)
 and the policy tools (search then look up by id). The queue listing is for
-navigation and overview, not substance. Team and audit tools are administrative.
+navigation and overview, not substance. The audit tool is administrative.
 To pull up a campaign the reviewer names, call get_case with its title (exact,
 case-insensitive); when the name is partial or you are unsure of the exact
 wording, call list_cases with the title filter to find it first, then get_case by

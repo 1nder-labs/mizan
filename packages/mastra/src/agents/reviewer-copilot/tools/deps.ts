@@ -58,15 +58,6 @@ export interface CopilotSignalRow {
   readonly run_id: string;
 }
 
-/** Team member row returned by the copilot list_team handler. */
-export interface CopilotTeamMember {
-  readonly id: string;
-  readonly email: string;
-  readonly name: string | null;
-  readonly role: string;
-  readonly createdAt: number;
-}
-
 /**
  * Result of resolving a case by exact title for the copilot get_case tool.
  * `ambiguous` carries the duplicate-title count so the tool can ask the reviewer
@@ -103,7 +94,6 @@ export interface CopilotHandlerDeps {
   ) => Promise<CopilotSignalRow[]>;
   readonly getPolicyClause: (clauseId: string, source: PolicyClauseSource) => CopilotPolicyClause;
   readonly searchPolicy: (query: string, limit: number) => Promise<CopilotPolicySearchHit[]>;
-  readonly listTeamMembers: (viewer: ViewerContext, db: Db) => Promise<CopilotTeamMember[]>;
   readonly listAuditPage: (
     query: AuditListSearch,
     viewer: ViewerContext,
