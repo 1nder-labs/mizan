@@ -34,7 +34,7 @@ const PROVIDER_DEFAULTS: Record<LlmProvider, ProviderModelMap> = {
   openai: {
     extract: "gpt-5.4-mini-2026-03-17",
     compose: "gpt-5.4-2026-03-05",
-    copilot: "gpt-5.4-mini-2026-03-17",
+    copilot: "gpt-5.4-nano-2026-03-17",
   },
   openrouter: {
     extract: "anthropic/claude-3.5-haiku",
