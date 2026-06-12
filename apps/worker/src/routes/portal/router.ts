@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { CloudflareBindings } from "../../env.ts";
+import { portalRateLimit } from "../../middleware/portal-rate-limit.ts";
 import { requireRole, type ViewerVariables } from "../../middleware/require-role.ts";
 import { campaignRoutes } from "./campaigns.ts";
 import { campaignDocumentsRoutes } from "./campaign-documents.ts";
@@ -18,5 +19,6 @@ export const portalRoutes = new Hono<{
   Variables: ViewerVariables;
 }>()
   .use("*", requireRole(["client"]))
+  .use("*", portalRateLimit())
   .route("/campaigns", campaignRoutes)
   .route("/campaigns", campaignDocumentsRoutes);

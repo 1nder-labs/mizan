@@ -158,3 +158,11 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=8192
         run: bun x vitest run --project integration --shard=${{ matrix.shard }}
+
+  # Production deploy is handled by Cloudflare's native GitHub integration
+  # (Workers Builds), configured in the Cloudflare dashboard — it watches the
+  # deploy branch and runs the build + `wrangler deploy` itself, so CI here owns
+  # only correctness gates (secret-scan · verify · worker-integration). The
+  # Worker's runtime secrets (OPENAI_API_KEY, BETTER_AUTH_SECRET, LANGFUSE_*,
+  # REVIEW_ORG_ID) are set once directly on the Worker and persist across
+  # deploys; no app credentials live in GitHub.
