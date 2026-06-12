@@ -13,6 +13,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { extractViewer } from "../lib/viewer-context.ts";
 import type { CloudflareBindings } from "../env.ts";
+import { aiDailyCap } from "../middleware/ai-usage-cap.ts";
 import { requireRole, type ViewerVariables } from "../middleware/require-role.ts";
 
 const ChatPostSchema = z
@@ -168,7 +169,7 @@ export const chatRoutes = new Hono<{
     await db.delete(chat_threads).where(eq(chat_threads.id, id)).run();
     return c.json(ChatThreadMutationResponseSchema.parse({ ok: true }));
   })
-  .post("/", zValidator("json", ChatPostSchema), async (c) => {
+  .post("/", zValidator("json", ChatPostSchema), aiDailyCap("chat"), async (c) => {
     const body = c.req.valid("json");
     const viewer = extractViewer(c);
     const db = makeDb(c.env.DB);

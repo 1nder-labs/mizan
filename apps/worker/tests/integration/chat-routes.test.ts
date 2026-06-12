@@ -144,4 +144,24 @@ describe("chat routes", () => {
     );
     expect(res.status).toBe(403);
   });
+
+  it("429s once the global daily AI cap is reached (before any model call)", async () => {
+    const day = new Date(Date.now()).toISOString().slice(0, 10);
+    await env.KV.put(`ai-cap:chat:${day}`, "999999");
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/chat`, {
+        method: "POST",
+        headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId,
+          messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "hi" }] }],
+          context: { route: "/queue", caseId: null },
+        }),
+      }),
+    );
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("3600");
+    const body = await res.json<{ error: string }>();
+    expect(body.error).toBe("ai_daily_limit");
+  });
 });

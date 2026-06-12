@@ -14,6 +14,7 @@ import { Hono } from "hono";
 import type { CloudflareBindings } from "../env.ts";
 import { failCaseToFailed } from "../lib/fail-case.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
+import { aiDailyCap } from "../middleware/ai-usage-cap.ts";
 import { producerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
 import { requireCaseAccess } from "../middleware/require-case-access.ts";
 import { requireRole } from "../middleware/require-role.ts";
@@ -252,6 +253,7 @@ export const caseRoutes = new Hono<{
   .post(
     "/:id/brief",
     idempotencyKey,
+    aiDailyCap("brief"),
     async (c, next) => (wantsEventStream(c) ? runningGuard(c, next) : queuedGuard(c, next)),
     routeBriefPost,
   );
