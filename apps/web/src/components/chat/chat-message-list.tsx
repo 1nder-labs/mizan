@@ -5,6 +5,7 @@ import { COPY } from "@/lib/copy-constants.ts";
 import { reveal } from "@/lib/motion.ts";
 import { Markdown } from "@/lib/markdown.tsx";
 import { ToolCallCard } from "@/components/chat/tool-call-card.tsx";
+import { ChatThinkingIndicator } from "@/components/chat/chat-thinking-indicator.tsx";
 
 const SCROLL_THRESHOLD_PX = 40;
 
@@ -45,6 +46,22 @@ function useStickToBottom(
 function formatAssistantText(text: string, showStopped: boolean): string {
   if (!showStopped || text.includes(COPY.chat.stoppedMarker)) return text;
   return `${text}\n\n${COPY.chat.stoppedMarker}`;
+}
+
+/**
+ * Whether to show the "thinking" affordance: a turn is streaming but the latest
+ * message has yet to render any assistant text (awaiting the first token, or a
+ * tool call is running). Once an assistant text part carries content, the
+ * streaming text itself is the feedback, so the indicator retires.
+ */
+function isAwaitingFirstToken(
+  messages: ReturnType<typeof useChat>["messages"],
+  streaming: boolean,
+): boolean {
+  if (!streaming) return false;
+  const last = messages.at(-1);
+  if (!last || last.role !== "assistant") return true;
+  return !last.parts.some((part) => part.type === "text" && part.text.trim().length > 0);
 }
 
 function MessageParts({
@@ -103,6 +120,7 @@ export function ChatMessages({
 }): React.JSX.Element {
   const { containerRef, onScroll } = useStickToBottom(messages, streaming);
   const lastId = messages.at(-1)?.id;
+  const awaitingFirstToken = isAwaitingFirstToken(messages, streaming);
 
   return (
     <div
@@ -121,6 +139,7 @@ export function ChatMessages({
           onRegenerate={onRegenerate}
         />
       ))}
+      {awaitingFirstToken ? <ChatThinkingIndicator /> : null}
     </div>
   );
 }

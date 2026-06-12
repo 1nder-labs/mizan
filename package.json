@@ -23,6 +23,7 @@
     "knip": "knip",
     "eval": "bun --filter @mizan/eval eval",
     "deploy": "bun --filter @mizan/worker deploy",
+    "versions:upload": "bun --filter @mizan/worker versions:upload",
     "db:generate": "bun --filter @mizan/db generate",
     "db:migrate:local": "bun --filter @mizan/worker db:migrate:local",
     "db:migrate:prod": "bun --filter @mizan/worker db:migrate:prod",
