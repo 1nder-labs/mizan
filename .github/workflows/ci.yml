@@ -158,3 +158,50 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=8192
         run: bun x vitest run --project integration --shard=${{ matrix.shard }}
+
+  # Production deploy — the ONLY deploy surface (no staging env). Fires solely on
+  # a push to `main` AFTER every other gate is green, so `main` is the release
+  # train: merge to main → CI passes → Cloudflare gets the new Worker + assets.
+  # Auth is a single deploy-scoped Cloudflare API token (CLOUDFLARE_API_TOKEN
+  # repo secret); the account id lives in wrangler.jsonc. The Worker's RUNTIME
+  # secrets (OPENAI_API_KEY, BETTER_AUTH_SECRET, LANGFUSE_*, REVIEW_ORG_ID) are
+  # NOT managed by CI — they are set once directly on the Worker with `wrangler
+  # secret`, and `wrangler deploy` never clears a secret it isn't given, so they
+  # persist across every deploy. That keeps app credentials out of GitHub
+  # entirely; CI only ships code + assets + migrations.
+  deploy:
+    name: Deploy to Cloudflare (production)
+    needs: [secret-scan, verify, worker-integration]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies (frozen lockfile · Socket scanner active)
+        run: bun install --frozen-lockfile --no-cache
+
+      - name: Build web client (assets for the Worker ASSETS binding)
+        run: bun --filter @mizan/web build
+
+      - name: Apply D1 migrations (remote production)
+        working-directory: apps/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: bun x wrangler d1 migrations apply DB --remote
+
+      - name: Deploy Worker
+        working-directory: apps/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: bun x wrangler deploy
