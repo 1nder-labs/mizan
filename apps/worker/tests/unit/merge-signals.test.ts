@@ -1,7 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import { mergeParallelSignals, mergeSignals as mergeSignalsStep } from "@mizan/mastra/testing";
 import type { PartialBriefState } from "@mizan/mastra/testing";
-import type { PhotoSignalPayload, StoryCoherencePayload, VouchingChain } from "@mizan/shared";
+import type {
+  OcrMismatchPayload,
+  PhotoSignalPayload,
+  StoryCoherencePayload,
+  VouchingChain,
+} from "@mizan/shared";
 
 const CLASSIFY = {
   category: "emergency_relief",
@@ -9,14 +14,30 @@ const CLASSIFY = {
   geography_tier: "OFAC_ADJACENT" as const,
 };
 
+const EXIF_NONE = {
+  has_capture_metadata: false,
+  camera_make: null,
+  camera_model: null,
+  captured_at: null,
+  has_gps: false,
+} as const;
+
 const PHOTO: PhotoSignalPayload = {
   creator_id: {
-    reverseImage: { hits: [], checked_at: "2026-05-21T00:00:00.000Z" },
-    aiGen: { probability: "low", model: "stub-v1" },
+    authenticity: {
+      authenticity_risk: "low",
+      shows_tampering_signs: false,
+      assessment: "Genuine ID.",
+    },
+    exif: EXIF_NONE,
   },
   category_doc: {
-    reverseImage: { hits: [], checked_at: "2026-05-21T00:00:00.000Z" },
-    aiGen: { probability: "low", model: "stub-v1" },
+    authenticity: {
+      authenticity_risk: "low",
+      shows_tampering_signs: false,
+      assessment: "Genuine bill.",
+    },
+    exif: EXIF_NONE,
   },
 };
 
@@ -29,6 +50,17 @@ const STORY: StoryCoherencePayload = {
 const VOUCHING: VouchingChain = {
   structure: "individual-to-individual",
   weakest_link_narrative: "neighbor chain",
+};
+
+const OCR: OcrMismatchPayload = {
+  claimed_organizer_name: "Test Organizer",
+  id_full_name: "Test Organizer",
+  bank_account_holder_name: null,
+  name_matches_organizer: true,
+  id_match_reason: "ID names the organizer.",
+  bank_account_holder_matches: null,
+  bank_match_reason: null,
+  summary: "ID name matches organizer.",
 };
 
 function baseBranch(
@@ -44,24 +76,27 @@ function baseBranch(
   };
 }
 
+/** The non-diverging signal branches every happy-path + single-divergence test reuses. */
+function intactBranches() {
+  return {
+    photoSignal: baseBranch({}, { photo: PHOTO }),
+    storyCoherence: baseBranch({}, { story: STORY }),
+    classifyVouchingChain: baseBranch({}, { vouching: VOUCHING }),
+    ocrMismatch: baseBranch({}, { ocr: OCR }),
+  };
+}
+
 describe("mergeParallelSignals", () => {
-  it("combines photo / story / vouching slots from each branch", () => {
-    const merged = mergeParallelSignals({
-      photoSignal: baseBranch({}, { photo: PHOTO }),
-      storyCoherence: baseBranch({}, { story: STORY }),
-      classifyVouchingChain: baseBranch({}, { vouching: VOUCHING }),
-    });
+  it("combines photo / story / vouching / ocr slots from each branch", () => {
+    const merged = mergeParallelSignals(intactBranches());
     expect(merged.signals?.photo).toEqual(PHOTO);
     expect(merged.signals?.story).toEqual(STORY);
     expect(merged.signals?.vouching).toEqual(VOUCHING);
+    expect(merged.signals?.ocr).toEqual(OCR);
   });
 
   it("preserves classify + caseId/runId from the canonical base branch", () => {
-    const merged = mergeParallelSignals({
-      photoSignal: baseBranch({}, { photo: PHOTO }),
-      storyCoherence: baseBranch({}, { story: STORY }),
-      classifyVouchingChain: baseBranch({}, { vouching: VOUCHING }),
-    });
+    const merged = mergeParallelSignals(intactBranches());
     expect(merged.caseId).toBe("case-1");
     expect(merged.runId).toBe("run-1");
     expect(merged.classify).toEqual(CLASSIFY);
@@ -70,9 +105,8 @@ describe("mergeParallelSignals", () => {
   it("throws when storyCoherence branch diverges on runId", () => {
     expect(() =>
       mergeParallelSignals({
-        photoSignal: baseBranch({}, { photo: PHOTO }),
+        ...intactBranches(),
         storyCoherence: baseBranch({ runId: "different-run" }, { story: STORY }),
-        classifyVouchingChain: baseBranch({}, { vouching: VOUCHING }),
       }),
     ).toThrow(/storyCoherence branch diverged on caseId\/runId/);
   });
@@ -80,12 +114,9 @@ describe("mergeParallelSignals", () => {
   it("throws when classifyVouchingChain branch diverges on classify", () => {
     expect(() =>
       mergeParallelSignals({
-        photoSignal: baseBranch({}, { photo: PHOTO }),
-        storyCoherence: baseBranch({}, { story: STORY }),
+        ...intactBranches(),
         classifyVouchingChain: baseBranch(
-          {
-            classify: { ...CLASSIFY, geography_tier: "SAFE" },
-          },
+          { classify: { ...CLASSIFY, geography_tier: "SAFE" } },
           { vouching: VOUCHING },
         ),
       }),
@@ -94,18 +125,14 @@ describe("mergeParallelSignals", () => {
 
   it("throws when the story slot is missing — a parallel signal step degraded silently", () => {
     expect(() =>
-      mergeParallelSignals({
-        photoSignal: baseBranch({}, { photo: PHOTO }),
-        storyCoherence: baseBranch({}, {}),
-        classifyVouchingChain: baseBranch({}, { vouching: VOUCHING }),
-      }),
+      mergeParallelSignals({ ...intactBranches(), storyCoherence: baseBranch({}, {}) }),
     ).toThrow(/missing signal slot\(s\) \[story\]/);
   });
 
   it("throws when both story and vouching slots are missing — names every missing slot in one message", () => {
     expect(() =>
       mergeParallelSignals({
-        photoSignal: baseBranch({}, { photo: PHOTO }),
+        ...intactBranches(),
         storyCoherence: baseBranch({}, {}),
         classifyVouchingChain: baseBranch({}, {}),
       }),
@@ -114,12 +141,14 @@ describe("mergeParallelSignals", () => {
 
   it("throws when the photo slot is missing", () => {
     expect(() =>
-      mergeParallelSignals({
-        photoSignal: baseBranch({}, {}),
-        storyCoherence: baseBranch({}, { story: STORY }),
-        classifyVouchingChain: baseBranch({}, { vouching: VOUCHING }),
-      }),
+      mergeParallelSignals({ ...intactBranches(), photoSignal: baseBranch({}, {}) }),
     ).toThrow(/missing signal slot\(s\) \[photo\]/);
+  });
+
+  it("throws when the ocr slot is missing", () => {
+    expect(() =>
+      mergeParallelSignals({ ...intactBranches(), ocrMismatch: baseBranch({}, {}) }),
+    ).toThrow(/missing signal slot\(s\) \[ocr\]/);
   });
 
   /*
@@ -145,13 +174,20 @@ describe("mergeParallelSignals", () => {
                 issue_date_iso: "2020-01-01",
                 expiry_date_iso: "2030-01-01",
                 matches_organizer_name: true,
+                organizer_name_match_reason: "ok",
                 confidence: 90,
+                image_authenticity: {
+                  authenticity_risk: "low",
+                  shows_tampering_signs: false,
+                  assessment: "ok",
+                },
               },
             },
           },
           { story: STORY },
         ),
         classifyVouchingChain: baseBranch({ extractions: baseExtractions }, { vouching: VOUCHING }),
+        ocrMismatch: baseBranch({ extractions: baseExtractions }, { ocr: OCR }),
       }),
     ).toThrow(/storyCoherence branch diverged on extractions/);
   });
@@ -175,6 +211,7 @@ describe("mergeParallelSignals", () => {
           },
           { vouching: VOUCHING },
         ),
+        ocrMismatch: baseBranch({ policy_matches: basePolicyMatches }, { ocr: OCR }),
       }),
     ).toThrow(/classifyVouchingChain branch diverged on policy_matches/);
   });
@@ -189,8 +226,7 @@ describe("mergeParallelSignals", () => {
   it("throws when classifyVouchingChain branch diverges on runId", () => {
     expect(() =>
       mergeParallelSignals({
-        photoSignal: baseBranch({}, { photo: PHOTO }),
-        storyCoherence: baseBranch({}, { story: STORY }),
+        ...intactBranches(),
         classifyVouchingChain: baseBranch({ runId: "different-run" }, { vouching: VOUCHING }),
       }),
     ).toThrow(/classifyVouchingChain branch diverged on caseId\/runId/);
@@ -199,8 +235,7 @@ describe("mergeParallelSignals", () => {
   it("throws when classifyVouchingChain branch diverges on caseId", () => {
     expect(() =>
       mergeParallelSignals({
-        photoSignal: baseBranch({}, { photo: PHOTO }),
-        storyCoherence: baseBranch({}, { story: STORY }),
+        ...intactBranches(),
         classifyVouchingChain: baseBranch({ caseId: "different-case" }, { vouching: VOUCHING }),
       }),
     ).toThrow(/classifyVouchingChain branch diverged on caseId\/runId/);
@@ -222,12 +257,13 @@ describe("mergeSignals step ParallelBranchesSchema validation", () => {
     throw new Error("expected mergeSignals step to expose an execute function");
   }
 
-  it("throws when one of the three required branches is missing", async () => {
+  it("throws when one of the four required branches is missing", async () => {
     await expect(
       stepExecute({
         inputData: {
           photoSignal: { caseId: "c", runId: "r" },
           storyCoherence: { caseId: "c", runId: "r" },
+          classifyVouchingChain: { caseId: "c", runId: "r" },
         },
         requestContext: {},
         abortSignal: undefined,

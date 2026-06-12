@@ -9,6 +9,7 @@ export const ActionErrorCodeEnum = z.enum([
   "not_found",
   "no_run",
   "not_suspended_or_claimed",
+  "case_archived",
   "workflow_failed",
 ]);
 

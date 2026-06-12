@@ -41,6 +41,41 @@ describe("<ActionForm />", () => {
     });
   });
 
+  test("defaults the action to the AI-suggested action, not APPROVE", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => {});
+    render(<ActionForm pending={false} onSubmit={onSubmit} recommendation="REQUEST_DOCS" />);
+    await user.click(screen.getByRole("button", { name: /^submit$/i }));
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+    const payload = onSubmit.mock.calls[0]?.[0] as { action: string };
+    expect(payload.action).toBe("REQUEST_DOCS");
+  });
+
+  test("pre-selects the ESCALATE radio when the brief recommends escalate", () => {
+    render(<ActionForm pending={false} onSubmit={async () => {}} recommendation="ESCALATE" />);
+    expect(screen.getByLabelText(/^escalate$/i)).toBeChecked();
+    expect(screen.getByLabelText(/^approve$/i)).not.toBeChecked();
+  });
+
+  test("pre-selects the BLOCK radio when the brief recommends block", () => {
+    render(<ActionForm pending={false} onSubmit={async () => {}} recommendation="BLOCK" />);
+    expect(screen.getByLabelText(/^block$/i)).toBeChecked();
+  });
+
+  test("defaults to APPROVE only when there is no recommendation", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => {});
+    render(<ActionForm pending={false} onSubmit={onSubmit} />);
+    await user.click(screen.getByRole("button", { name: /^submit$/i }));
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+    const payload = onSubmit.mock.calls[0]?.[0] as { action: string };
+    expect(payload.action).toBe("APPROVE");
+  });
+
   test("forwards mount-time action_id to onSubmit (Layer 4 idempotency contract)", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => {});

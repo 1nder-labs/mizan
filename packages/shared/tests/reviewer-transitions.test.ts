@@ -21,23 +21,12 @@ describe("canReviewerTransition", () => {
     expect(canReviewerTransition("QUEUED", "RUNNING")).toBe(false);
   });
 
-  test("READY_FOR_REVIEW → ACTIONED is allowed (actions.ts accepts both source statuses)", () => {
-    expect(canReviewerTransition("READY_FOR_REVIEW", "ACTIONED")).toBe(true);
-  });
-
   test("FAILED → DRAFT is rejected (terminal for reviewer)", () => {
     expect(canReviewerTransition("FAILED", "DRAFT")).toBe(false);
   });
 
   test("ACTIONED → anything is rejected", () => {
-    for (const target of [
-      "DRAFT",
-      "QUEUED",
-      "RUNNING",
-      "SUSPENDED_HITL",
-      "READY_FOR_REVIEW",
-      "FAILED",
-    ] as const) {
+    for (const target of ["DRAFT", "QUEUED", "RUNNING", "SUSPENDED_HITL", "FAILED"] as const) {
       expect(canReviewerTransition("ACTIONED", target)).toBe(false);
     }
   });
@@ -48,7 +37,6 @@ describe("canReviewerTransition", () => {
       "QUEUED",
       "RUNNING",
       "SUSPENDED_HITL",
-      "READY_FOR_REVIEW",
       "ACTIONED",
       "FAILED",
     ] as const;

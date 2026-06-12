@@ -7,11 +7,8 @@
  * 3. producerGuard (Layer 2 workflow dedup — RUNNING for SSE, QUEUED for JSON)
  */
 
-import { createBriefRun, flushLangfuse } from "@mizan/mastra";
-import { toAISdkStream } from "@mastra/ai-sdk";
 import { makeDb, transitionCase, type Case } from "@mizan/db";
 import { BriefQueueMessageSchema } from "@mizan/shared";
-import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { CloudflareBindings } from "../env.ts";
@@ -23,6 +20,7 @@ import { requireRole } from "../middleware/require-role.ts";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { actionRoutes } from "./actions.ts";
+import { archiveRoutes } from "./archive.ts";
 import { assignmentsRoutes } from "./assignments.ts";
 import { caseDocumentsRoutes } from "./case-documents.ts";
 import { caseNotesRoutes } from "./case-notes.ts";
@@ -54,7 +52,7 @@ function wantsEventStream(c: BriefContext): boolean {
 /**
  * Flips the case to FAILED when a brief SSE stream finishes without the
  * workflow having advanced the row off RUNNING. The workflow self-transitions
- * to READY_FOR_REVIEW / SUSPENDED_HITL on success, so the guarded transition
+ * to SUSPENDED_HITL on success, so the guarded transition
  * is a no-op there; only a genuinely stuck run — a step threw mid-stream, which
  * the workflow stream serialises as a silent `{ status: "failed" }` with no
  * error text — is failed + emitted. Without this the row sticks in RUNNING,
@@ -67,13 +65,35 @@ function failBriefRunIfStuck(c: BriefContext, caseId: string, runId: string): vo
   c.executionCtx.waitUntil(failCaseToFailed(makeDb(c.env.DB), caseId, runId));
 }
 
+/**
+ * Lazily loads the brief-streaming dependency graph (Mastra + the AI SDK
+ * stream adapters) so the worker's static boot stays light — see
+ * `@mizan/mastra/runtime`'s docstring. Modules are evaluated once per
+ * isolate on the first brief request.
+ */
+async function loadBriefStreamDeps() {
+  const [mastra, mastraAiSdk, ai] = await Promise.all([
+    import("@mizan/mastra"),
+    import("@mastra/ai-sdk"),
+    import("ai"),
+  ]);
+  return {
+    createBriefRun: mastra.createBriefRun,
+    flushLangfuse: mastra.flushLangfuse,
+    toAISdkStream: mastraAiSdk.toAISdkStream,
+    createUIMessageStream: ai.createUIMessageStream,
+    createUIMessageStreamResponse: ai.createUIMessageStreamResponse,
+  };
+}
+
 async function streamBriefResponse(
   c: BriefContext,
   caseId: string,
   runId: string,
   caseRow: Case,
 ): Promise<Response> {
-  const { run, requestContext, langfuse, tracingOptions } = await createBriefRun(c.env, {
+  const deps = await loadBriefStreamDeps();
+  const { run, requestContext, langfuse, tracingOptions } = await deps.createBriefRun(c.env, {
     caseId,
     runId,
     reviewerId: c.var.viewer.userId,
@@ -93,17 +113,17 @@ async function streamBriefResponse(
       requestContext,
       tracingOptions,
     });
-    const aiSdkStream = toAISdkStream(workflowStream, { from: "workflow", version: "v6" });
-    const uiStream = createUIMessageStream({
+    const aiSdkStream = deps.toAISdkStream(workflowStream, { from: "workflow", version: "v6" });
+    const uiStream = deps.createUIMessageStream({
       execute: ({ writer }) => {
         writer.merge(aiSdkStream);
       },
       onFinish: () => {
-        flushLangfuse(langfuse, c.executionCtx);
+        deps.flushLangfuse(langfuse, c.executionCtx);
         failBriefRunIfStuck(c, caseId, runId);
       },
     });
-    return createUIMessageStreamResponse({ stream: uiStream });
+    return deps.createUIMessageStreamResponse({ stream: uiStream });
   } finally {
     c.req.raw.signal.removeEventListener("abort", onAbort);
     if (c.req.raw.signal.aborted) {
@@ -223,6 +243,7 @@ export const caseRoutes = new Hono<{
   .use("/:id/*", requireCaseAccess)
   .route("/", casesListRoutes)
   .route("/", actionRoutes)
+  .route("/", archiveRoutes)
   .route("/", documentsRoutes)
   .route("/", caseDocumentsRoutes)
   .route("/", signalsRoutes)
@@ -240,7 +261,7 @@ export const caseRoutes = new Hono<{
  * Both the runId guard and the `status='RUNNING'` guard ensure we only
  * mutate the case row whose run THIS handler started AND has not yet
  * advanced past RUNNING — a concurrent reviewer action or finalisation
- * that already reached READY_FOR_REVIEW / ACTIONED is preserved.
+ * that already reached SUSPENDED_HITL / ACTIONED is preserved.
  * Abort (client disconnect) → DRAFT so the reviewer can retry.
  * Pre-stream throw → FAILED so the row surfaces in operator queries
  * for stuck / broken cases instead of looking like a fresh draft.

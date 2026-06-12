@@ -1,4 +1,4 @@
-import { DEFAULT_SAFETY_CITATIONS, briefPayload } from "./shared.ts";
+import { BASE_AUTHENTICITY, DEFAULT_SAFETY_CITATIONS, briefPayload } from "./shared.ts";
 
 /**
  * Community-vouching cases (006-008) place placeholder PNG bytes at every
@@ -21,6 +21,7 @@ const PLACEHOLDER_CREATOR_LOW_CONFIDENCE = {
   expiry_date_iso: null,
   matches_organizer_name: false,
   confidence: 12,
+  image_authenticity: BASE_AUTHENTICITY,
 };
 
 const PLACEHOLDER_BANK_LOW_CONFIDENCE = {
@@ -34,6 +35,7 @@ const PLACEHOLDER_BANK_LOW_CONFIDENCE = {
 
 function placeholderCategoryLowConfidence(): Record<string, unknown> {
   return {
+    image_authenticity: BASE_AUTHENTICITY,
     doc: {
       doc_kind: "org_registration",
       org_name: "",

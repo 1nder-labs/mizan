@@ -1,4 +1,5 @@
 import {
+  BASE_AUTHENTICITY,
   BASE_BANK,
   BASE_CREATOR,
   DEFAULT_SAFETY_CITATIONS,
@@ -15,6 +16,7 @@ export function case001Responses(): Record<string, unknown> {
     "extractCreatorIdDoc.extract": { ...BASE_CREATOR, full_name: "Mizan Demo Patient" },
     "extractBankStatement.extract": { ...BASE_BANK, account_holder_name: "Mizan Demo Patient" },
     "extractCategoryDocs.extract": {
+      image_authenticity: BASE_AUTHENTICITY,
       doc: {
         doc_kind: "medical",
         patient_name: "Mizan Demo Patient",
@@ -59,6 +61,7 @@ export function case002Responses(): Record<string, unknown> {
       currency: "GBP",
     },
     "extractCategoryDocs.extract": {
+      image_authenticity: BASE_AUTHENTICITY,
       doc: {
         doc_kind: "school",
         student_name: "Mizan Demo Student",
@@ -101,6 +104,7 @@ function case003ExtractorBlock(): Record<string, unknown> {
       currency: "PKR",
     },
     "extractCategoryDocs.extract": {
+      image_authenticity: BASE_AUTHENTICITY,
       doc: {
         doc_kind: "org_registration",
         org_name: "Mizan Demo Org",
@@ -160,6 +164,8 @@ function case004ExtractorBlock(): Record<string, unknown> {
     },
     "extractBankStatement.extract": {
       account_holder_name: "Mizan Demo Caregiver",
+      matches_organizer_name: true,
+      organizer_name_match_reason: "Account holder is the organizer.",
       currency: "IDR",
       statement_period_iso: "2026-02",
       latest_balance_redacted: "****",
@@ -167,6 +173,7 @@ function case004ExtractorBlock(): Record<string, unknown> {
       confidence: 40,
     },
     "extractCategoryDocs.extract": {
+      image_authenticity: BASE_AUTHENTICITY,
       doc: {
         doc_kind: "medical",
         patient_name: "Mizan Demo Caregiver",
@@ -226,6 +233,7 @@ export function case005Responses(): Record<string, unknown> {
       currency: "EGP",
     },
     "extractCategoryDocs.extract": {
+      image_authenticity: BASE_AUTHENTICITY,
       doc: {
         doc_kind: "school",
         student_name: "Mizan Demo Student",

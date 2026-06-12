@@ -7,11 +7,7 @@
  *
  * Reviewer-fireable transitions:
  *   - DRAFT → QUEUED via `POST /api/cases/:id/brief` (Mode B enqueue).
- *   - SUSPENDED_HITL → ACTIONED via `POST /api/cases/:id/action`.
- *   - READY_FOR_REVIEW → ACTIONED via the same action route, whose claim
- *     accepts both `SUSPENDED_HITL` and `READY_FOR_REVIEW` as the `from`
- *     state (see `apps/worker/src/routes/actions.ts` `transitionCase`
- *     `from: ["SUSPENDED_HITL", "READY_FOR_REVIEW"]`). Both carry a
+ *   - SUSPENDED_HITL → ACTIONED via `POST /api/cases/:id/action`, carrying a
  *     rationale + action_id from the action modal.
  *
  * Workflow-owned statuses (`QUEUED`, `RUNNING`) have empty arrays so
@@ -25,7 +21,6 @@ export const REVIEWER_TRANSITIONS: Readonly<Record<CaseStatus, ReadonlyArray<Cas
   QUEUED: [],
   RUNNING: [],
   SUSPENDED_HITL: ["ACTIONED"],
-  READY_FOR_REVIEW: ["ACTIONED"],
   ACTIONED: [],
   FAILED: [],
 } as const;

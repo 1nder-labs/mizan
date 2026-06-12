@@ -38,7 +38,7 @@ interface CommunityCaseFixture {
   readonly responses: () => Record<string, unknown>;
   readonly expectedPath: VerificationPath;
   readonly forcedEscalate: boolean;
-  readonly expectedRecommendation: "READY_FOR_REVIEW" | "REQUEST_DOCS" | "ESCALATE";
+  readonly expectedRecommendation: "SUSPENDED_HITL" | "REQUEST_DOCS" | "ESCALATE";
   /** Path-specific phrase from `forcedEscalateReason`'s `REASON_BY_PATH` lookup. */
   readonly expectedReasonPhrase: string;
 }
@@ -263,7 +263,7 @@ describe("phase 4 community-vouching workflow", () => {
      * rule every non-SAFE tier escalates non-documentary paths, so all
      * three community-vouching fixtures (YE / SD / PS) terminate at
      * ESCALATE. Documentary fixtures (case-001..005) stay
-     * READY_FOR_REVIEW per `brief-workflow.test.ts`.
+     * SUSPENDED_HITL per `brief-workflow.test.ts`.
      */
     expect(brief.recommendation).toBe(entry.expectedRecommendation);
 
@@ -315,7 +315,7 @@ describe("phase 4 community-vouching workflow", () => {
 
     /**
      * `finalizeCaseStatus` runs after `forcedEscalateGate` and must
-     * flip the case to READY_FOR_REVIEW. Asserting the persisted
+     * flip the case to SUSPENDED_HITL. Asserting the persisted
      * status (not just the brief) catches a class of bug where the
      * status-transition step is removed or short-circuited — the
      * brief writes succeed but the case stays stuck in RUNNING.
@@ -323,7 +323,7 @@ describe("phase 4 community-vouching workflow", () => {
     const statusRow = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
       .bind(caseId)
       .first<{ status: string }>();
-    expect(statusRow?.status).toBe("READY_FOR_REVIEW");
+    expect(statusRow?.status).toBe("SUSPENDED_HITL");
   }
 
   /*

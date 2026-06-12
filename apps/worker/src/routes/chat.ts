@@ -14,7 +14,6 @@ import { z } from "zod";
 import { extractViewer } from "../lib/viewer-context.ts";
 import type { CloudflareBindings } from "../env.ts";
 import { requireRole, type ViewerVariables } from "../middleware/require-role.ts";
-import { handleChatPost } from "./chat-stream.ts";
 
 const ChatPostSchema = z
   .object({
@@ -175,5 +174,12 @@ export const chatRoutes = new Hono<{
     const db = makeDb(c.env.DB);
     const owned = await assertThreadOwner(db, body.threadId, viewer);
     if (!owned.ok) return c.json({ error: "forbidden" }, owned.status);
+    /**
+     * Dynamic import defers the whole chat graph (chat-stream → copilot tools →
+     * Mastra agents + AI SDK) past the worker's static boot — see
+     * `@mizan/mastra/runtime`'s docstring. Evaluated once per isolate on the
+     * first chat turn.
+     */
+    const { handleChatPost } = await import("./chat-stream.ts");
     return handleChatPost(c, body, viewer, db, c.executionCtx);
   });

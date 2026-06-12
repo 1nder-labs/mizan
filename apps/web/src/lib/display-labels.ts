@@ -25,7 +25,6 @@ export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
   QUEUED: "Queued",
   RUNNING: "Running",
   SUSPENDED_HITL: "Awaiting reviewer",
-  READY_FOR_REVIEW: "Ready",
   ACTIONED: "Actioned",
   FAILED: "Failed",
 };

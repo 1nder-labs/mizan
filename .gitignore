@@ -55,14 +55,34 @@ docker/langfuse-db-data/
 *.log
 logs/
 
-# Playwright MCP scratch
+# Playwright / agent-browser screenshot + dump scratch. `*.png` is global
+# (pre-existing); the other formats are root-only, where ad-hoc screenshots land.
+# Intentional source images live under apps/web/public, apps/web/src, packages,
+# and synthetic-campaigns; force-add (git add -f) when committing one.
 .playwright-mcp/
 *.png
+/*.jpg
+/*.jpeg
+/*.webp
 
-# Playwright local-only — never committed
+# Playwright / agent-browser run artifacts — never committed (root + per-app)
+test-results/
+playwright-report/
+.playwright/
 apps/web/test-results/
 apps/web/playwright-report/
 apps/web/.playwright/
 
 # Local dev upload fixtures (sample documents, generated)
 /fixtures/
+
+# Synthetic campaign packets — commit the usable data (campaign.json + the PDF
+# evidence + README/INDEX), NOT the weasyprint HTML / generation scratch.
+/synthetic-campaigns/**/*.html
+/synthetic-campaigns/**/*.js
+/synthetic-campaigns/**/*.mjs
+/synthetic-campaigns/**/*.py
+/synthetic-campaigns/**/*.sh
+/synthetic-campaigns/**/*.jpg
+/synthetic-campaigns/**/*.jpeg
+/synthetic-campaigns/**/*.png

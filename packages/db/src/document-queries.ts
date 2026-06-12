@@ -50,6 +50,20 @@ export async function listCaseDocuments(
     .all();
 }
 
+/** Epoch-ms of the most recent document upload/replace for a case, or null when none. */
+export async function latestDocumentUploadMs(
+  db: Db,
+  caseId: string,
+  organizationId: string,
+): Promise<number | null> {
+  const row = await db
+    .select({ max: sql<number | null>`MAX(${documents.uploaded_at})` })
+    .from(documents)
+    .where(and(eq(documents.case_id, caseId), eq(documents.organization_id, organizationId)))
+    .get();
+  return row?.max ?? null;
+}
+
 /** Latest R2 key for each of the three extraction slots; "" for an empty slot. */
 export async function currentExtractedKeys(
   db: Db,

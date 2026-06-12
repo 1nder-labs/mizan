@@ -96,23 +96,14 @@ jobs:
             exit 1
           fi
 
+      - name: Enforce light worker entry graph (boot-weight gate)
+        run: bun scripts/check-worker-entry-graph.ts
+
       - name: Run web integration tests (vitest + MSW + RTL)
         run: bun --filter @mizan/web test:integration
 
       - name: Run unit tests (bun test)
         run: bun --filter '*' test -- --reporter=junit --reporter-outfile=test-results.junit.xml
-
-      # ────────────────────────────────────────────────────────────────────
-      # STRICT RULE — vitest-pool-workers integration tests are LOCAL-ONLY.
-      # Never add `bun --filter @mizan/worker test:integration` (or any
-      # `vitest-pool-workers`-backed task) to this workflow. The pool has a
-      # fixed ~10s/file workerd cold-start that pushes any meaningful
-      # surface past a 2-min CI budget. The patched xxhash-wasm export
-      # condition (see `patches/`) makes the suite runnable locally; that
-      # is the support contract. Reviewers run
-      #   bun --filter @mizan/worker test:integration
-      # locally for D1/route-touching PRs.
-      # ────────────────────────────────────────────────────────────────────
 
       - name: Upload JUnit test results
         if: always()
@@ -132,29 +123,38 @@ jobs:
             echo "- Branch: ${{ github.ref_name }}"
             echo "- Commit: ${{ github.sha }}"
             echo "- Runner: ubuntu-latest"
-            echo ""
-            echo "Worker integration tests (vitest-pool-workers + Miniflare) are LOCAL-ONLY."
-            echo "Run with: \`bun --filter @mizan/worker test:integration\`."
-            echo "Adding them to this workflow is forbidden — see the strict-rule comment in ci.yml."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ────────────────────────────────────────────────────────────────────────
-  # STRICT RULE for future phases:
-  #
-  # Do NOT add any job, step, or workflow that runs
-  # `vitest-pool-workers` / `@cloudflare/vitest-pool-workers` against the
-  # worker integration suite. The pool's per-file workerd cold-start
-  # (~10s) makes the full suite breach a 2-min budget no matter how
-  # the tests themselves are written. The decision is documented at:
-  #   - this file (search "STRICT RULE")
-  #   - apps/worker/package.json (only `test:integration` exists — no
-  #     `:ci` variant is permitted)
-  #   - patches/xxhash-wasm@1.1.0.patch (the patch exists so the local
-  #     suite is runnable; CI relevance is intentionally none)
-  #
-  # Local-only is the support contract. PRs that change D1, routes, or
-  # workflow steps include a "ran integration locally" note in the PR
-  # body. Future phases that want CI coverage of those surfaces must
-  # write Bun-test-runnable unit tests against the helpers, not
-  # vitest-pool-workers integration tests.
-  # ────────────────────────────────────────────────────────────────────────
+  # Worker integration runs on workerd (vitest-pool-workers + Miniflare) with
+  # REAL local D1/R2/KV/Queue bindings and mock LLM providers — fully hermetic,
+  # no secrets. This became CI-viable when the worker's static entry graph was
+  # made Mastra/AI-SDK-free (see scripts/check-worker-entry-graph.ts): workerd
+  # now boots in seconds per file instead of ~30s, and only the handful of
+  # files that exercise the brief/chat workflows evaluate the heavy graph.
+  # Sharded 2-way because the default runner's RAM caps the pool at low
+  # parallelism; shards halve the wall-clock.
+  worker-integration:
+    name: Worker integration (workerd ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/2", "2/2"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies (frozen lockfile · Socket scanner active)
+        run: bun install --frozen-lockfile --no-cache
+
+      - name: Run worker integration tests (shard ${{ matrix.shard }})
+        working-directory: apps/worker
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: bun x vitest run --project integration --shard=${{ matrix.shard }}

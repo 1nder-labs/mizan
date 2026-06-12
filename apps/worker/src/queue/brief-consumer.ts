@@ -1,5 +1,5 @@
 import type { ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
-import { createBriefRun, emitWorkflowEvent, flushLangfuse } from "@mizan/mastra";
+import { emitWorkflowEvent } from "@mizan/mastra/runtime";
 import {
   batchTransitionWithEmits,
   buildStatusChangedEmits,
@@ -96,6 +96,12 @@ async function runWorkflow(
   message: BriefQueueMessage,
   caseRow: Case,
 ): Promise<void> {
+  /**
+   * Dynamic import keeps the heavy Mastra/AI-SDK graph out of the worker's
+   * static boot (see `@mizan/mastra/runtime`'s docstring); the module is
+   * evaluated once per isolate on the first consumed brief.
+   */
+  const { createBriefRun, flushLangfuse } = await import("@mizan/mastra");
   const { run, requestContext, langfuse, tracingOptions } = await createBriefRun(env, {
     caseId: message.caseId,
     runId: message.runId,

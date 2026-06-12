@@ -130,7 +130,7 @@ describe("GET /api/cases/:id — case detail route", () => {
 
     await insertCase({
       id: CASE_WITH_BRIEF_ID,
-      status: "READY_FOR_REVIEW",
+      status: "SUSPENDED_HITL",
       category: "medical",
       geography: "US",
       createdBy: userId,

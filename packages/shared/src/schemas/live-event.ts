@@ -10,10 +10,13 @@ export const LiveEventTypeEnum = z.enum([
   "case.unassigned",
   "case.brief_ready",
   "case.actioned",
+  "case.archived",
+  "case.resubmitted",
   "audit.new",
   "signal.persisted",
   "workflow.event",
   "notification.new",
+  "case.message_added",
 ]);
 
 export type LiveEventType = z.infer<typeof LiveEventTypeEnum>;
@@ -64,6 +67,23 @@ const CaseActionedPayloadSchema = z
   })
   .strict();
 
+const CaseArchivedPayloadSchema = z
+  .object({
+    event_type: z.literal("case.archived"),
+    case_id: z.string(),
+    archived: z.boolean(),
+    actor_user_id: z.string(),
+  })
+  .strict();
+
+const CaseResubmittedPayloadSchema = z
+  .object({
+    event_type: z.literal("case.resubmitted"),
+    case_id: z.string(),
+    actor_user_id: z.string(),
+  })
+  .strict();
+
 const AuditNewPayloadSchema = z
   .object({
     event_type: z.literal("audit.new"),
@@ -99,16 +119,26 @@ const NotificationNewPayloadSchema = z
   })
   .strict();
 
+const CaseMessageAddedPayloadSchema = z
+  .object({
+    event_type: z.literal("case.message_added"),
+    case_id: z.string(),
+  })
+  .strict();
+
 export const LiveEventPayloadSchema = z.discriminatedUnion("event_type", [
   CaseStatusChangedPayloadSchema,
   CaseAssignedPayloadSchema,
   CaseUnassignedPayloadSchema,
   CaseBriefReadyPayloadSchema,
   CaseActionedPayloadSchema,
+  CaseArchivedPayloadSchema,
+  CaseResubmittedPayloadSchema,
   AuditNewPayloadSchema,
   SignalPersistedPayloadSchema,
   WorkflowEventPayloadSchema,
   NotificationNewPayloadSchema,
+  CaseMessageAddedPayloadSchema,
 ]);
 
 export type LiveEventPayload = z.infer<typeof LiveEventPayloadSchema>;

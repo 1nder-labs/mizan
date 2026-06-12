@@ -111,6 +111,41 @@ export async function notifyInternalNote(
 }
 
 /**
+ * Pushes a `case.message_added` live event so OPEN message threads refetch in
+ * real time (distinct from the notification bell, which only updates the list).
+ * Always emits on the case topic (reviewers/admins viewing the case); for a
+ * client_facing note authored by a reviewer it also emits on the client's user
+ * topic (clients may only subscribe to their own user topic). Best-effort — a
+ * realtime nudge must never fail the note write.
+ */
+export async function emitMessageAdded(
+  db: Db,
+  caseId: string,
+  authorUserId: string,
+  clientFacing: boolean,
+): Promise<void> {
+  try {
+    const target = await caseTargets(db, caseId);
+    if (!target) return;
+    const payload = { event_type: "case.message_added", case_id: caseId } as const;
+    const topics = [`case:${caseId}`];
+    if (clientFacing && target.createdBy !== authorUserId) topics.push(`user:${target.createdBy}`);
+    for (const topic of topics) {
+      await executeEmit(db, {
+        topic,
+        eventType: "case.message_added",
+        payload,
+        organizationId: target.organizationId,
+        actorUserId: authorUserId,
+      });
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[notifications] message-added emit failed (case=${caseId}): ${reason}`);
+  }
+}
+
+/**
  * Notifies the case's assigned reviewer, skipping self-authored actions. An
  * UNASSIGNED case has no targeted reviewer — the queue's existing
  * "client responded" flag covers that, so no per-reviewer row is written (an

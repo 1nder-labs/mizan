@@ -50,15 +50,19 @@ export {
   currentExtractedKeys,
   documentById,
   insertDocumentIfOwned,
+  latestDocumentUploadMs,
   listCaseDocuments,
   type DocumentRow,
   type ExtractedDocumentKeys,
   type InsertDocumentInput,
 } from "./document-queries.ts";
+export { archiveCase } from "./archive-case.ts";
 export { emitLiveEvent, executeEmit, type EmitLiveEventInput } from "./emit-live-event.ts";
 export {
   batchTransitionWithEmits,
   buildActionEmits,
+  buildArchivedEmits,
+  buildResubmittedEmits,
   buildAssignmentEmits,
   buildBriefReadyEmits,
   buildSignalPersistedEmits,

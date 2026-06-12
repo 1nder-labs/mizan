@@ -9,7 +9,6 @@ describe("<CaseStatusBadge />", () => {
       { status: "QUEUED" as const, label: "Queued" },
       { status: "RUNNING" as const, label: "Running" },
       { status: "SUSPENDED_HITL" as const, label: "Awaiting reviewer" },
-      { status: "READY_FOR_REVIEW" as const, label: "Ready" },
       { status: "ACTIONED" as const, label: "Actioned" },
       { status: "FAILED" as const, label: "Failed" },
     ];

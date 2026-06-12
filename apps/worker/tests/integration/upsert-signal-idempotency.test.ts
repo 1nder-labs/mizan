@@ -25,21 +25,33 @@ import { upsertSignal } from "@mizan/mastra/testing";
 
 const TEST_CASE_ID = "22222222-2222-4222-8222-222222222001";
 const TEST_RUN_ID = "33333333-3333-4333-8333-333333333001";
+const CLEAN_ASSET = {
+  authenticity: {
+    authenticity_risk: "low" as const,
+    shows_tampering_signs: false,
+    assessment: "genuine",
+  },
+  exif: {
+    has_capture_metadata: false,
+    camera_make: null,
+    camera_model: null,
+    captured_at: null,
+    has_gps: false,
+  },
+};
 const SAMPLE_PHOTO: PhotoSignalPayload = {
-  creator_id: {
-    reverseImage: { hits: [], checked_at: "2026-05-23T00:00:00.000Z" },
-    aiGen: { probability: "low", model: "stub-v1" },
-  },
-  category_doc: {
-    reverseImage: { hits: [], checked_at: "2026-05-23T00:00:00.000Z" },
-    aiGen: { probability: "low", model: "stub-v1" },
-  },
+  creator_id: CLEAN_ASSET,
+  category_doc: CLEAN_ASSET,
 };
 const UPDATED_PHOTO: PhotoSignalPayload = {
   ...SAMPLE_PHOTO,
   creator_id: {
     ...SAMPLE_PHOTO.creator_id,
-    aiGen: { probability: "very_high", model: "stub-v1" },
+    authenticity: {
+      authenticity_risk: "very_high",
+      shows_tampering_signs: true,
+      assessment: "looks generated",
+    },
   },
 };
 
@@ -132,7 +144,7 @@ describe("upsertSignal idempotency", () => {
     const row = await loadSignalRow(TEST_CASE_ID, TEST_RUN_ID, "photo_dup");
     expect(row.recorded_at).toBe(2000);
     const persisted = JSON.parse(row.payload_json) as PhotoSignalPayload;
-    expect(persisted.creator_id.aiGen.probability).toBe("very_high");
+    expect(persisted.creator_id.authenticity.authenticity_risk).toBe("very_high");
   });
 
   it("different signal_type for same (case_id, run_id) inserts a separate row", async () => {
@@ -235,15 +247,23 @@ describe("upsertSignal wrapper", () => {
   });
 
   it("upserts a photo_dup payload via the wrapper and overwrites on re-call", async () => {
+    const cleanAsset = {
+      authenticity: {
+        authenticity_risk: "low" as const,
+        shows_tampering_signs: false,
+        assessment: "genuine",
+      },
+      exif: {
+        has_capture_metadata: false,
+        camera_make: null,
+        camera_model: null,
+        captured_at: null,
+        has_gps: false,
+      },
+    };
     const first: PhotoSignalPayload = {
-      creator_id: {
-        reverseImage: { hits: [], checked_at: "2026-05-23T00:00:00.000Z" },
-        aiGen: { probability: "low", model: "stub-v1" },
-      },
-      category_doc: {
-        reverseImage: { hits: [], checked_at: "2026-05-23T00:00:00.000Z" },
-        aiGen: { probability: "low", model: "stub-v1" },
-      },
+      creator_id: cleanAsset,
+      category_doc: cleanAsset,
     };
     await upsertSignal({
       env,
@@ -258,7 +278,11 @@ describe("upsertSignal wrapper", () => {
       ...first,
       creator_id: {
         ...first.creator_id,
-        aiGen: { probability: "very_high", model: "stub-v1" },
+        authenticity: {
+          authenticity_risk: "very_high",
+          shows_tampering_signs: true,
+          assessment: "looks generated",
+        },
       },
     };
     await upsertSignal({
@@ -271,7 +295,7 @@ describe("upsertSignal wrapper", () => {
     expect(await countSignalRows(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "photo_dup")).toBe(1);
     const row = await loadSignalRow(WRAPPER_CASE_ID, WRAPPER_RUN_ID, "photo_dup");
     const persisted = JSON.parse(row.payload_json) as PhotoSignalPayload;
-    expect(persisted.creator_id.aiGen.probability).toBe("very_high");
+    expect(persisted.creator_id.authenticity.authenticity_risk).toBe("very_high");
   });
 
   it("upserts a story_coherence payload via the wrapper and overwrites on re-call", async () => {

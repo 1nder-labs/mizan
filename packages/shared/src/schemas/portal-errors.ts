@@ -12,8 +12,10 @@ export const PortalErrorCodeEnum = z.enum([
   "campaign_not_found",
   "case_no_longer_draft",
   "case_decided",
+  "case_archived",
   "case_already_submitted",
   "invalid_evidence",
+  "resubmit_not_allowed",
 ]);
 export type PortalErrorCode = z.infer<typeof PortalErrorCodeEnum>;
 

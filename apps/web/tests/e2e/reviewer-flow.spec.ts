@@ -37,10 +37,12 @@ test.describe("reviewer flow", () => {
       await expect(streamRendered.or(inFlightNotice).first()).toBeVisible({ timeout: 15_000 });
     }
 
-    await page.goto("/queue?status=READY_FOR_REVIEW&sort=updated_desc&page=1");
-    await expect(page).toHaveURL(/status=READY_FOR_REVIEW/);
+    await page.goto("/queue?status=SUSPENDED_HITL&sort=updated_desc&page=1");
+    await expect(page).toHaveURL(/status=SUSPENDED_HITL/);
     await page.reload();
-    await expect(page).toHaveURL(/status=READY_FOR_REVIEW/);
-    await expect(page.getByRole("tab", { name: "Ready", selected: true })).toBeVisible();
+    await expect(page).toHaveURL(/status=SUSPENDED_HITL/);
+    await expect(
+      page.getByRole("tab", { name: "Awaiting reviewer", selected: true }),
+    ).toBeVisible();
   });
 });

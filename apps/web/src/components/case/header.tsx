@@ -6,10 +6,12 @@
  * trio collapses to one honest chip.
  */
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Clock } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Clock } from "lucide-react";
 import type { CaseDisposition, CaseRow } from "@mizan/shared";
 import { CaseDispositionBadge } from "@/components/case-disposition-badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { useArchiveCase } from "@/hooks/use-archive-case.ts";
+import { loadQueueSearch } from "@/lib/queue-nav-memory.ts";
 import { formatShortDateTime } from "@/lib/format.ts";
 import { formatCountry } from "@/lib/display-labels.ts";
 import { CaseAssignment } from "./case-assignment.tsx";
@@ -17,10 +19,43 @@ import { CaseAssignment } from "./case-assignment.tsx";
 interface CaseHeaderProps {
   readonly caseRow: CaseRow;
   readonly disposition: CaseDisposition;
+  readonly archived: boolean;
+}
+
+/** Archive / restore toggle for the case. */
+function ArchiveButton({
+  caseId,
+  archived,
+}: {
+  readonly caseId: string;
+  readonly archived: boolean;
+}): React.JSX.Element {
+  const mutation = useArchiveCase(caseId);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate(!archived)}
+    >
+      {archived ? (
+        <ArchiveRestore className="mr-1.5 size-3.5" />
+      ) : (
+        <Archive className="mr-1.5 size-3.5" />
+      )}
+      {archived ? "Restore" : "Archive"}
+    </Button>
+  );
 }
 
 /** Right-aligned meta column: last-updated stamp + assignment control. */
-function CaseHeaderMeta({ caseRow }: { readonly caseRow: CaseRow }): React.JSX.Element {
+function CaseHeaderMeta({
+  caseRow,
+  archived,
+}: {
+  readonly caseRow: CaseRow;
+  readonly archived: boolean;
+}): React.JSX.Element {
   return (
     <div className="flex shrink-0 flex-col items-end gap-4">
       <div className="flex flex-col items-end gap-0.5">
@@ -33,11 +68,12 @@ function CaseHeaderMeta({ caseRow }: { readonly caseRow: CaseRow }): React.JSX.E
         </div>
       </div>
       <CaseAssignment caseId={caseRow.id} currentAssignee={caseRow.assigned_to} />
+      <ArchiveButton caseId={caseRow.id} archived={archived} />
     </div>
   );
 }
 
-export function CaseHeader({ caseRow, disposition }: CaseHeaderProps): React.JSX.Element {
+export function CaseHeader({ caseRow, disposition, archived }: CaseHeaderProps): React.JSX.Element {
   return (
     <header className="flex flex-wrap items-start justify-between gap-6 border-b border-border/50 pb-6">
       <div className="min-w-0 space-y-4">
@@ -47,7 +83,7 @@ export function CaseHeader({ caseRow, disposition }: CaseHeaderProps): React.JSX
           size="sm"
           className="-ml-2 text-muted-foreground hover:text-foreground"
         >
-          <Link to="/queue" search={{ page: 1, sort: "updated_desc", view: "board" }}>
+          <Link to="/queue" search={loadQueueSearch()}>
             <ArrowLeft className="mr-1.5 size-3.5" />
             Back to queue
           </Link>
@@ -67,7 +103,7 @@ export function CaseHeader({ caseRow, disposition }: CaseHeaderProps): React.JSX
           </p>
         </div>
       </div>
-      <CaseHeaderMeta caseRow={caseRow} />
+      <CaseHeaderMeta caseRow={caseRow} archived={archived} />
     </header>
   );
 }

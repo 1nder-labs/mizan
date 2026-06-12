@@ -8,7 +8,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronsUpDown, FileClock, LogOut, Scale, SquareKanban, UsersRound } from "lucide-react";
-import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
+import { loadQueueSearch } from "@/lib/queue-nav-memory.ts";
 import { sessionQueryOptions } from "@/lib/auth-client.ts";
 import { meQueryOptions } from "@/lib/me-api.ts";
 import { useSignOut } from "@/hooks/use-sign-out.ts";
@@ -84,7 +84,7 @@ function NavRow({ item }: { readonly item: NavItem }): React.JSX.Element {
         {item.to === "/queue" ? (
           <Link
             to="/queue"
-            search={DEFAULT_QUEUE_SEARCH}
+            search={loadQueueSearch()}
             activeOptions={{ exact: false, includeSearch: false }}
             activeProps={{ "data-active": "true" }}
           >

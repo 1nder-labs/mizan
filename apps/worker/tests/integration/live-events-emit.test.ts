@@ -118,6 +118,35 @@ describe("live event emission", () => {
     expect(userEvents[0]?.topic).toBe(userTopic);
   });
 
+  it("archive emits case.archived on org and case topics", async () => {
+    const caseId = crypto.randomUUID();
+    await insertDraftCase(caseId, userId, organizationId);
+
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/cases/${caseId}/archive`, {
+        method: "POST",
+        headers: { Cookie: cookie },
+      }),
+    );
+    expect(res.status).toBe(200);
+
+    const orgEvents = await loadLiveEvents(`org:${organizationId}`, "case.archived");
+    const caseEvents = await loadLiveEvents(`case:${caseId}`, "case.archived");
+    expect(orgEvents.length).toBeGreaterThanOrEqual(1);
+    expect(caseEvents.length).toBe(1);
+    expect(caseEvents[0]?.organization_id).toBe(organizationId);
+  });
+
+  it("archiving an unknown case returns 404", async () => {
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/cases/${crypto.randomUUID()}/archive`, {
+        method: "POST",
+        headers: { Cookie: cookie },
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
+
   it("QUEUED producer claim emits case.status_changed on org topic", async () => {
     const caseId = crypto.randomUUID();
     await insertDraftCase(caseId, userId, organizationId);

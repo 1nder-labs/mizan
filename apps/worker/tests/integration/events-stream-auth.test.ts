@@ -93,4 +93,14 @@ describe("GET /api/events/stream auth", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/event-stream");
   });
+
+  it("returns 403 for a case topic whose case is not in the viewer org", async () => {
+    const res = await exports.default.fetch(
+      new Request(`${BASE}/api/events/stream?topic=case:${crypto.randomUUID()}`, {
+        headers: { Cookie: cookie },
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "forbidden" });
+  });
 });

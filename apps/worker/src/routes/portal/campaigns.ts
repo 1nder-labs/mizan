@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, isNull, sql, type SQL } from "drizzle-orm";
-import { cases, makeDb, type Db } from "@mizan/db";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { buildResubmittedEmits, cases, emitLiveEventsBestEffort, makeDb, type Db } from "@mizan/db";
+import { latestActedAtSql, latestActionSql } from "../../lib/latest-action-sql.ts";
 import {
   CampaignCreateSchema,
   CampaignMutationResponseSchema,
@@ -18,8 +19,14 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import type { CloudflareBindings } from "../../env.ts";
-import { latestReviewerAction, readCaseNotes, writeCaseNote } from "../../lib/case-notes.ts";
-import { excerpt, notifyCaseReviewer } from "../../lib/notifications.ts";
+import {
+  CLIENT_AWAITING_ACTION_VALUES,
+  isClientAwaitingAction,
+  latestReviewerAction,
+  readCaseNotes,
+  writeCaseNote,
+} from "../../lib/case-notes.ts";
+import { emitMessageAdded, excerpt, notifyCaseReviewer } from "../../lib/notifications.ts";
 import { buildClientCaseDetail, listClientCampaigns } from "../../lib/client-views.ts";
 import type { ViewerVariables } from "../../middleware/require-role.ts";
 import { readEvidenceInput } from "./evidence-upload.ts";
@@ -59,7 +66,7 @@ function createCampaign(db: Db, viewer: ViewerContext, input: CampaignCreate) {
     .insert(cases)
     .values({
       status: "DRAFT",
-      title: input.organizer_name,
+      title: input.title,
       category: input.category,
       geography: input.geography,
       claimed_zakat_category: input.claimed_zakat_category ?? null,
@@ -71,10 +78,13 @@ function createCampaign(db: Db, viewer: ViewerContext, input: CampaignCreate) {
 }
 
 /**
- * Best-effort client_facing note recording an evidence upload — this is what
- * flags `clientResponded` for the reviewer (KTD-7). A note-write failure must
- * not fail the upload (the object + overlay key are already persisted), so it
- * is logged at this single seam rather than rethrown into a 500.
+ * Best-effort `client_facing` note recording an evidence upload, for the
+ * conversation thread only. It deliberately does NOT change case status: a
+ * mid-upload must never flip the case back to the reviewer. The case re-enters
+ * review solely via an explicit re-submit (`POST /:id/submit` again, which
+ * re-stamps `submitted_at`).
+ * A note-write failure must not fail the upload (the object + overlay key are
+ * already persisted), so it is logged at this single seam, not rethrown.
  */
 async function attachEvidenceNote(
   db: Db,
@@ -113,6 +123,67 @@ async function isCampaignDecided(
   const latest = await latestReviewerAction(db, caseId);
   const clientStatus = toClientStatus(status, latest?.action ?? null, submitted, false);
   return clientStatus === "approved" || clientStatus === "not_approved";
+}
+
+/**
+ * Hands the case to the reviewer — the SAME endpoint for the first submit and
+ * every later re-submit. Re-stamps `submitted_at = now` when the case was never
+ * submitted, OR it is submitted, the reviewer's latest action awaits the client
+ * (REQUEST_DOCS / ESCALATE), AND a document was uploaded/replaced since that
+ * request. That re-stamp — strictly newer than the action — is the ONLY signal
+ * that flips the disposition to CLIENT_REPLIED, so conversation never disturbs
+ * review and an unchanged case can't be bounced back. Any other state (in
+ * review, decided, no new docs) is a no-op. A re-submit pings the reviewer; the
+ * first submit does not (it already appears in the queue).
+ */
+async function handToReviewer(
+  db: Db,
+  viewer: ViewerContext,
+  caseId: string,
+  submittedAt: Date | null,
+): Promise<boolean> {
+  const firstSubmit = submittedAt === null;
+  const guard = firstSubmit
+    ? and(eq(cases.id, caseId), eq(cases.created_by, viewer.userId), isNull(cases.submitted_at))
+    : and(
+        eq(cases.id, caseId),
+        eq(cases.created_by, viewer.userId),
+        inArray(latestActionSql(), CLIENT_AWAITING_ACTION_VALUES),
+        sql`(SELECT MAX(uploaded_at) FROM documents WHERE documents.case_id = cases.id) > ${latestActedAtSql()}`,
+        sql`${cases.submitted_at} <= ${latestActedAtSql()}`,
+      );
+  const updated = await db
+    .update(cases)
+    .set({ submitted_at: new Date(), updated_at: new Date() })
+    .where(guard)
+    .returning({ id: cases.id });
+  const handed = updated.length > 0;
+  if (!firstSubmit && handed) {
+    await notifyCaseReviewer(db, caseId, viewer.userId, {
+      type: "message",
+      title: "Client re-submitted for review",
+      body: "The campaign creator re-submitted after your document request.",
+    });
+    await emitLiveEventsBestEffort(
+      db,
+      buildResubmittedEmits({
+        caseId,
+        organizationId: viewer.organizationId,
+        actorUserId: viewer.userId,
+      }),
+    );
+  }
+  return handed;
+}
+
+/**
+ * True when the latest reviewer action is an open ask to the client. Only then is
+ * a re-submit that landed no row a real rejection (no new evidence after a docs
+ * request); otherwise a redundant submit is an idempotent no-op, not an error.
+ */
+async function hasPendingClientAsk(db: Db, caseId: string): Promise<boolean> {
+  const latest = await latestReviewerAction(db, caseId);
+  return isClientAwaitingAction(latest?.action ?? null);
 }
 
 /**
@@ -158,7 +229,7 @@ export const campaignRoutes = new Hono<{
       const updated = await db
         .update(cases)
         .set({
-          title: input.organizer_name,
+          title: input.title,
           category: input.category,
           geography: input.geography,
           claimed_zakat_category: input.claimed_zakat_category ?? null,
@@ -189,6 +260,8 @@ export const campaignRoutes = new Hono<{
       await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null)
     )
       return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
+    if (owned.campaign.archived_at !== null)
+      return c.json(PortalErrorBodySchema.parse({ error: "case_archived" }), 409);
     const body = await c.req.parseBody().catch(() => null);
     if (body === null)
       return c.json(PortalErrorBodySchema.parse({ error: "invalid_evidence" }), 400);
@@ -225,6 +298,8 @@ export const campaignRoutes = new Hono<{
         await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null)
       )
         return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
+      if (owned.campaign.archived_at !== null)
+        return c.json(PortalErrorBodySchema.parse({ error: "case_archived" }), 409);
       const body = c.req.valid("json").body;
       await writeCaseNote(db, {
         caseId: id,
@@ -239,6 +314,7 @@ export const campaignRoutes = new Hono<{
         title: "New message from the campaign creator",
         body: excerpt(body),
       });
+      await emitMessageAdded(db, id, viewer.userId, true);
       return c.json({ ok: true }, 201);
     },
   )
@@ -248,15 +324,16 @@ export const campaignRoutes = new Hono<{
     const viewer = c.var.viewer;
     const owned = await loadOwnedCampaign(db, viewer, id);
     if (!owned.ok) return c.json(PortalErrorBodySchema.parse({ error: "campaign_not_found" }), 404);
-    if (owned.campaign.submitted_at === null) {
-      await db
-        .update(cases)
-        .set({ submitted_at: new Date(), updated_at: new Date() })
-        .where(
-          and(eq(cases.id, id), eq(cases.created_by, viewer.userId), isNull(cases.submitted_at)),
-        )
-        .run();
-    }
+    if (
+      await isCampaignDecided(db, id, owned.campaign.status, owned.campaign.submitted_at !== null)
+    )
+      return c.json(PortalErrorBodySchema.parse({ error: "case_decided" }), 409);
+    if (owned.campaign.archived_at !== null)
+      return c.json(PortalErrorBodySchema.parse({ error: "case_archived" }), 409);
+    const firstSubmit = owned.campaign.submitted_at === null;
+    const handed = await handToReviewer(db, viewer, id, owned.campaign.submitted_at);
+    if (!firstSubmit && !handed && (await hasPendingClientAsk(db, id)))
+      return c.json(PortalErrorBodySchema.parse({ error: "resubmit_not_allowed" }), 409);
     return c.json(CampaignMutationResponseSchema.parse({ id, status: owned.campaign.status }), 200);
   })
   .delete("/:id", zValidator("param", CampaignParamSchema), async (c) => {

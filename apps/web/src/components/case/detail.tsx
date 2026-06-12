@@ -24,26 +24,28 @@
 import { useEffect, useReducer } from "react";
 import {
   ACTIVE_CASE_STATUSES,
+  briefRerunAffordance,
   HITL_SUSPENDED_STATUS,
-  deriveCaseDisposition,
-  isTerminalDisposition,
+  type BriefRerunAffordance,
   type CaseDisposition,
   type CaseOverlay,
   type CaseRow,
-  type ReviewerAction,
 } from "@mizan/shared";
 import { useWorkflowTapeInvalidation } from "@/components/brief/use-workflow-tape-invalidation.ts";
 import { useCaseDetailLiveEvents } from "@/hooks/use-case-detail-live-events.ts";
+import { useNavigate } from "@tanstack/react-router";
+import { CaseTabEnum } from "@mizan/shared";
 import { CaseHeader } from "./header.tsx";
 import { CaseTabs, type BriefPanelMode } from "./case-tabs.tsx";
+import { RerunBar } from "./brief-history.tsx";
+import { COPY } from "@/lib/copy-constants.ts";
 import { INITIAL_PHASE, deriveMode, phaseReducer, type BriefSummary } from "./brief-phase.ts";
 
 interface CaseDetailProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
-  readonly clientResponded: boolean;
-  readonly latestAction: ReviewerAction | null;
+  readonly archived: boolean;
 }
 
 interface DetailLayoutProps {
@@ -51,7 +53,8 @@ interface DetailLayoutProps {
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
   readonly disposition: CaseDisposition;
-  readonly canRerun: boolean;
+  readonly archived: boolean;
+  readonly rerunAffordance: BriefRerunAffordance;
   readonly mode: BriefPanelMode;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
@@ -63,20 +66,30 @@ function DetailLayout({
   brief,
   overlay,
   disposition,
-  canRerun,
+  archived,
+  rerunAffordance,
   mode,
   onGenerate,
   onStreamError,
 }: DetailLayoutProps): React.JSX.Element {
+  const navigate = useNavigate();
+  /** Top re-trigger: jump to the Brief tab so the re-run's progress is visible. */
+  function handleClientRepliedRerun(): void {
+    void navigate({ to: ".", search: (prev) => ({ ...prev, tab: CaseTabEnum.enum.brief }) });
+    onGenerate();
+  }
   return (
     <article className="w-full space-y-8 px-6 py-8">
-      <CaseHeader caseRow={caseRow} disposition={disposition} />
+      <CaseHeader caseRow={caseRow} disposition={disposition} archived={archived} />
+      {rerunAffordance === "promoted-bar" && mode === "summary" ? (
+        <RerunBar onGenerate={handleClientRepliedRerun} hint={COPY.caseBrief.clientRepliedHint} />
+      ) : null}
       <CaseTabs
         caseRow={caseRow}
         brief={brief}
         overlay={overlay}
         mode={mode}
-        canRerun={canRerun}
+        canRerun={rerunAffordance === "in-tab"}
         onGenerate={onGenerate}
         onStreamError={onStreamError}
       />
@@ -88,8 +101,7 @@ export function CaseDetail({
   caseRow,
   brief,
   overlay,
-  clientResponded,
-  latestAction,
+  archived,
 }: CaseDetailProps): React.JSX.Element {
   const [phase, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
   const tapeEnabled =
@@ -104,12 +116,7 @@ export function CaseDetail({
     dispatchPhase({ type: "status-changed", status: caseRow.status });
   }, [caseRow.status]);
 
-  const disposition = deriveCaseDisposition({
-    status: caseRow.status,
-    latestAction,
-    clientResponded,
-    submitted: true,
-  });
+  const disposition = caseRow.disposition;
 
   return (
     <DetailLayout
@@ -117,7 +124,8 @@ export function CaseDetail({
       brief={brief}
       overlay={overlay}
       disposition={disposition}
-      canRerun={!isTerminalDisposition(disposition)}
+      archived={archived}
+      rerunAffordance={briefRerunAffordance(disposition)}
       mode={deriveMode(caseRow.status, brief, phase)}
       onGenerate={() => dispatchPhase({ type: "user-generated" })}
       onStreamError={() => dispatchPhase({ type: "stream-errored" })}

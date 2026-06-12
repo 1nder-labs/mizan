@@ -54,6 +54,25 @@ type FieldProps = { readonly control: Control<CampaignCreate> };
 
 const ZAKAT_NONE = "none";
 
+function TitleField({ control }: FieldProps): React.JSX.Element {
+  return (
+    <FormField
+      control={control}
+      name="title"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{COPY.portal.intakeCampaignTitle}</FormLabel>
+          <FormControl>
+            <Input placeholder={COPY.portal.intakeCampaignTitlePlaceholder} {...field} />
+          </FormControl>
+          <FormDescription>{COPY.portal.intakeCampaignTitleHelp}</FormDescription>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
 function StoryField({ control }: FieldProps): React.JSX.Element {
   return (
     <FormField
@@ -310,6 +329,7 @@ function IntakeFields({
   return (
     <>
       <FormSection title={COPY.portal.intakeSectionAbout}>
+        <TitleField control={control} />
         <StoryField control={control} />
         <OrganizerField control={control} />
       </FormSection>

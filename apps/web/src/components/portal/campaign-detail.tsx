@@ -4,9 +4,9 @@
  * header, organizer ask card, evidence panel, and note thread. An
  * inline edit form toggles when the campaign is still in submitted state.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
+import { getRouteApi, Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { CampaignCategoryEnum, ZakatCategoryEnum } from "@mizan/shared";
 import type { ClientCaseDetail, CampaignCreate } from "@mizan/shared";
@@ -20,6 +20,7 @@ import { EvidencePanel } from "@/components/portal/evidence-panel.tsx";
 import { SupplementaryDocs } from "@/components/portal/supplementary-docs.tsx";
 import { NoteThread } from "@/components/portal/note-thread.tsx";
 import { ClientNoteComposer } from "@/components/portal/note-composer.tsx";
+import { ReviewHistory } from "@/components/portal/review-history.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -48,8 +49,8 @@ function OrganizerAskCard({
       <CardHeader>
         <CardTitle className="text-sm font-medium">{COPY.portal.detailAskTitle}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <p className="text-sm">{ask.message}</p>
+      <CardContent className="space-y-3">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{ask.message}</p>
         {ask.missingItems.length > 0 ? (
           <ul className="space-y-1 pl-4 list-disc">
             {ask.missingItems.map((item) => (
@@ -61,6 +62,37 @@ function OrganizerAskCard({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Re-submit action bar, rendered BELOW the documents so the flow reads
+ * read-the-ask → add-documents → re-submit. The button stays disabled until the
+ * server confirms a document landed since the reviewer's request (`canResubmit`),
+ * so an unchanged case can never be bounced back.
+ */
+function ResubmitBar({
+  campaignId,
+  canResubmit,
+}: {
+  readonly campaignId: string;
+  readonly canResubmit: boolean;
+}): React.JSX.Element {
+  const resubmit = useSubmitCampaign(campaignId, COPY.portal.resubmitError);
+  return (
+    <div className="space-y-2 rounded-xl border border-status-warning-border bg-status-warning/10 p-4 shadow-elev-1">
+      <p className="text-sm font-medium text-foreground">{COPY.portal.detailAskCtaTitle}</p>
+      <p className="text-sm text-muted-foreground">
+        {canResubmit ? COPY.portal.detailAskCtaBody : COPY.portal.resubmitNeedsDocs}
+      </p>
+      <Button
+        size="sm"
+        onClick={() => resubmit.mutate()}
+        disabled={!canResubmit || resubmit.isPending}
+      >
+        {resubmit.isPending ? COPY.portal.resubmitting : COPY.portal.resubmit}
+      </Button>
+    </div>
   );
 }
 
@@ -83,9 +115,12 @@ function DetailHeader({
           {COPY.portal.detailBack}
         </Link>
         <div className="mt-2 flex items-center gap-2">
-          <h1 className="text-3xl font-semibold text-display">{detail.organizerName}</h1>
+          <h1 className="text-3xl font-semibold text-display">{detail.title}</h1>
           <ClientStatusBadge status={detail.status} />
         </div>
+        <p className="text-sm text-muted-foreground">
+          {COPY.portal.detailOrganizerPrefix} {detail.organizerName}
+        </p>
       </div>
       {detail.status === "submitted" || detail.status === "draft" ? (
         <Button variant="outline" size="sm" onClick={onEditToggle} disabled={editing}>
@@ -102,6 +137,7 @@ function buildInitial(detail: ClientCaseDetail): Partial<CampaignCreate> {
     ? ZakatCategoryEnum.safeParse(detail.claimedZakatCategory)
     : undefined;
   return {
+    title: detail.title,
     story: detail.story,
     organizer_name: detail.organizerName,
     geography: detail.geography,
@@ -111,17 +147,28 @@ function buildInitial(detail: ClientCaseDetail): Partial<CampaignCreate> {
   };
 }
 
-function useDraftActions(campaignId: string) {
-  const navigate = useNavigate();
+/**
+ * Submit / re-submit mutation. The SAME `/submit` endpoint serves the first
+ * submit and every later re-submit (after a reviewer doc request) — re-stamping
+ * `submitted_at` is the only signal that re-enters review, so a conversation
+ * never disturbs it. `errorCopy` lets the two call sites surface their own toast.
+ */
+function useSubmitCampaign(campaignId: string, errorCopy: string) {
   const queryClient = useQueryClient();
-  const submit = useMutation({
+  return useMutation({
     mutationFn: () => submitCampaign(campaignId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaign(campaignId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.portal.campaigns() });
     },
-    onError: (e: Error) => toast.error(e.message || COPY.portal.draftSubmitError),
+    onError: (e: Error) => toast.error(e.message || errorCopy),
   });
+}
+
+function useDraftActions(campaignId: string) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const submit = useSubmitCampaign(campaignId, COPY.portal.draftSubmitError);
   const remove = useMutation({
     mutationFn: () => deleteCampaign(campaignId),
     onSuccess: async () => {
@@ -182,9 +229,25 @@ function EvidenceSection({
   );
 }
 
+/** Scrolls the Messages section into view when navigated with `#messages` (e.g. from a notification). */
+function useScrollToMessages(): void {
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash === "messages") {
+      document.getElementById("messages")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [hash]);
+}
+
 function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JSX.Element {
   const [editing, setEditing] = useState(false);
   const evidenceReadOnly = detail.status === "approved" || detail.status === "not_approved";
+  useScrollToMessages();
+  const awaitingClient =
+    detail.status === "needs_evidence" || detail.status === "under_further_review";
+  const earlierRequests = detail.organizerAsk
+    ? detail.reviewHistory.slice(1)
+    : detail.reviewHistory;
 
   function handleEditDone(): void {
     setEditing(false);
@@ -207,10 +270,14 @@ function DetailBody({ detail }: { readonly detail: ClientCaseDetail }): React.JS
         </section>
       ) : null}
       {detail.organizerAsk ? <OrganizerAskCard ask={detail.organizerAsk} /> : null}
+      <ReviewHistory entries={earlierRequests} />
       <Separator />
       <EvidenceSection detail={detail} readOnly={evidenceReadOnly} />
+      {awaitingClient ? (
+        <ResubmitBar campaignId={detail.id} canResubmit={detail.canResubmit} />
+      ) : null}
       <Separator />
-      <section className="space-y-4">
+      <section id="messages" className="scroll-mt-20 space-y-4">
         <h2 className="text-xl font-semibold tracking-[-0.01em]">{COPY.portal.detailNotesTitle}</h2>
         <NoteThread campaignId={detail.id} />
         {detail.status === "approved" || detail.status === "not_approved" ? (

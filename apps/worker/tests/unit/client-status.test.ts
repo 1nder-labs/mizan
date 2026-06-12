@@ -20,7 +20,6 @@ describe("toClientStatus", () => {
     expect(toClientStatus("QUEUED", null, true, false)).toBe("submitted");
     expect(toClientStatus("RUNNING", null, true, false)).toBe("under_review");
     expect(toClientStatus("SUSPENDED_HITL", null, true, false)).toBe("under_review");
-    expect(toClientStatus("READY_FOR_REVIEW", null, true, false)).toBe("under_review");
     expect(toClientStatus("RUNNING", "REQUEST_DOCS", true, false)).toBe("needs_evidence");
     expect(toClientStatus("ACTIONED", "REQUEST_DOCS", true, false)).toBe("needs_evidence");
     expect(toClientStatus("ACTIONED", "APPROVE", true, false)).toBe("approved");

@@ -13,7 +13,7 @@ import { z } from "zod";
 export const SeedCaseSchema = z
   .object({
     id: z.string().uuid(),
-    status: z.enum(["DRAFT", "QUEUED", "RUNNING", "READY_FOR_REVIEW"]),
+    status: z.enum(["DRAFT", "QUEUED", "RUNNING", "SUSPENDED_HITL"]),
     title: z.string().min(1),
     category: z.string().min(1),
     geography: z.string().min(1),

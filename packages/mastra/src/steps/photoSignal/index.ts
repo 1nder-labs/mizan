@@ -1,59 +1,53 @@
 import { createStep } from "@mastra/core/workflows";
+import type { ExifSummary } from "@mizan/shared";
 import { loadCaseContext } from "../../runtime/case-loader.ts";
 import { getEnv } from "../../runtime/context-accessors.ts";
 import { PartialBriefStateSchema } from "../../schemas/partial-brief-state.ts";
-import { aiGenStub } from "../../tools/ai-gen-stub.ts";
-import { reverseImageStub } from "../../tools/reverse-image-stub.ts";
-import { traceTool } from "../shared/trace-tool.ts";
+import { parseExif } from "../../util/exif.ts";
 import { upsertSignal } from "../shared/upsertSignal.ts";
-import { composePhotoSignalPayload } from "./helpers.ts";
+import { UNASSESSED_AUTHENTICITY, composePhotoSignalPayload } from "./helpers.ts";
+
+/** Reads + parses real EXIF from one R2 object; empty (no metadata) when absent. */
+async function readExif(env: ReturnType<typeof getEnv>, key: string): Promise<ExifSummary> {
+  const obj = await env.R2_BUCKET.get(key);
+  if (!obj) return parseExif(new Uint8Array(0));
+  return parseExif(new Uint8Array(await obj.arrayBuffer()));
+}
 
 /**
- * Runs deterministic photo stubs and persists a `photo_dup` signal row.
+ * Image-authenticity signal. REAL, no stubs:
+ *   - `authenticity` is the vision LLM's read of each document image, produced by
+ *     the SAME extraction call that already passed the image to the model (no
+ *     extra LLM call) — carried in `state.extractions.*.image_authenticity`.
+ *   - `exif` is parsed from the raw R2 bytes (`util/exif.ts`); genuine camera
+ *     photos carry make/model/timestamp/GPS, while PDFs, scans, and synthetic
+ *     images honestly report no capture metadata.
  *
- * Stub calls are salted with the case_id so an attacker who controls
- * r2_key naming cannot brute-force a clean signal (the same `r2_key`
- * under a different `case_id` produces a different deterministic value).
- *
- * `abortSignal` is forwarded by checking `aborted` before the stub
- * Promise.all and immediately after — matching the cancel contract of
- * `makeLlmSignalStep` and `makeExtractor`. The stubs themselves are
- * synchronous-ish placeholders, but downstream Phase-N work that swaps
- * them for real network-backed lookups (reverse-image API, AI-gen
- * classifier) must inherit cancel semantics without re-plumbing.
+ * Note for synthetic / generated corpora: a competent assessment rates generated
+ * documents as generated and finds no EXIF — this signal is honest but a weak
+ * discriminator there; identity (OCR), story, and vouching carry the separation.
  */
 export const photoSignal = createStep({
   id: "photoSignal",
   inputSchema: PartialBriefStateSchema,
   outputSchema: PartialBriefStateSchema,
-  execute: async ({ inputData, requestContext, abortSignal, tracingContext }) => {
+  execute: async ({ inputData, requestContext, abortSignal }) => {
     const env = getEnv(requestContext);
     abortSignal?.throwIfAborted();
     const caseRow = await loadCaseContext(env, inputData.caseId);
-    abortSignal?.throwIfAborted();
-    const salt = inputData.caseId;
-    const creatorKey = caseRow.r2_keys.creator_id;
-    const categoryKey = caseRow.r2_keys.category_doc;
-    const [creatorReverse, creatorAiGen, categoryReverse, categoryAiGen] = await Promise.all([
-      traceTool(tracingContext, "reverseImageLookup", { r2_key: creatorKey }, () =>
-        reverseImageStub({ r2_key: creatorKey, salt }),
-      ),
-      traceTool(tracingContext, "aiGenDetection", { r2_key: creatorKey }, () =>
-        aiGenStub({ r2_key: creatorKey, salt }),
-      ),
-      traceTool(tracingContext, "reverseImageLookup", { r2_key: categoryKey }, () =>
-        reverseImageStub({ r2_key: categoryKey, salt }),
-      ),
-      traceTool(tracingContext, "aiGenDetection", { r2_key: categoryKey }, () =>
-        aiGenStub({ r2_key: categoryKey, salt }),
-      ),
+    const [creatorExif, categoryExif] = await Promise.all([
+      readExif(env, caseRow.r2_keys.creator_id),
+      readExif(env, caseRow.r2_keys.category_doc),
     ]);
     abortSignal?.throwIfAborted();
+    const extractions = inputData.extractions;
     const payload = composePhotoSignalPayload({
-      creatorIdReverse: creatorReverse,
-      creatorIdAiGen: creatorAiGen,
-      categoryDocReverse: categoryReverse,
-      categoryDocAiGen: categoryAiGen,
+      creatorAuthenticity:
+        extractions?.extractCreatorIdDoc?.image_authenticity ?? UNASSESSED_AUTHENTICITY,
+      creatorExif,
+      categoryAuthenticity:
+        extractions?.extractCategoryDocs?.image_authenticity ?? UNASSESSED_AUTHENTICITY,
+      categoryExif,
     });
     await upsertSignal({
       env,

@@ -24,6 +24,7 @@ import { BASE, seedReviewOrgWithAdmin, send, signUp, submitCampaign } from "./po
 
 const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 const VALID_BODY = {
+  title: "Clean-water wells initiative",
   story: "Funding clean-water wells across three rural districts.",
   organizer_name: "Ahmad Hassan",
   category: "food_security",

@@ -5,6 +5,7 @@
  */
 import { LoaderCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
+import { Button } from "@/components/ui/button.tsx";
 
 interface InFlightNoticeProps {
   readonly onRefresh: () => void;
@@ -19,14 +20,15 @@ export function InFlightNotice({ onRefresh, refreshing }: InFlightNoticeProps): 
           <LoaderCircle className="size-4 animate-spin text-foreground" />
           <CardTitle className="text-sm font-semibold tracking-tight">Composing brief</CardTitle>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onRefresh}
           disabled={refreshing}
-          className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait"
+          className="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:cursor-wait"
         >
           {refreshing ? "Refreshing…" : "Refresh"}
-        </button>
+        </Button>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">

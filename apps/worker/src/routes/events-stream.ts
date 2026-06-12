@@ -1,7 +1,7 @@
 /**
  * Org-wide live event SSE stream at `GET /api/events/stream?topic=...`.
  */
-import { and, eq, gt, live_events, makeDb, cases } from "@mizan/db";
+import { and, eq, gt, live_events, makeDb, cases, sql } from "@mizan/db";
 import { LiveEventRowSchema } from "@mizan/shared";
 import { zValidator } from "@hono/zod-validator";
 import type { Context } from "hono";
@@ -12,6 +12,7 @@ import type { CloudflareBindings } from "../env.ts";
 import { requireRole, type ViewerVariables } from "../middleware/require-role.ts";
 import {
   LIVE_TAIL_INTERVAL_MS,
+  onSseStreamError,
   RECONNECT_BACKOFF_MS,
   STREAM_WALL_CLOCK_MS,
 } from "./sse-constants.ts";
@@ -58,19 +59,64 @@ async function authorizeTopic(
   if (kind === "case") {
     const db = makeDb(c.env.DB);
     const row = await db
-      .select({ organization_id: cases.organization_id })
+      .select({ organization_id: cases.organization_id, assigned_to: cases.assigned_to })
       .from(cases)
       .where(eq(cases.id, id))
       .get();
     if (!row || row.organization_id !== viewer.organizationId) return { ok: false, status: 403 };
+    if (viewer.role !== "admin" && row.assigned_to !== viewer.userId) {
+      return { ok: false, status: 403 };
+    }
   }
   return { ok: true };
 }
 
-async function fetchEventsAfterSeq(db: ReturnType<typeof makeDb>, topic: string, afterSeq: number) {
+type StreamViewer = StreamContext["var"]["viewer"];
+
+/**
+ * Whether the viewer's events must be scoped to cases assigned to them. The
+ * `org:` topic fans EVERY case's events to every org member, and the `case:`
+ * subscribe-time check goes stale on mid-stream reassignment — so a non-admin on
+ * either topic must have each event re-checked against live assignment. Admins
+ * see all cases; `user:` topics are already self-scoped (and carry non-case
+ * events like `notification.new`), so neither is scoped.
+ */
+function scopesByAssignment(viewer: StreamViewer, topic: string): boolean {
+  if (viewer.role === "admin") return false;
+  return topic.startsWith("org:") || topic.startsWith("case:");
+}
+
+/**
+ * Reads the tape after `afterSeq`, computing per-row authorization IN the query:
+ * when the viewer is assignment-scoped, a LEFT JOIN on the payload's `case_id`
+ * resolves the case's current `assigned_to`, and `authorized` is 1 only when it
+ * matches the viewer. One query — no second assignment lookup, no JSON
+ * duck-typing in JS — and every row (authorized or not) is still returned so the
+ * caller can advance the cursor past dropped rows. `case_id`-less rows on a
+ * non-scoped topic stay authorized; on a scoped topic they have no producer.
+ */
+export async function fetchEventsAfterSeq(
+  db: ReturnType<typeof makeDb>,
+  viewer: StreamViewer,
+  topic: string,
+  afterSeq: number,
+) {
+  const authorized = scopesByAssignment(viewer, topic)
+    ? sql<number>`CASE WHEN ${cases.assigned_to} = ${viewer.userId} THEN 1 ELSE 0 END`
+    : sql<number>`1`;
   return db
-    .select()
+    .select({
+      topic: live_events.topic,
+      seq: live_events.seq,
+      event_type: live_events.event_type,
+      payload_json: live_events.payload_json,
+      emitted_at: live_events.emitted_at,
+      actor_user_id: live_events.actor_user_id,
+      organization_id: live_events.organization_id,
+      authorized,
+    })
     .from(live_events)
+    .leftJoin(cases, sql`${cases.id} = json_extract(${live_events.payload_json}, '$.case_id')`)
     .where(and(eq(live_events.topic, topic), gt(live_events.seq, afterSeq)))
     .orderBy(live_events.seq)
     .all();
@@ -84,12 +130,13 @@ async function fetchEventsAfterSeq(db: ReturnType<typeof makeDb>, topic: string,
  */
 async function safeFetch(
   db: ReturnType<typeof makeDb>,
+  viewer: StreamViewer,
   topic: string,
   afterSeq: number,
   stream: StreamApi,
 ): Promise<Awaited<ReturnType<typeof fetchEventsAfterSeq>> | undefined> {
   try {
-    return await fetchEventsAfterSeq(db, topic, afterSeq);
+    return await fetchEventsAfterSeq(db, viewer, topic, afterSeq);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     console.error(
@@ -124,6 +171,25 @@ async function writeLiveRow(
   });
 }
 
+/**
+ * Writes a fetched batch, skipping rows the fetch marked unauthorized (`authorized
+ * = 0`), and returns the new high-water seq. `lastSeen` advances past skipped
+ * rows too, so a dropped event is never re-fetched and the cursor can't stall on
+ * a high-seq event for an unassigned case.
+ */
+async function writeAuthorizedBatch(
+  stream: StreamApi,
+  batch: Awaited<ReturnType<typeof fetchEventsAfterSeq>>,
+  lastSeen: number,
+): Promise<number> {
+  let last = lastSeen;
+  for (const row of batch) {
+    if (row.authorized === 1) await writeLiveRow(stream, row);
+    last = row.seq;
+  }
+  return last;
+}
+
 /** Streams events for a topic already authorized by the route handler. */
 async function streamTopicEvents(
   c: StreamContext,
@@ -131,25 +197,20 @@ async function streamTopicEvents(
   topic: string,
 ): Promise<void> {
   const db = makeDb(c.env.DB);
+  const viewer = c.var.viewer;
   let lastSeen = parseLastEventId(c.req.header("Last-Event-ID"));
   const startedAt = Date.now();
 
-  const catchUp = await safeFetch(db, topic, lastSeen, stream);
+  const catchUp = await safeFetch(db, viewer, topic, lastSeen, stream);
   if (catchUp === undefined) return;
-  for (const row of catchUp) {
-    await writeLiveRow(stream, row);
-    lastSeen = row.seq;
-  }
+  lastSeen = await writeAuthorizedBatch(stream, catchUp, lastSeen);
 
   while (!c.req.raw.signal.aborted && Date.now() - startedAt < STREAM_WALL_CLOCK_MS) {
     await stream.sleep(LIVE_TAIL_INTERVAL_MS);
     if (c.req.raw.signal.aborted) return;
-    const fresh = await safeFetch(db, topic, lastSeen, stream);
+    const fresh = await safeFetch(db, viewer, topic, lastSeen, stream);
     if (fresh === undefined) return;
-    for (const row of fresh) {
-      await writeLiveRow(stream, row);
-      lastSeen = row.seq;
-    }
+    lastSeen = await writeAuthorizedBatch(stream, fresh, lastSeen);
   }
 }
 
@@ -164,5 +225,9 @@ export const eventsStreamRoutes = new Hono<{
     if (!authz.ok) {
       return c.json({ error: authz.status === 400 ? "invalid_topic" : "forbidden" }, authz.status);
     }
-    return streamSSE(c, (stream) => streamTopicEvents(c, stream, topic));
+    return streamSSE(
+      c,
+      (stream) => streamTopicEvents(c, stream, topic),
+      onSseStreamError("events-stream"),
+    );
   });

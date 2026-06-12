@@ -1,5 +1,5 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { caseNotes, cases, reviewer_actions, type Db } from "@mizan/db";
+import { and, asc, desc, eq } from "drizzle-orm";
+import { caseNotes, cases, latestDocumentUploadMs, reviewer_actions, type Db } from "@mizan/db";
 import {
   type CaseNote,
   type NoteAuthorRole,
@@ -99,65 +99,48 @@ export async function latestReviewerAction(
  * left the ESCALATE branch permanently dead — a client reply to an escalated
  * case never registered, so the client saw "under further review" forever.
  */
-const CLIENT_AWAITING_ACTIONS = new Set<ReviewerAction>(["REQUEST_DOCS", "ESCALATE"]);
+export const CLIENT_AWAITING_ACTION_VALUES = ["REQUEST_DOCS", "ESCALATE"] as const;
 
-/**
- * Pure rule: the client has responded when the reviewer's latest action awaits
- * client input and a `client_facing` client note is STRICTLY newer than it.
- * Both inputs are epoch-ms (`acted_at` + `created_at` are `timestamp_ms`). The
- * strict `>` re-arms per request: a second awaiting-action resets the bar until
- * a newer client note arrives, so the re-brief loop never double-flags.
- */
-export function isClientResponded(
-  latest: { action: ReviewerAction; actedAtMs: number } | null,
-  clientNoteMs: number | null,
-): boolean {
-  if (!latest || !CLIENT_AWAITING_ACTIONS.has(latest.action)) return false;
-  return clientNoteMs !== null && clientNoteMs > latest.actedAtMs;
+const CLIENT_AWAITING_ACTIONS = new Set<ReviewerAction>(CLIENT_AWAITING_ACTION_VALUES);
+
+/** True when a reviewer action hands the ball back to the client (doc request / escalation). */
+export function isClientAwaitingAction(action: ReviewerAction | null): boolean {
+  return action !== null && CLIENT_AWAITING_ACTIONS.has(action);
 }
 
 /**
- * Max `created_at` (epoch-ms) of a client's own `client_facing` note for a case,
- * or null when none. The `author_role = 'client'` filter means a reviewer's own
- * client-facing message can never self-flag the case.
+ * True when a re-submit would meaningfully re-enter review: the reviewer awaits
+ * the client (REQUEST_DOCS / ESCALATE) AND a document was uploaded/replaced
+ * strictly after that request. Shared by the client detail (button gate) and the
+ * `/submit` route (authoritative re-stamp gate) so UI + server never disagree.
  */
-async function latestClientNoteMs(db: Db, caseId: string): Promise<number | null> {
-  const row = await db
-    .select({ max: sql<number | null>`MAX(${caseNotes.created_at})` })
-    .from(caseNotes)
-    .where(
-      and(
-        eq(caseNotes.case_id, caseId),
-        eq(caseNotes.author_role, "client"),
-        eq(caseNotes.visibility, "client_facing"),
-      ),
-    )
-    .get();
-  return row?.max ?? null;
-}
-
-/**
- * `clientResponded` for a caller that ALREADY holds the latest reviewer action,
- * avoiding a duplicate `latestReviewerAction` query. Skips the note query
- * entirely when the latest action does not await a client response.
- */
-export async function clientRespondedFor(
+export async function canResubmit(
   db: Db,
+  organizationId: string,
   caseId: string,
   latest: { action: ReviewerAction; actedAtMs: number } | null,
 ): Promise<boolean> {
-  if (!latest || !CLIENT_AWAITING_ACTIONS.has(latest.action)) return false;
-  return isClientResponded(latest, await latestClientNoteMs(db, caseId));
+  if (!latest || !isClientAwaitingAction(latest.action)) return false;
+  const lastUpload = await latestDocumentUploadMs(db, caseId, organizationId);
+  return lastUpload !== null && lastUpload > latest.actedAtMs;
 }
 
 /**
- * True when the reviewer's latest action awaits client input (REQUEST_DOCS or
- * ESCALATE) and the client has since added a newer `client_facing` note.
- * Reviewer actions are terminal (all flip the case to ACTIONED), so this keys
- * off the action TYPE, not the case status.
+ * Pure rule: the client has handed the case back to the reviewer when the
+ * reviewer's latest action awaits client input (REQUEST_DOCS / ESCALATE) and the
+ * client has since RE-SUBMITTED — i.e. `cases.submitted_at` was re-stamped to a
+ * time STRICTLY newer than that action. Conversation notes AND evidence uploads
+ * deliberately do NOT flip this signal; only an explicit re-submission does, so
+ * a back-and-forth chat (or a half-finished upload) never trips the reviewer's
+ * re-trigger. Both inputs are epoch-ms. The strict `>` re-arms per request: a
+ * second awaiting-action resets the bar until a newer re-submit lands.
  */
-export async function clientResponded(db: Db, caseId: string): Promise<boolean> {
-  return clientRespondedFor(db, caseId, await latestReviewerAction(db, caseId));
+export function isClientResponded(
+  latest: { action: ReviewerAction; actedAtMs: number } | null,
+  submittedAtMs: number | null,
+): boolean {
+  if (!latest || !CLIENT_AWAITING_ACTIONS.has(latest.action)) return false;
+  return submittedAtMs !== null && submittedAtMs > latest.actedAtMs;
 }
 
 /** True when the case exists within the given org — the reviewer cross-org write guard. */

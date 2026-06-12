@@ -8,17 +8,17 @@ import type { ViewerVariables } from "./require-role.ts";
 
 /**
  * Source statuses accepted by `producerGuard("RUNNING")` — the Mode A
- * SSE path. Includes READY_FOR_REVIEW / ACTIONED so a reviewer can
- * regenerate a completed brief via streaming. FAILED is included so a
- * pre-stream throw can be retried.
+ * SSE path. Includes ACTIONED so a reviewer can regenerate a completed
+ * brief via streaming. FAILED is included so a pre-stream throw can be
+ * retried.
  */
-const ALLOWED_RUNNING_SOURCES = ["DRAFT", "READY_FOR_REVIEW", "ACTIONED", "FAILED"] as const;
+const ALLOWED_RUNNING_SOURCES = ["DRAFT", "ACTIONED", "FAILED"] as const;
 
 /**
  * Source statuses accepted by `producerGuard("QUEUED")` — the Mode B
  * background path. Narrower than the Mode A set so `revertQueuedClaim`
  * (which always reverts to DRAFT on send failure) is provably lossless:
- * a successful row (READY_FOR_REVIEW / ACTIONED) cannot be downgraded
+ * a successful row (ACTIONED) cannot be downgraded
  * by an enqueue compensation. DRAFT and FAILED both revert cleanly to
  * DRAFT without losing reviewer-visible state.
  */

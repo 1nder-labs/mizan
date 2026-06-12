@@ -10,6 +10,7 @@ import type { ProducerVariables } from "../middleware/producer-guard.ts";
 import type { ViewerVariables } from "../middleware/require-role.ts";
 import {
   LIVE_TAIL_INTERVAL_MS,
+  onSseStreamError,
   RECONNECT_BACKOFF_MS,
   STREAM_WALL_CLOCK_MS,
 } from "./sse-constants.ts";
@@ -151,5 +152,5 @@ async function streamCaseEvents(c: StreamContext, stream: StreamApi): Promise<vo
 }
 
 export function caseStreamHandler(c: StreamContext): Response {
-  return streamSSE(c, (stream) => streamCaseEvents(c, stream));
+  return streamSSE(c, (stream) => streamCaseEvents(c, stream), onSseStreamError("case-stream"));
 }

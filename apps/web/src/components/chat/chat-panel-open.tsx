@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
 import { Link } from "@tanstack/react-router";
 import { COPY } from "@/lib/copy-constants.ts";
+import { loadQueueSearch } from "@/lib/queue-nav-memory.ts";
 import { cn } from "@/lib/utils.ts";
 import { useChatPanelResize, type ChatPanelResize } from "@/hooks/use-chat-panel-resize.ts";
 import { useChatThread } from "@/hooks/use-chat-thread.ts";
@@ -29,7 +29,7 @@ function ChatPanelFooter(): React.JSX.Element {
     <div className="border-t border-border/40 px-4 py-1.5 text-[10px] text-muted-foreground/60 tracking-wide">
       <Link
         to="/queue"
-        search={DEFAULT_QUEUE_SEARCH}
+        search={loadQueueSearch()}
         className="transition-colors hover:text-muted-foreground"
       >
         {COPY.chat.backToQueue}
