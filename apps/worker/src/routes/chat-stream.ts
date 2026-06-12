@@ -24,6 +24,14 @@ import { maybeGenerateThreadTitle } from "../lib/thread-title.ts";
 import type { ViewerVariables } from "../middleware/require-role.ts";
 import type { ChatPostBody } from "./chat.ts";
 
+/**
+ * Output-token ceiling for a copilot turn. The copilot answers grounded,
+ * concise questions over the case / brief / policy the reviewer already has —
+ * long essays aren't the job — so a low cap keeps replies tight and bounds
+ * per-turn cost on the shared demo URL.
+ */
+const COPILOT_MAX_OUTPUT_TOKENS = 700;
+
 /** Concatenated text of the first user message — the seed for the AI thread title. */
 function firstUserText(messages: Awaited<ReturnType<typeof validateUIMessages>>): string {
   const first = messages.find((message) => message.role === "user");
@@ -118,6 +126,7 @@ export async function handleChatPost(
     const agentStream = await agent.stream(validated, {
       requestContext,
       abortSignal: c.req.raw.signal,
+      modelSettings: { maxOutputTokens: COPILOT_MAX_OUTPUT_TOKENS },
     });
     const aiSdkStream = toAISdkStream(agentStream, { from: "agent", version: "v6" });
     const uiStream = createUIMessageStream({

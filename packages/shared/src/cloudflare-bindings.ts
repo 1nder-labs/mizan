@@ -79,4 +79,13 @@ export interface CloudflareBindings {
   R2_ACCESS_KEY_ID?: string;
   /** R2 API token secret access key — paired with R2_ACCESS_KEY_ID. SECRET. */
   R2_SECRET_ACCESS_KEY?: string;
+  /**
+   * Global per-UTC-day cap on brief-generation runs across the whole
+   * deployment — an abuse guardrail for the shared demo URL. Parsed as an
+   * integer; falls back to a built-in default when unset/invalid. Tune
+   * down (no redeploy) via `wrangler secret put` to tighten the guardrail.
+   */
+  AI_DAILY_BRIEF_CAP?: string;
+  /** Global per-UTC-day cap on copilot chat messages across the deployment. See AI_DAILY_BRIEF_CAP. */
+  AI_DAILY_CHAT_CAP?: string;
 }
