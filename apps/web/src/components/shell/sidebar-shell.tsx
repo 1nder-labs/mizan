@@ -7,7 +7,8 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronsUpDown, FileClock, LogOut, Scale, SquareKanban, UsersRound } from "lucide-react";
+import { ChevronsUpDown, FileClock, LogOut, SquareKanban, UsersRound } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark.tsx";
 import { loadQueueSearch } from "@/lib/queue-nav-memory.ts";
 import { sessionQueryOptions } from "@/lib/auth-client.ts";
 import { meQueryOptions } from "@/lib/me-api.ts";
@@ -58,12 +59,10 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: "/admin/team", label: "Team", icon: UsersRound, adminOnly: true },
 ];
 
-function BrandMark(): React.JSX.Element {
+function SidebarBrand(): React.JSX.Element {
   return (
     <div className="flex items-center gap-2.5 p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0">
-      <div className="btn-primary-surface grid size-9 shrink-0 place-items-center rounded-lg group-data-[collapsible=icon]:size-8">
-        <Scale className="size-[18px]" />
-      </div>
+      <BrandMark className="size-9 shrink-0 group-data-[collapsible=icon]:size-8" />
       <div className="leading-tight group-data-[collapsible=icon]:hidden">
         <p className="text-[15px] font-semibold tracking-[-0.01em] text-sidebar-foreground">
           Mizan
@@ -218,7 +217,7 @@ export function SidebarShell({ context, children }: SidebarShellProps): React.JS
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader>
-          <BrandMark />
+          <SidebarBrand />
         </SidebarHeader>
         <SidebarContent>
           <NavGroup isAdmin={Boolean(isAdmin)} />

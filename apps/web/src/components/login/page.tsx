@@ -20,6 +20,7 @@ import { SESSION_QUERY_KEY } from "@/lib/auth-client.ts";
 import { meQueryOptions } from "@/lib/me-api.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
 import { COPY } from "@/lib/copy-constants.ts";
+import { BrandMark } from "@/components/brand-mark.tsx";
 import { LoginForm } from "@/components/login/form.tsx";
 import {
   Card,
@@ -57,17 +58,7 @@ export function LoginPage(): React.JSX.Element {
     <main className="grid min-h-dvh place-items-center bg-background px-6 py-12">
       <div className="w-full max-w-sm animate-rise">
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
-          <picture>
-            <source srcSet="/logo.webp" type="image/webp" />
-            <img
-              src="/logo.png"
-              alt="Mizan"
-              width={64}
-              height={64}
-              className="size-16 select-none"
-              draggable={false}
-            />
-          </picture>
+          <BrandMark className="size-16" />
           <div className="flex flex-col gap-1">
             <h1 className="text-display text-2xl font-semibold tracking-tight">Mizan</h1>
             <p className="text-sm text-muted-foreground">Trust &amp; Safety review console</p>

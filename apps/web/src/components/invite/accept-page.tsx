@@ -8,9 +8,9 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, getRouteApi, useNavigate } from "@tanstack/react-router";
-import { Scale } from "lucide-react";
 import { toast } from "sonner";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
+import { BrandMark } from "@/components/brand-mark.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card.tsx";
 import { useInvitationLookup } from "@/hooks/use-team.ts";
@@ -23,9 +23,7 @@ function InviteShell({ children }: { readonly children: React.ReactNode }): Reac
     <main className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="w-full max-w-md animate-rise space-y-4">
         <div className="mb-2 flex items-center gap-3">
-          <div className="btn-primary-surface flex size-8 items-center justify-center rounded-md">
-            <Scale className="size-4" />
-          </div>
+          <BrandMark className="size-9" />
           <div className="flex flex-col gap-0">
             <span className="text-sm font-semibold leading-tight tracking-tight">Mizan</span>
             <span className="text-xs text-muted-foreground">Reviewer console</span>
