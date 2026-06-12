@@ -3,7 +3,7 @@ import { z } from "zod";
 import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/partial-brief-state.ts";
 
 /**
- * Re-joins the three signal-emitting parallel branches back into a single
+ * Re-joins the four signal-emitting parallel branches back into a single
  * `PartialBriefStateSchema`. Mastra `.parallel([...])` produces an object
  * keyed by step id; `mergeSignals` is the canonical "wide branch → narrow
  * state" reducer so every downstream step keeps the standard input shape.
@@ -13,7 +13,12 @@ import { PartialBriefStateSchema, type PartialBriefState } from "../schemas/part
  * permissive at the type level and tightened at runtime with the strict
  * `ParallelBranchesSchema` parser below.
  */
-const PARALLEL_BRANCH_KEYS = ["photoSignal", "storyCoherence", "classifyVouchingChain"] as const;
+const PARALLEL_BRANCH_KEYS = [
+  "photoSignal",
+  "storyCoherence",
+  "classifyVouchingChain",
+  "ocrMismatch",
+] as const;
 
 type ParallelBranchKey = (typeof PARALLEL_BRANCH_KEYS)[number];
 
@@ -21,6 +26,7 @@ const ParallelBranchesSchema = z.object({
   photoSignal: PartialBriefStateSchema,
   storyCoherence: PartialBriefStateSchema,
   classifyVouchingChain: PartialBriefStateSchema,
+  ocrMismatch: PartialBriefStateSchema,
 });
 
 export type ParallelSignalsInput = z.infer<typeof ParallelBranchesSchema>;
@@ -33,7 +39,7 @@ function parseParallelBranches(input: unknown): ParallelSignalsInput {
 /**
  * Combines parallel-branch outputs into a single PartialBriefState.
  *
- * Validates that all three branches agree on caseId, runId, classify,
+ * Validates that all four branches agree on caseId, runId, classify,
  * extractions, and policy_matches before picking the photoSignal branch
  * as the canonical non-signals carrier. Silent divergence would let an
  * upstream parallel step's concurrent mutation drop another branch's
@@ -47,13 +53,15 @@ function parseParallelBranches(input: unknown): ParallelSignalsInput {
  * partial signal state and produce a misleading brief.
  */
 export function mergeParallelSignals(input: ParallelSignalsInput): PartialBriefState {
-  const { photoSignal: a, storyCoherence: b, classifyVouchingChain: c } = input;
+  const { photoSignal: a, storyCoherence: b, classifyVouchingChain: c, ocrMismatch: d } = input;
   assertBranchAgreement(a, b, "storyCoherence");
   assertBranchAgreement(a, c, "classifyVouchingChain");
+  assertBranchAgreement(a, d, "ocrMismatch");
   const photo = a.signals?.photo;
   const story = b.signals?.story;
   const vouching = c.signals?.vouching;
-  assertParallelSignalsComplete(a.caseId, a.runId, { photo, story, vouching });
+  const ocr = d.signals?.ocr;
+  assertParallelSignalsComplete(a.caseId, a.runId, { photo, story, vouching, ocr });
   return {
     ...a,
     signals: {
@@ -61,6 +69,7 @@ export function mergeParallelSignals(input: ParallelSignalsInput): PartialBriefS
       photo,
       story,
       vouching,
+      ocr,
     },
   };
 }
@@ -68,7 +77,7 @@ export function mergeParallelSignals(input: ParallelSignalsInput): PartialBriefS
 type SignalsSlot = NonNullable<PartialBriefState["signals"]>;
 
 /**
- * Throws if any of the three parallel branches did not write its
+ * Throws if any of the four parallel branches did not write its
  * signal slot. Each branch is a `.then`-compatible step whose contract
  * is "populate exactly one slot in `state.signals`"; a missing slot at
  * this seam means that step degraded silently (caught its own error,
@@ -81,12 +90,14 @@ function assertParallelSignalsComplete(
     readonly photo: SignalsSlot["photo"] | undefined;
     readonly story: SignalsSlot["story"] | undefined;
     readonly vouching: SignalsSlot["vouching"] | undefined;
+    readonly ocr: SignalsSlot["ocr"] | undefined;
   },
 ): void {
   const missing: string[] = [];
   if (!slots.photo) missing.push("photo");
   if (!slots.story) missing.push("story");
   if (!slots.vouching) missing.push("vouching");
+  if (!slots.ocr) missing.push("ocr");
   if (missing.length > 0) {
     throw new Error(
       `mergeSignals: missing signal slot(s) [${missing.join(", ")}] for case ${caseId} run ${runId} — a parallel signal step degraded silently`,

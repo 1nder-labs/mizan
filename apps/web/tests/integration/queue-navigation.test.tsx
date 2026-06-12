@@ -25,7 +25,7 @@ function makeRow(index: number): CaseRow {
   const hex = String(index).padStart(8, "0");
   return {
     id: `${hex}-1111-4111-8111-111111111111`,
-    status: "READY_FOR_REVIEW",
+    status: "SUSPENDED_HITL",
     title: `Campaign ${index}`,
     category: "humanitarian",
     geography: "PS",
@@ -33,6 +33,11 @@ function makeRow(index: number): CaseRow {
     created_at: 1_700_000_000_000 + index,
     updated_at: 1_700_000_500_000 + index,
     latest_brief: { recommendation: "READY_FOR_REVIEW", verification_path: "documentary" },
+    assigned_to: null,
+    client_submitted: false,
+    latest_action: null,
+    client_responded: false,
+    disposition: "AWAITING_REVIEWER",
   };
 }
 

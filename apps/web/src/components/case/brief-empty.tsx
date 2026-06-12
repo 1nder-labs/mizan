@@ -10,8 +10,8 @@
  *     producer-guard at `apps/worker/src/routes/cases.ts` will return
  *     409 if a real run is still owned by another session; in that
  *     case BriefStream's InFlightNotice + poll loop takes over.
- *   - READY_FOR_REVIEW / ACTIONED with null brief (degraded parse path
- *     in `apps/worker/src/routes/cases-list.ts`) so the reviewer can
+ *   - ACTIONED with null brief (degraded parse path in
+ *     `apps/worker/src/routes/cases-list.ts`) so the reviewer can
  *     re-trigger composition instead of hitting a dead-end card.
  *
  * Statuses without an affordance (waiting on someone else):
@@ -40,12 +40,7 @@ const RUNNING_ERROR_COPY: StatusCopy = {
   body: "The live brief stream closed before completing. You can try again — if another session is still composing, you'll see an in-progress notice.",
 };
 
-const STATUSES_WITH_GENERATE: ReadonlySet<CaseStatus> = new Set([
-  "DRAFT",
-  "RUNNING",
-  "READY_FOR_REVIEW",
-  "ACTIONED",
-]);
+const STATUSES_WITH_GENERATE: ReadonlySet<CaseStatus> = new Set(["DRAFT", "RUNNING", "ACTIONED"]);
 
 const EMPTY_COPY: Record<CaseStatus, StatusCopy> = {
   DRAFT: {
@@ -65,7 +60,6 @@ const EMPTY_COPY: Record<CaseStatus, StatusCopy> = {
     body: "Something went wrong while composing this brief. You can try again.",
   },
   RUNNING: RUNNING_ERROR_COPY,
-  READY_FOR_REVIEW: FALLBACK_COPY,
   ACTIONED: FALLBACK_COPY,
 };
 

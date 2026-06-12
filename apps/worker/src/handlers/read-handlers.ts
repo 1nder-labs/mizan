@@ -3,7 +3,7 @@
  */
 import { and, desc, eq, ne } from "drizzle-orm";
 import { fetchAuditPage, members, signals as signalsTable, users, type Db } from "@mizan/db";
-import { getClauseById } from "@mizan/mastra";
+import { getClauseById } from "@mizan/mastra/runtime";
 import type { AuditListSearch, PolicyClauseSource, ViewerContext } from "@mizan/shared";
 import { NotFoundError } from "./cases-handler.ts";
 

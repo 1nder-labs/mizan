@@ -135,14 +135,7 @@ export function trackedMessage<T>(body: T, opts?: { attempts?: number }): Tracke
 }
 
 /** Accepted status values for `seedCaseStatus`. */
-type CaseStatus =
-  | "DRAFT"
-  | "QUEUED"
-  | "RUNNING"
-  | "READY_FOR_REVIEW"
-  | "ACTIONED"
-  | "FAILED"
-  | "SUSPENDED_HITL";
+type CaseStatus = "DRAFT" | "QUEUED" | "RUNNING" | "ACTIONED" | "FAILED" | "SUSPENDED_HITL";
 
 /**
  * Updates a case row's `status` (and optionally `current_run_id`,

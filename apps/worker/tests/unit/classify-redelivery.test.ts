@@ -20,6 +20,7 @@ function makeCase(overrides: Partial<Case>): Case {
     created_at: new Date(FIXED_NOW - 60_000),
     updated_at: new Date(FIXED_NOW - 60_000),
     submitted_at: null,
+    archived_at: null,
     created_by: "33333333-3333-4333-8333-333333333301",
     assigned_to: null,
     organization_id: "org-test-001",
@@ -36,15 +37,7 @@ describe("classifyRedelivery", () => {
     expect(classifyRedelivery(row, RUN_ID, 1, FRESH)).toBe("ack-mismatch");
   });
 
-  it("returns ack-terminal for READY_FOR_REVIEW, ACTIONED, SUSPENDED_HITL, FAILED", () => {
-    expect(
-      classifyRedelivery(
-        makeCase({ status: "READY_FOR_REVIEW", current_run_id: RUN_ID }),
-        RUN_ID,
-        1,
-        FRESH,
-      ),
-    ).toBe("ack-terminal");
+  it("returns ack-terminal for ACTIONED, SUSPENDED_HITL, FAILED", () => {
     expect(
       classifyRedelivery(
         makeCase({ status: "ACTIONED", current_run_id: RUN_ID }),

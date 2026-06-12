@@ -12,7 +12,17 @@ export const extractCategoryDocs = makeExtractor({
     const bytes = new Uint8Array(await obj.arrayBuffer());
     const category = caseRow.claimed_zakat_category ?? caseRow.category;
     return {
-      system: `Extract structured fields from the ${category} supporting document.`,
+      system:
+        `Extract structured fields from the ${category} supporting document. ` +
+        "Then rate `image_authenticity`. `authenticity_risk` (low/medium/high/very_high) is how " +
+        "likely this document is fabricated or altered. Supporting documents — bills, invoices, " +
+        "statements, letters — are NORMALLY computer-generated PDFs, so clean digital rendering " +
+        "is NOT itself a risk. Raise the risk only for fabrication signals: internal " +
+        "inconsistencies (mismatched fonts, misaligned fields, altered or non-adding totals), " +
+        "cut-and-paste or cloning, AI-generation artifacts (warped text, nonsensical figures), " +
+        "or specimen / sample / template markings. Set `shows_tampering_signs` for signs of " +
+        "editing, and give a one-sentence `assessment` citing the concrete observations behind " +
+        "the rating.",
       messages: [
         {
           role: "user",

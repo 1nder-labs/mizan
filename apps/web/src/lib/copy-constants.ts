@@ -232,6 +232,8 @@ export const COPY = {
     versionLabel: "Brief version",
     viewingPrevious: "You're viewing an earlier brief for this case.",
     backToLatest: "Back to latest",
+    clientRepliedHint:
+      "The campaign creator added new documents and re-submitted. Re-run the review to analyze the new evidence before you decide.",
   },
   portal: {
     brand: "Mizan",
@@ -267,6 +269,10 @@ export const COPY = {
     intakeSectionAbout: "About the campaign",
     intakeSectionClassify: "Classification",
     intakeSectionCommunity: "Community",
+    intakeCampaignTitle: "Campaign title",
+    intakeCampaignTitlePlaceholder: "e.g. Help Yusuf recover from heart surgery",
+    intakeCampaignTitleHelp:
+      "A short headline for your campaign — what the reviewer and donors see first.",
     intakeStory: "Campaign story",
     intakeStoryPlaceholder: "Describe what you are raising funds for…",
     intakeStoryHelp: "A few sentences on who this helps and why now.",
@@ -297,12 +303,25 @@ export const COPY = {
     intakeCancel: "Cancel",
     intakeError: "Could not save your campaign. Check the fields and try again.",
     detailBack: "Back to my campaigns",
+    detailOrganizerPrefix: "Organized by",
     detailLoadError: "Could not load this campaign.",
     detailEvidenceTitle: "Documents",
     detailEvidenceSubtitle: "Upload the three documents the reviewer needs.",
     detailNotesTitle: "Messages",
     detailNotesEmpty: "No messages yet.",
     detailAskTitle: "The reviewer needs more from you",
+    detailAskCtaTitle: "Ready to continue?",
+    detailAskCtaBody:
+      "Your documents are attached. Send them to your reviewer whenever you're ready.",
+    resubmitNeedsDocs:
+      "Add or replace the requested documents above, then send your campaign back for review.",
+    resubmit: "Send for review",
+    resubmitting: "Sending…",
+    resubmitError: "Could not send your campaign. Please try again.",
+    reviewHistoryShow: (count: number) =>
+      `Earlier ${count === 1 ? "request" : "requests"} from your reviewer (${count})`,
+    reviewHistoryHide: "Hide earlier requests",
+    reviewHistoryNeeded: "Documents requested",
     evidenceUploaded: "Uploaded",
     evidenceMissing: "Not uploaded",
     evidenceUpload: "Upload",
@@ -348,7 +367,6 @@ const STATUS_DISPLAY: Readonly<Record<CaseStatus, string>> = {
   QUEUED: "Queued",
   RUNNING: "In progress",
   SUSPENDED_HITL: "Awaiting reviewer",
-  READY_FOR_REVIEW: "Ready for review",
   ACTIONED: "Actioned",
   FAILED: "Failed",
 };

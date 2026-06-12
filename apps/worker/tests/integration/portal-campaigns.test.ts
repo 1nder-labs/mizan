@@ -19,6 +19,7 @@ import { BASE, REVIEW_ORG_ID, seedReviewOrgWithAdmin, send, signUp } from "./por
 const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 
 const VALID_BODY = {
+  title: "Clean-water wells initiative",
   story: "We are raising funds to build clean-water wells in rural villages.",
   organizer_name: "Ahmad Hassan",
   category: "food_security",
@@ -77,10 +78,12 @@ describe("portal campaigns", () => {
   let clientACookie = "";
   let clientBCookie = "";
   let clientAId = "";
+  let reviewAdminId = "";
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
     const reviewAdmin = await signUp(`pc-admin-${Date.now()}@test.local`, "Review Admin");
+    reviewAdminId = reviewAdmin.userId;
     await seedReviewOrgWithAdmin(reviewAdmin.userId);
     const clientA = await signUp(`pc-clienta-${Date.now()}@test.local`, "Client A", "client");
     const clientB = await signUp(`pc-clientb-${Date.now()}@test.local`, "Client B", "client");
@@ -99,7 +102,7 @@ describe("portal campaigns", () => {
     expect(row?.status).toBe("DRAFT");
     expect(row?.organization_id).toBe(REVIEW_ORG_ID);
     expect(row?.created_by).toBe(clientAId);
-    expect(row?.title).toBe(VALID_BODY.organizer_name);
+    expect(row?.title).toBe(VALID_BODY.title);
     expect(row?.category).toBe(VALID_BODY.category);
     expect(row?.claimed_zakat_category).toBe(VALID_BODY.claimed_zakat_category);
 
@@ -149,6 +152,7 @@ describe("portal campaigns", () => {
     await seedDocRow(id, REVIEW_ORG_ID, "creator_id", `${id}/creator_id/uuid-xyz`);
 
     const res = await send("PATCH", `${CAMPAIGNS_URL}/${id}`, clientACookie, {
+      title: VALID_BODY.title,
       story: "Cleared the vouching narrative.",
       organizer_name: VALID_BODY.organizer_name,
       category: VALID_BODY.category,
@@ -185,5 +189,67 @@ describe("portal campaigns", () => {
     const id = await createCampaign(clientACookie);
     const res = await send("PATCH", `${CAMPAIGNS_URL}/${id}`, clientBCookie, VALID_BODY);
     expect(res.status).toBe(404);
+  });
+
+  it("returns 409 case_decided when submitting a campaign a reviewer already approved", async () => {
+    const id = await createCampaign(clientACookie);
+    const now = Date.now();
+    await env.DB.prepare("UPDATE cases SET status = 'ACTIONED', submitted_at = ? WHERE id = ?")
+      .bind(now, id)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, acted_at, action_id, organization_id)
+       VALUES (?, ?, ?, ?, 'APPROVE', 'x', ?, ?, ?)`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        id,
+        crypto.randomUUID(),
+        reviewAdminId,
+        now,
+        crypto.randomUUID(),
+        REVIEW_ORG_ID,
+      )
+      .run();
+
+    const res = await send("POST", `${CAMPAIGNS_URL}/${id}/submit`, clientACookie);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "case_decided" });
+  });
+
+  it("re-submitting after a docs request emits case.resubmitted on org + case topics", async () => {
+    const id = await createCampaign(clientACookie);
+    const now = Date.now();
+    const actedAt = now - 10_000;
+    await env.DB.prepare("UPDATE cases SET status = 'ACTIONED', submitted_at = ? WHERE id = ?")
+      .bind(now - 20_000, id)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, acted_at, action_id, organization_id)
+       VALUES (?, ?, ?, ?, 'REQUEST_DOCS', 'x', ?, ?, ?)`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        id,
+        crypto.randomUUID(),
+        reviewAdminId,
+        actedAt,
+        crypto.randomUUID(),
+        REVIEW_ORG_ID,
+      )
+      .run();
+    await seedDocRow(id, REVIEW_ORG_ID, "supplementary", `${id}/supplementary/after-ask`);
+
+    const res = await send("POST", `${CAMPAIGNS_URL}/${id}/submit`, clientACookie);
+    expect(res.status).toBe(200);
+
+    const events = await env.DB.prepare(
+      `SELECT topic FROM live_events WHERE event_type = 'case.resubmitted'
+       AND json_extract(payload_json, '$.case_id') = ? ORDER BY topic`,
+    )
+      .bind(id)
+      .all<{ topic: string }>();
+    const topics = (events.results ?? []).map((r) => r.topic).sort();
+    expect(topics).toEqual([`case:${id}`, `org:${REVIEW_ORG_ID}`]);
   });
 });

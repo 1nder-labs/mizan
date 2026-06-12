@@ -25,17 +25,17 @@ function mount(initial: QueueSearch, onSearchChange: (next: Partial<QueueSearch>
 }
 
 describe("<QueueFilterBar /> URL round-trip", () => {
-  test("clicking the Ready status tab emits status=READY_FOR_REVIEW", async () => {
+  test("clicking the Awaiting reviewer status tab emits status=SUSPENDED_HITL", async () => {
     const onSearchChange = vi.fn();
     const { ui } = mount(BASE_SEARCH, onSearchChange);
     const user = userEvent.setup();
-    await user.click(ui.getByRole("tab", { name: "Ready" }));
-    expect(onSearchChange).toHaveBeenCalledWith({ status: "READY_FOR_REVIEW" });
+    await user.click(ui.getByRole("tab", { name: "Awaiting reviewer" }));
+    expect(onSearchChange).toHaveBeenCalledWith({ status: "SUSPENDED_HITL" });
   });
 
   test("clicking the All tab clears the status filter", async () => {
     const onSearchChange = vi.fn();
-    const { ui } = mount({ ...BASE_SEARCH, status: "READY_FOR_REVIEW" }, onSearchChange);
+    const { ui } = mount({ ...BASE_SEARCH, status: "SUSPENDED_HITL" }, onSearchChange);
     const user = userEvent.setup();
     await user.click(ui.getByRole("tab", { name: "All" }));
     expect(onSearchChange).toHaveBeenCalledWith({ status: undefined });

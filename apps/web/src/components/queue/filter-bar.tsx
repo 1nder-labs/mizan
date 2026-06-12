@@ -4,12 +4,14 @@
  * `onSearchChange`; the worker ANDs them into a single case-insensitive query,
  * so "Education + PK" returns exactly the cases matching both.
  */
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Archive, Check, ChevronsUpDown, Search } from "lucide-react";
 import { useState } from "react";
 import {
   CAMPAIGN_CATEGORY_OPTIONS,
   COUNTRIES,
   isCaseStatus,
+  REVIEWER_DISPOSITION_LABEL,
+  type CaseDisposition,
   type CaseStatus,
   type QueueSearch,
 } from "@mizan/shared";
@@ -40,7 +42,6 @@ const ALL_VALUE = "__all__";
 const FILTER_STATUSES: readonly CaseStatus[] = [
   "QUEUED",
   "RUNNING",
-  "READY_FOR_REVIEW",
   "SUSPENDED_HITL",
   "ACTIONED",
   "FAILED",
@@ -49,6 +50,16 @@ const FILTER_STATUSES: readonly CaseStatus[] = [
 const STATUS_TABS: readonly { readonly value: "all" | CaseStatus; readonly label: string }[] = [
   { value: "all", label: "All" },
   ...FILTER_STATUSES.map((status) => ({ value: status, label: CASE_STATUS_LABEL[status] })),
+];
+
+/** Outcome buckets a reviewer triages by — the post-decision subset of dispositions. */
+const FILTER_OUTCOMES: readonly CaseDisposition[] = [
+  "AWAITING_REVIEWER",
+  "NEEDS_CLIENT_DOCS",
+  "CLIENT_REPLIED",
+  "ESCALATED",
+  "APPROVED",
+  "DECLINED",
 ];
 
 interface FilterBarProps {
@@ -63,7 +74,7 @@ function StatusTabs({ search, onSearchChange }: FilterBarProps): React.JSX.Eleme
       onSearchChange({ status: undefined });
       return;
     }
-    if (isCaseStatus(value)) onSearchChange({ status: value });
+    if (isCaseStatus(value)) onSearchChange({ status: value, outcome: undefined });
   }
   return (
     <Tabs value={activeTab} onValueChange={handleChange}>
@@ -150,6 +161,36 @@ function CategorySelect({
   );
 }
 
+/** Outcome dropdown — narrows the queue to one canonical disposition bucket. */
+function OutcomeSelect({
+  value,
+  onChange,
+}: {
+  readonly value: CaseDisposition | undefined;
+  readonly onChange: (next: CaseDisposition | undefined) => void;
+}): React.JSX.Element {
+  return (
+    <Select
+      value={value ?? ALL_VALUE}
+      onValueChange={(next) =>
+        onChange(next === ALL_VALUE ? undefined : FILTER_OUTCOMES.find((o) => o === next))
+      }
+    >
+      <SelectTrigger className="h-9 w-48" aria-label="Filter by outcome">
+        <SelectValue placeholder="Outcome" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL_VALUE}>All outcomes</SelectItem>
+        {FILTER_OUTCOMES.map((outcome) => (
+          <SelectItem key={outcome} value={outcome}>
+            {REVIEWER_DISPOSITION_LABEL[outcome]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 /** The "all" sentinel + one option per country, with a selected check. */
 function CountryOptions({
   value,
@@ -224,7 +265,7 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
       {search.view === "board" ? null : (
         <StatusTabs search={search} onSearchChange={onSearchChange} />
       )}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-1 flex-wrap items-center gap-2">
         <SearchBar
           key={`title-${search.title ?? ""}`}
           value={search.title}
@@ -238,6 +279,22 @@ export function QueueFilterBar({ search, onSearchChange }: FilterBarProps): Reac
           value={search.geography}
           onChange={(next) => onSearchChange({ geography: next })}
         />
+        <div className="ml-auto flex items-center gap-2">
+          <OutcomeSelect
+            value={search.outcome}
+            onChange={(next) => onSearchChange({ outcome: next, status: undefined })}
+          />
+          <Button
+            variant={search.archived ? "default" : "outline"}
+            size="sm"
+            className="h-9"
+            aria-pressed={search.archived ?? false}
+            onClick={() => onSearchChange({ archived: search.archived ? undefined : true })}
+          >
+            <Archive className="mr-1.5 size-3.5" />
+            Archived
+          </Button>
+        </div>
       </div>
     </div>
   );

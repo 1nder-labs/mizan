@@ -1,23 +1,28 @@
-import type { z } from "zod";
-import type { AiGenResultSchema } from "../../tools/ai-gen-stub.ts";
-import type { ReverseImageResultSchema } from "../../tools/reverse-image-stub.ts";
-import { type PhotoSignalPayload } from "@mizan/shared";
+import type { ExifSummary, ImageAuthenticity, PhotoSignalPayload } from "@mizan/shared";
 
-/** Nests reverse-image + AI-gen stub outputs into the photo signal payload. */
+/**
+ * Authenticity fallback for the rare case where a document extraction degraded
+ * and produced no read. The photo signal runs in the parallel branch AFTER the
+ * extractors, so in practice the extraction is present; this keeps the step
+ * total over the optional `extractions` state shape. Surfaces as `medium` — a
+ * caution, never a green `low` pass — so a degraded read never reads to the
+ * reviewer as "looks authentic"; the assessment text states it was not assessed.
+ */
+export const UNASSESSED_AUTHENTICITY: ImageAuthenticity = {
+  authenticity_risk: "medium",
+  shows_tampering_signs: false,
+  assessment: "Image authenticity was not assessed — the document extraction was unavailable.",
+};
+
+/** Nests each image's authenticity read (from the vision extraction) + parsed EXIF into the payload. */
 export function composePhotoSignalPayload(input: {
-  creatorIdReverse: z.infer<typeof ReverseImageResultSchema>;
-  creatorIdAiGen: z.infer<typeof AiGenResultSchema>;
-  categoryDocReverse: z.infer<typeof ReverseImageResultSchema>;
-  categoryDocAiGen: z.infer<typeof AiGenResultSchema>;
+  readonly creatorAuthenticity: ImageAuthenticity;
+  readonly creatorExif: ExifSummary;
+  readonly categoryAuthenticity: ImageAuthenticity;
+  readonly categoryExif: ExifSummary;
 }): PhotoSignalPayload {
   return {
-    creator_id: {
-      reverseImage: input.creatorIdReverse,
-      aiGen: input.creatorIdAiGen,
-    },
-    category_doc: {
-      reverseImage: input.categoryDocReverse,
-      aiGen: input.categoryDocAiGen,
-    },
+    creator_id: { authenticity: input.creatorAuthenticity, exif: input.creatorExif },
+    category_doc: { authenticity: input.categoryAuthenticity, exif: input.categoryExif },
   };
 }

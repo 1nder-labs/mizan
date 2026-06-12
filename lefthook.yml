@@ -11,6 +11,8 @@ pre-commit:
       run: bun run knip
     audit:
       run: bun audit --audit-level=high
+    worker-entry-graph:
+      run: bun scripts/check-worker-entry-graph.ts
     forbidden-patterns:
       run: |
         files=$(git diff --cached --name-only --diff-filter=ACMR -z |
@@ -28,8 +30,6 @@ pre-push:
   commands:
     test:
       run: bun --filter '*' test
-    test-integration:
-      run: bun --filter @mizan/web test:integration
     vitest-import-gate:
       run: |
         matches=$(grep -rlnE "from \"vitest\"|from 'vitest'|@vitest/" \

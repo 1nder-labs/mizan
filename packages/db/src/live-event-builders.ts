@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { CaseStatus, LiveEventPayload, ReviewerAction } from "@mizan/shared";
 import { emitLiveEvent, type EmitLiveEventInput } from "./emit-live-event.ts";
 import { cases } from "./schema.ts";
@@ -193,25 +193,81 @@ export async function batchTransitionWithEmits(
     readonly runId: string;
     readonly from: Case["status"] | readonly Case["status"][];
     readonly to: Case["status"];
+    /** Pins `archived_at IS NULL` into the WHERE so a concurrent archive can't be claimed. */
+    readonly requireNotArchived?: boolean;
   },
   emits: readonly EmitLiveEventInput[],
 ): Promise<Case | undefined> {
   const sources = Array.isArray(transition.from) ? [...transition.from] : [transition.from];
+  const guards = [
+    eq(cases.id, transition.caseId),
+    eq(cases.current_run_id, transition.runId),
+    inArray(cases.status, sources),
+  ];
+  if (transition.requireNotArchived) guards.push(isNull(cases.archived_at));
   const updated = await db
     .update(cases)
     .set({ status: transition.to, updated_at: new Date() })
-    .where(
-      and(
-        eq(cases.id, transition.caseId),
-        eq(cases.current_run_id, transition.runId),
-        inArray(cases.status, sources),
-      ),
-    )
+    .where(and(...guards))
     .returning();
   const row = updated[0];
   if (!row) return undefined;
   await emitLiveEventsBestEffort(db, emits);
   return row;
+}
+
+interface ArchivedEmitInput {
+  readonly caseId: string;
+  readonly organizationId: string;
+  readonly archived: boolean;
+  readonly actorUserId: string;
+}
+
+/**
+ * Builds org + case emits when a reviewer manually archives or unarchives a
+ * case, so other open boards drop/restore the row without waiting for a poll.
+ */
+export function buildArchivedEmits(input: ArchivedEmitInput): EmitLiveEventInput[] {
+  const payload: LiveEventPayload = {
+    event_type: "case.archived",
+    case_id: input.caseId,
+    archived: input.archived,
+    actor_user_id: input.actorUserId,
+  };
+  const base = {
+    eventType: payload.event_type,
+    payload,
+    organizationId: input.organizationId,
+    actorUserId: input.actorUserId,
+  } satisfies Omit<EmitLiveEventInput, "topic">;
+  return fanOrgCase(base, input.organizationId, input.caseId);
+}
+
+interface ResubmittedEmitInput {
+  readonly caseId: string;
+  readonly organizationId: string;
+  readonly actorUserId: string;
+}
+
+/**
+ * Builds org + case emits when a client re-submits a campaign after a docs
+ * request, so the reviewer's open board + case detail refetch and surface the
+ * CLIENT_REPLIED disposition (and its re-run prompt) live — without it the
+ * change is invisible until a manual reload.
+ */
+export function buildResubmittedEmits(input: ResubmittedEmitInput): EmitLiveEventInput[] {
+  const payload: LiveEventPayload = {
+    event_type: "case.resubmitted",
+    case_id: input.caseId,
+    actor_user_id: input.actorUserId,
+  };
+  const base = {
+    eventType: payload.event_type,
+    payload,
+    organizationId: input.organizationId,
+    actorUserId: input.actorUserId,
+  } satisfies Omit<EmitLiveEventInput, "topic">;
+  return fanOrgCase(base, input.organizationId, input.caseId);
 }
 
 interface SignalPersistedInput {

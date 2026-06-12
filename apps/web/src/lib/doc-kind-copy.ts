@@ -1,7 +1,6 @@
 /**
  * Client-facing copy for the three core evidence document kinds + the evidence
- * completeness label. Split out of `copy-constants.ts` to keep that module under
- * the 400-LOC cap; imported by the evidence + document surfaces.
+ * completeness label. Imported by the evidence + document surfaces.
  */
 import type { DocumentKey } from "@mizan/shared";
 

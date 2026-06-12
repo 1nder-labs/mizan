@@ -44,7 +44,6 @@ export const MissingDocSchema = z
 export const ReviewerQuestionSchema = z
   .object({
     question: z.string(),
-    suggestedAnswer: z.string().nullable(),
   })
   .strict();
 

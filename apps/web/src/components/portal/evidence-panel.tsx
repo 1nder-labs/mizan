@@ -7,23 +7,37 @@
  * screen-reader users know which document each control targets.
  */
 import { useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { DocumentKeyEnum, type DocumentKey } from "@mizan/shared";
+import { DocumentKeyEnum, type DocumentKey, type DocumentSummary } from "@mizan/shared";
 import type { ClientCaseDetail } from "@mizan/shared";
 import { uploadEvidence } from "@/lib/portal-api.ts";
+import { clientCampaignDocumentsQueryOptions } from "@/lib/documents-api.ts";
+import { ClientDocumentViewButton } from "@/components/portal/client-document-view-button.tsx";
 import { queryKeys } from "@/lib/query-keys.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { docKindDisplay, docKindWhy, evidenceProgress } from "@/lib/doc-kind-copy.ts";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 
+/** Latest document per required kind, newest-first list collapsed to one per kind. */
+function useLatestDocByKind(campaignId: string): Partial<Record<DocumentKey, DocumentSummary>> {
+  const { data } = useQuery(clientCampaignDocumentsQueryOptions(campaignId));
+  const map: Partial<Record<DocumentKey, DocumentSummary>> = {};
+  for (const doc of data?.documents ?? []) {
+    const parsed = DocumentKeyEnum.safeParse(doc.doc_kind);
+    if (parsed.success && !map[parsed.data]) map[parsed.data] = doc;
+  }
+  return map;
+}
+
 interface EvidenceRowProps {
   readonly campaignId: string;
   readonly docKind: DocumentKey;
   readonly uploaded: boolean;
   readonly readOnly: boolean;
+  readonly doc: DocumentSummary | undefined;
 }
 
 function useEvidenceUpload(campaignId: string, docKind: DocumentKey) {
@@ -120,6 +134,7 @@ function EvidenceRow({
   docKind,
   uploaded,
   readOnly,
+  doc,
 }: EvidenceRowProps): React.JSX.Element {
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-3.5">
@@ -138,9 +153,12 @@ function EvidenceRow({
           </p>
         </div>
       </div>
-      {readOnly ? null : (
-        <UploadControl campaignId={campaignId} docKind={docKind} uploaded={uploaded} />
-      )}
+      <div className="flex shrink-0 items-center gap-2">
+        {doc ? <ClientDocumentViewButton campaignId={campaignId} doc={doc} /> : null}
+        {readOnly ? null : (
+          <UploadControl campaignId={campaignId} docKind={docKind} uploaded={uploaded} />
+        )}
+      </div>
     </div>
   );
 }
@@ -161,6 +179,7 @@ export function EvidencePanel({
     uploadedMap[item.docKind] = item.uploaded;
   }
   const uploadedCount = DocumentKeyEnum.options.filter((k) => uploadedMap[k]).length;
+  const docByKind = useLatestDocByKind(campaignId);
 
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-border shadow-elev-1">
@@ -180,6 +199,7 @@ export function EvidencePanel({
             docKind={docKind}
             uploaded={uploadedMap[docKind] ?? false}
             readOnly={readOnly}
+            doc={docByKind[docKind]}
           />
         ))}
       </div>

@@ -32,6 +32,7 @@ import {
 const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 
 const VALID_BODY = {
+  title: "Clean-water wells initiative",
   story: "Funding clean-water wells for rural villages this season.",
   organizer_name: "Ahmad Hassan",
   category: "food_security",

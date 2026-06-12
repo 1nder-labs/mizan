@@ -1,6 +1,6 @@
 /**
  * Integration: case-detail container routes by status across non-stream
- * modes — DRAFT empty card, FAILED destructive alert, READY_FOR_REVIEW
+ * modes — DRAFT empty card, FAILED destructive alert, ACTIONED
  * persisted summary, and the degraded-brief retry affordance. RUNNING
  * mount + stream lifecycle integration lives in
  * `case-detail-stream.test.tsx` (BriefStream is mocked there to keep
@@ -30,12 +30,18 @@ import { CaseDetail } from "../../src/components/case/detail.tsx";
 const baseCase: CaseRow = {
   id: "11111111-1111-4111-8111-111111111111",
   status: "DRAFT",
+  title: "Test campaign",
   category: "humanitarian",
   geography: "PS",
   claimed_zakat_category: null,
   created_at: 1_700_000_000_000,
   updated_at: 1_700_000_500_000,
   latest_brief: null,
+  assigned_to: null,
+  client_submitted: false,
+  latest_action: null,
+  client_responded: false,
+  disposition: "SUBMITTED",
 };
 
 const briefFixture: NonNullable<CaseDetailResponse["brief"]> = {
@@ -44,8 +50,8 @@ const briefFixture: NonNullable<CaseDetailResponse["brief"]> = {
   composed_at: 1_700_000_600_000,
   payload_json: {
     recommendation: "READY_FOR_REVIEW",
-    verification_path: "DOCUMENTARY",
-    geography_tier: 2,
+    verification_path: "documentary",
+    geography_tier: "SAFE",
     policy_grounded: true,
     missing_docs: [],
     reviewer_questions: [],
@@ -72,27 +78,51 @@ async function renderDetail(element: React.ReactNode): Promise<void> {
 
 describe("<CaseDetail /> integration", () => {
   test("DRAFT renders the not-yet-generated empty state", async () => {
-    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "DRAFT" }} brief={null} />);
+    await renderDetail(
+      <CaseDetail
+        caseRow={{ ...baseCase, status: "DRAFT" }}
+        brief={null}
+        overlay={null}
+        archived={false}
+      />,
+    );
     expect(await screen.findByText(/no brief yet/i)).toBeInTheDocument();
   });
 
   test("FAILED renders the destructive alert", async () => {
-    await renderDetail(<CaseDetail caseRow={{ ...baseCase, status: "FAILED" }} brief={null} />);
+    await renderDetail(
+      <CaseDetail
+        caseRow={{ ...baseCase, status: "FAILED" }}
+        brief={null}
+        overlay={null}
+        archived={false}
+      />,
+    );
     expect(await screen.findByText(/generation failed/i)).toBeInTheDocument();
   });
 
-  test("READY_FOR_REVIEW with brief renders persisted summary", async () => {
+  test("SUSPENDED_HITL with brief renders persisted summary", async () => {
     await renderDetail(
-      <CaseDetail caseRow={{ ...baseCase, status: "READY_FOR_REVIEW" }} brief={briefFixture} />,
+      <CaseDetail
+        caseRow={{ ...baseCase, status: "SUSPENDED_HITL" }}
+        brief={briefFixture}
+        overlay={null}
+        archived={false}
+      />,
     );
     expect(await screen.findByText("Recommendation")).toBeInTheDocument();
     expect(screen.getByText("88")).toBeInTheDocument();
     expect(screen.getByText(/Verified humanitarian/i)).toBeInTheDocument();
   });
 
-  test("READY_FOR_REVIEW + degraded null brief surfaces a re-generate affordance", async () => {
+  test("ACTIONED + degraded null brief surfaces a re-generate affordance", async () => {
     await renderDetail(
-      <CaseDetail caseRow={{ ...baseCase, status: "READY_FOR_REVIEW" }} brief={null} />,
+      <CaseDetail
+        caseRow={{ ...baseCase, status: "ACTIONED" }}
+        brief={null}
+        overlay={null}
+        archived={false}
+      />,
     );
     expect(await screen.findByText(/no brief on file/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate brief/i })).toBeInTheDocument();
@@ -100,7 +130,12 @@ describe("<CaseDetail /> integration", () => {
 
   test("SUSPENDED_HITL renders the action panel instead of stream or empty", async () => {
     await renderDetail(
-      <CaseDetail caseRow={{ ...baseCase, status: "SUSPENDED_HITL" }} brief={briefFixture} />,
+      <CaseDetail
+        caseRow={{ ...baseCase, status: "SUSPENDED_HITL" }}
+        brief={briefFixture}
+        overlay={null}
+        archived={false}
+      />,
     );
     expect(await screen.findByRole("button", { name: /^submit$/i })).toBeInTheDocument();
     expect(screen.getAllByRole("radio")).toHaveLength(5);

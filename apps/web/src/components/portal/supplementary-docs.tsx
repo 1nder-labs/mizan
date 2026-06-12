@@ -10,7 +10,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Paperclip, Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { DocumentSummary } from "@mizan/shared";
-import { clientCampaignDocumentsQueryOptions, clientDocumentRawPath } from "@/lib/documents-api.ts";
+import { clientCampaignDocumentsQueryOptions } from "@/lib/documents-api.ts";
+import { ClientDocumentViewButton } from "@/components/portal/client-document-view-button.tsx";
 import { uploadEvidence } from "@/lib/portal-api.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
 import { COPY } from "@/lib/copy-constants.ts";
@@ -55,15 +56,7 @@ function SupplementaryRow({
           <p className="text-xs text-muted-foreground">{formatMediumDateTime(doc.uploaded_at)}</p>
         </div>
       </div>
-      <Button asChild variant="outline" size="sm">
-        <a
-          href={clientDocumentRawPath(campaignId, doc.id)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {COPY.portal.supplementaryView}
-        </a>
-      </Button>
+      <ClientDocumentViewButton campaignId={campaignId} doc={doc} />
     </div>
   );
 }

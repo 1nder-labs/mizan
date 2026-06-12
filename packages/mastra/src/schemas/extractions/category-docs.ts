@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ImageAuthenticitySchema } from "@mizan/shared";
 
 /**
  * Category document extraction — tagged-variant union wrapped in an
@@ -66,5 +67,11 @@ export const CategoryDocVariantSchema = z.union([
 export const CategoryDocsSchema = z
   .object({
     doc: CategoryDocVariantSchema,
+    /**
+     * Image-authenticity read of the category-document image, produced by the
+     * same vision call that extracts `doc`. A sibling root property keeps the
+     * top level a single object (cross-provider strict mode).
+     */
+    image_authenticity: ImageAuthenticitySchema,
   })
   .strict();

@@ -28,6 +28,7 @@ import {
 const CAMPAIGNS_URL = `${BASE}/api/portal/campaigns`;
 
 const VALID_BODY = {
+  title: "Clean-water wells initiative",
   story: "Funding clean-water wells across three rural districts.",
   organizer_name: "Ahmad Hassan",
   category: "food_security",
@@ -130,6 +131,74 @@ describe("portal campaign list + detail", () => {
       message: "Please upload your recent bank statement.",
       missingItems: ["bank_statement"],
     });
+  });
+
+  it("a plain conversation note never flips the case off needs_evidence", async () => {
+    const id = await createCampaign(clientACookie);
+    await insertRequestDocs(id, reviewerId);
+    const noteRes = await exports.default.fetch(
+      new Request(`${CAMPAIGNS_URL}/${id}/notes`, {
+        method: "POST",
+        headers: { Cookie: clientACookie, "Content-Type": "application/json" },
+        body: JSON.stringify({ body: "Thanks, I am gathering the statement." }),
+      }),
+    );
+    expect(noteRes.status).toBe(201);
+    const detail = ClientCaseDetailSchema.parse(
+      await (await getJson(`${CAMPAIGNS_URL}/${id}`, clientACookie)).json(),
+    );
+    expect(detail.status).toBe("needs_evidence");
+    expect(detail.organizerAsk).not.toBeNull();
+    expect(detail.canResubmit).toBe(false);
+  });
+
+  it("re-submit without a new document is rejected (server-gated on fresh evidence)", async () => {
+    const id = await createCampaign(clientACookie);
+    await insertRequestDocs(id, reviewerId);
+    await env.DB.prepare(`UPDATE cases SET submitted_at = ? WHERE id = ?`).bind(1000, id).run();
+    await env.DB.prepare(`UPDATE reviewer_actions SET acted_at = ? WHERE case_id = ?`)
+      .bind(2000, id)
+      .run();
+    const res = await exports.default.fetch(
+      new Request(`${CAMPAIGNS_URL}/${id}/submit`, {
+        method: "POST",
+        headers: { Cookie: clientACookie },
+      }),
+    );
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "resubmit_not_allowed" });
+    const detail = ClientCaseDetailSchema.parse(
+      await (await getJson(`${CAMPAIGNS_URL}/${id}`, clientACookie)).json(),
+    );
+    expect(detail.status).toBe("needs_evidence");
+    expect(detail.canResubmit).toBe(false);
+  });
+
+  it("an explicit re-submit after a NEW document hands the case back to the reviewer", async () => {
+    const id = await createCampaign(clientACookie);
+    await insertRequestDocs(id, reviewerId);
+    /** Explicit ordering: submit(1000) < request(2000) < new doc(3000) → re-submit is valid. */
+    await env.DB.prepare(`UPDATE cases SET submitted_at = ? WHERE id = ?`).bind(1000, id).run();
+    await env.DB.prepare(`UPDATE reviewer_actions SET acted_at = ? WHERE case_id = ?`)
+      .bind(2000, id)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO documents (id, case_id, doc_kind, r2_key, filename, content_type, uploaded_at, organization_id)
+       VALUES (?, ?, 'creator_id', ?, 'id.pdf', 'application/pdf', ?, ?)`,
+    )
+      .bind(crypto.randomUUID(), id, `evidence/${id}/creator_id`, 3000, REVIEW_ORG_ID)
+      .run();
+    const before = ClientCaseDetailSchema.parse(
+      await (await getJson(`${CAMPAIGNS_URL}/${id}`, clientACookie)).json(),
+    );
+    expect(before.status).toBe("needs_evidence");
+    expect(before.canResubmit).toBe(true);
+    await submitCampaign(id, clientACookie);
+    const after = ClientCaseDetailSchema.parse(
+      await (await getJson(`${CAMPAIGNS_URL}/${id}`, clientACookie)).json(),
+    );
+    expect(after.status).toBe("under_review");
+    expect(after.organizerAsk).toBeNull();
   });
 
   it("lists only the viewer's own campaigns", async () => {

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { CaseStatus } from "./queue-search.ts";
 import type { ReviewerAction } from "./reviewer-action.ts";
 
@@ -41,6 +42,9 @@ const CASE_DISPOSITION_VALUES = [
 ] as const;
 
 export type CaseDisposition = (typeof CASE_DISPOSITION_VALUES)[number];
+
+/** Zod enum over the canonical disposition values — the queue `outcome` filter vocabulary. */
+export const CaseDispositionEnum = z.enum(CASE_DISPOSITION_VALUES);
 
 interface DispositionInput {
   readonly status: CaseStatus;
@@ -89,4 +93,21 @@ const TERMINAL_DISPOSITIONS: ReadonlySet<CaseDisposition> = new Set<CaseDisposit
 /** True when the case is settled (approved/declined) — no re-run is offered. */
 export function isTerminalDisposition(disposition: CaseDisposition): boolean {
   return TERMINAL_DISPOSITIONS.has(disposition);
+}
+
+/** Where the brief re-run control surfaces for a disposition. */
+export type BriefRerunAffordance = "hidden" | "in-tab" | "promoted-bar";
+
+/**
+ * Single source of truth for the brief re-run affordance, so the detail page's
+ * top banner and the in-brief RerunBar never disagree about which dispositions
+ * get a re-run and where it shows:
+ *   - terminal (approved/declined) → hidden (the case is decided)
+ *   - CLIENT_REPLIED → promoted-bar (the client added docs; nudge a re-run)
+ *   - everything else non-terminal → in-tab (contextual, inside the brief)
+ */
+export function briefRerunAffordance(disposition: CaseDisposition): BriefRerunAffordance {
+  if (isTerminalDisposition(disposition)) return "hidden";
+  if (disposition === "CLIENT_REPLIED") return "promoted-bar";
+  return "in-tab";
 }

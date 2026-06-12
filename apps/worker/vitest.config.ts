@@ -1,3 +1,4 @@
+import os from "node:os";
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
@@ -36,6 +37,27 @@ import { defineConfig } from "vitest/config";
  */
 const RUN_REMOTE = process.env.RUN_REMOTE_INTEGRATION === "1";
 
+/**
+ * Each isolated test file boots its own workerd that evaluates the worker
+ * entry's STATIC module graph. That graph is deliberately light — the heavy
+ * Mastra/AI-SDK surface is reached only via dynamic `import()` in handlers and
+ * `scripts/check-worker-entry-graph.ts` gates it — so a typical file boots in
+ * seconds; only files that import `@mizan/mastra(/testing)` directly or drive
+ * the brief/chat paths at runtime evaluate the heavy graph. Files parallelise
+ * safely under the local default — `isolate` stays ON, keeping each file's D1/
+ * R2/KV separate (the `--no-isolate` shared-storage fast path is incompatible
+ * with this suite's per-file fresh-DB assumptions). Scale the worker count to
+ * the host's RAM, budgeting ~4 GB per workerd — empirically the benefit plateaus
+ * and tests turn flaky from contention past that (16 GB → 4 is the sweet spot;
+ * 6 was no faster and flaked). So it is fast on a dev box and never OOMs a small
+ * CI runner. The remote-proxy path keeps 1: that node subprocess exhausts the
+ * heap, so concurrency there OOMs.
+ */
+const LOCAL_MAX_WORKERS = Math.max(
+  1,
+  Math.min(os.cpus().length - 1, Math.floor(os.totalmem() / (4 * 1024 ** 3))),
+);
+
 export default defineConfig({
   test: {
     projects: [
@@ -71,7 +93,7 @@ export default defineConfig({
           name: "integration",
           include: ["tests/integration/**/*.test.ts", "tests/eval/**/*.test.ts"],
           globalSetup: ["./tests/setup/migrations.ts"],
-          maxWorkers: 1,
+          maxWorkers: RUN_REMOTE ? 1 : LOCAL_MAX_WORKERS,
           minWorkers: 1,
         },
       },

@@ -14,6 +14,7 @@ import { useDocumentUrl } from "@/hooks/use-document-url.ts";
 import { COPY } from "@/lib/copy-constants.ts";
 import { cn } from "@/lib/utils.ts";
 import { DocumentViewerDialog } from "./document-viewer-dialog.tsx";
+import { documentDownloadName } from "./document-preview.tsx";
 import { DocumentHistory } from "./document-history.tsx";
 
 interface DocumentsPanelProps {
@@ -48,10 +49,6 @@ const TILES: readonly TileSpec[] = [
     tone: "bg-muted text-muted-foreground",
   },
 ];
-
-function deriveFileName(docKey: DocumentKey): string {
-  return `${docKey.replace(/_/g, "-")}.pdf`;
-}
 
 /** Inner label block for a document tile row. */
 function TileLabel({
@@ -147,7 +144,7 @@ function ActiveDialog({
       url={query.data?.url ?? null}
       title={label}
       description={description}
-      fileName={deriveFileName(docKey)}
+      fileName={documentDownloadName(docKey, query.data?.contentType ?? null)}
       contentType={query.data?.contentType ?? null}
     />
   );

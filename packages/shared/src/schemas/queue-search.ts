@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { RecommendationEnum, VerificationPathSchema } from "./brief.ts";
+import { ReviewerActionEnum } from "./reviewer-action.ts";
+import { CaseDispositionEnum } from "./case-disposition.ts";
 
 export const CASE_STATUS_VALUES = [
   "DRAFT",
   "QUEUED",
   "RUNNING",
   "SUSPENDED_HITL",
-  "READY_FOR_REVIEW",
   "ACTIONED",
   "FAILED",
 ] as const;
@@ -57,6 +58,10 @@ export const QueueSearchSchema = z
     sort: QueueSortEnum.default("updated_desc").catch("updated_desc"),
     view: QueueViewEnum.default("board").catch("board"),
     assignee: QueueAssigneeFilterEnum.optional().catch(undefined),
+    /** Narrows by canonical outcome (CaseDisposition) — orthogonal to the pipeline `status` filter. */
+    outcome: CaseDispositionEnum.optional().catch(undefined),
+    /** When true, shows ONLY archived cases; otherwise archived cases are hidden from the queue. */
+    archived: z.coerce.boolean().optional().catch(undefined),
   })
   .strict();
 
@@ -88,6 +93,12 @@ export const CaseRowSchema = z.object({
   assigned_to: z.string().nullable(),
   /** True when the campaign was submitted by a `client` (vs seeded) — a queue triage signal. */
   client_submitted: z.boolean(),
+  /** The latest reviewer action on the case, or null when none has been taken yet. */
+  latest_action: ReviewerActionEnum.nullable(),
+  /** True when the client supplied fresh evidence after the latest reviewer ask. */
+  client_responded: z.boolean(),
+  /** The canonical disposition, computed server-side so every surface reads one value. */
+  disposition: CaseDispositionEnum,
 });
 export type CaseRow = z.infer<typeof CaseRowSchema>;
 

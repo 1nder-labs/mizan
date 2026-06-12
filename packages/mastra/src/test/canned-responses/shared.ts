@@ -1,5 +1,12 @@
 import type { BriefPayload } from "@mizan/shared";
 
+/** Canned vision-LLM image-authenticity read — a clean, genuine-looking document. */
+export const BASE_AUTHENTICITY = {
+  authenticity_risk: "low" as const,
+  shows_tampering_signs: false,
+  assessment: "Appears to be a genuine document; no manipulation observed.",
+};
+
 export const BASE_CREATOR = {
   document_type: "passport" as const,
   full_name: "Mizan Demo",
@@ -8,11 +15,15 @@ export const BASE_CREATOR = {
   issue_date_iso: "2020-01-01",
   expiry_date_iso: "2030-01-01",
   matches_organizer_name: true,
+  organizer_name_match_reason: "ID names the claimed organizer.",
   confidence: 85,
+  image_authenticity: BASE_AUTHENTICITY,
 };
 
 export const BASE_BANK = {
   account_holder_name: "Mizan Demo",
+  matches_organizer_name: true,
+  organizer_name_match_reason: "Account holder is the claimed organizer.",
   currency: "USD",
   statement_period_iso: "2026-01/2026-03",
   latest_balance_redacted: "****500",

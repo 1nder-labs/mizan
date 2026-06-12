@@ -57,9 +57,9 @@ export function clientCampaignDocumentsQueryOptions(id: string) {
 }
 
 /**
- * Same-origin auth-gated raw path for a client document. Used directly as an
- * anchor href (new tab) — the client views their own low-volume uploads inline
- * via the Worker, no presign round-trip needed.
+ * Same-origin auth-gated raw path for a client document. Fed as the `url` to the
+ * shared `DocumentViewerDialog` (PDF / image inline) — the client views their
+ * own low-volume uploads in-app via the Worker, no presign round-trip needed.
  */
 export function clientDocumentRawPath(campaignId: string, docId: string): string {
   return `/api/portal/campaigns/${campaignId}/documents/${docId}/raw`;

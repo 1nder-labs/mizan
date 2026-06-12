@@ -1,18 +1,17 @@
 /**
- * Integration: case notes — three channels, visibility scoping, and the
- * action-type-guarded `clientResponded` signal (U6): it fires only when the
- * reviewer's LATEST action was REQUEST_DOCS and a newer client note exists,
- * which is why every "true" case sits on an ACTIONED row (reviewer actions are
- * terminal) — the previous status gate made this headline case impossible.
+ * Integration: case notes — three channels + visibility scoping. The
+ * `isClientResponded` rule (now a pure function of the latest reviewer action +
+ * `submitted_at`) is asserted as a unit block below: it fires only on an
+ * explicit re-submission strictly newer than a client-awaiting action, NEVER on
+ * a conversation note — so a chat thread can never disturb the review flow.
  *
  * Run via `bun --filter @mizan/worker test:integration`.
  */
 import { applyD1Migrations } from "cloudflare:test";
 import { env } from "cloudflare:workers";
-import { makeDb } from "@mizan/db";
 import { CaseNotesResponseSchema } from "@mizan/shared";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import { clientResponded } from "../../src/lib/case-notes.ts";
+import { isClientResponded } from "../../src/lib/case-notes.ts";
 import { BASE, REVIEW_ORG_ID, seedReviewOrgWithAdmin, send, signUp } from "./portal-helpers.ts";
 
 async function inviteReviewerInto(orgId: string, inviterId: string) {
@@ -66,31 +65,7 @@ async function insertNote(opts: {
     .run();
 }
 
-async function insertAction(
-  caseId: string,
-  reviewerId: string,
-  actedAt: number,
-  action = "REQUEST_DOCS",
-): Promise<void> {
-  await env.DB.prepare(
-    `INSERT INTO reviewer_actions (id, case_id, run_id, reviewer_id, action, rationale, acted_at, action_id, organization_id)
-     VALUES (?, ?, ?, ?, ?, 'ok', ?, ?, ?)`,
-  )
-    .bind(
-      crypto.randomUUID(),
-      caseId,
-      crypto.randomUUID(),
-      reviewerId,
-      action,
-      actedAt,
-      crypto.randomUUID(),
-      REVIEW_ORG_ID,
-    )
-    .run();
-}
-
 describe("case notes", () => {
-  let db: ReturnType<typeof makeDb>;
   let clientAId = "";
   let clientACookie = "";
   let clientBCookie = "";
@@ -99,7 +74,6 @@ describe("case notes", () => {
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
-    db = makeDb(env.DB);
     const reviewAdmin = await signUp(`cn-admin-${Date.now()}@test.local`, "Review Admin");
     await seedReviewOrgWithAdmin(reviewAdmin.userId);
     const clientA = await signUp(`cn-clienta-${Date.now()}@test.local`, "Client A", "client");
@@ -112,130 +86,49 @@ describe("case notes", () => {
     reviewerCookie = reviewer.cookie;
   }, 60_000);
 
-  it("true: a client response newer than REQUEST_DOCS — even though the case is ACTIONED", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
-    await insertAction(id, reviewerId, 100, "REQUEST_DOCS");
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 200,
+  describe("isClientResponded — explicit re-submission is the only signal", () => {
+    it("true: a re-submission (submitted_at) strictly newer than REQUEST_DOCS", () => {
+      expect(isClientResponded({ action: "REQUEST_DOCS", actedAtMs: 100 }, 200)).toBe(true);
     });
-    expect(await clientResponded(db, id)).toBe(true);
-  });
 
-  it("false: no reviewer action yet — an intake upload is not a 'response'", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID);
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 100,
+    it("true: a re-submission newer than an ESCALATE — escalations also await the client", () => {
+      expect(isClientResponded({ action: "ESCALATE", actedAtMs: 100 }, 200)).toBe(true);
     });
-    expect(await clientResponded(db, id)).toBe(false);
-  });
 
-  it("false: the latest action is a decision (APPROVE), not a doc request", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
-    await insertAction(id, reviewerId, 100, "APPROVE");
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 200,
+    it("false: no reviewer action yet", () => {
+      expect(isClientResponded(null, 200)).toBe(false);
     });
-    expect(await clientResponded(db, id)).toBe(false);
-  });
 
-  it("false: REQUEST_DOCS is newer than the client note", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 100,
+    it("false: the latest action is a decision (APPROVE), not a doc request", () => {
+      expect(isClientResponded({ action: "APPROVE", actedAtMs: 100 }, 200)).toBe(false);
     });
-    await insertAction(id, reviewerId, 200, "REQUEST_DOCS");
-    expect(await clientResponded(db, id)).toBe(false);
-  });
 
-  it("false: an exact tie uses strict greater-than", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
-    await insertAction(id, reviewerId, 100, "REQUEST_DOCS");
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 100,
+    it("false: a BLOCK decision never awaits the client", () => {
+      expect(isClientResponded({ action: "BLOCK", actedAtMs: 100 }, 200)).toBe(false);
     });
-    expect(await clientResponded(db, id)).toBe(false);
-  });
 
-  it("false: a reviewer's client_facing message does not count as a client response", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
-    await insertAction(id, reviewerId, 100, "REQUEST_DOCS");
-    await insertNote({
-      caseId: id,
-      authorUserId: reviewerId,
-      authorRole: "reviewer",
-      visibility: "client_facing",
-      createdAt: 300,
+    it("false: REQUEST_DOCS is newer than the re-submission", () => {
+      expect(isClientResponded({ action: "REQUEST_DOCS", actedAtMs: 200 }, 100)).toBe(false);
     });
-    expect(await clientResponded(db, id)).toBe(false);
-  });
 
-  it("re-brief loop: a second REQUEST_DOCS re-arms until a newer client response", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
-    await insertAction(id, reviewerId, 100, "REQUEST_DOCS");
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 200,
+    it("false: never re-submitted — no submitted_at", () => {
+      expect(isClientResponded({ action: "REQUEST_DOCS", actedAtMs: 100 }, null)).toBe(false);
     });
-    expect(await clientResponded(db, id)).toBe(true);
-    await insertAction(id, reviewerId, 300, "REQUEST_DOCS");
-    expect(await clientResponded(db, id)).toBe(false);
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 400,
-    });
-    expect(await clientResponded(db, id)).toBe(true);
-  });
 
-  it("true: a client response newer than an ESCALATE — escalations also await the client", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
-    await insertAction(id, reviewerId, 100, "ESCALATE");
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 200,
+    it("false: an exact tie uses strict greater-than", () => {
+      expect(isClientResponded({ action: "REQUEST_DOCS", actedAtMs: 100 }, 100)).toBe(false);
     });
-    expect(await clientResponded(db, id)).toBe(true);
-  });
 
-  it("false: an ESCALATE newer than the client note", async () => {
-    const id = await insertCase(clientAId, REVIEW_ORG_ID, "ACTIONED");
-    await insertNote({
-      caseId: id,
-      authorUserId: clientAId,
-      authorRole: "client",
-      visibility: "client_facing",
-      createdAt: 100,
+    it("re-brief loop: a second REQUEST_DOCS re-arms until a newer re-submission", () => {
+      const firstResubmit = 200;
+      expect(isClientResponded({ action: "REQUEST_DOCS", actedAtMs: 100 }, firstResubmit)).toBe(
+        true,
+      );
+      expect(isClientResponded({ action: "REQUEST_DOCS", actedAtMs: 300 }, firstResubmit)).toBe(
+        false,
+      );
+      expect(isClientResponded({ action: "REQUEST_DOCS", actedAtMs: 300 }, 400)).toBe(true);
     });
-    await insertAction(id, reviewerId, 200, "ESCALATE");
-    expect(await clientResponded(db, id)).toBe(false);
   });
 
   it("scopes note visibility: reviewer sees all, client sees only client_facing", async () => {

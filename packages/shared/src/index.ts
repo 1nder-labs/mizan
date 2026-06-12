@@ -27,17 +27,6 @@ export {
 } from "./schemas/queue-search.ts";
 
 export {
-  AiGenProbabilitySchema,
-  AiGenResultSchema,
-  ReverseImageHitSchema,
-  ReverseImageResultSchema,
-  type AiGenProbability,
-  type AiGenResult,
-  type ReverseImageHit,
-  type ReverseImageResult,
-} from "./schemas/tool-shapes.ts";
-
-export {
   BriefPayloadSchema,
   DraftedOrganizerMessageSchema,
   GeographyTierSchema,
@@ -146,11 +135,19 @@ export {
 } from "./schemas/team.ts";
 
 export {
+  AuthenticityRiskSchema,
+  ExifSummarySchema,
+  ImageAuthenticitySchema,
   PhotoAssetSignalSchema,
   PhotoSignalPayloadSchema,
+  type AuthenticityRisk,
+  type ExifSummary,
+  type ImageAuthenticity,
   type PhotoAssetSignal,
   type PhotoSignalPayload,
 } from "./schemas/photo-signal.ts";
+
+export { OcrMismatchPayloadSchema, type OcrMismatchPayload } from "./schemas/ocr-mismatch.ts";
 
 export {
   VouchingChainEnvelopeSchema,
@@ -188,6 +185,8 @@ export {
   type ActionErrorBody,
   type ActionErrorCode,
 } from "./schemas/action-errors.ts";
+
+export { ArchiveResponseSchema, type ArchiveResponse } from "./schemas/archive.ts";
 
 export {
   ACTIVE_CASE_STATUSES,
@@ -325,9 +324,12 @@ export { CASE_TAB_VALUES, CaseTabEnum, type CaseTab } from "./schemas/case-tab.t
 export { ClientStatusEnum, toClientStatus, type ClientStatus } from "./schemas/client-status.ts";
 
 export {
+  briefRerunAffordance,
+  CaseDispositionEnum,
   deriveCaseDisposition,
   isTerminalDisposition,
   REVIEWER_DISPOSITION_LABEL,
+  type BriefRerunAffordance,
   type CaseDisposition,
 } from "./schemas/case-disposition.ts";
 
@@ -335,7 +337,9 @@ export {
   ClientCampaignsResponseSchema,
   ClientCampaignSummarySchema,
   ClientCaseDetailSchema,
+  ClientReviewRequestSchema,
   type ClientCampaignsResponse,
   type ClientCampaignSummary,
   type ClientCaseDetail,
+  type ClientReviewRequest,
 } from "./schemas/client-case-detail.ts";

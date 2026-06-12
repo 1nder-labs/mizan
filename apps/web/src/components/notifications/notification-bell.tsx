@@ -102,16 +102,25 @@ function useNotificationFeed() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all }),
   });
 
-  const goToCase = (caseId: string) => {
+  const goToCase = (caseId: string, type: Notification["type"]) => {
+    const toMessages = type === "message";
     if (me?.user.role === "client") {
-      void navigate({ to: "/portal/campaigns/$campaignId", params: { campaignId: caseId } });
+      void navigate({
+        to: "/portal/campaigns/$campaignId",
+        params: { campaignId: caseId },
+        ...(toMessages ? { hash: "messages" } : {}),
+      });
     } else {
-      void navigate({ to: "/case/$caseId", params: { caseId } });
+      void navigate({
+        to: "/case/$caseId",
+        params: { caseId },
+        ...(toMessages ? { search: { tab: "messages" } } : {}),
+      });
     }
   };
   const select = (note: Notification) => {
     if (!note.read) readOne.mutate(note.id);
-    if (note.caseId) goToCase(note.caseId);
+    if (note.caseId) goToCase(note.caseId, note.type);
   };
 
   return {
