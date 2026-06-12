@@ -7,6 +7,7 @@
 import { Loader2 } from "lucide-react";
 import { COPY } from "@/lib/copy-constants.ts";
 import { useSignOut } from "@/hooks/use-sign-out.ts";
+import { BrandMark } from "@/components/brand-mark.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { NotificationBell } from "@/components/notifications/notification-bell.tsx";
 
@@ -20,7 +21,8 @@ export function PortalShell({ children }: PortalShellProps): React.JSX.Element {
     <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b border-border/50 bg-card/80 px-6 py-3 backdrop-blur-sm">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <span className="text-sm font-semibold tracking-tight text-foreground">
+          <span className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
+            <BrandMark className="size-6" />
             {COPY.portal.brand}
           </span>
           <div className="flex items-center gap-1">
