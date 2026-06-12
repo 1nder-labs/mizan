@@ -44,7 +44,7 @@ const STUB_BINDINGS = {
 export function makeStubBindings(overrides: Partial<CloudflareBindings> = {}): CloudflareBindings {
   return {
     ...STUB_BINDINGS,
-    DEFAULT_LLM_PROVIDER: "anthropic",
+    DEFAULT_LLM_PROVIDER: "openai",
     LANGFUSE_HOST: "",
     REVIEW_ORG_ID: "",
     /**

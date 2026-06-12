@@ -31,7 +31,7 @@ describe("GET /health", () => {
     expect(env.KV).toBeDefined();
     expect(env.BRIEF_QUEUE).toBeDefined();
     expect(env.ASSETS).toBeDefined();
-    expect(env.DEFAULT_LLM_PROVIDER).toBe("anthropic");
+    expect(env.DEFAULT_LLM_PROVIDER).toBe("openai");
     expect(env.LANGFUSE_HOST).toBe("");
   });
 });
