@@ -7,13 +7,17 @@ import { useQuery } from "@tanstack/react-query";
 import { m } from "framer-motion";
 import { clientCampaignNotesQueryOptions } from "@/lib/portal-api.ts";
 import { COPY } from "@/lib/copy-constants.ts";
+import { senderLabel } from "@/lib/sender-label.ts";
 import { fadeUp, staggerParent } from "@/lib/motion.ts";
 import type { CaseNote } from "@mizan/shared";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 
 function NoteCard({ note }: { readonly note: CaseNote }): React.JSX.Element {
-  const authorLabel =
-    note.authorRole === "client" ? COPY.portal.noteFromYou : COPY.portal.noteFromReviewer;
+  const authorLabel = senderLabel(note.authorRole, {
+    client: COPY.portal.noteFromYou,
+    admin: COPY.portal.noteFromAdmin,
+    reviewer: COPY.portal.noteFromReviewer,
+  });
   const isClient = note.authorRole === "client";
   return (
     <m.div

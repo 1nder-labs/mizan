@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { m } from "framer-motion";
 import { NoteCreateSchema, type CaseNote, type NoteCreate } from "@mizan/shared";
 import { COPY } from "@/lib/copy-constants.ts";
+import { senderLabel } from "@/lib/sender-label.ts";
 import { fadeUp, staggerParent } from "@/lib/motion.ts";
 import { cn } from "@/lib/utils.ts";
 import { useViewerTopics } from "@/hooks/use-viewer-topics.ts";
@@ -19,8 +20,11 @@ import { Textarea } from "@/components/ui/textarea.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 function MessageBubble({ note, mine }: { readonly note: CaseNote; readonly mine: boolean }) {
-  const who =
-    note.authorRole === "client" ? COPY.reviewerNotes.fromClient : COPY.reviewerNotes.fromReviewer;
+  const who = senderLabel(note.authorRole, {
+    client: COPY.reviewerNotes.fromClient,
+    admin: COPY.reviewerNotes.fromAdmin,
+    reviewer: COPY.reviewerNotes.fromReviewer,
+  });
   return (
     <m.div
       variants={fadeUp}
