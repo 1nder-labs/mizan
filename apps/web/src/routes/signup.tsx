@@ -3,11 +3,11 @@
  */
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Scale } from "lucide-react";
 import { z } from "zod";
 import { DEFAULT_QUEUE_SEARCH } from "@mizan/shared";
 import { SESSION_QUERY_KEY } from "@/lib/auth-client.ts";
 import { queryKeys } from "@/lib/query-keys.ts";
+import { BrandMark } from "@/components/brand-mark.tsx";
 import { SignupForm } from "@/components/signup/form.tsx";
 import {
   Card,
@@ -42,9 +42,7 @@ export function SignupRoutePage(): React.JSX.Element {
     <main className="grid min-h-dvh place-items-center bg-background px-6 py-12">
       <div className="w-full max-w-sm animate-rise">
         <div className="mb-8 flex items-center gap-3">
-          <div className="btn-primary-surface flex size-8 items-center justify-center rounded-md">
-            <Scale className="size-4" />
-          </div>
+          <BrandMark className="size-9" />
           <div className="flex flex-col gap-0">
             <span className="text-sm font-semibold leading-tight tracking-tight">Mizan</span>
             <span className="text-xs text-muted-foreground">Reviewer console</span>
