@@ -18,7 +18,6 @@ const deps: CopilotHandlerDeps = {
     throw new Error("unused");
   },
   searchPolicy: async () => [],
-  listTeamMembers: async () => [],
   listAuditPage: async () => ({ entries: [], total: 0 }),
   NotFoundError: class extends Error {},
 };
@@ -36,6 +35,20 @@ describe("reviewer copilot tool gating", () => {
     const tools = buildReviewerCopilotTools(deps, "admin");
     expect("list_audit" in tools).toBe(true);
     expect("list_cases" in tools).toBe(true);
+    expect("search_policy" in tools).toBe(true);
+  });
+
+  it("no longer exposes the removed team tool to any role", () => {
+    expect("list_team" in buildReviewerCopilotTools(deps, "admin")).toBe(false);
+    expect("list_team" in buildReviewerCopilotTools(deps, "reviewer")).toBe(false);
+  });
+
+  it("withholds the queue-navigation tool when a case is open, keeping case + policy tools", () => {
+    const tools = buildReviewerCopilotTools(deps, "reviewer", { caseOpen: true });
+    expect("list_cases" in tools).toBe(false);
+    expect("get_case" in tools).toBe(true);
+    expect("get_brief" in tools).toBe(true);
+    expect("list_signals" in tools).toBe(true);
     expect("search_policy" in tools).toBe(true);
   });
 });

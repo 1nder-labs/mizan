@@ -31,7 +31,6 @@ function buildDeps(
       throw new Error("not used");
     },
     searchPolicy: async () => [],
-    listTeamMembers: async () => [],
     listAuditPage: async () => ({ entries: [], total: 0 }),
     NotFoundError: class NotFoundError extends Error {},
   };

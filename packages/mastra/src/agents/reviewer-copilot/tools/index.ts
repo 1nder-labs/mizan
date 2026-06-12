@@ -6,7 +6,6 @@ import { createGetPolicyClauseTool } from "./get-policy-clause.ts";
 import { createListAuditTool } from "./list-audit.ts";
 import { createListCasesTool } from "./list-cases.ts";
 import { createListSignalsTool } from "./list-signals.ts";
-import { createListTeamTool } from "./list-team.ts";
 import { createSearchPolicyTool } from "./search-policy.ts";
 
 export type { CopilotHandlerDeps, CopilotRuntimeBag } from "./deps.ts";
@@ -24,20 +23,43 @@ export type CopilotRole = "admin" | "reviewer" | "client";
 const ADMIN_ONLY_TOOL_IDS: ReadonlySet<string> = new Set(["list_audit"]);
 
 /**
- * Builds the read-only reviewer copilot tools, scoped to `role`. Admins get
- * the full set; reviewers get every tool except the admin-only ones.
+ * Tools withheld when a specific case is already in context. `list_cases` is
+ * the queue browse/navigation tool — with a case open the reviewer is focused
+ * on it, so dropping the tool shrinks the per-call prompt (and thus latency)
+ * without losing reach: case detail, brief, signals, and policy tools stay,
+ * and a named other-case is still resolvable via `get_case`.
  */
-export function buildReviewerCopilotTools(deps: CopilotHandlerDeps, role: CopilotRole): ToolsInput {
+const CASE_CONTEXT_WITHHELD_TOOL_IDS: ReadonlySet<string> = new Set(["list_cases"]);
+
+/** Options narrowing the copilot tool set to the request's context. */
+interface CopilotToolContext {
+  readonly caseOpen?: boolean;
+}
+
+/**
+ * Builds the read-only reviewer copilot tools, scoped to `role` and the request
+ * context. Non-admins never receive admin-only tools; when a case is open the
+ * queue-navigation tool is withheld to keep the prompt (and latency) tight.
+ */
+export function buildReviewerCopilotTools(
+  deps: CopilotHandlerDeps,
+  role: CopilotRole,
+  context: CopilotToolContext = {},
+): ToolsInput {
   const all = {
     list_cases: createListCasesTool(deps),
     get_case: createGetCaseTool(deps),
     get_policy_clause: createGetPolicyClauseTool(deps),
     search_policy: createSearchPolicyTool(deps),
     list_signals: createListSignalsTool(deps),
-    list_team: createListTeamTool(deps),
     list_audit: createListAuditTool(deps),
     get_brief: createGetBriefTool(deps),
   };
-  if (role === "admin") return all;
-  return Object.fromEntries(Object.entries(all).filter(([id]) => !ADMIN_ONLY_TOOL_IDS.has(id)));
+  return Object.fromEntries(
+    Object.entries(all).filter(([id]) => {
+      if (role !== "admin" && ADMIN_ONLY_TOOL_IDS.has(id)) return false;
+      if (context.caseOpen && CASE_CONTEXT_WITHHELD_TOOL_IDS.has(id)) return false;
+      return true;
+    }),
+  );
 }
