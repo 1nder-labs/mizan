@@ -13,6 +13,7 @@ import type { ViewerContext } from "@mizan/shared";
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
+  stepCountIs,
   validateUIMessages,
   type UIMessage,
 } from "ai";
@@ -31,6 +32,17 @@ import type { ChatPostBody } from "./chat.ts";
  * per-turn cost on the shared demo URL.
  */
 const COPILOT_MAX_OUTPUT_TOKENS = 700;
+
+/**
+ * Hard ceiling on the agent's tool-calling loop. Each step is a sequential
+ * model round-trip — the dominant cost of a copilot turn — so an unbounded
+ * loop (a weaker model re-querying without converging, Mastra issue #6827)
+ * is the worst-case latency tail. Six steps is ample for the legitimate
+ * "search → look up by id → ground from case/brief/signals → answer" path
+ * while capping a runaway. Independent tools still run in parallel WITHIN a
+ * step (toolCallConcurrency), so this bounds serial round-trips, not breadth.
+ */
+const COPILOT_MAX_STEPS = 6;
 
 /** Concatenated text of the first user message — the seed for the AI thread title. */
 function firstUserText(messages: Awaited<ReturnType<typeof validateUIMessages>>): string {
@@ -126,6 +138,7 @@ export async function handleChatPost(
     const agentStream = await agent.stream(validated, {
       requestContext,
       abortSignal: c.req.raw.signal,
+      stopWhen: stepCountIs(COPILOT_MAX_STEPS),
       modelSettings: { maxOutputTokens: COPILOT_MAX_OUTPUT_TOKENS },
     });
     const aiSdkStream = toAISdkStream(agentStream, { from: "agent", version: "v6" });
