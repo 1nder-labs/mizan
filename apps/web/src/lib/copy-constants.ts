@@ -252,6 +252,7 @@ export const COPY = {
     signupStepsTitle: "What happens next",
     loginClientPrompt: "Submitting a campaign?",
     loginClientLink: "Create a campaign account",
+    loginStaffNote: "Reviewers and admins join by invitation — there's no staff sign-up.",
     listTitle: "My campaigns",
     listSubtitle: "Track each campaign through review.",
     listEmptyTitle: "No campaigns yet",

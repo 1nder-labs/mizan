@@ -170,7 +170,8 @@ export function AdminTeamPage(): React.JSX.Element {
           <div className="space-y-1">
             <h1 className="text-display text-3xl font-semibold tracking-tight">Team</h1>
             <p className="text-sm text-muted-foreground">
-              Members + outstanding invitations. Invite by generating a shareable link.
+              Reviewers and admins join by invitation only — there is no public staff sign-up.
+              Invite by generating a shareable link below.
             </p>
           </div>
           <InvitationDialog onCreated={setLastInviteUrl} />
