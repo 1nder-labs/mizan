@@ -82,6 +82,9 @@ export function LoginPage(): React.JSX.Element {
             {COPY.portal.loginClientLink}
           </Link>
         </p>
+        <p className="mt-2 text-center text-xs text-muted-foreground/70">
+          {COPY.portal.loginStaffNote}
+        </p>
       </div>
     </main>
   );
