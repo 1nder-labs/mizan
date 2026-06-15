@@ -2,17 +2,18 @@
  * Integration: case-detail container × BriefStream — routing decision
  * AND the lifecycle across component boundaries.
  *
- * Key invariant: RUNNING/QUEUED status alone does NOT auto-mount
- * <BriefStream> (which POSTs `/brief` on every render). Only an
- * explicit user click (Generate) triggers BriefStream. A server-
- * observed in-flight workflow renders the passive `BriefInflight`
- * panel instead. This is the regression guard for the page-load
- * POST-storm bug.
+ * Durable-resume contract: an in-flight case (RUNNING / QUEUED) mounts
+ * <BriefStream> with `autoStart=false`, so the SDK reconnects to the
+ * durable DO buffer via a resume-GET instead of POSTing a duplicate
+ * run. A page-load POST-storm is prevented by `autoStart` (only a
+ * user click sets it true), not by withholding the component. DRAFT
+ * shows the empty card with no stream.
  *
- * BriefStream is replaced with a controllable test double whose
- * `onStreamError` is wired through a captured ref. That lets a test
- * fire the error from outside while the parent owns the phaseReducer,
- * exercising the actual flow a production SSE failure would trigger.
+ * BriefStream is replaced with a controllable test double that exposes
+ * its `autoStart` prop and wires `onStreamError` through a captured
+ * ref. That lets a test fire the error from outside while the parent
+ * owns the phaseReducer, exercising the flow a production SSE failure
+ * would trigger.
  */
 import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -31,9 +32,21 @@ const { briefStreamSpy } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/components/brief/stream.tsx", () => ({
-  BriefStream: ({ caseId, onStreamError }: { caseId: string; onStreamError?: () => void }) => {
+  BriefStream: ({
+    caseId,
+    autoStart,
+    onStreamError,
+  }: {
+    caseId: string;
+    autoStart: boolean;
+    onStreamError?: () => void;
+  }) => {
     briefStreamSpy.onStreamError = onStreamError;
-    return <div data-testid="brief-stream-mounted">stream:{caseId}</div>;
+    return (
+      <div data-testid="brief-stream-mounted" data-auto-start={String(autoStart)}>
+        stream:{caseId}
+      </div>
+    );
   },
 }));
 
@@ -76,16 +89,16 @@ async function renderDetail(element: React.ReactNode): Promise<void> {
 }
 
 describe("<CaseDetail /> stream routing", () => {
-  test("RUNNING status does NOT auto-mount <BriefStream> (no page-load POST)", async () => {
+  test("RUNNING status mounts <BriefStream> in resume-only mode (no page-load POST)", async () => {
     briefStreamSpy.onStreamError = undefined;
     await renderDetail(
       <CaseDetail caseRow={baseCase} brief={null} overlay={null} archived={false} />,
     );
-    expect(await screen.findByText(/workflow running/i)).toBeInTheDocument();
-    expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
+    const mounted = await screen.findByTestId("brief-stream-mounted");
+    expect(mounted).toHaveAttribute("data-auto-start", "false");
   });
 
-  test("QUEUED status renders inflight panel, no BriefStream", async () => {
+  test("QUEUED status mounts <BriefStream> in resume-only mode", async () => {
     briefStreamSpy.onStreamError = undefined;
     await renderDetail(
       <CaseDetail
@@ -95,8 +108,8 @@ describe("<CaseDetail /> stream routing", () => {
         archived={false}
       />,
     );
-    expect(await screen.findByText(/queued for background processing/i)).toBeInTheDocument();
-    expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
+    const mounted = await screen.findByTestId("brief-stream-mounted");
+    expect(mounted).toHaveAttribute("data-auto-start", "false");
   });
 
   test("DRAFT does NOT mount <BriefStream>", async () => {

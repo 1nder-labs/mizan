@@ -1,5 +1,5 @@
 /**
- * Mode A SSE transport factory.
+ * Durable brief-stream transport factory for `useChat`.
  *
  * `prepareSendMessagesRequest` returns an empty body — the worker
  * (`apps/worker/src/routes/cases.ts`) reads inputs from URL params +

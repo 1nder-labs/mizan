@@ -1,15 +1,17 @@
 /**
- * Integration: BriefStream's two failure-mode paths and the
- * onFinish → invalidate contract.
+ * Integration: BriefStream's failure-mode path and the onFinish →
+ * invalidate contract.
  *
  * AI SDK 6 `useChat` is mocked at the module boundary so the test
  * controls the messages stream, the error payload, and the lifecycle
- * callbacks directly. We assert:
- *   - 409 "case already running" payload renders InFlightNotice
- *     overlaid above any partial stream view
+ * callbacks directly. The durable-resume design treats ALL errors
+ * uniformly — there is no 409/InFlightNotice special-case any more (a
+ * 204 from the resume-GET is a SDK no-op, and a terminal-case 409 just
+ * invalidates so the parent flips to the persisted brief). We assert:
+ *   - any fatal error renders the destructive alert
  *   - onFinish triggers invalidateQueries on the case-detail key
- *   - normal error (non-409) bubbles to onStreamError so the parent
- *     can flip its panel mode away from `stream`
+ *   - onError bubbles to onStreamError so the parent can flip its panel
+ *     mode away from `stream`
  */
 import { describe, expect, test, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -62,22 +64,7 @@ function renderStream(onStreamError?: () => void): QueryClient {
 }
 
 describe("<BriefStream />", () => {
-  test("409 in-flight renders InFlightNotice overlay", async () => {
-    useChatMock.mockImplementation(() =>
-      makeChat({
-        error: new Error("case already running"),
-        status: "error",
-      }),
-    );
-    const onStreamError = vi.fn();
-    renderStream(onStreamError);
-    expect(
-      await screen.findByText(/another session is already running the workflow/i),
-    ).toBeInTheDocument();
-    expect(onStreamError).not.toHaveBeenCalled();
-  });
-
-  test("non-409 fatal error renders the destructive alert", async () => {
+  test("fatal error renders the destructive alert", async () => {
     useChatMock.mockImplementation(() =>
       makeChat({
         error: new Error("upstream LLM down"),
@@ -108,7 +95,7 @@ describe("<BriefStream />", () => {
     );
   });
 
-  test("onError with non-409 calls onStreamError", async () => {
+  test("onError bubbles to onStreamError so the parent flips off `stream`", async () => {
     let capturedOnError: ((err: Error) => void) | undefined;
     useChatMock.mockImplementation((opts: UseChatOptions) => {
       capturedOnError = opts.onError;
@@ -119,18 +106,5 @@ describe("<BriefStream />", () => {
     if (!capturedOnError) throw new Error("onError not captured");
     capturedOnError(new Error("transport failed"));
     await waitFor(() => expect(onStreamError).toHaveBeenCalledTimes(1));
-  });
-
-  test("onError with 409 does NOT call onStreamError", async () => {
-    let capturedOnError: ((err: Error) => void) | undefined;
-    useChatMock.mockImplementation((opts: UseChatOptions) => {
-      capturedOnError = opts.onError;
-      return makeChat({ status: "ready" });
-    });
-    const onStreamError = vi.fn();
-    renderStream(onStreamError);
-    if (!capturedOnError) throw new Error("onError not captured");
-    capturedOnError(new Error("case already running"));
-    expect(onStreamError).not.toHaveBeenCalled();
   });
 });

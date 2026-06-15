@@ -83,7 +83,8 @@ async function claimCaseQueued(
 }
 
 /**
- * Atomically claims a case for Mode A streaming with live-event fan-out.
+ * Atomically claims a case for a durable brief run (pins `current_run_id`,
+ * flips status to the target) and fans out the live status-changed event.
  */
 async function claimCaseRunning(
   db: Db,

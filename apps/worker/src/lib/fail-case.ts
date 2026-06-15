@@ -10,11 +10,12 @@ const FAIL_SOURCES = ["QUEUED", "RUNNING"] as const;
  * and tenant; the emit only fires if the guarded transition actually matched.
  * Returns true when the row moved.
  *
- * Shared by the DLQ consumer (retry exhaustion) and the Mode A brief stream
- * (workflow threw mid-stream): both terminal-failure paths must fail a case
- * identically and never leave it stuck in RUNNING, which the producer guard
- * rejects as a retry source (`ALLOWED_RUNNING_SOURCES`) — a stuck-RUNNING row
- * can never be re-briefed from the UI, so it would brick the case.
+ * The terminal-failure path for a brief run: invoked by the DLQ consumer once
+ * the queue exhausts retries. A failed attempt mid-run only reverts RUNNING →
+ * QUEUED (the consumer retries from Mastra's last persisted step); FAILED is
+ * reached only here, so the case never sticks in RUNNING — which the producer
+ * guard rejects as a retry source (it only accepts `ALLOWED_SOURCES`:
+ * DRAFT/FAILED), and a stuck-RUNNING row could never be re-briefed from the UI.
  */
 export async function failCaseToFailed(db: Db, caseId: string, runId: string): Promise<boolean> {
   const caseRow = await db
