@@ -13,7 +13,7 @@
  * 2. requireCaseAccess                    (mounted on `/:id/*`)
  * 3. idempotencyKey                       (Layer 1 HTTP replay)
  * 4. aiDailyCap("brief")                  (global daily abuse cap)
- * 5. producerGuard("RUNNING")             (mints the runId, claims the case)
+ * 5. briefProducerGuard                   (claims a fresh run or rejoins one)
  */
 
 import { cases, eq, makeDb, transitionCase } from "@mizan/db";

@@ -1,5 +1,10 @@
 /**
- * Integration tests for producerGuard middleware (Layer 2 idempotency).
+ * Integration tests for briefProducerGuard middleware (Layer 2 idempotency).
+ *
+ * Mounts `briefProducerGuard` on a minimal Hono app with a JSON terminal handler
+ * so assertions target the guard's decisions directly — not the SSE response that
+ * the real route returns. The enqueue + 200-SSE end-to-end is covered in
+ * mode-b-enqueue.test.ts.
  */
 
 import { applyD1Migrations } from "cloudflare:test";
@@ -8,12 +13,12 @@ import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { beforeAll, describe, expect, it, inject } from "vitest";
 import type { CloudflareBindings } from "../../src/env.ts";
-import { producerGuard, type ProducerVariables } from "../../src/middleware/producer-guard.ts";
+import { briefProducerGuard, type ProducerVariables } from "../../src/middleware/producer-guard.ts";
 import type { ViewerContext } from "@mizan/shared";
 
 const BASE = "http://localhost";
 
-/** Injects a synthetic viewer so producerGuard can read c.var.viewer.organizationId. */
+/** Injects a synthetic viewer so briefProducerGuard can read c.var.viewer. */
 function injectViewer(viewer: ViewerContext) {
   return createMiddleware<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>(
     async (c, next) => {
@@ -23,18 +28,19 @@ function injectViewer(viewer: ViewerContext) {
   );
 }
 
-function makeApp(viewer?: ViewerContext) {
-  const app = new Hono<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>();
-  if (viewer) {
-    app.post("/:id/brief", injectViewer(viewer), producerGuard("RUNNING"), (c) =>
-      c.json({ runId: c.get("runId"), caseId: c.get("caseRow").id }),
-    );
-  } else {
-    app.post("/:id/brief", producerGuard("RUNNING"), (c) =>
-      c.json({ runId: c.get("runId"), caseId: c.get("caseRow").id }),
-    );
-  }
-  return app;
+function makeApp(viewer: ViewerContext) {
+  return new Hono<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>().post(
+    "/:id/brief",
+    injectViewer(viewer),
+    briefProducerGuard,
+    (c) =>
+      c.json({
+        runId: c.get("runId"),
+        replay: c.get("replay"),
+        status: c.get("caseRow").status,
+        currentRunId: c.get("caseRow").current_run_id,
+      }),
+  );
 }
 
 async function seedReviewerUser(): Promise<{ userId: string; organizationId: string }> {
@@ -86,10 +92,10 @@ async function insertCase(
     .run();
 }
 
-describe("producerGuard integration", () => {
-  let app: ReturnType<typeof makeApp>;
+describe("briefProducerGuard integration", () => {
   let reviewerId = "";
   let reviewerOrgId = "";
+  let app: ReturnType<typeof makeApp>;
 
   beforeAll(async () => {
     await applyD1Migrations(env.DB, inject("migrations"));
@@ -105,47 +111,129 @@ describe("producerGuard integration", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 200 and sets runId for DRAFT case", async () => {
+  it("returns 404 when viewer org does not match case org (cross-org)", async () => {
+    const caseId = crypto.randomUUID();
+    await insertCase(caseId, "DRAFT", reviewerId, reviewerOrgId);
+    const crossOrgApp = makeApp({
+      userId: reviewerId,
+      role: "admin",
+      organizationId: "different-org-id",
+    });
+    const res = await crossOrgApp.fetch(
+      new Request(`${BASE}/${caseId}/brief`, { method: "POST" }),
+      env,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("DRAFT → claims to QUEUED, sets replay=false, fresh runId", async () => {
     const caseId = crypto.randomUUID();
     await insertCase(caseId, "DRAFT", reviewerId, reviewerOrgId);
     const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
     expect(res.status).toBe(200);
-    const body: { runId?: string; caseId?: string } = await res.json();
-    expect(body).toMatchObject({ caseId });
+    const body = (await res.json()) as {
+      runId: string;
+      replay: boolean;
+      status: string;
+      currentRunId: string | null;
+    };
+    expect(body.replay).toBe(false);
     expect(typeof body.runId).toBe("string");
+    const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(row?.status).toBe("QUEUED");
+    expect(row?.current_run_id).toBe(body.runId);
   });
 
-  it("returns 409 when case is already RUNNING", async () => {
-    const caseId = crypto.randomUUID();
-    await insertCase(caseId, "RUNNING", reviewerId, reviewerOrgId);
-    await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
-      .bind(crypto.randomUUID(), caseId)
-      .run();
-    const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
-    expect(res.status).toBe(409);
-  });
-
-  it("returns 200 and grants a fresh runId when retrying a FAILED case", async () => {
+  it("FAILED → claims to QUEUED with a fresh runId (not the stale one)", async () => {
     const caseId = crypto.randomUUID();
     await insertCase(caseId, "FAILED", reviewerId, reviewerOrgId);
-    const previousRunId = crypto.randomUUID();
+    const staleRunId = crypto.randomUUID();
     await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
-      .bind(previousRunId, caseId)
+      .bind(staleRunId, caseId)
       .run();
     const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
     expect(res.status).toBe(200);
-    const body: { runId?: string; caseId?: string } = await res.json();
-    expect(body).toMatchObject({ caseId });
+    const body = (await res.json()) as { runId: string; replay: boolean };
+    expect(body.replay).toBe(false);
     expect(typeof body.runId).toBe("string");
-    expect(body.runId).not.toBe(previousRunId);
+    expect(body.runId).not.toBe(staleRunId);
+    const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(row?.status).toBe("QUEUED");
+    expect(row?.current_run_id).toBe(body.runId);
+  });
+
+  it("QUEUED in-flight → replay=true, reuses existing runId, row unchanged", async () => {
+    const caseId = crypto.randomUUID();
+    const existingRunId = crypto.randomUUID();
+    await insertCase(caseId, "QUEUED", reviewerId, reviewerOrgId);
+    await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
+      .bind(existingRunId, caseId)
+      .run();
+    const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { runId: string; replay: boolean };
+    expect(body.replay).toBe(true);
+    expect(body.runId).toBe(existingRunId);
+    const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(row?.status).toBe("QUEUED");
+    expect(row?.current_run_id).toBe(existingRunId);
+  });
+
+  it("RUNNING in-flight → replay=true, reuses existing runId, row unchanged", async () => {
+    const caseId = crypto.randomUUID();
+    const existingRunId = crypto.randomUUID();
+    await insertCase(caseId, "RUNNING", reviewerId, reviewerOrgId);
+    await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
+      .bind(existingRunId, caseId)
+      .run();
+    const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { runId: string; replay: boolean };
+    expect(body.replay).toBe(true);
+    expect(body.runId).toBe(existingRunId);
     const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
       .bind(caseId)
       .first<{ status: string; current_run_id: string }>();
     expect(row?.status).toBe("RUNNING");
-    expect(row?.current_run_id).toBe(body.runId);
+    expect(row?.current_run_id).toBe(existingRunId);
   });
 
-  it("allows exactly one winner in a concurrent race", async () => {
+  it("SUSPENDED_HITL → 409 invalid_source_status", async () => {
+    const caseId = crypto.randomUUID();
+    await insertCase(caseId, "SUSPENDED_HITL", reviewerId, reviewerOrgId);
+    const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string; current_status: string };
+    expect(body.error).toBe("invalid_source_status");
+    expect(body.current_status).toBe("SUSPENDED_HITL");
+  });
+
+  it("ACTIONED → 409 invalid_source_status", async () => {
+    const caseId = crypto.randomUUID();
+    await insertCase(caseId, "ACTIONED", reviewerId, reviewerOrgId);
+    const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string; current_status: string };
+    expect(body.error).toBe("invalid_source_status");
+    expect(body.current_status).toBe("ACTIONED");
+  });
+
+  it("race-lost → 409 when QUEUED/RUNNING row has null current_run_id", async () => {
+    const caseId = crypto.randomUUID();
+    await insertCase(caseId, "QUEUED", reviewerId, reviewerOrgId);
+    const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("case status race lost");
+  });
+
+  it("exactly one concurrent POST on a DRAFT case claims; statuses are subset of {200, 409}", async () => {
     const caseId = crypto.randomUUID();
     await insertCase(caseId, "DRAFT", reviewerId, reviewerOrgId);
     const [first, second] = await Promise.all([
@@ -153,65 +241,14 @@ describe("producerGuard integration", () => {
       app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env),
     ]);
     const statuses = [first.status, second.status].sort();
-    expect(statuses).toEqual([200, 409]);
-  });
-
-  it("target QUEUED on DRAFT case returns 200 and sets status QUEUED", async () => {
-    const viewer = { userId: reviewerId, role: "admin" as const, organizationId: reviewerOrgId };
-    const queuedApp = new Hono<{
-      Bindings: CloudflareBindings;
-      Variables: ProducerVariables;
-    }>().post("/:id/brief", injectViewer(viewer), producerGuard("QUEUED"), (c) =>
-      c.json({ runId: c.get("runId"), status: c.get("caseRow").status }),
-    );
-    const caseId = crypto.randomUUID();
-    await insertCase(caseId, "DRAFT", reviewerId, reviewerOrgId);
-    const res = await queuedApp.fetch(
-      new Request(`${BASE}/${caseId}/brief`, { method: "POST" }),
-      env,
-    );
-    expect(res.status).toBe(200);
-    const body: { runId?: string; status?: string } = await res.json();
-    expect(body.status).toBe("QUEUED");
-    const row = await env.DB.prepare("SELECT status FROM cases WHERE id = ?")
+    const validOutcomes = new Set([200, 409]);
+    expect(validOutcomes.has(statuses[0] ?? 0)).toBe(true);
+    expect(validOutcomes.has(statuses[1] ?? 0)).toBe(true);
+    expect(statuses.filter((s) => s === 200).length).toBe(1);
+    const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
       .bind(caseId)
-      .first<{ status: string }>();
+      .first<{ status: string; current_run_id: string }>();
     expect(row?.status).toBe("QUEUED");
-  });
-
-  it("target QUEUED on RUNNING case returns 202 replay", async () => {
-    const viewer = { userId: reviewerId, role: "admin" as const, organizationId: reviewerOrgId };
-    const queuedApp = new Hono<{
-      Bindings: CloudflareBindings;
-      Variables: ProducerVariables;
-    }>().post("/:id/brief", injectViewer(viewer), producerGuard("QUEUED"), (c) =>
-      c.json({ ok: true }),
-    );
-    const caseId = crypto.randomUUID();
-    await insertCase(caseId, "RUNNING", reviewerId, reviewerOrgId);
-    const inFlightRunId = crypto.randomUUID();
-    await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
-      .bind(inFlightRunId, caseId)
-      .run();
-    const res = await queuedApp.fetch(
-      new Request(`${BASE}/${caseId}/brief`, { method: "POST" }),
-      env,
-    );
-    expect(res.status).toBe(202);
-    const body: { status?: string; run_id?: string; replay?: boolean } = await res.json();
-    expect(body).toEqual({ status: "RUNNING", run_id: inFlightRunId, replay: true });
-  });
-
-  it("409 body for target RUNNING on in-flight case does not leak the existing runId", async () => {
-    const caseId = crypto.randomUUID();
-    await insertCase(caseId, "RUNNING", reviewerId, reviewerOrgId);
-    await env.DB.prepare("UPDATE cases SET current_run_id = ? WHERE id = ?")
-      .bind(crypto.randomUUID(), caseId)
-      .run();
-    const res = await app.fetch(new Request(`${BASE}/${caseId}/brief`, { method: "POST" }), env);
-    expect(res.status).toBe(409);
-    const body: Record<string, unknown> = await res.json();
-    expect(body).not.toHaveProperty("runId");
-    expect(body).not.toHaveProperty("run_id");
+    expect(typeof row?.current_run_id).toBe("string");
   });
 });

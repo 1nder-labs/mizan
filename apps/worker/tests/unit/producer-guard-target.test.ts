@@ -1,9 +1,10 @@
 /**
- * Unit tests for producerGuard target status factory.
+ * Unit tests for briefProducerGuard middleware decisions.
  *
- * D1-backed claim behavior is covered in integration/producer-guard.test.ts.
- * These tests pin the factory contract: each target produces middleware and
- * the replay-202 option surfaces in-flight rows as HTTP 202 instead of 409.
+ * D1-backed claim behavior at the route level is covered in
+ * integration/producer-guard.test.ts. These unit tests pin the guard's
+ * decision logic via a mocked DB: DRAFT/FAILED claim QUEUED (replay=false);
+ * QUEUED/RUNNING in-flight rejoin (replay=true); terminal statuses 409.
  */
 
 import { Hono } from "hono";
@@ -34,6 +35,12 @@ const queuedRow: Case = {
   ...draftRow,
   status: "QUEUED",
   current_run_id: "22222222-2222-4222-8222-222222222201",
+};
+
+const runningRow: Case = {
+  ...draftRow,
+  status: "RUNNING",
+  current_run_id: "33333333-3333-4333-8333-333333333301",
 };
 
 let selectRows: Case[] = [draftRow];
@@ -75,20 +82,22 @@ mock.module("@mizan/db", () => ({
   }),
   buildStatusChangedEmits: () => [],
   emitLiveEvent: () => ({}),
+  emitLiveEventsBestEffort: async () => undefined,
   cases: {
     id: "id",
     status: "status",
     current_run_id: "current_run_id",
     updated_at: "updated_at",
+    organization_id: "organization_id",
   },
   eq: () => ({}),
   and: () => ({}),
   inArray: () => ({}),
 }));
 
-const { producerGuard } = await import("../../src/middleware/producer-guard.ts");
+const { briefProducerGuard } = await import("../../src/middleware/producer-guard.ts");
 
-function makeApp(target: "RUNNING" | "QUEUED") {
+function makeApp() {
   return new Hono<{ Bindings: CloudflareBindings; Variables: ProducerVariables }>()
     .use("*", async (c, next) => {
       c.set("viewer", {
@@ -98,20 +107,25 @@ function makeApp(target: "RUNNING" | "QUEUED") {
       });
       await next();
     })
-    .post("/:id/brief", producerGuard(target), (c) =>
-      c.json({ runId: c.get("runId"), status: c.get("caseRow").status }),
+    .post("/:id/brief", briefProducerGuard, (c) =>
+      c.json({
+        runId: c.get("runId"),
+        replay: c.get("replay"),
+        status: c.get("caseRow").status,
+      }),
     );
 }
 
-describe("producerGuard target factory", () => {
+describe("briefProducerGuard unit", () => {
   beforeEach(() => {
     selectRows = [draftRow];
     lastSetStatus = undefined;
     lastRunId = null;
   });
 
-  it('factory with target "RUNNING" sets cases.status to RUNNING', async () => {
-    const app = makeApp("RUNNING");
+  it("DRAFT row → claims QUEUED, replay=false", async () => {
+    selectRows = [draftRow];
+    const app = makeApp();
     const res = await app.fetch(
       new Request("http://localhost/11111111-1111-4111-8111-111111111101/brief", {
         method: "POST",
@@ -119,36 +133,66 @@ describe("producerGuard target factory", () => {
       { DB: {} } as CloudflareBindings,
     );
     expect(res.status).toBe(200);
-    expect(lastSetStatus).toBe("RUNNING");
-  });
-
-  it('factory with target "QUEUED" sets cases.status to QUEUED', async () => {
-    const app = makeApp("QUEUED");
-    const res = await app.fetch(
-      new Request("http://localhost/11111111-1111-4111-8111-111111111101/brief", {
-        method: "POST",
-      }),
-      { DB: {} } as CloudflareBindings,
-    );
-    expect(res.status).toBe(200);
+    const body = (await res.json()) as { replay: boolean; status: string };
+    expect(body.replay).toBe(false);
     expect(lastSetStatus).toBe("QUEUED");
   });
 
-  it("replay-202 returns 202 for in-flight QUEUED rows", async () => {
+  it("QUEUED in-flight row → relay=true, returns existing runId", async () => {
     selectRows = [queuedRow];
-    const app = makeApp("QUEUED");
+    const expectedRunId = queuedRow.current_run_id ?? "";
+    const app = makeApp();
     const res = await app.fetch(
       new Request("http://localhost/11111111-1111-4111-8111-111111111101/brief", {
         method: "POST",
       }),
       { DB: {} } as CloudflareBindings,
     );
-    expect(res.status).toBe(202);
-    const body = await res.json();
-    expect(body).toEqual({
-      status: "QUEUED",
-      run_id: queuedRow.current_run_id,
-      replay: true,
-    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { runId: string; replay: boolean };
+    expect(body.replay).toBe(true);
+    expect(body.runId).toBe(expectedRunId);
+  });
+
+  it("RUNNING in-flight row → replay=true, returns existing runId", async () => {
+    selectRows = [runningRow];
+    const expectedRunId = runningRow.current_run_id ?? "";
+    const app = makeApp();
+    const res = await app.fetch(
+      new Request("http://localhost/11111111-1111-4111-8111-111111111101/brief", {
+        method: "POST",
+      }),
+      { DB: {} } as CloudflareBindings,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { runId: string; replay: boolean };
+    expect(body.replay).toBe(true);
+    expect(body.runId).toBe(expectedRunId);
+  });
+
+  it("SUSPENDED_HITL row → 409 invalid_source_status", async () => {
+    selectRows = [{ ...draftRow, status: "SUSPENDED_HITL", current_run_id: null }];
+    const app = makeApp();
+    const res = await app.fetch(
+      new Request("http://localhost/11111111-1111-4111-8111-111111111101/brief", {
+        method: "POST",
+      }),
+      { DB: {} } as CloudflareBindings,
+    );
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("invalid_source_status");
+  });
+
+  it("case not found → 404", async () => {
+    selectRows = [];
+    const app = makeApp();
+    const res = await app.fetch(
+      new Request("http://localhost/11111111-1111-4111-8111-111111111101/brief", {
+        method: "POST",
+      }),
+      { DB: {} } as CloudflareBindings,
+    );
+    expect(res.status).toBe(404);
   });
 });
