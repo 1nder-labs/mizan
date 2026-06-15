@@ -72,47 +72,51 @@ describe("Mode B consumer idempotency", () => {
    * The prior local pass relied on the old bug where a failed run was acked +
    * left RUNNING, making the second delivery look like a concurrent duplicate.
    */
-  it.skipIf(!RUN_REMOTE_VECTORIZE)("acks duplicate delivery without re-running workflow", async () => {
-    const caseId = crypto.randomUUID();
-    const runId = crypto.randomUUID();
-    await insertDraftCase(caseId, adminUserId);
-    await seedCaseStatus({ caseId, status: "QUEUED", runId });
+  it.skipIf(!RUN_REMOTE_VECTORIZE)(
+    "acks duplicate delivery without re-running workflow",
+    async () => {
+      const caseId = crypto.randomUUID();
+      const runId = crypto.randomUUID();
+      await insertDraftCase(caseId, adminUserId);
+      await seedCaseStatus({ caseId, status: "QUEUED", runId });
 
-    env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
-    const first = trackedMessage({
-      caseId,
-      runId,
-      enqueuedAt: Date.now(),
-      requestedBy: adminUserId,
-    });
-    const ctx1 = createExecutionContext();
-    await handleBriefQueue(makeTestBatch([first.message]), getTestBindings(), ctx1);
-    await waitOnExecutionContext(ctx1);
+      env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
+      const first = trackedMessage({
+        caseId,
+        runId,
+        enqueuedAt: Date.now(),
+        requestedBy: adminUserId,
+      });
+      const ctx1 = createExecutionContext();
+      await handleBriefQueue(makeTestBatch([first.message]), getTestBindings(), ctx1);
+      await waitOnExecutionContext(ctx1);
 
-    const signalCountBefore = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
-    )
-      .bind(caseId, runId)
-      .first<{ count: number }>();
+      const signalCountBefore = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+      )
+        .bind(caseId, runId)
+        .first<{ count: number }>();
 
-    const second = trackedMessage({
-      caseId,
-      runId,
-      enqueuedAt: Date.now(),
-      requestedBy: adminUserId,
-    });
-    const ctx2 = createExecutionContext();
-    await handleBriefQueue(makeTestBatch([second.message]), getTestBindings(), ctx2);
-    await waitOnExecutionContext(ctx2);
+      const second = trackedMessage({
+        caseId,
+        runId,
+        enqueuedAt: Date.now(),
+        requestedBy: adminUserId,
+      });
+      const ctx2 = createExecutionContext();
+      await handleBriefQueue(makeTestBatch([second.message]), getTestBindings(), ctx2);
+      await waitOnExecutionContext(ctx2);
 
-    expect(second.ack).toHaveBeenCalledTimes(1);
-    const signalCountAfter = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
-    )
-      .bind(caseId, runId)
-      .first<{ count: number }>();
-    expect(signalCountAfter?.count).toBe(signalCountBefore?.count);
-  }, 60_000);
+      expect(second.ack).toHaveBeenCalledTimes(1);
+      const signalCountAfter = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+      )
+        .bind(caseId, runId)
+        .first<{ count: number }>();
+      expect(signalCountAfter?.count).toBe(signalCountBefore?.count);
+    },
+    60_000,
+  );
 
   it.skipIf(!RUN_REMOTE_VECTORIZE)(
     "reverts to QUEUED and retries when workflow throws, then succeeds on redelivery",
