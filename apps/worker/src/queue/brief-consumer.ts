@@ -97,7 +97,9 @@ async function revertClaim(db: Db, caseId: string, runId: string): Promise<void>
  * retries (Mastra resumes the same runId from its last persisted step and keeps
  * appending). The DO is finished by the caller only on the terminal outcome —
  * success (`runWorkflow`) or DLQ exhaustion — so a retry's chunks are never
- * dropped. The DO buffers + broadcasts each chunk to connected reviewers.
+ * dropped. The DO buffers + broadcasts each chunk to connected reviewers. After
+ * the read loop the decoder is flushed to recover any trailing multibyte UTF-8
+ * sequence (relevant for Arabic campaign text that may span a chunk boundary).
  */
 async function relayToBriefStream(
   env: CloudflareBindings,
@@ -112,6 +114,8 @@ async function relayToBriefStream(
     if (done) break;
     if (value) await publishBriefChunk(env, runId, decoder.decode(value, { stream: true }));
   }
+  const tail = decoder.decode();
+  if (tail) await publishBriefChunk(env, runId, tail);
 }
 
 type BriefRunHandle = Awaited<ReturnType<typeof createBriefRunHandle>>;
@@ -187,6 +191,24 @@ async function pipeRunToBriefStream(
   }
 }
 
+/**
+ * Closes the DO stream as best-effort after a successful pipe. A failure here
+ * must NOT throw out of `runWorkflow`: the run already reached its terminal /
+ * suspended state and the brief is persisted in D1. Rethrowing would wrongly
+ * trigger a queue retry of an already-succeeded run. Live-subscriber cleanup is
+ * best-effort — the DO will eventually close when the idle timeout fires.
+ */
+async function bestEffortFinish(env: CloudflareBindings, runId: string): Promise<void> {
+  try {
+    await finishBriefStream(env, runId);
+  } catch (err) {
+    console.error("finishBriefStream failed after terminal", {
+      runId,
+      msg: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 async function runWorkflow(
   env: CloudflareBindings,
   executionCtx: ExecutionContext,
@@ -203,7 +225,7 @@ async function runWorkflow(
      * complete buffer + a clean close. A throw above skips this, leaving the DO
      * open for the retry; terminal failure is finished by the DLQ consumer.
      */
-    await finishBriefStream(env, message.runId);
+    await bestEffortFinish(env, message.runId);
   } finally {
     flushLangfuse(handle.langfuse, executionCtx);
   }

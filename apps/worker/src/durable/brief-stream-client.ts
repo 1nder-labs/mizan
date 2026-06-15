@@ -18,7 +18,12 @@ import type { CloudflareBindings } from "../env.ts";
 const PUBLISH_URL = "https://brief-stream/?op=publish";
 const FINISH_URL = "https://brief-stream/?op=finish";
 
-function stub(env: CloudflareBindings, runId: string) {
+/**
+ * Shared DO-stub resolver — one instance per `runId`, addressed by
+ * `idFromName(runId)`. Exported so the route layer can subscribe directly
+ * without duplicating the binding resolution.
+ */
+export function stub(env: CloudflareBindings, runId: string) {
   return env.BRIEF_STREAM.get(env.BRIEF_STREAM.idFromName(runId));
 }
 
@@ -28,10 +33,16 @@ export async function publishBriefChunk(
   runId: string,
   text: string,
 ): Promise<void> {
-  await stub(env, runId).fetch(PUBLISH_URL, { method: "POST", body: text });
+  const res = await stub(env, runId).fetch(PUBLISH_URL, { method: "POST", body: text });
+  if (!res.ok) {
+    throw new Error(`publishBriefChunk failed (op=publish status=${res.status} runId=${runId})`);
+  }
 }
 
 /** Marks the run's DO stream terminal — closes live subscribers + persists the done flag. */
 export async function finishBriefStream(env: CloudflareBindings, runId: string): Promise<void> {
-  await stub(env, runId).fetch(FINISH_URL, { method: "POST" });
+  const res = await stub(env, runId).fetch(FINISH_URL, { method: "POST" });
+  if (!res.ok) {
+    throw new Error(`finishBriefStream failed (op=finish status=${res.status} runId=${runId})`);
+  }
 }

@@ -44,10 +44,25 @@ export class BriefStreamDO extends DurableObject<CloudflareBindings> {
   private hydrated = false;
 
   /**
+   * Asserts that a chunk key is present in the storage map, or throws loudly.
+   * Fails hard instead of silently falling back to an empty string — a missing
+   * key means the buffer is corrupt and replaying empty chunks to the client
+   * would produce a malformed brief.
+   */
+  private assertChunk(stored: Map<string, string>, k: string, count: number): string {
+    const chunk = stored.get(k);
+    if (chunk === undefined) {
+      throw new Error(`hydrate: missing chunk key ${k} (count=${count})`);
+    }
+    return chunk;
+  }
+
+  /**
    * Loads any persisted buffer/flag so a re-instantiated (evicted) DO can still
    * replay + resume. Reads in ≤128-key batches — `storage.get(keys[])` caps at
    * 128, so a long brief (hundreds of chunks) would otherwise throw or silently
-   * truncate, corrupting the buffer.
+   * truncate, corrupting the buffer. Fails loud on a missing chunk key: a silent
+   * empty fallback would corrupt the replay buffer; callers must see the error.
    */
   private async hydrate(): Promise<void> {
     if (this.hydrated) return;
@@ -60,7 +75,7 @@ export class BriefStreamDO extends DurableObject<CloudflareBindings> {
         (_, i) => `${STORAGE_KEYS.chunkPrefix}${start + i}`,
       );
       const stored = await this.ctx.storage.get<string>(keys);
-      for (const k of keys) loaded.push(stored.get(k) ?? "");
+      for (const k of keys) loaded.push(this.assertChunk(stored, k, count));
     }
     this.buffer = loaded;
     this.finished = (await this.ctx.storage.get<boolean>(STORAGE_KEYS.done)) ?? false;

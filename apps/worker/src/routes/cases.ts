@@ -21,6 +21,7 @@ import { BriefQueueMessageSchema } from "@mizan/shared";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import type { CloudflareBindings } from "../env.ts";
+import { stub } from "../durable/brief-stream-client.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { aiDailyCap } from "../middleware/ai-usage-cap.ts";
 import { briefProducerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
@@ -56,20 +57,19 @@ type BriefContext = Context<{
   Variables: ProducerVariables;
 }>;
 
-/** Resolves the typed DO stub that owns a given run (one instance per `runId`). */
-function briefStreamStub(env: CloudflareBindings, runId: string) {
-  return env.BRIEF_STREAM.get(env.BRIEF_STREAM.idFromName(runId));
-}
-
 /**
  * Subscribes to the run's DO buffer (replay + live tail) and serves it as SSE.
  * The DO stub's `fetch` returns the workers-types `Response`; we re-pump its
  * bytes into a fresh global `ReadableStream` so the handler returns the global
  * `Response` Hono expects. Only `Uint8Array` crosses the boundary — universal
  * across the workers-types/DOM type split — so no cast is needed.
+ *
+ * Error propagation: if the upstream `reader.read()` rejects (infra failure),
+ * `controller.error(err)` surfaces it as a stream error instead of masking it
+ * as a clean EOF — a `finally { close() }` would swallow infra failures.
  */
 async function subscribeResponse(env: CloudflareBindings, runId: string): Promise<Response> {
-  const upstream = await briefStreamStub(env, runId).fetch("https://brief-stream/subscribe");
+  const upstream = await stub(env, runId).fetch("https://brief-stream/subscribe");
   const reader = upstream.body?.getReader();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -83,8 +83,9 @@ async function subscribeResponse(env: CloudflareBindings, runId: string): Promis
           if (done) break;
           if (value) controller.enqueue(value);
         }
-      } finally {
         controller.close();
+      } catch (err) {
+        controller.error(err);
       }
     },
     /**
@@ -136,7 +137,7 @@ async function startBriefRun(c: BriefContext): Promise<Response> {
     await revertQueuedClaim(c, caseId, runId);
     const reason = error instanceof Error ? error.message : String(error);
     console.error(`[brief] enqueue failed (case_id=${caseId} run_id=${runId}): ${reason}`);
-    return c.json({ error: "enqueue_failed", case_id: caseId, run_id: runId }, 500);
+    return c.json({ error: "enqueue_failed" }, 500);
   }
   return subscribeResponse(c.env, runId);
 }
