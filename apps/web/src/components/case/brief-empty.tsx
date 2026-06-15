@@ -6,10 +6,8 @@
  *   - DRAFT: never generated, primary CTA
  *   - FAILED: errored mid-flight, destructive variant with retry CTA
  *   - RUNNING: only reachable here when the parent's stream-phase
- *     machine flipped to `streamErrored` (SSE died mid-flight). The
- *     producer-guard at `apps/worker/src/routes/cases.ts` will return
- *     409 if a real run is still owned by another session; in that
- *     case BriefStream's InFlightNotice + poll loop takes over.
+ *     machine flipped to `streamErrored` (SSE died and the resume-GET
+ *     could not reconnect). The reviewer can POST a fresh run.
  *   - ACTIONED with null brief (degraded parse path in
  *     `apps/worker/src/routes/cases-list.ts`) so the reviewer can
  *     re-trigger composition instead of hitting a dead-end card.
@@ -17,7 +15,9 @@
  * Statuses without an affordance (waiting on someone else):
  *   - QUEUED / SUSPENDED_HITL — owned by the queue consumer or HITL
  *     resume flow; surfacing a Generate button here would race the
- *     producer-guard.
+ *     producer-guard. QUEUED renders BriefStream with autoStart=false
+ *     (resume-only) so this empty card is never shown for QUEUED unless
+ *     the stream errored.
  */
 import { BrainCircuit } from "lucide-react";
 import type { CaseStatus } from "@mizan/shared";

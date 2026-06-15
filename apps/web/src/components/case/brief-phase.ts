@@ -11,6 +11,11 @@
  * the mode is "action" regardless) into the post-action ACTIONED render, where
  * `deriveMode` would return "stream" and BriefStream would auto-POST a spurious
  * second workflow run.
+ *
+ * Resume-stream design: ACTIVE_CASE_STATUSES (RUNNING/QUEUED) now map to
+ * `"stream"` with `autoStart=false`, so the durable-buffer GET reconnect fires
+ * on mount rather than a new POST. A 204 from the resume endpoint (no active DO
+ * buffer yet for QUEUED) is a SDK-level no-op and does not trigger an error.
  */
 import {
   ACTIVE_CASE_STATUSES,
@@ -52,14 +57,27 @@ export function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase
   }
 }
 
+/**
+ * Returns the panel mode and whether the stream component should
+ * auto-POST (autoStart) or only resume via GET.
+ *
+ * - `stream` with `autoStart:true` — reviewer clicked Generate; POST fires.
+ * - `stream` with `autoStart:false` — case is already RUNNING/QUEUED from
+ *   another session; the SDK resume-GET reconnects to the buffered stream.
+ */
+export interface DerivedMode {
+  readonly mode: BriefPanelMode;
+  readonly autoStart: boolean;
+}
+
 export function deriveMode(
   status: CaseStatus,
   brief: BriefSummary,
   phase: StreamPhase,
-): BriefPanelMode {
-  if (status === HITL_SUSPENDED_STATUS) return "action";
-  if (phase.userTriggered && !phase.streamErrored) return "stream";
-  if (ACTIVE_CASE_STATUSES.has(status)) return "inflight";
-  if (brief && SHOW_PERSISTED_STATUSES.has(status)) return "summary";
-  return "empty";
+): DerivedMode {
+  if (status === HITL_SUSPENDED_STATUS) return { mode: "action", autoStart: false };
+  if (phase.userTriggered && !phase.streamErrored) return { mode: "stream", autoStart: true };
+  if (ACTIVE_CASE_STATUSES.has(status)) return { mode: "stream", autoStart: false };
+  if (brief && SHOW_PERSISTED_STATUSES.has(status)) return { mode: "summary", autoStart: false };
+  return { mode: "empty", autoStart: false };
 }

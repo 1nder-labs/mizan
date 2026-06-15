@@ -5,9 +5,9 @@
  * status-derived default so a SUSPENDED_HITL case opens straight to the action.
  *
  * The Brief panel is `forceMount`ed and merely hidden when inactive — the SSE
- * brief stream + its one-shot `useStreamOpener` ref must NOT unmount on a tab
- * switch, or returning to the tab re-POSTs `/brief` and 409s. Every other tab
- * mounts on first activation, so Signals/Messages fetch lazily.
+ * brief stream + its one-shot `startedRef` guard must NOT unmount on a tab
+ * switch, or returning to the tab re-POSTs `/brief` and races the worker.
+ * Every other tab mounts on first activation, so Signals/Messages fetch lazily.
  */
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
@@ -25,37 +25,39 @@ import { BriefStream } from "@/components/brief/stream.tsx";
 import { ActionPanel } from "@/components/case/action-panel.tsx";
 import { BriefEmptyState } from "./brief-empty.tsx";
 import { BriefHistoryView } from "./brief-history.tsx";
-import { BriefInflight } from "./brief-inflight.tsx";
 import { DocumentsPanel } from "./documents-panel.tsx";
 import { SignalExpansionPanel } from "./signal-expansion-panel.tsx";
 import { StoryPanel } from "./story-panel.tsx";
 import { ReviewerNotesPanel } from "./notes-panel.tsx";
 
 export type BriefSummary = CaseDetailResponse["brief"];
-export type BriefPanelMode = "stream" | "inflight" | "action" | "summary" | "empty";
+export type BriefPanelMode = "stream" | "action" | "summary" | "empty";
 
 interface BriefPanelProps {
   readonly caseRow: CaseRow;
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
   readonly mode: BriefPanelMode;
+  readonly autoStart: boolean;
   readonly canRerun: boolean;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
 }
 
-/** Mode-switched brief surface (stream / inflight / action / summary / empty). */
+/** Mode-switched brief surface (stream / action / summary / empty). */
 export function BriefPanel({
   caseRow,
   brief,
   overlay,
   mode,
+  autoStart,
   canRerun,
   onGenerate,
   onStreamError,
 }: BriefPanelProps): React.JSX.Element {
-  if (mode === "stream") return <BriefStream caseId={caseRow.id} onStreamError={onStreamError} />;
-  if (mode === "inflight") return <BriefInflight status={caseRow.status} />;
+  if (mode === "stream") {
+    return <BriefStream caseId={caseRow.id} autoStart={autoStart} onStreamError={onStreamError} />;
+  }
   if (mode === "action") return <ActionPanel detail={{ case: caseRow, brief, overlay }} />;
   if (mode === "summary" && brief) {
     return (
@@ -81,6 +83,7 @@ interface CaseTabsProps {
   readonly brief: BriefSummary;
   readonly overlay: CaseOverlay | null;
   readonly mode: BriefPanelMode;
+  readonly autoStart: boolean;
   readonly canRerun: boolean;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
@@ -128,6 +131,7 @@ export function CaseTabs(props: CaseTabsProps): React.JSX.Element {
           brief={props.brief}
           overlay={props.overlay}
           mode={props.mode}
+          autoStart={props.autoStart}
           canRerun={props.canRerun}
           onGenerate={props.onGenerate}
           onStreamError={props.onStreamError}
