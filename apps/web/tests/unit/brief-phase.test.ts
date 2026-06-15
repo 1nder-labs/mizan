@@ -89,9 +89,16 @@ describe("deriveMode", () => {
     });
   });
 
-  it("a stream error on RUNNING falls back to resume-only stream (autoStart:false)", () => {
+  it("a stream error on RUNNING returns empty so the reviewer can re-attach (FIX #9)", () => {
     expect(deriveMode("RUNNING", null, { userTriggered: true, streamErrored: true })).toEqual({
-      mode: "stream",
+      mode: "empty",
+      autoStart: false,
+    });
+  });
+
+  it("a stream error on RUNNING with no prior trigger also returns empty", () => {
+    expect(deriveMode("RUNNING", null, { userTriggered: false, streamErrored: true })).toEqual({
+      mode: "empty",
       autoStart: false,
     });
   });

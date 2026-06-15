@@ -64,6 +64,11 @@ export function phaseReducer(state: StreamPhase, event: PhaseEvent): StreamPhase
  * - `stream` with `autoStart:true` — reviewer clicked Generate; POST fires.
  * - `stream` with `autoStart:false` — case is already RUNNING/QUEUED from
  *   another session; the SDK resume-GET reconnects to the buffered stream.
+ * - `empty` when `streamErrored` is true AND status is RUNNING — the SSE
+ *   connection died but the worker DO is still composing. BriefEmptyState
+ *   renders RUNNING_ERROR_COPY with a Generate button; clicking dispatches
+ *   `user-generated` which flips autoStart:true and POSTs. The producer
+ *   guard REJOINS the still-RUNNING DO (no 409), re-attaching the stream.
  */
 export interface DerivedMode {
   readonly mode: BriefPanelMode;
@@ -77,6 +82,7 @@ export function deriveMode(
 ): DerivedMode {
   if (status === HITL_SUSPENDED_STATUS) return { mode: "action", autoStart: false };
   if (phase.userTriggered && !phase.streamErrored) return { mode: "stream", autoStart: true };
+  if (phase.streamErrored && status === "RUNNING") return { mode: "empty", autoStart: false };
   if (ACTIVE_CASE_STATUSES.has(status)) return { mode: "stream", autoStart: false };
   if (brief && SHOW_PERSISTED_STATUSES.has(status)) return { mode: "summary", autoStart: false };
   return { mode: "empty", autoStart: false };

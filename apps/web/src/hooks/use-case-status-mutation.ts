@@ -44,6 +44,12 @@ async function enqueueBriefForCase(caseId: string): Promise<void> {
     const body: unknown = await res.json().catch(() => null);
     throw new Error(readErrorReason(body, `enqueue failed ${res.status}`));
   }
+  /**
+   * Kanban enqueues but does not watch the SSE stream; cancel releases
+   * the Durable Object subscriber immediately instead of holding it open
+   * until TCP timeout.
+   */
+  void res.body?.cancel();
 }
 
 function setStatusInPage(page: QueueResponse, caseId: string, status: CaseStatus): QueueResponse {
