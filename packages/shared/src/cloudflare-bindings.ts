@@ -19,6 +19,7 @@
  */
 import type {
   D1Database,
+  DurableObjectNamespace,
   Fetcher,
   KVNamespace,
   Queue,
@@ -32,6 +33,14 @@ export interface CloudflareBindings {
   R2_BUCKET: R2Bucket;
   VECTORIZE: VectorizeIndex;
   BRIEF_QUEUE: Queue;
+  /**
+   * Durable Object namespace backing the resumable brief stream — one instance
+   * per `runId`, a pure buffer/broadcast store (NOT a workflow executor; the
+   * workflow runs in the Mode-B queue consumer). Typed loosely here (shared
+   * cannot import the worker-only DO class); `apps/worker/src/env.ts` refines it
+   * to `DurableObjectNamespace<BriefStreamDO>` so the RPC methods are visible.
+   */
+  BRIEF_STREAM: DurableObjectNamespace;
   ASSETS: Fetcher;
   /**
    * Organization id that client self-signups join as `client` members —

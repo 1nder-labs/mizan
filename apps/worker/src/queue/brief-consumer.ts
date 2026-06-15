@@ -1,4 +1,4 @@
-import type { ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
+import type { DurableObjectStub, ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
 import { emitWorkflowEvent } from "@mizan/mastra/runtime";
 import {
   batchTransitionWithEmits,
@@ -90,6 +90,41 @@ async function revertClaim(db: Db, caseId: string, runId: string): Promise<void>
   );
 }
 
+/**
+ * Relays the run's SSE stream to the brief-stream DO chunk by chunk as a plain
+ * string body — universal across the workers-types/DOM type split, so no RPC
+ * generic + no cast — then signals completion. The DO buffers + broadcasts each
+ * chunk to connected reviewers. Driving the read here keeps the workflow
+ * running in the durable consumer; the DO is only the resumable-stream store.
+ */
+async function relayToBriefStream(
+  stub: DurableObjectStub,
+  body: ReadableStream<Uint8Array> | null,
+): Promise<void> {
+  const publishUrl = "https://brief-stream/?op=publish";
+  const finishUrl = "https://brief-stream/?op=finish";
+  if (!body) {
+    await stub.fetch(finishUrl, { method: "POST" });
+    return;
+  }
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        await stub.fetch(publishUrl, {
+          method: "POST",
+          body: decoder.decode(value, { stream: true }),
+        });
+      }
+    }
+  } finally {
+    await stub.fetch(finishUrl, { method: "POST" });
+  }
+}
+
 async function runWorkflow(
   env: CloudflareBindings,
   executionCtx: ExecutionContext,
@@ -98,10 +133,12 @@ async function runWorkflow(
 ): Promise<void> {
   /**
    * Dynamic import keeps the heavy Mastra/AI-SDK graph out of the worker's
-   * static boot (see `@mizan/mastra/runtime`'s docstring); the module is
+   * static boot (see `@mizan/mastra/runtime`'s docstring); the modules are
    * evaluated once per isolate on the first consumed brief.
    */
   const { createBriefRun, flushLangfuse } = await import("@mizan/mastra");
+  const { toAISdkStream } = await import("@mastra/ai-sdk");
+  const { createUIMessageStream, createUIMessageStreamResponse } = await import("ai");
   const { run, requestContext, langfuse, tracingOptions } = await createBriefRun(env, {
     caseId: message.caseId,
     runId: message.runId,
@@ -111,11 +148,27 @@ async function runWorkflow(
     geography: caseRow.geography,
   });
   try {
-    await run.start({
+    /**
+     * Stream the run (not `run.start()`) and PIPE its SSE into the brief-stream
+     * DO, which buffers + broadcasts it to any connected reviewer. Awaiting the
+     * DO ingest holds this consumer (and the run) open until the workflow
+     * completes/suspends — the workflow's own steps persist the brief + flip the
+     * case to SUSPENDED_HITL. Execution lives here in the durable consumer; the
+     * DO is only the resumable-stream store.
+     */
+    const workflowStream = run.stream({
       inputData: { caseId: message.caseId, runId: message.runId },
       requestContext,
       tracingOptions,
     });
+    const uiStream = createUIMessageStream({
+      execute: ({ writer }) => {
+        writer.merge(toAISdkStream(workflowStream, { from: "workflow", version: "v6" }));
+      },
+    });
+    const response = createUIMessageStreamResponse({ stream: uiStream });
+    const stub = env.BRIEF_STREAM.get(env.BRIEF_STREAM.idFromName(message.runId));
+    await relayToBriefStream(stub, response.body);
   } finally {
     flushLangfuse(langfuse, executionCtx);
   }
