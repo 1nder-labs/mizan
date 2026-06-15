@@ -139,13 +139,26 @@ async function createBriefRunHandle(
 }
 
 /**
+ * Workflow run-result statuses that mean the run reached a clean terminal
+ * state: `success` (ran to the end) or `suspended` (paused for HITL — the brief
+ * is persisted). Any other settled status (`failed`/`canceled`/`tripwire`) is a
+ * failure the consumer must retry. Mastra's `run.stream()` resolves
+ * `stream.result` with `{ status }` and does NOT throw on a failed step, so the
+ * status gate below is the ONLY thing that turns an internal step failure into
+ * a queue retry — without it a failed run would ack + strand the case in RUNNING
+ * (which the producer guard rejects as a re-brief source, bricking the case).
+ */
+const TERMINAL_OK_STATUSES: ReadonlySet<string> = new Set(["success", "suspended"]);
+
+/**
  * Streams the run (not `run.start()`) and PIPES its SSE into the brief-stream
  * DO, which buffers + broadcasts it to any connected reviewer. Awaiting the DO
  * ingest holds this consumer (and the run) open until the workflow
  * completes/suspends — the workflow's own steps persist the brief + flip the
  * case to SUSPENDED_HITL. Execution lives here in the durable consumer; the DO
- * is only the resumable-stream store. Returns once the stream ends NORMALLY; a
- * throw propagates so the caller can retry (the DO stays open for resume).
+ * is only the resumable-stream store. After the stream drains, `stream.result`
+ * carries the settled status: a non-OK status THROWS so the caller reverts +
+ * retries (the DO stays open so the retried run resumes into the same buffer).
  */
 async function pipeRunToBriefStream(
   env: CloudflareBindings,
@@ -166,6 +179,12 @@ async function pipeRunToBriefStream(
   });
   const response = createUIMessageStreamResponse({ stream: uiStream });
   await relayToBriefStream(env, message.runId, response.body);
+  const result = await workflowStream.result;
+  if (!TERMINAL_OK_STATUSES.has(result.status)) {
+    throw new Error(
+      `brief workflow run settled non-OK (status=${result.status} case=${message.caseId} run=${message.runId})`,
+    );
+  }
 }
 
 async function runWorkflow(
