@@ -23,7 +23,7 @@ import { Hono } from "hono";
 import type { CloudflareBindings } from "../env.ts";
 import { idempotencyKey } from "../middleware/idempotency-key.ts";
 import { aiDailyCap } from "../middleware/ai-usage-cap.ts";
-import { producerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
+import { briefProducerGuard, type ProducerVariables } from "../middleware/producer-guard.ts";
 import { requireCaseAccess } from "../middleware/require-case-access.ts";
 import { requireRole } from "../middleware/require-role.ts";
 import { z } from "zod";
@@ -102,16 +102,20 @@ async function revertQueuedClaim(c: BriefContext, caseId: string, runId: string)
 }
 
 /**
- * Generate a brief. `producerGuard("QUEUED")` has minted `runId` + claimed the
- * case; we enqueue the run to the durable Mode-B consumer (which owns execution
- * + persistence, surviving any disconnect) and immediately return the DO's live
- * stream. The consumer pipes `run.stream()` into that same DO, so the reviewer
- * sees real-time steps without execution being coupled to this connection.
+ * Generate (or rejoin) a brief and return its live SSE stream. `briefProducerGuard`
+ * has resolved the run:
+ *   - `replay` → the case was already in flight; just subscribe to that run's DO
+ *     stream (the consumer is already producing it). No re-enqueue.
+ *   - otherwise → a fresh run was claimed; enqueue it to the durable consumer
+ *     (which owns execution + persistence, surviving any disconnect), then
+ *     subscribe. The consumer pipes `run.stream()` into the same DO, so the
+ *     reviewer sees real-time steps without execution coupled to this connection.
  */
 async function startBriefRun(c: BriefContext): Promise<Response> {
   const caseId = c.req.param("id");
   if (!caseId) return c.json({ error: "case id missing" }, 400);
   const runId = c.get("runId");
+  if (c.var.replay) return subscribeResponse(c.env, runId);
   try {
     const message = BriefQueueMessageSchema.parse({
       caseId,
@@ -147,8 +151,6 @@ async function resumeBriefStream(c: BriefContext): Promise<Response> {
   return subscribeResponse(c.env, row.runId);
 }
 
-const queuedGuard = producerGuard("QUEUED");
-
 /**
  * ORDERING INVARIANT — `assignmentsRoutes` is registered BEFORE the
  * `requireCaseAccess` gate so it is exempt from it. Hono runs matched handlers
@@ -181,4 +183,4 @@ export const caseRoutes = new Hono<{
   .route("/", caseNotesRoutes)
   .get("/:id/stream", zValidator("param", StreamParamsSchema), caseStreamHandler)
   .get("/:id/brief/stream", zValidator("param", StreamParamsSchema), resumeBriefStream)
-  .post("/:id/brief", idempotencyKey, aiDailyCap("brief"), queuedGuard, startBriefRun);
+  .post("/:id/brief", idempotencyKey, aiDailyCap("brief"), briefProducerGuard, startBriefRun);
