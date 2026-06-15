@@ -1,5 +1,6 @@
-import type { DurableObjectStub, ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
+import type { ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
 import { emitWorkflowEvent } from "@mizan/mastra/runtime";
+import { finishBriefStream, publishBriefChunk } from "../durable/brief-stream-client.ts";
 import {
   batchTransitionWithEmits,
   buildStatusChangedEmits,
@@ -91,38 +92,80 @@ async function revertClaim(db: Db, caseId: string, runId: string): Promise<void>
 }
 
 /**
- * Relays the run's SSE stream to the brief-stream DO chunk by chunk as a plain
- * string body — universal across the workers-types/DOM type split, so no RPC
- * generic + no cast — then signals completion. The DO buffers + broadcasts each
- * chunk to connected reviewers. Driving the read here keeps the workflow
- * running in the durable consumer; the DO is only the resumable-stream store.
+ * Relays the run's SSE stream to the brief-stream DO chunk by chunk. Publishes
+ * ONLY — it never finishes the DO: a mid-stream throw propagates so the consumer
+ * retries (Mastra resumes the same runId from its last persisted step and keeps
+ * appending). The DO is finished by the caller only on the terminal outcome —
+ * success (`runWorkflow`) or DLQ exhaustion — so a retry's chunks are never
+ * dropped. The DO buffers + broadcasts each chunk to connected reviewers.
  */
 async function relayToBriefStream(
-  stub: DurableObjectStub,
+  env: CloudflareBindings,
+  runId: string,
   body: ReadableStream<Uint8Array> | null,
 ): Promise<void> {
-  const publishUrl = "https://brief-stream/?op=publish";
-  const finishUrl = "https://brief-stream/?op=finish";
-  if (!body) {
-    await stub.fetch(finishUrl, { method: "POST" });
-    return;
-  }
+  if (!body) return;
   const reader = body.getReader();
   const decoder = new TextDecoder();
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        await stub.fetch(publishUrl, {
-          method: "POST",
-          body: decoder.decode(value, { stream: true }),
-        });
-      }
-    }
-  } finally {
-    await stub.fetch(finishUrl, { method: "POST" });
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) await publishBriefChunk(env, runId, decoder.decode(value, { stream: true }));
   }
+}
+
+type BriefRunHandle = Awaited<ReturnType<typeof createBriefRunHandle>>;
+
+/**
+ * Boots a Mastra brief run for the message. Dynamic import keeps the heavy
+ * Mastra/AI-SDK graph out of the worker's static boot (see
+ * `@mizan/mastra/runtime`'s docstring); the modules are evaluated once per
+ * isolate on the first consumed brief.
+ */
+async function createBriefRunHandle(
+  env: CloudflareBindings,
+  message: BriefQueueMessage,
+  caseRow: Case,
+) {
+  const { createBriefRun } = await import("@mizan/mastra");
+  return createBriefRun(env, {
+    caseId: message.caseId,
+    runId: message.runId,
+    reviewerId: message.requestedBy,
+    organizationId: caseRow.organization_id,
+    category: caseRow.category,
+    geography: caseRow.geography,
+  });
+}
+
+/**
+ * Streams the run (not `run.start()`) and PIPES its SSE into the brief-stream
+ * DO, which buffers + broadcasts it to any connected reviewer. Awaiting the DO
+ * ingest holds this consumer (and the run) open until the workflow
+ * completes/suspends — the workflow's own steps persist the brief + flip the
+ * case to SUSPENDED_HITL. Execution lives here in the durable consumer; the DO
+ * is only the resumable-stream store. Returns once the stream ends NORMALLY; a
+ * throw propagates so the caller can retry (the DO stays open for resume).
+ */
+async function pipeRunToBriefStream(
+  env: CloudflareBindings,
+  message: BriefQueueMessage,
+  handle: BriefRunHandle,
+): Promise<void> {
+  const { toAISdkStream } = await import("@mastra/ai-sdk");
+  const { createUIMessageStream, createUIMessageStreamResponse } = await import("ai");
+  const workflowStream = handle.run.stream({
+    inputData: { caseId: message.caseId, runId: message.runId },
+    requestContext: handle.requestContext,
+    tracingOptions: handle.tracingOptions,
+  });
+  const uiStream = createUIMessageStream({
+    execute: ({ writer }) => {
+      writer.merge(toAISdkStream(workflowStream, { from: "workflow", version: "v6" }));
+    },
+  });
+  const response = createUIMessageStreamResponse({ stream: uiStream });
+  await relayToBriefStream(env, message.runId, response.body);
 }
 
 async function runWorkflow(
@@ -131,46 +174,19 @@ async function runWorkflow(
   message: BriefQueueMessage,
   caseRow: Case,
 ): Promise<void> {
-  /**
-   * Dynamic import keeps the heavy Mastra/AI-SDK graph out of the worker's
-   * static boot (see `@mizan/mastra/runtime`'s docstring); the modules are
-   * evaluated once per isolate on the first consumed brief.
-   */
-  const { createBriefRun, flushLangfuse } = await import("@mizan/mastra");
-  const { toAISdkStream } = await import("@mastra/ai-sdk");
-  const { createUIMessageStream, createUIMessageStreamResponse } = await import("ai");
-  const { run, requestContext, langfuse, tracingOptions } = await createBriefRun(env, {
-    caseId: message.caseId,
-    runId: message.runId,
-    reviewerId: message.requestedBy,
-    organizationId: caseRow.organization_id,
-    category: caseRow.category,
-    geography: caseRow.geography,
-  });
+  const { flushLangfuse } = await import("@mizan/mastra");
+  const handle = await createBriefRunHandle(env, message, caseRow);
   try {
+    await pipeRunToBriefStream(env, message, handle);
     /**
-     * Stream the run (not `run.start()`) and PIPE its SSE into the brief-stream
-     * DO, which buffers + broadcasts it to any connected reviewer. Awaiting the
-     * DO ingest holds this consumer (and the run) open until the workflow
-     * completes/suspends — the workflow's own steps persist the brief + flip the
-     * case to SUSPENDED_HITL. Execution lives here in the durable consumer; the
-     * DO is only the resumable-stream store.
+     * Reached only when the stream ended NORMALLY — the workflow suspended for
+     * HITL (the brief is persisted). Finish the DO so live subscribers get the
+     * complete buffer + a clean close. A throw above skips this, leaving the DO
+     * open for the retry; terminal failure is finished by the DLQ consumer.
      */
-    const workflowStream = run.stream({
-      inputData: { caseId: message.caseId, runId: message.runId },
-      requestContext,
-      tracingOptions,
-    });
-    const uiStream = createUIMessageStream({
-      execute: ({ writer }) => {
-        writer.merge(toAISdkStream(workflowStream, { from: "workflow", version: "v6" }));
-      },
-    });
-    const response = createUIMessageStreamResponse({ stream: uiStream });
-    const stub = env.BRIEF_STREAM.get(env.BRIEF_STREAM.idFromName(message.runId));
-    await relayToBriefStream(stub, response.body);
+    await finishBriefStream(env, message.runId);
   } finally {
-    flushLangfuse(langfuse, executionCtx);
+    flushLangfuse(handle.langfuse, executionCtx);
   }
 }
 

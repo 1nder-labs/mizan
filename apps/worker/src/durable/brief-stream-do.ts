@@ -28,6 +28,9 @@ const STORAGE_KEYS = {
   chunkCount: "chunkCount",
 } as const;
 
+/** Cloudflare caps `storage.get(keys[])` at 128 keys per call — hydrate batches to this. */
+const STORAGE_GET_BATCH = 128;
+
 type Subscriber = {
   readonly enqueue: (text: string) => void;
   readonly close: () => void;
@@ -40,20 +43,35 @@ export class BriefStreamDO extends DurableObject<CloudflareBindings> {
   private finished = false;
   private hydrated = false;
 
-  /** Loads any persisted buffer/flag so a re-instantiated (evicted) DO can still replay + resume. */
+  /**
+   * Loads any persisted buffer/flag so a re-instantiated (evicted) DO can still
+   * replay + resume. Reads in ≤128-key batches — `storage.get(keys[])` caps at
+   * 128, so a long brief (hundreds of chunks) would otherwise throw or silently
+   * truncate, corrupting the buffer.
+   */
   private async hydrate(): Promise<void> {
     if (this.hydrated) return;
     this.hydrated = true;
     const count = (await this.ctx.storage.get<number>(STORAGE_KEYS.chunkCount)) ?? 0;
-    if (count > 0) {
-      const keys = Array.from({ length: count }, (_, i) => `${STORAGE_KEYS.chunkPrefix}${i}`);
+    const loaded: string[] = [];
+    for (let start = 0; start < count; start += STORAGE_GET_BATCH) {
+      const keys = Array.from(
+        { length: Math.min(STORAGE_GET_BATCH, count - start) },
+        (_, i) => `${STORAGE_KEYS.chunkPrefix}${start + i}`,
+      );
       const stored = await this.ctx.storage.get<string>(keys);
-      this.buffer = keys.map((k) => stored.get(k) ?? "");
+      for (const k of keys) loaded.push(stored.get(k) ?? "");
     }
+    this.buffer = loaded;
     this.finished = (await this.ctx.storage.get<boolean>(STORAGE_KEYS.done)) ?? false;
   }
 
-  /** Appends a chunk to the durable buffer and fans it out to live subscribers. */
+  /**
+   * Appends a chunk to the durable buffer and fans it out to live subscribers.
+   * A subscriber whose controller has already closed (client disconnected
+   * between the read and its `cancel`) throws on `enqueue` — we drop it instead
+   * of letting one dead connection break the broadcast for everyone else.
+   */
   private async append(text: string): Promise<void> {
     const index = this.buffer.length;
     this.buffer.push(text);
@@ -61,7 +79,13 @@ export class BriefStreamDO extends DurableObject<CloudflareBindings> {
       [`${STORAGE_KEYS.chunkPrefix}${index}`]: text,
       [STORAGE_KEYS.chunkCount]: index + 1,
     });
-    for (const sub of this.subscribers) sub.enqueue(text);
+    for (const sub of this.subscribers) {
+      try {
+        sub.enqueue(text);
+      } catch {
+        this.subscribers.delete(sub);
+      }
+    }
   }
 
   /** Marks the stream finished, persists the flag, and closes every open subscriber. */
@@ -84,6 +108,7 @@ export class BriefStreamDO extends DurableObject<CloudflareBindings> {
     const replay = [...this.buffer];
     const finished = this.finished;
     const subscribers = this.subscribers;
+    let registered: Subscriber | null = null;
     return new ReadableStream<Uint8Array>({
       start(controller) {
         for (const chunk of replay) controller.enqueue(encoder.encode(chunk));
@@ -96,6 +121,16 @@ export class BriefStreamDO extends DurableObject<CloudflareBindings> {
           close: () => controller.close(),
         };
         subscribers.add(sub);
+        registered = sub;
+      },
+      /**
+       * The reviewer disconnected (tab close, navigate, reload). Drop the
+       * subscriber so the broadcast loop stops enqueueing into a dead controller
+       * and the set can't grow unbounded across reconnects. The run itself keeps
+       * going in the consumer — this only detaches the live view.
+       */
+      cancel() {
+        if (registered) subscribers.delete(registered);
       },
     });
   }

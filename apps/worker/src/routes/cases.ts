@@ -87,6 +87,14 @@ async function subscribeResponse(env: CloudflareBindings, runId: string): Promis
         controller.close();
       }
     },
+    /**
+     * Client disconnected — cancel the upstream DO read so the DO's subscriber
+     * is released (its `cancel` fires) instead of the read loop pinning the DO
+     * open forever against a gone reviewer.
+     */
+    cancel(reason) {
+      void reader?.cancel(reason);
+    },
   });
   return new Response(stream, { headers: SSE_HEADERS });
 }
