@@ -8,6 +8,8 @@ minimumReleaseAgeExcludes = [
   "@cloudflare/workers-types",
   "wrangler",
   "@socketsecurity/bun-security-scanner",
+  "esbuild",
+  "form-data",
 ]
 ignoreScripts = true
 registry = "https://registry.npmjs.org"
