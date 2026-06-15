@@ -42,6 +42,17 @@
     "binding": "ASSETS",
     "directory": "../web/dist",
     "not_found_handling": "single-page-application",
+    /**
+     * Run the Worker ONLY for the API + health paths; every other path is
+     * served by the assets system, which (via `not_found_handling:
+     * single-page-application`) returns `index.html` for client-router routes
+     * like `/login` or `/queue`. Without this scoping the Worker is invoked for
+     * those non-asset paths and Hono 404s them, since the SPA fallback only
+     * applies when the assets layer — not the Worker — answers. `!`-prefixed
+     * exceptions could carve out asset-first subpaths under `/api` if needed.
+     * Requires Wrangler >= 4.20 (we pin 4.88).
+     */
+    "run_worker_first": ["/api/*", "/health"],
   },
   "vars": {
     "DEFAULT_LLM_PROVIDER": "openai",
