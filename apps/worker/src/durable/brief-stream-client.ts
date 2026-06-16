@@ -46,3 +46,25 @@ export async function finishBriefStream(env: CloudflareBindings, runId: string):
     throw new Error(`finishBriefStream failed (op=finish status=${res.status} runId=${runId})`);
   }
 }
+
+/**
+ * Best-effort terminal close. Used by BOTH terminal sites (consumer success path,
+ * DLQ exhaustion): the run already reached its terminal/suspended state and the
+ * brief is persisted, so a failed DO close must not propagate — rethrowing would
+ * make the consumer retry an already-succeeded run, or block the DLQ from acking
+ * an already-FAILED case (causing redelivery churn). The failed close only
+ * affects live-subscriber cleanup; the DO closes on its own idle timeout anyway.
+ */
+export async function bestEffortFinishBriefStream(
+  env: CloudflareBindings,
+  runId: string,
+): Promise<void> {
+  try {
+    await finishBriefStream(env, runId);
+  } catch (err) {
+    console.error("finishBriefStream failed at terminal (best-effort)", {
+      runId,
+      msg: err instanceof Error ? err.message : String(err),
+    });
+  }
+}

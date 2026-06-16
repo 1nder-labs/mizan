@@ -103,6 +103,13 @@ describe("deriveMode", () => {
     });
   });
 
+  it("a stream error on QUEUED also returns empty so the reviewer can re-attach (FIX #3)", () => {
+    expect(deriveMode("QUEUED", null, { userTriggered: false, streamErrored: true })).toEqual({
+      mode: "empty",
+      autoStart: false,
+    });
+  });
+
   it("RUNNING with no trigger reconnects via resume-GET (autoStart:false)", () => {
     expect(deriveMode("RUNNING", null, INITIAL_PHASE)).toEqual({
       mode: "stream",

@@ -42,16 +42,21 @@ const RUNNING_ERROR_COPY: StatusCopy = {
   body: "The live brief stream closed before completing. The workflow is still running in the background — click Generate to re-attach to the live stream.",
 };
 
-const STATUSES_WITH_GENERATE: ReadonlySet<CaseStatus> = new Set(["DRAFT", "RUNNING"]);
+const STATUSES_WITH_GENERATE: ReadonlySet<CaseStatus> = new Set(["DRAFT", "QUEUED", "RUNNING"]);
 
 const EMPTY_COPY: Record<CaseStatus, StatusCopy> = {
   DRAFT: {
     title: "No brief yet",
     body: "Start a workflow to compose the reviewer brief. You'll see live progress as it runs.",
   },
+  /**
+   * QUEUED only reaches this empty card when the live stream errored (the normal
+   * QUEUED path mounts the resume-only stream). Mirror RUNNING's reconnect CTA —
+   * the run is still queued/in-flight, so Generate rejoins rather than 409s.
+   */
   QUEUED: {
-    title: "Waiting to start",
-    body: "This case is queued. A background worker will pick it up in a moment.",
+    title: "Stream interrupted",
+    body: "The live brief stream dropped. The case is still queued in the background — click Generate to re-attach to the live stream.",
   },
   SUSPENDED_HITL: {
     title: "Awaiting your input",

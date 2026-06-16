@@ -29,6 +29,12 @@ describe("POST /api/cases/:id/brief rejoin-vs-claim-vs-409 contract", () => {
     adminUserId = admin.userId;
   }, 60_000);
 
+  /** Reads the global daily brief-cap counter for the current UTC day. */
+  async function briefCapUsed(): Promise<number> {
+    const day = new Date(Date.now()).toISOString().slice(0, 10);
+    return Number.parseInt((await env.KV.get(`ai-cap:brief:${day}`)) ?? "0", 10);
+  }
+
   /** Posts to the brief endpoint with the admin session and a fresh idempotency key. */
   async function postBrief(caseId: string): Promise<Response> {
     return exports.default.fetch(
@@ -120,5 +126,34 @@ describe("POST /api/cases/:id/brief rejoin-vs-claim-vs-409 contract", () => {
     const body = (await res.json()) as { error: string; current_status: string };
     expect(body.error).toBe("invalid_source_status");
     expect(body.current_status).toBe("SUSPENDED_HITL");
+  });
+
+  /**
+   * Global daily AI cap must charge a FRESH brief start, never a rejoin replay —
+   * otherwise a reviewer looping rejoin POSTs on one in-flight case could drain
+   * the org-wide bucket (DoS). A 409 terminal POST must not charge either.
+   */
+  it("charges the daily cap on a fresh claim, NOT on a rejoin replay or a 409", async () => {
+    const draftId = crypto.randomUUID();
+    await insertDraftCase(draftId, adminUserId);
+    const beforeFresh = await briefCapUsed();
+    (await postBrief(draftId)).body?.cancel();
+    expect(await briefCapUsed()).toBe(beforeFresh + 1);
+
+    const runningId = crypto.randomUUID();
+    const runId = crypto.randomUUID();
+    await insertDraftCase(runningId, adminUserId);
+    await seedCaseStatus({ caseId: runningId, status: "RUNNING", runId });
+    const beforeRejoin = await briefCapUsed();
+    (await postBrief(runningId)).body?.cancel();
+    expect(await briefCapUsed()).toBe(beforeRejoin);
+
+    const actionedId = crypto.randomUUID();
+    await insertDraftCase(actionedId, adminUserId);
+    await seedCaseStatus({ caseId: actionedId, status: "ACTIONED", runId: crypto.randomUUID() });
+    const beforeTerminal = await briefCapUsed();
+    const terminal = await postBrief(actionedId);
+    expect(terminal.status).toBe(409);
+    expect(await briefCapUsed()).toBe(beforeTerminal);
   });
 });

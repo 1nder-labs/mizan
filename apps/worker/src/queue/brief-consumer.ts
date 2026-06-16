@@ -1,6 +1,6 @@
 import type { ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
 import { emitWorkflowEvent } from "@mizan/mastra/runtime";
-import { finishBriefStream, publishBriefChunk } from "../durable/brief-stream-client.ts";
+import { bestEffortFinishBriefStream, publishBriefChunk } from "../durable/brief-stream-client.ts";
 import {
   batchTransitionWithEmits,
   buildStatusChangedEmits,
@@ -191,24 +191,6 @@ async function pipeRunToBriefStream(
   }
 }
 
-/**
- * Closes the DO stream as best-effort after a successful pipe. A failure here
- * must NOT throw out of `runWorkflow`: the run already reached its terminal /
- * suspended state and the brief is persisted in D1. Rethrowing would wrongly
- * trigger a queue retry of an already-succeeded run. Live-subscriber cleanup is
- * best-effort — the DO will eventually close when the idle timeout fires.
- */
-async function bestEffortFinish(env: CloudflareBindings, runId: string): Promise<void> {
-  try {
-    await finishBriefStream(env, runId);
-  } catch (err) {
-    console.error("finishBriefStream failed after terminal", {
-      runId,
-      msg: err instanceof Error ? err.message : String(err),
-    });
-  }
-}
-
 async function runWorkflow(
   env: CloudflareBindings,
   executionCtx: ExecutionContext,
@@ -225,7 +207,7 @@ async function runWorkflow(
      * complete buffer + a clean close. A throw above skips this, leaving the DO
      * open for the retry; terminal failure is finished by the DLQ consumer.
      */
-    await bestEffortFinish(env, message.runId);
+    await bestEffortFinishBriefStream(env, message.runId);
   } finally {
     flushLangfuse(handle.langfuse, executionCtx);
   }

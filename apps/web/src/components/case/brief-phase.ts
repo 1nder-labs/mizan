@@ -82,7 +82,9 @@ export function deriveMode(
 ): DerivedMode {
   if (status === HITL_SUSPENDED_STATUS) return { mode: "action", autoStart: false };
   if (phase.userTriggered && !phase.streamErrored) return { mode: "stream", autoStart: true };
-  if (phase.streamErrored && status === "RUNNING") return { mode: "empty", autoStart: false };
+  if (phase.streamErrored && ACTIVE_CASE_STATUSES.has(status)) {
+    return { mode: "empty", autoStart: false };
+  }
   if (ACTIVE_CASE_STATUSES.has(status)) return { mode: "stream", autoStart: false };
   if (brief && SHOW_PERSISTED_STATUSES.has(status)) return { mode: "summary", autoStart: false };
   return { mode: "empty", autoStart: false };

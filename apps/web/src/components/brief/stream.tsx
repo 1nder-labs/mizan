@@ -4,11 +4,12 @@
  *   POST /api/cases/:id/brief  — enqueue/rejoin and stream live SSE
  *   GET  /api/cases/:id/brief/stream — reconnect/resume buffered SSE
  *
- * With `resume: true` the SDK fires a GET to the resume endpoint on
- * mount. A 204 (no active run) is a SDK-level no-op — it does NOT
- * call `onError`. This makes it safe to always mount `BriefStream`
- * for in-flight cases: a reload gets the buffered stream via GET,
- * while a user-initiated generate POSTs a new run.
+ * `resume` is `!autoStart`: a resume-only mount (autoStart=false, e.g. a
+ * reload of an in-flight case) fires a GET to the resume endpoint to reconnect
+ * to the buffered stream; a 204 (no active run) is a SDK-level no-op. When
+ * autoStart=true (the reviewer clicked Generate/Reconnect) the mount-time POST
+ * already opens the stream, so resume-GET is disabled to avoid a redundant
+ * second DO subscriber for the same run.
  *
  * `autoStart` gates the mount-time POST. Set `false` when the parent
  * already knows a run is in flight (RUNNING / QUEUED) so we rely on
@@ -86,7 +87,7 @@ export function BriefStream({
   const { messages, sendMessage, error, status } = useChat({
     id: `case-${caseId}`,
     transport,
-    resume: true,
+    resume: !autoStart,
     onFinish: invalidateDetail,
     onError: () => {
       void invalidateDetail();

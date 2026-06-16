@@ -2,7 +2,7 @@ import type { MessageBatch } from "@cloudflare/workers-types";
 import { makeDb } from "@mizan/db";
 import { BriefQueueMessageSchema } from "@mizan/shared";
 import type { CloudflareBindings } from "../env.ts";
-import { finishBriefStream } from "../durable/brief-stream-client.ts";
+import { bestEffortFinishBriefStream } from "../durable/brief-stream-client.ts";
 import { failCaseToFailed } from "../lib/fail-case.ts";
 
 /**
@@ -34,7 +34,7 @@ export async function handleDlq(
 
     const { caseId, runId } = parsed.data;
     const updated = await failCaseToFailed(db, caseId, runId);
-    await finishBriefStream(env, runId);
+    await bestEffortFinishBriefStream(env, runId);
 
     if (!updated) {
       console.error("dlq case row unchanged", { caseId, runId });

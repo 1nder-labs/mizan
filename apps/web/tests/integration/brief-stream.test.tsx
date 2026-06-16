@@ -84,11 +84,18 @@ afterEach(() => {
 });
 
 describe("<BriefStream /> durable-resume contract", () => {
-  test("passes resume:true to useChat (page-reload reconnect)", () => {
+  test("resume:true when autoStart is false (reload reconnects via GET)", () => {
     const { ui } = withClient(<BriefStream caseId={CASE_A} autoStart={false} />);
     render(ui);
     const opts = useChatMock.mock.calls.at(-1)?.[0];
     expect(opts?.resume).toBe(true);
+  });
+
+  test("resume:false when autoStart is true (POST opens the stream, no redundant GET)", () => {
+    const { ui } = withClient(<BriefStream caseId={CASE_A} autoStart={true} />);
+    render(ui);
+    const opts = useChatMock.mock.calls.at(-1)?.[0];
+    expect(opts?.resume).toBe(false);
   });
 
   test("autoStart:true fires exactly one sendMessage({text:''}) and is idempotent on re-render", () => {

@@ -64,12 +64,19 @@ type BriefContext = Context<{
  * `Response` Hono expects. Only `Uint8Array` crosses the boundary — universal
  * across the workers-types/DOM type split — so no cast is needed.
  *
- * Error propagation: if the upstream `reader.read()` rejects (infra failure),
- * `controller.error(err)` surfaces it as a stream error instead of masking it
- * as a clean EOF — a `finally { close() }` would swallow infra failures.
+ * Error propagation: a non-2xx from the DO (e.g. a `hydrate` throw on a corrupt
+ * buffer surfaces as 500) returns a 502 here rather than a 200 `text/event-stream`
+ * with an empty body — the latter masks an infra failure as a clean completion
+ * and the client never enters its error/reconnect path. If the upstream
+ * `reader.read()` later rejects mid-stream, `controller.error(err)` surfaces it
+ * as a stream error instead of a clean EOF.
  */
 async function subscribeResponse(env: CloudflareBindings, runId: string): Promise<Response> {
   const upstream = await stub(env, runId).fetch("https://brief-stream/subscribe");
+  if (!upstream.ok) {
+    void upstream.body?.cancel();
+    return new Response(null, { status: 502 });
+  }
   const reader = upstream.body?.getReader();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
