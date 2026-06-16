@@ -21,6 +21,7 @@
  */
 import { DurableObject } from "cloudflare:workers";
 import type { CloudflareBindings } from "@mizan/shared";
+import { SSE_HEADERS } from "../lib/sse-headers.ts";
 
 const STORAGE_KEYS = {
   done: "done",
@@ -83,17 +84,20 @@ export class BriefStreamDO extends DurableObject<CloudflareBindings> {
 
   /**
    * Appends a chunk to the durable buffer and fans it out to live subscribers.
+   * Persistence happens FIRST so that if the storage put throws, neither the
+   * in-memory buffer nor the broadcast has advanced — buffer always equals
+   * storage, and the throw propagates to the publish caller for retry.
    * A subscriber whose controller has already closed (client disconnected
    * between the read and its `cancel`) throws on `enqueue` — we drop it instead
    * of letting one dead connection break the broadcast for everyone else.
    */
   private async append(text: string): Promise<void> {
     const index = this.buffer.length;
-    this.buffer.push(text);
     await this.ctx.storage.put({
       [`${STORAGE_KEYS.chunkPrefix}${index}`]: text,
       [STORAGE_KEYS.chunkCount]: index + 1,
     });
+    this.buffer.push(text);
     for (const sub of this.subscribers) {
       try {
         sub.enqueue(text);
@@ -172,13 +176,3 @@ export class BriefStreamDO extends DurableObject<CloudflareBindings> {
     return new Response(this.buildSubscriberStream(), { headers: SSE_HEADERS });
   }
 }
-
-/**
- * SSE headers. `Content-Encoding: identity` opts the stream out of Cloudflare
- * edge compression, which otherwise buffers the whole body before flushing.
- */
-const SSE_HEADERS = {
-  "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache",
-  "Content-Encoding": "identity",
-} as const;

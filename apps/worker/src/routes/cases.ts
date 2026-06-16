@@ -16,7 +16,7 @@
  * 5. briefProducerGuard                   (claims a fresh run or rejoins one)
  */
 
-import { cases, eq, makeDb, transitionCase } from "@mizan/db";
+import { and, cases, eq, makeDb, transitionCase } from "@mizan/db";
 import { BriefQueueMessageSchema } from "@mizan/shared";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -38,19 +38,9 @@ import { caseStreamHandler } from "./case-stream.ts";
 import { casesListRoutes } from "./cases-list.ts";
 import { documentsRoutes } from "./documents.ts";
 import { signalsRoutes } from "./signals.ts";
+import { SSE_HEADERS } from "../lib/sse-headers.ts";
 
 const StreamParamsSchema = z.object({ id: z.string().uuid() });
-
-/**
- * SSE headers for the brief stream. `Content-Encoding: identity` opts out of
- * Cloudflare edge compression, which otherwise buffers the whole body before
- * flushing — defeating real-time streaming.
- */
-const SSE_HEADERS = {
-  "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache",
-  "Content-Encoding": "identity",
-} as const;
 
 type BriefContext = Context<{
   Bindings: CloudflareBindings;
@@ -161,7 +151,7 @@ async function resumeBriefStream(c: BriefContext): Promise<Response> {
   const row = await makeDb(c.env.DB)
     .select({ runId: cases.current_run_id })
     .from(cases)
-    .where(eq(cases.id, caseId))
+    .where(and(eq(cases.id, caseId), eq(cases.organization_id, c.var.viewer.organizationId)))
     .get();
   if (!row?.runId) return new Response(null, { status: 204 });
   return subscribeResponse(c.env, row.runId);

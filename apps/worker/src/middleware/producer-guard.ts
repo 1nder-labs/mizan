@@ -58,7 +58,8 @@ export const briefProducerGuard = createMiddleware<{
   }
 
   if (existing.status === "QUEUED" || existing.status === "RUNNING") {
-    if (!existing.current_run_id) return c.json({ error: "case status race lost" }, 409);
+    if (!existing.current_run_id)
+      return c.json({ error: "case status race lost", current_status: existing.status }, 409);
     c.set("runId", existing.current_run_id);
     c.set("caseRow", existing);
     c.set("replay", true);
@@ -77,7 +78,8 @@ export const briefProducerGuard = createMiddleware<{
     actorUserId: c.var.viewer.userId,
     sources: ALLOWED_SOURCES,
   });
-  if (!claim) return c.json({ error: "case status race lost" }, 409);
+  if (!claim)
+    return c.json({ error: "case status race lost", current_status: existing.status }, 409);
 
   c.set("runId", claim.runId);
   c.set("caseRow", claim.row);
