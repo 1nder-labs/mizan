@@ -97,4 +97,11 @@ export interface CloudflareBindings {
   AI_DAILY_BRIEF_CAP?: string;
   /** Global per-UTC-day cap on copilot chat messages across the deployment. See AI_DAILY_BRIEF_CAP. */
   AI_DAILY_CHAT_CAP?: string;
+  /**
+   * Portal write-limiter fixed-window length in seconds (default 60). Overridden
+   * to a long value in integration tests so the 30-write loop cannot straddle a
+   * wall-clock window roll (which would reset the counter mid-test and flake the
+   * "30 then 429" assertion under full-suite load). Not set in production.
+   */
+  PORTAL_RL_WINDOW_SECONDS?: string;
 }
