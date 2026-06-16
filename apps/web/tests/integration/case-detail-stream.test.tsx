@@ -126,7 +126,7 @@ describe("<CaseDetail /> stream routing", () => {
     expect(await screen.findByText(/no brief yet/i)).toBeInTheDocument();
   });
 
-  test("user clicks Generate → BriefStream mounts; stream error → inflight; click Generate again → stream", async () => {
+  test("DRAFT: Generate mounts stream; stream error unmounts to empty; Generate again re-mounts", async () => {
     briefStreamSpy.onStreamError = undefined;
     await renderDetail(
       <CaseDetail
@@ -148,5 +148,30 @@ describe("<CaseDetail /> stream routing", () => {
 
     await userEvent.setup().click(generateRetry);
     expect(await screen.findByTestId("brief-stream-mounted")).toBeInTheDocument();
+  });
+
+  /**
+   * #9 reconnect: a RUNNING case whose live SSE drops mid-run must NOT freeze on
+   * the stream panel. deriveMode flips RUNNING+streamErrored → empty, surfacing
+   * the reconnect CTA; clicking it re-mounts BriefStream with autoStart=true so
+   * the POST rejoins the still-RUNNING DO (the producer guard replays, no 409).
+   */
+  test("RUNNING + mid-run stream error surfaces a reconnect CTA that re-mounts the stream", async () => {
+    briefStreamSpy.onStreamError = undefined;
+    await renderDetail(
+      <CaseDetail caseRow={baseCase} brief={null} overlay={null} archived={false} />,
+    );
+    const mounted = await screen.findByTestId("brief-stream-mounted");
+    expect(mounted).toHaveAttribute("data-auto-start", "false");
+    expect(briefStreamSpy.onStreamError).toBeDefined();
+
+    briefStreamSpy.onStreamError?.();
+
+    const reconnect = await screen.findByRole("button", { name: /generate brief/i });
+    expect(screen.queryByTestId("brief-stream-mounted")).toBeNull();
+
+    await userEvent.setup().click(reconnect);
+    const remounted = await screen.findByTestId("brief-stream-mounted");
+    expect(remounted).toHaveAttribute("data-auto-start", "true");
   });
 });
