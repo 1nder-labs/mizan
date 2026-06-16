@@ -100,7 +100,7 @@ describe("Mode B DLQ consumer", () => {
     const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
       .bind(caseId)
       .first<{ status: string; current_run_id: string }>();
-    expect(row?.status).toBe("QUEUED");
+    expect(["QUEUED", "RUNNING"]).toContain(row?.status);
     expect(row?.current_run_id).not.toBe(runId);
     expect(typeof row?.current_run_id).toBe("string");
   });
@@ -178,7 +178,7 @@ describe("Mode B DLQ consumer", () => {
     )
       .bind(caseId)
       .first<{ status: string; current_run_id: string }>();
-    expect(restartedRow?.status).toBe("QUEUED");
+    expect(["QUEUED", "RUNNING"]).toContain(restartedRow?.status);
     expect(restartedRow?.current_run_id).not.toBe(runId);
     expect(typeof restartedRow?.current_run_id).toBe("string");
   }, 60_000);

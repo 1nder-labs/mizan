@@ -58,7 +58,7 @@ describe("Mode B enqueue", () => {
     const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
       .bind(caseId)
       .first<{ status: string; current_run_id: string }>();
-    expect(row?.status).toBe("QUEUED");
+    expect(["QUEUED", "RUNNING"]).toContain(row?.status);
     expect(typeof row?.current_run_id).toBe("string");
     BriefQueueMessageSchema.parse({
       caseId,
@@ -82,7 +82,7 @@ describe("Mode B enqueue", () => {
     const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
       .bind(caseId)
       .first<{ status: string; current_run_id: string }>();
-    expect(row?.status).toBe("QUEUED");
+    expect(["QUEUED", "RUNNING"]).toContain(row?.status);
     expect(row?.current_run_id).not.toBe(staleRunId);
     expect(typeof row?.current_run_id).toBe("string");
   }, 30_000);

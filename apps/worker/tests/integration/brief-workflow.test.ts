@@ -311,7 +311,7 @@ describe("brief workflow integration", () => {
     const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
       .bind(caseId)
       .first<{ status: string; current_run_id: string }>();
-    expect(row?.status).toBe("QUEUED");
+    expect(["QUEUED", "RUNNING"]).toContain(row?.status);
     expect(typeof row?.current_run_id).toBe("string");
   }, 60_000);
 });

@@ -97,7 +97,8 @@ describe("POST /api/cases/:id/brief rejoin-vs-claim-vs-409 contract", () => {
     const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
       .bind(caseId)
       .first<{ status: string; current_run_id: string | null }>();
-    expect(row?.status).toBe("QUEUED");
+    /** QUEUED or RUNNING — the live queue consumer may already have claimed it. */
+    expect(["QUEUED", "RUNNING"]).toContain(row?.status);
     expect(row?.current_run_id).not.toBeNull();
     expect(typeof row?.current_run_id).toBe("string");
   });
