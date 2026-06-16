@@ -1,17 +1,18 @@
 ---
-title: Cloudflare Queues — Mode B background processing engineering patterns
+title: Cloudflare Queues — durable brief executor (queue consumer) engineering patterns
 date: 2026-05-24
+last_updated: 2026-06-15
 category: best-practices
 module: queue_system
 problem_type: best_practice
 component: queue_system
 severity: high
 applies_when:
-  - "Building a Cloudflare Queues consumer on Workers"
-  - "Running a Mastra workflow from both an HTTP route (SSE) and a queue consumer"
+  - "Building a Cloudflare Queues consumer on Workers as the durable executor for a long job"
+  - "Running a Mastra workflow from a queue consumer (the SOLE execution path)"
   - "Implementing Layer 3 idempotent redelivery on at-least-once delivery"
-  - "Sharing a single producer endpoint between streaming and background modes via content negotiation"
   - "Reasoning about ack/retry/DLQ + status-machine guarantees"
+  - "Pairing a queue executor with a Durable Object resumable-stream store"
 tags:
   - cloudflare-queues
   - cloudflare-workers
@@ -23,39 +24,67 @@ tags:
   - d1
 ---
 
-# Cloudflare Queues — Mode B background processing engineering patterns
+# Cloudflare Queues — durable brief executor (queue consumer) engineering patterns
 
-Ten load-bearing patterns from Mizan Phase 5 (`feat/phase-5-background-mode`). Each was settled after a brutal multi-agent review surfaced a real bug; the failure mode is documented under each pattern so future work can recognise the same shape early.
+Load-bearing patterns for the brief queue consumer — the **sole executor** of the
+brief workflow. Each was settled after a brutal multi-agent review surfaced a
+real bug; the failure mode is documented under each pattern so future work can
+recognise the same shape early.
 
-## 1. Content-negotiate on one endpoint, branch to two modes
+> **Architecture update (2026-06-15).** The old two-mode design (Mode A =
+> `run.stream()` inside the SSE handler; Mode B = enqueue + 202; selected by
+> `Accept`-header content negotiation) is GONE. There is now **one durable
+> path**: the queue consumer owns all execution + persistence, and a per-`runId`
+> Durable Object (`BriefStreamDO`) is the resumable-stream STORE the reviewer
+> subscribes to. `POST /:id/brief` always returns `200 text/event-stream`. See
+> the companion doc
+> `docs/solutions/architecture-patterns/durable-resumable-brief-stream-do.md`
+> for the store/executor split, the unified producer guard, and the
+> stuck-RUNNING root cause (`run.stream()` resolves `{status:'failed'}` without
+> throwing — the consumer MUST inspect `stream.result.status` and throw on
+> non-OK). The patterns below are the executor + DLQ + D1 engineering that path
+> still relies on.
 
-One route. The `Accept` header picks the mode. SSE → Mode A (`run.stream`). JSON → Mode B (enqueue + 202). Both modes share the same Hono middleware chain (role gate, idempotency key, producer guard) — only the target status and the final handler differ.
+## 1. One durable path: the queue consumer is the sole executor
 
-```ts
-.post(
-  "/:id/brief",
-  idempotencyKey,
-  async (c, next) => (wantsEventStream(c) ? runningGuard(c, next) : queuedGuard(c, next)),
-  routeBriefPost,
-);
-```
+There is no content negotiation and no Mode A. `POST /:id/brief` runs the unified
+`briefProducerGuard`, then `startBriefRun`: a fresh claim enqueues a
+`BriefQueueMessage` and returns the DO subscription; an in-flight rejoin just
+returns the DO subscription. Either way the response is `200 text/event-stream`.
+The Hono middleware chain (role gate, idempotency key, `aiDailyCap`, producer
+guard) is shared by the single route.
 
-The two guards are **module-level constants** (`producerGuard("RUNNING")`, `producerGuard("QUEUED")`), not reconstructed per request — otherwise every POST allocates a fresh middleware closure.
+The executor (queue consumer) is what makes the brief survive a client
+disconnect: it runs `run.stream()`, relays each SSE chunk to the DO, and
+finishes the DO only on a terminal outcome. Execution is never coupled to the
+HTTP connection.
 
-**Failure mode caught**: reconstructing the guards inside the inline middleware on every request — invisible perf cost, easy to miss in code review.
+**Failure mode caught (historical)**: coupling `run.stream()` to the SSE handler
+(old Mode A) — a client disconnect tore down the Workers execution context
+mid-workflow and stranded the case in `RUNNING` forever.
 
-## 2. Producer-guard factory with per-target source allow-lists
+## 2. Unified producer guard, keyed only on current status
 
-A single `producerGuard(target)` factory generates middleware for either target. But the **source statuses each target accepts must differ**:
+A single `briefProducerGuard` (no per-target factory, no `Accept` branch)
+decides by the case's current status:
 
-| Target             | Sources accepted                                  | Why                                                                                                                                                                                                        |
-| ------------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RUNNING` (Mode A) | `DRAFT`, `READY_FOR_REVIEW`, `ACTIONED`, `FAILED` | Reviewer can re-stream a completed brief; FAILED is retry-eligible                                                                                                                                         |
-| `QUEUED` (Mode B)  | `DRAFT`, `FAILED`                                 | `revertQueuedClaim` always reverts to DRAFT on send failure; restricting sources to DRAFT/FAILED makes the revert **provably lossless** — a successful row cannot be downgraded by an enqueue compensation |
+| Current status                          | Action                                                                                   |
+| --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `DRAFT`, `FAILED`                       | **Claim** a fresh `runId`, enqueue (`replay=false`). `ALLOWED_SOURCES = [DRAFT, FAILED]` |
+| `QUEUED`, `RUNNING`                     | **Rejoin** — subscribe to the in-flight run's DO (`replay=true`, no enqueue, no 409)     |
+| `ACTIONED`, `SUSPENDED_HITL` (terminal) | **409 `invalid_source_status`** — the decision is made; cannot re-brief                  |
+| cross-org                               | **404**                                                                                  |
 
-The factory also derives the in-flight response mode (`RUNNING → 409`, `QUEUED → 202 replay`) at factory creation time, not on every request.
+Restricting claim sources to `DRAFT`/`FAILED` makes the `revertQueuedClaim`
+compensation (pattern #6) **provably lossless** — a successful row cannot be
+downgraded by an enqueue compensation. "Rejoin" is what makes a second POST (or
+a reconnect) on an in-flight case safe — it re-subscribes to the same DO rather
+than minting a new run. Terminal-409 keeps the UI honest: an ACTIONED case must
+NOT render a "Generate" button (it would 409-loop).
 
-**Failure mode caught**: using one shared `ALLOWED_STATUSES` set across both targets — Mode B enqueue failure on a `READY_FOR_REVIEW` row would silently downgrade it to DRAFT.
+**Failure mode caught**: a per-target `RUNNING` claim source list including
+`ACTIONED`/`READY_FOR_REVIEW` — re-briefing a decided case. The `RUNNING`-target
+path (`claimCaseRunning`) was deleted as dead code when the guard unified.
 
 ## 3. Crash recovery on RUNNING: three-way split — ack, retry, or claim
 
@@ -113,7 +142,6 @@ Status classification fans out by `row.status`. An exhaustive switch over the li
 
 ```ts
 switch (row.status) {
-  case "READY_FOR_REVIEW":
   case "ACTIONED":
   case "SUSPENDED_HITL":
   case "FAILED":
@@ -137,7 +165,7 @@ switch (row.status) {
 
 ## 5. Shared workflow bootstrap helper (`createBriefRun`)
 
-The Mode A SSE handler and the Mode B queue consumer both need: per-request Mastra instance, workflow resolution, runId-pinned run creation, runtime context, env/ctx propagation. Six lines of identical bootstrap × two call sites = future drift.
+The queue consumer boots each run through one helper: per-request Mastra instance, workflow resolution, runId-pinned run creation, runtime context, env/ctx propagation. Centralising it means a change to Mastra's RequestContext shape or ENV-key wiring touches one place.
 
 ```ts
 export async function createBriefRun(env, input) {
@@ -147,19 +175,19 @@ export async function createBriefRun(env, input) {
   const run = await workflow.createRun({ runId: input.runId });
   const requestContext = makeRuntimeContext(ctx);
   requestContext.set(MIZAN_ENV_KEY, env);
-  return { langfuse, run, requestContext };
+  return { langfuse, run, requestContext, tracingOptions };
 }
 ```
 
-`MIZAN_CTX_KEY` is already set by `makeRuntimeContext`; don't re-set it here. Return only the fields the call sites use (`langfuse`, `run`, `requestContext`); `mastra` + `ctx` are internal and stay private.
+`MIZAN_CTX_KEY` is already set by `makeRuntimeContext`; don't re-set it here. Return only the fields the consumer uses; `mastra` + `ctx` are internal and stay private.
 
-Callers decide between `run.stream()` (Mode A) and `run.start()` (Mode B); everything before that diverge is single-sourced.
+The consumer uses `run.stream()` (NOT `run.start()`) so it can relay live SSE to the DO, then **awaits `stream.result` and throws on a non-OK status** (only `success`/`suspended` are clean). Mastra resolves a failed run with `{status:'failed'}` rather than throwing — without the status gate a failed step would ack + strand the case in RUNNING. This is the load-bearing executor invariant; see the companion architecture doc.
 
 **Failure mode caught**: any change to Mastra's RequestContext shape, ENV key wiring, or runId pinning requires touching every call site — eventually one is missed.
 
 ## 6. Compensation must be guarded by the state it expects
 
-The Mode B compensation `revertQueuedClaim` flips `QUEUED → DRAFT` when `BRIEF_QUEUE.send` throws. The `WHERE` clause **must** filter on `status = 'QUEUED'`:
+The compensation `revertQueuedClaim` flips `QUEUED → DRAFT` when `BRIEF_QUEUE.send` throws. The `WHERE` clause **must** filter on `status = 'QUEUED'`:
 
 ```ts
 .where(and(
@@ -171,25 +199,26 @@ The Mode B compensation `revertQueuedClaim` flips `QUEUED → DRAFT` when `BRIEF
 
 If a concurrent consumer atomically claimed the row to `RUNNING` (or DLQ flipped it to `FAILED`) in the millisecond window between `producerGuard` claiming `QUEUED` and `BRIEF_QUEUE.send` throwing, the revert must be a **no-op** — the row is no longer ours to revert.
 
-Same principle for `setCaseStatus` (Mode A abort/error path): add `eq(cases.status, "RUNNING")` so a concurrent reviewer action that already finalised the case is preserved.
+Same principle for the consumer's own `revertClaim` (`RUNNING → QUEUED` on a retryable workflow failure): the `from: "RUNNING"` guard preserves a row a concurrent path already advanced.
 
 **Failure mode caught**: a compensation with no state guard regresses a completed brief to DRAFT under racy schedules.
 
 ## 7. Schema parse and side-effect must share one try block
 
-The Mode B producer constructs the queue message body, parses it, sends to the queue, returns 202. **All three** must be inside the same try/catch that calls `revertQueuedClaim` on throw:
+The producer constructs the queue message body, parses it, sends to the queue, then returns the DO subscription (200 SSE). The parse + send **must** be inside the same try/catch that calls `revertQueuedClaim` on throw:
 
 ```ts
 try {
   const message = BriefQueueMessageSchema.parse({ ... });
   await c.env.BRIEF_QUEUE.send(message, { contentType: "json" });
 } catch (error) {
-  await revertQueuedClaim(c.env, caseId, runId);
+  await revertQueuedClaim(c, caseId, runId);
   return c.json({ error: "enqueue_failed" }, 500);
 }
+return subscribeResponse(c.env, runId);
 ```
 
-Parse-outside-try is the classic foot-gun: schema rejects → throw escapes → `producerGuard` already claimed QUEUED → row orphaned with no queue message + no revert.
+Parse-outside-try is the classic foot-gun: schema rejects → throw escapes → `producerGuard` already claimed QUEUED → row orphaned with no queue message + no revert. (The 500 body carries only `{ error: "enqueue_failed" }` — case/run ids stay in the server-side `console.error`, not the response.)
 
 **Failure mode caught**: this exact bug shipped in the first iteration; fixed only after second-pass code audit. The schema field type loosening (e.g. `requestedBy: z.string().uuid()` → `z.string().min(1)` for nanoid user IDs) is **necessary but not sufficient** — the structural hole remains if parse is outside the try.
 
@@ -214,13 +243,14 @@ Annotating with `satisfies ExportedHandler<Env>` from `@cloudflare/workers-types
 
 - DLQ has its own consumer (`handleDlq`), bound via a second `queues.consumers` block in `wrangler.jsonc`.
 - DLQ consumer flips terminal failures to `FAILED` via `UPDATE ... WHERE current_run_id = ? AND status IN ('QUEUED','RUNNING')`. The status guard prevents flipping a row whose run already advanced.
+- DLQ consumer ALSO calls `finishBriefStream(env, runId)` after the flip — the terminal close for the run's `BriefStreamDO`, so a reviewer still subscribed gets a clean stream close instead of hanging (covers a run that threw before relaying any chunk; the consumer never finishes the DO on a retryable failure).
 - `console.warn` for the success-flip path; `console.error` reserved for actual error branches (schema-invalid message, atomic UPDATE returning 0 rows).
 - `msg.ack()` always — DLQ messages do not retry (`max_retries: 1` on the DLQ consumer).
-- After DLQ flip → next POST is allowed by `producerGuard` because `FAILED` is in `ALLOWED_QUEUED_SOURCES` (and `ALLOWED_RUNNING_SOURCES`).
+- After DLQ flip → next POST is allowed by `producerGuard` because `FAILED` is in `ALLOWED_SOURCES`.
 
 ## 9. One `transitionCase` helper for every runId-pinned status mutation
 
-Five distinct call sites (consumer claim, consumer revert, producer revert, route-boundary set, DLQ flip) all share the same shape: `UPDATE cases SET status = <to>, updated_at = NOW() WHERE id = ? AND current_run_id = ? AND status IN (<from>)`. Centralising in `@mizan/db` means:
+Distinct call sites (consumer claim, consumer revert, producer revert, DLQ flip) all share the same shape: `UPDATE cases SET status = <to>, updated_at = NOW() WHERE id = ? AND current_run_id = ? AND status IN (<from>)`. Centralising in `@mizan/db` means:
 
 - One place to read the canonical state-machine pattern
 - `updated_at` is bumped on EVERY transition (powers the staleness check in pattern #3)
@@ -264,21 +294,19 @@ Worker / D1 specifics, gathered through Phase 5:
 - **Migrations only via `drizzle-kit generate`.** Hand-written migrations are forbidden by project rule; one-shot backfills require explicit approval and inline JSDoc explaining why `drizzle-kit` couldn't emit it.
 - **`Case` type re-exported from `@mizan/db`.** Domain types are inferred from drizzle's `$inferSelect` via drizzle-zod schemas — consumers import `type Case from "@mizan/db"` rather than reaching into private schema files.
 - **No raw SQL outside test seeders.** Application code goes through Drizzle's typed builder. Test helpers (`seedCaseStatus`, `insertDraftCase`) live in `tests/integration/mode-b-helpers.ts` and use prepared statements with parameter binding — never string-interpolated SQL.
-- **`updated_at` is bumped by transitions only, NOT by `upsertSignal` or brief writes.** Pattern #3's staleness check reads `cases.updated_at`. Every transition path (claim, revert, set, DLQ flip) bumps it through `transitionCase`. `upsertSignal` writes to the `signals` table; brief insert writes to the `briefs` table; neither updates `cases.updated_at`. The case row is therefore effectively "frozen at claim timestamp" for the duration of a workflow run — `RUNNING_STALE_THRESHOLD_MS = 10 min` is measuring "time since claim", not "time since the consumer last did work". The 10-min window is comfortably past the 5-min Worker wall-time cap, and the `retry-running` mapping (pattern #3) covers crash-but-fresh windows by routing through the queue's retry loop instead of waiting the full staleness window.
+- **`updated_at` is bumped by transitions only, NOT by `upsertSignal` or brief writes.** Pattern #3's staleness check reads `cases.updated_at`. Every transition path (claim, revert, DLQ flip) bumps it through `transitionCase`. `upsertSignal` writes to the `signals` table; brief insert writes to the `briefs` table; neither updates `cases.updated_at`. The case row is therefore effectively "frozen at claim timestamp" for the duration of a workflow run — `RUNNING_STALE_THRESHOLD_MS = 10 min` is measuring "time since claim", not "time since the consumer last did work". The 10-min window is comfortably past the 5-min Worker wall-time cap, and the `retry-running` mapping (pattern #3) covers crash-but-fresh windows by routing through the queue's retry loop instead of waiting the full staleness window.
 - **Strict-typed `from` parameter.** `CaseTransitionInput.from: CaseStatus | readonly CaseStatus[]` — the enum literal union means a typo in a transition source is a compile error. The `inArray(cases.status, sources)` predicate carries the enum constraint into the SQL guard.
 
 ## Status-machine invariants (cheat sheet)
 
 ```
-                          producerGuard("RUNNING") → status: RUNNING
-                          ┌──── allowed sources: DRAFT, READY_FOR_REVIEW, ACTIONED, FAILED
-POST + Accept SSE  ───────┤
-                          └──── in-flight (QUEUED|RUNNING): 409 without runId
+                          briefProducerGuard (one guard, keyed on current status)
+POST /:id/brief  ─────────┤
+  → always 200 SSE        ├─ DRAFT | FAILED            → claim fresh runId, enqueue (status: QUEUED)
+                          ├─ QUEUED | RUNNING          → rejoin: subscribe to the in-flight DO (no enqueue)
+                          └─ ACTIONED | SUSPENDED_HITL → 409 invalid_source_status (terminal)
 
-                          producerGuard("QUEUED") → status: QUEUED
-                          ┌──── allowed sources: DRAFT, FAILED
-POST + Accept JSON ───────┤
-                          └──── in-flight (QUEUED|RUNNING): 202 { run_id, replay: true }
+GET /:id/brief/stream     → 204 when current_run_id IS NULL; else 200 SSE (DO replay + live tail)
 
 Consumer claim:           atomic UPDATE WHERE status IN ('QUEUED','RUNNING')
                                                   AND current_run_id = ?
@@ -287,49 +315,42 @@ Consumer claim:           atomic UPDATE WHERE status IN ('QUEUED','RUNNING')
                                            attempts>1 + fresh row → msg.retry, not claim)
 
 Consumer revert:          atomic UPDATE WHERE status = 'RUNNING'
-                                                  AND current_run_id = ?
+  (on retryable failure)                          AND current_run_id = ?
                                                   SET status = 'QUEUED'
 
 Producer revert:          atomic UPDATE WHERE status = 'QUEUED'
-                                                  AND current_run_id = ?
+  (on enqueue throw)                              AND current_run_id = ?
                                                   SET status = 'DRAFT'
 
 DLQ flip:                 atomic UPDATE WHERE status IN ('QUEUED','RUNNING')
-                                                  AND current_run_id = ?
-                                                  SET status = 'FAILED'
-
-Mode A abort:             atomic UPDATE WHERE status = 'RUNNING'
-                                                  AND current_run_id = ?
-                                                  SET status = 'DRAFT'
-
-Mode A pre-stream throw:  atomic UPDATE WHERE status = 'RUNNING'
-                                                  AND current_run_id = ?
+  (+ finishBriefStream)                           AND current_run_id = ?
                                                   SET status = 'FAILED'
 ```
 
-Every status transition is gated on both `id` AND `current_run_id` — the runId pin makes the state machine append-only per run. Concurrent runs on the same case are impossible (`producerGuard` rejects them at 409/replay-202).
+Every status transition is gated on both `id` AND `current_run_id` — the runId pin makes the state machine append-only per run. Concurrent claims on the same case are impossible (`producerGuard` rejoins an in-flight run rather than minting a second).
 
 ## Test posture
 
-- **Unit tests** (`bun:test`) cover pure classification: `classifyRedelivery` with all status × attempts combinations, schema accept/reject, dispatch routing, producer-guard targets.
-- **Integration tests** (`vitest` + `@cloudflare/vitest-pool-workers`) cover the full request/queue/D1 path. Local-only — CI excludes them because each spec spawns a fresh workerd with a full Mastra/Langfuse/AI-SDK graph recompile (~13 min for 5 files). Re-enable when the pool supports cross-file workerd reuse.
-- **Concurrency probe** asserts claim-race semantics (`Promise.all` two consumers, same caseId+runId, exactly one runs the workflow, both ack, row terminal) — wall-clock-free.
+- **Unit tests** (`bun:test`) cover pure classification: `classifyRedelivery` with all status × attempts combinations, schema accept/reject, dispatch routing, producer-guard sources.
+- **Integration tests** (`vitest` + `@cloudflare/vitest-pool-workers`) cover the full request/queue/D1/DO path. They now run in CI as a 2-shard matrix (hermetic — mock LLM, local Miniflare bindings, no secrets) after the lazy-Mastra refactor made the worker entry's static graph Mastra/AI-SDK-free. Full-workflow tests that hit `matchPolicy`'s live Vectorize are gated behind `RUN_REMOTE_INTEGRATION=1` and skipped in CI.
+- **Contract tests** lock the HTTP surface: `brief-producer-rejoin.test.ts` (rejoin-vs-claim-vs-409), `brief-stream-route.test.ts` (GET resume 204/401/404/200), `brief-stream-do.test.ts` (DO buffer/replay/finish/disconnect).
+- **Concurrency probe** asserts claim-race semantics (`Promise.all` two POSTs, same caseId, exactly one claims, both 200, row terminal) — wall-clock-free.
 
 ## Reference files
 
-- `apps/worker/src/middleware/producer-guard.ts` — factory + per-target source allow-lists + `invalid_source_status` vs race distinction
-- `apps/worker/src/routes/cases.ts` — content-negotiated branch + `enqueueBrief` + `revertQueuedClaim` + `setCaseStatus`
-- `apps/worker/src/queue/brief-consumer.ts` — Layer 3 idempotent consumer
+- `apps/worker/src/middleware/producer-guard.ts` — unified `briefProducerGuard` + `ALLOWED_SOURCES` + `invalid_source_status` vs rejoin/race distinction
+- `apps/worker/src/middleware/producer-guard-helpers.ts` — `claimProducerCase` (QUEUED-only after unification)
+- `apps/worker/src/routes/cases.ts` — `startBriefRun` + `resumeBriefStream` + `subscribeResponse` + `revertQueuedClaim`
+- `apps/worker/src/queue/brief-consumer.ts` — Layer 3 idempotent consumer + `pipeRunToBriefStream` + status gate + `bestEffortFinish`
 - `apps/worker/src/queue/brief-consumer-helpers.ts` — `classifyRedelivery` exhaustive switch + staleness gate
-- `apps/worker/src/queue/dlq-consumer.ts` — terminal failure flip via `transitionCase`
-- `apps/worker/src/queue/dispatch.ts` — multi-queue dispatcher + exported queue name constants
-- `packages/mastra/src/runtime/brief-run-factory.ts` — shared workflow bootstrap
-- `packages/mastra/src/mastra-factory.ts` — `createMastra(env)` per-request factory
+- `apps/worker/src/queue/dlq-consumer.ts` — terminal failure flip via `transitionCase` + `finishBriefStream`
+- `apps/worker/src/durable/brief-stream-do.ts` + `brief-stream-client.ts` — the resumable-stream DO store + publish/finish helpers
 - `packages/db/src/case-transitions.ts` — canonical `transitionCase` helper
 - `packages/shared/src/schemas/queue-message.ts` — queue-message wire schema
 
 ## See also
 
+- `docs/solutions/architecture-patterns/durable-resumable-brief-stream-do.md` — the store/executor split, unified guard, and the `run.stream()` stuck-RUNNING root cause this executor pairs with
 - `docs/solutions/best-practices/ai-sdk-6-openai-strict-mode-integration.md` — Phase 4 schema lessons
 - `docs/solutions/2026-05-21-vitest-to-bun-test.md` — why unit tests are on bun:test
 - PRD §6 Phase 5, §7.5, §7.8, §7.10
