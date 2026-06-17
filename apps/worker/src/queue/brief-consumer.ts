@@ -142,6 +142,9 @@ async function createBriefRunHandle(
   });
 }
 
+/** Settled Mastra workflow run statuses (`stream.result.status`). */
+type BriefRunStatus = "suspended" | "success" | "failed" | "tripwire" | "paused";
+
 /**
  * Workflow run-result statuses that mean the run reached a clean terminal
  * state: `success` (ran to the end) or `suspended` (paused for HITL — the brief
@@ -151,8 +154,9 @@ async function createBriefRunHandle(
  * status gate below is the ONLY thing that turns an internal step failure into
  * a queue retry — without it a failed run would ack + strand the case in RUNNING
  * (which the producer guard rejects as a re-brief source, bricking the case).
+ * Typed to `BriefRunStatus` (not `string`) so a status typo fails to compile.
  */
-const TERMINAL_OK_STATUSES: ReadonlySet<string> = new Set(["success", "suspended"]);
+const TERMINAL_OK_STATUSES: ReadonlySet<BriefRunStatus> = new Set(["success", "suspended"]);
 
 /**
  * Streams the run (not `run.start()`) and PIPES its SSE into the brief-stream
