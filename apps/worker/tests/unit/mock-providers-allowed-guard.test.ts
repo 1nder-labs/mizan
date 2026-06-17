@@ -37,6 +37,7 @@ describe("mock providers fail-closed guard", () => {
 
   it("skips mock branch when MOCK_PROVIDERS_ALLOWED is unset (prod-like env)", () => {
     const env = makeStubBindings({
+      DEFAULT_LLM_PROVIDER: "anthropic",
       ANTHROPIC_API_KEY: "test-key",
       MOCK_LLM_RESPONSES: JSON.stringify({}),
     });
@@ -46,6 +47,7 @@ describe("mock providers fail-closed guard", () => {
 
   it("skips mock branch when MOCK_PROVIDERS_ALLOWED is set to anything other than '1'", () => {
     const env = makeStubBindings({
+      DEFAULT_LLM_PROVIDER: "anthropic",
       ANTHROPIC_API_KEY: "test-key",
       MOCK_PROVIDERS_ALLOWED: "true",
       MOCK_LLM_RESPONSES: JSON.stringify({}),
@@ -55,6 +57,7 @@ describe("mock providers fail-closed guard", () => {
 
   it("skips mock branch when MOCK_LLM_RESPONSES is unset even with the allow flag", () => {
     const env = makeStubBindings({
+      DEFAULT_LLM_PROVIDER: "anthropic",
       ANTHROPIC_API_KEY: "test-key",
       MOCK_PROVIDERS_ALLOWED: "1",
     });
@@ -64,6 +67,7 @@ describe("mock providers fail-closed guard", () => {
 
   it("skips mock branch when MOCK_LLM_RESPONSES is the empty string (falsy)", () => {
     const env = makeStubBindings({
+      DEFAULT_LLM_PROVIDER: "anthropic",
       ANTHROPIC_API_KEY: "test-key",
       MOCK_PROVIDERS_ALLOWED: "1",
       MOCK_LLM_RESPONSES: "",

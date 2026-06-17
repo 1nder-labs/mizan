@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table.tsx";
+import { interactiveRowProps } from "@/lib/interactive-row.ts";
 import { buildColumns } from "./columns.tsx";
 import { QueueEmptyState } from "./empty.tsx";
 
@@ -61,8 +62,11 @@ function QueueTableBody({
       {table.getRowModel().rows.map((row) => (
         <TableRow
           key={row.id}
-          className="cursor-pointer transition-colors hover:bg-muted/40"
-          onClick={() => onRowClick(row.original.id)}
+          className="cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          {...interactiveRowProps(
+            () => onRowClick(row.original.id),
+            `Open case: ${row.original.title}`,
+          )}
         >
           {row.getVisibleCells().map((cell) => (
             <TableCell key={cell.id} className="py-3">

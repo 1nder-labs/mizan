@@ -58,7 +58,7 @@
         "zod": "4.4.3",
       },
       "devDependencies": {
-        "@cloudflare/workers-types": "4.20260524.1",
+        "@cloudflare/workers-types": "catalog:",
         "@playwright/test": "1.59.1",
         "@tailwindcss/vite": "4.2.4",
         "@tanstack/react-query-devtools": "5.100.9",
@@ -2278,8 +2278,6 @@
     "@mastra/otel-exporter/@mastra/observability": ["@mastra/observability@1.10.0", "", { "peerDependencies": { "@mastra/core": ">=1.16.0-0 <2.0.0-0" } }, "sha512-hyD6JVcXug/wDpz4t8yoMrVYJQYbdxRmRafK3N2NOQxW/fRNEDLclJDHeFeI6SKS7i4tQMJK8GczHM0JMcZVZQ=="],
 
     "@mastra/otel-exporter/@opentelemetry/api": ["@opentelemetry/api@1.9.1", "", {}, "sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q=="],
-
-    "@mizan/web/@cloudflare/workers-types": ["@cloudflare/workers-types@4.20260524.1", "", {}, "sha512-9o939wce6hAlfNAIG4W58bySW7twgkqgPkxmSNrk/DV0eEexjTPyqChGdsQeKZEXJAjxSUFklaebMYJWg1GM0g=="],
 
     "@mizan/web/ai": ["ai@6.0.177", "", { "dependencies": { "@ai-sdk/gateway": "3.0.112", "@ai-sdk/provider": "3.0.10", "@ai-sdk/provider-utils": "4.0.27", "@opentelemetry/api": "1.9.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-1xQtbeWwNcLyyM86ixZhkKvT+WRXc1lvarIKqPVtsyn8F9NDikwUMBqYu+aQKDgMht50SMXh4qboYuU8MeHZZA=="],
 
