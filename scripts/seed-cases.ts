@@ -55,7 +55,7 @@ function documentInserts(seed: SeedCase, organizationId: string, ts: number): st
     const id = `${seed.id}-${kind}`;
     const key = sqlEscape(seed.r2_keys[kind]);
     return `INSERT INTO documents (id, case_id, doc_kind, r2_key, filename, content_type, uploaded_at, organization_id)
-VALUES ('${id}', '${seed.id}', '${kind}', '${key}', '', 'image/png', ${ts}, '${organizationId}') ON CONFLICT(id) DO NOTHING;`;
+VALUES ('${id}', '${seed.id}', '${kind}', '${key}', '', 'application/pdf', ${ts}, '${organizationId}') ON CONFLICT(id) DO NOTHING;`;
   }).join("\n");
 }
 

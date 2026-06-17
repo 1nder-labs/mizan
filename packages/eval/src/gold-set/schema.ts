@@ -4,7 +4,7 @@ import { z } from "zod";
 /**
  * A curated gold-set fixture pairing a workflow input (case seed) with
  * expected brief outcomes. The `caseSeedId` must reference an existing
- * documentary seed case under `packages/mastra/src/seeds/documentary/`.
+ * seed case under `packages/mastra/src/seeds/cases/<case>/seed.json`.
  *
  * Recommendation expectation is mutually exclusive:
  * - `expected_recommendation` — strict equality (deterministic cases,
