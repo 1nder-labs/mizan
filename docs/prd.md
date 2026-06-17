@@ -1170,6 +1170,41 @@ Fresh signup → admin of own org → empty queue. Invited signup → reviewer i
 
 ---
 
+### Phase 11 — Multi-tenant policy corpora (bring-your-own policy) [FUTURE / post-MVP]
+
+**Goal:** Let any non-profit org supply its own policy and have briefs matched against THAT org's policy, instead of the single global LaunchGood zakat+safety corpus baked into the build.
+
+**Force-read (internal — MUST read before implementing):**
+
+- [ ] §6 Phase 3 (Policy RAG + cited brief composer) — how `matchPolicy` queries Vectorize + how clauses cite into the brief
+- [ ] §6 Phase 7.7 (Multi-tenant org foundation) — org scoping + invitations model this builds on
+- [ ] §7.8 Ingestion queue — the embed/ingest path policy uploads would reuse
+
+**Force-read (external via context7 — MUST query before implementing):**
+
+- [ ] context7 `/cloudflare/cloudflare-docs` — query: "Vectorize metadata filtering with multiple filter keys ($eq on organizationId + source)"
+- [ ] context7 `/cloudflare/cloudflare-docs` — query: "Vectorize namespaces vs metadata filters for per-tenant isolation"
+
+**In scope:**
+
+- Per-org policy storage: move the corpus off committed JSON (`packages/mastra/src/corpus/*.json`) into per-org records (D1 `policy_clauses` table OR R2-uploaded JSON validated by `CorpusSchema`).
+- Admin policy-upload surface: an org admin uploads/edits their clauses (`clauseId`/`title`/`body` shape), versioned.
+- Per-org embedding: embed each org's clauses into `mizan-policy-corpus` with `organizationId` in the Vectorize metadata (alongside `source`); runs on upload, not once at build.
+- Org-filtered match: `matchPolicy` adds `organizationId: { $eq: caseRow.organization_id }` to the Vectorize filter (`packages/mastra/src/steps/matchPolicy/index.ts` currently filters by `source` only).
+- Generalize `source`: relax the hard `zakat | safety` enum (LaunchGood-specific) to org-defined policy categories, or make `source` optional.
+
+**Out of scope:** Per-clause approval workflows, policy diffing/changelog UI, automatic policy fetch from a URL (manual upload only).
+
+**Deliverable:** An org admin uploads a policy; a brief for that org's campaign cites ONLY that org's clauses.
+
+**Acceptance criteria:** Two orgs with different policies produce briefs citing disjoint clause sets; no cross-org clause leakage in `matchPolicy` results.
+
+**Implementation notes:** The campaign (case) side is already multi-org (`cases.organization_id`, client portal intake). Only the POLICY side is single-tenant today. Vectorize metadata filtering composes multiple `$eq` keys, so `{ organizationId, source }` is a single query change once clauses carry `organizationId` metadata.
+
+**Tests:** Integration — two orgs, two corpora, assert org-scoped clause citation + zero cross-org leak. Unit — `resolvePolicySource` / filter-builder with org dimension.
+
+---
+
 ## 7. Stack decisions (Cloudflare-first, provider-agnostic, minimal external surface)
 
 The entire stack lives on Cloudflare. One platform, one CLI (`wrangler`), one billing surface, one set of bindings. Provider-agnostic LLM access via factory pattern over AI SDK adapters.

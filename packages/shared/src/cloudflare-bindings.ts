@@ -19,6 +19,7 @@
  */
 import type {
   D1Database,
+  DurableObjectNamespace,
   Fetcher,
   KVNamespace,
   Queue,
@@ -32,6 +33,14 @@ export interface CloudflareBindings {
   R2_BUCKET: R2Bucket;
   VECTORIZE: VectorizeIndex;
   BRIEF_QUEUE: Queue;
+  /**
+   * Durable Object namespace backing the resumable brief stream — one instance
+   * per `runId`, a pure buffer/broadcast store (NOT a workflow executor; the
+   * workflow runs in the Mode-B queue consumer). Typed loosely here (shared
+   * cannot import the worker-only DO class); `apps/worker/src/env.ts` refines it
+   * to `DurableObjectNamespace<BriefStreamDO>` so the RPC methods are visible.
+   */
+  BRIEF_STREAM: DurableObjectNamespace;
   ASSETS: Fetcher;
   /**
    * Organization id that client self-signups join as `client` members —
@@ -88,4 +97,11 @@ export interface CloudflareBindings {
   AI_DAILY_BRIEF_CAP?: string;
   /** Global per-UTC-day cap on copilot chat messages across the deployment. See AI_DAILY_BRIEF_CAP. */
   AI_DAILY_CHAT_CAP?: string;
+  /**
+   * Portal write-limiter fixed-window length in seconds (default 60). Overridden
+   * to a long value in integration tests so the 30-write loop cannot straddle a
+   * wall-clock window roll (which would reset the counter mid-test and flake the
+   * "30 then 429" assertion under full-suite load). Not set in production.
+   */
+  PORTAL_RL_WINDOW_SECONDS?: string;
 }

@@ -1,106 +1,89 @@
 import { cases, eq, makeDb } from "@mizan/db";
 import type { Case } from "@mizan/db";
-import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import type { CloudflareBindings } from "../env.ts";
 import { claimProducerCase } from "./producer-guard-helpers.ts";
 import type { ViewerVariables } from "./require-role.ts";
 
 /**
- * Source statuses accepted by `producerGuard("RUNNING")` — the Mode A
- * SSE path. Includes ACTIONED so a reviewer can regenerate a completed
- * brief via streaming. FAILED is included so a pre-stream throw can be
- * retried.
+ * Source statuses from which a FRESH brief run may be claimed: DRAFT (first
+ * brief) and FAILED (retry). Narrow on purpose so `revertQueuedClaim` (which
+ * always reverts to DRAFT on a send failure) is provably lossless — a
+ * reviewed/terminal status can never be downgraded by an enqueue compensation.
  */
-const ALLOWED_RUNNING_SOURCES = ["DRAFT", "ACTIONED", "FAILED"] as const;
+const ALLOWED_SOURCES = ["DRAFT", "FAILED"] as const;
 
-/**
- * Source statuses accepted by `producerGuard("QUEUED")` — the Mode B
- * background path. Narrower than the Mode A set so `revertQueuedClaim`
- * (which always reverts to DRAFT on send failure) is provably lossless:
- * a successful row (ACTIONED) cannot be downgraded
- * by an enqueue compensation. DRAFT and FAILED both revert cleanly to
- * DRAFT without losing reviewer-visible state.
- */
-const ALLOWED_QUEUED_SOURCES = ["DRAFT", "FAILED"] as const;
-
-export type ProducerTarget = "RUNNING" | "QUEUED";
+/** Type-guard narrowing a case status to the fresh-run source set. */
+function isFreshSource(status: Case["status"]): status is (typeof ALLOWED_SOURCES)[number] {
+  const allowed: readonly Case["status"][] = ALLOWED_SOURCES;
+  return allowed.includes(status);
+}
 
 export type ProducerVariables = ViewerVariables & {
   runId: string;
   caseRow: Case;
+  /**
+   * True when the POST joined an ALREADY in-flight run (QUEUED/RUNNING) rather
+   * than claiming a fresh one — the route then subscribes to that run's stream
+   * and must NOT re-enqueue.
+   */
+  replay: boolean;
 };
-
-type ProducerContext = Context<{
-  Bindings: CloudflareBindings;
-  Variables: ProducerVariables;
-}>;
-
-function inFlightResponse(
-  c: ProducerContext,
-  existing: Case,
-  mode: "409" | "replay-202",
-): Response {
-  if (mode === "replay-202") {
-    return c.json(
-      {
-        status: existing.status,
-        run_id: existing.current_run_id,
-        replay: true,
-      },
-      202,
-    );
-  }
-  return c.json({ error: "case_already_running", current_status: existing.status }, 409);
-}
-
-function allowedSources(target: ProducerTarget): readonly Case["status"][] {
-  return target === "QUEUED" ? ALLOWED_QUEUED_SOURCES : ALLOWED_RUNNING_SOURCES;
-}
 
 /**
- * Idempotency Layer 2 — atomic case status transition to RUNNING or QUEUED.
- * Sets c.var.runId + c.var.caseRow on success; 404 / 409 (or 202 replay)
- * on miss / race. The in-flight mode is derived from target:
- * QUEUED → "replay-202", RUNNING → "409". 409 bodies do NOT include the
- * existing runId to avoid leaking a sibling reviewer's run handle.
+ * Brief producer guard (Idempotency Layer 2) — one durable path, no Mode-A/B
+ * split. Atomically resolves a `POST /:id/brief` to one of:
+ *   - DRAFT / FAILED   → claim QUEUED, mint a fresh `runId`, `replay=false`
+ *                        (the route enqueues the run to the consumer).
+ *   - QUEUED / RUNNING → already in flight; reuse `current_run_id`,
+ *                        `replay=true` (the route subscribes to that run's DO
+ *                        stream, no re-enqueue — this is how a reload rejoins).
+ *   - anything else    → 409 `invalid_source_status` (the brief is decided;
+ *                        the client shows the persisted brief instead).
+ * Sets `runId`, `caseRow`, and `replay` on success. 404s a cross-org / missing
+ * case without leaking existence.
  */
-export const producerGuard = (target: ProducerTarget) => {
-  const onInFlight: "409" | "replay-202" = target === "QUEUED" ? "replay-202" : "409";
-  const sources = allowedSources(target);
-  return createMiddleware<{
-    Bindings: CloudflareBindings;
-    Variables: ProducerVariables;
-  }>(async (c, next) => {
-    const caseId = c.req.param("id");
-    if (!caseId) return c.json({ error: "case id required" }, 400);
+export const briefProducerGuard = createMiddleware<{
+  Bindings: CloudflareBindings;
+  Variables: ProducerVariables;
+}>(async (c, next) => {
+  const caseId = c.req.param("id");
+  if (!caseId) return c.json({ error: "case id required" }, 400);
 
-    const db = makeDb(c.env.DB);
-    const [existing] = await db.select().from(cases).where(eq(cases.id, caseId)).limit(1);
-    if (!existing) return c.json({ error: "case not found" }, 404);
-    if (existing.organization_id !== c.var.viewer.organizationId) {
-      return c.json({ error: "case not found" }, 404);
-    }
-    if (existing.status === "QUEUED" || existing.status === "RUNNING") {
-      return inFlightResponse(c, existing, onInFlight);
-    }
-    if (!sources.includes(existing.status)) {
-      return c.json({ error: "invalid_source_status", current_status: existing.status }, 409);
-    }
+  const db = makeDb(c.env.DB);
+  const [existing] = await db.select().from(cases).where(eq(cases.id, caseId)).limit(1);
+  if (!existing) return c.json({ error: "case not found" }, 404);
+  if (existing.organization_id !== c.var.viewer.organizationId) {
+    return c.json({ error: "case not found" }, 404);
+  }
 
-    const claim = await claimProducerCase(db, {
-      caseId,
-      target,
-      fromStatus: existing.status,
-      organizationId: existing.organization_id,
-      actorUserId: c.var.viewer.userId,
-      sources,
-    });
-    if (!claim) return c.json({ error: "case status race lost" }, 409);
-
-    c.set("runId", claim.runId);
-    c.set("caseRow", claim.row);
+  if (existing.status === "QUEUED" || existing.status === "RUNNING") {
+    if (!existing.current_run_id)
+      return c.json({ error: "case status race lost", current_status: existing.status }, 409);
+    c.set("runId", existing.current_run_id);
+    c.set("caseRow", existing);
+    c.set("replay", true);
     await next();
     return;
+  }
+  if (!isFreshSource(existing.status)) {
+    return c.json({ error: "invalid_source_status", current_status: existing.status }, 409);
+  }
+
+  const claim = await claimProducerCase(db, {
+    caseId,
+    target: "QUEUED",
+    fromStatus: existing.status,
+    organizationId: existing.organization_id,
+    actorUserId: c.var.viewer.userId,
+    sources: ALLOWED_SOURCES,
   });
-};
+  if (!claim)
+    return c.json({ error: "case status race lost", current_status: existing.status }, 409);
+
+  c.set("runId", claim.runId);
+  c.set("caseRow", claim.row);
+  c.set("replay", false);
+  await next();
+  return;
+});

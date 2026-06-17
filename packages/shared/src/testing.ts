@@ -16,6 +16,7 @@
 
 import type {
   D1Database,
+  DurableObjectNamespace,
   Fetcher,
   KVNamespace,
   Queue,
@@ -30,10 +31,11 @@ const STUB_BINDINGS = {
   R2_BUCKET: {} as R2Bucket,
   VECTORIZE: {} as VectorizeIndex,
   BRIEF_QUEUE: {} as Queue,
+  BRIEF_STREAM: {} as DurableObjectNamespace,
   ASSETS: {} as Fetcher,
 } satisfies Pick<
   CloudflareBindings,
-  "DB" | "KV" | "R2_BUCKET" | "VECTORIZE" | "BRIEF_QUEUE" | "ASSETS"
+  "DB" | "KV" | "R2_BUCKET" | "VECTORIZE" | "BRIEF_QUEUE" | "BRIEF_STREAM" | "ASSETS"
 >;
 
 /**

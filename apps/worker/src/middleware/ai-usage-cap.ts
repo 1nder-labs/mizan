@@ -40,26 +40,51 @@ function utcDayStamp(nowMs: number): string {
 }
 
 /**
+ * Decides whether a request should be charged against the daily bucket, read
+ * AFTER the downstream handler ran. Only a request that actually consumed AI
+ * counts: the response must be a success (a 4xx — terminal 409, cross-org 404,
+ * over-cap path — is not charged), and for `brief` it must be a FRESH claim, not
+ * a rejoin/replay. A reviewer looping rejoin POSTs on an in-flight case
+ * (`replay === true`) therefore can NOT drain the org-wide bucket — the bug this
+ * guards against. `chat` has no producer guard, so any successful chat charges.
+ */
+function shouldCharge(
+  kind: AiOpKind,
+  c: { res: { status: number }; var: { replay?: boolean } },
+): boolean {
+  if (c.res.status >= 400) return false;
+  if (kind === "brief") return c.var.replay === false;
+  return true;
+}
+
+/**
  * Builds the global daily-cap gate for an AI operation. Mount AFTER cheaper
- * guards (idempotency, validation) so deduped/invalid requests don't burn
- * quota, and BEFORE any step that claims state (e.g. `producerGuard`), so a
- * capped request is rejected before the case is transitioned.
+ * guards (idempotency, validation) and BEFORE any step that claims state (e.g.
+ * `producerGuard`), so a capped request is rejected (429) before the case is
+ * transitioned. The increment happens AFTER `next()`, gated by `shouldCharge`,
+ * so rejoin replays and rejected requests never burn quota.
  */
 export function aiDailyCap(kind: AiOpKind) {
-  return createMiddleware<{ Bindings: CloudflareBindings }>(async (c, next) => {
-    const cap = resolveCap(c.env, kind);
-    const key = `ai-cap:${kind}:${utcDayStamp(Date.now())}`;
-    const used = Number.parseInt((await c.env.KV.get(key)) ?? "0", 10);
+  return createMiddleware<{ Bindings: CloudflareBindings; Variables: { replay?: boolean } }>(
+    async (c, next) => {
+      const cap = resolveCap(c.env, kind);
+      const key = `ai-cap:${kind}:${utcDayStamp(Date.now())}`;
+      const used = Number.parseInt((await c.env.KV.get(key)) ?? "0", 10);
 
-    if (used >= cap) {
-      c.header("Retry-After", String(RETRY_AFTER_SECONDS));
-      return c.json(
-        { error: "ai_daily_limit", message: "Daily AI usage limit reached. Try again tomorrow." },
-        429,
-      );
-    }
+      if (used >= cap) {
+        c.header("Retry-After", String(RETRY_AFTER_SECONDS));
+        return c.json(
+          { error: "ai_daily_limit", message: "Daily AI usage limit reached. Try again tomorrow." },
+          429,
+        );
+      }
 
-    await c.env.KV.put(key, String(used + 1), { expirationTtl: KEY_TTL_SECONDS });
-    return next();
-  });
+      await next();
+
+      if (shouldCharge(kind, c)) {
+        await c.env.KV.put(key, String(used + 1), { expirationTtl: KEY_TTL_SECONDS });
+      }
+      return;
+    },
+  );
 }

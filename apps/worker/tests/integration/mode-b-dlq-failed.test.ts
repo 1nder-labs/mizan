@@ -1,11 +1,14 @@
 /**
  * Integration tests: DLQ consumer flips exhausted retries to FAILED.
+ *
+ * The "fresh POST after DLQ flip" assertions target the new contract:
+ * POST to a FAILED case returns 200 text/event-stream (not the old 202 JSON).
+ * The new runId is read from the DB row, not from the response body.
  */
 
 import { applyD1Migrations, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { beforeAll, describe, expect, it, inject } from "vitest";
-import { z } from "zod";
 import { handleBriefQueue } from "../../src/queue/brief-consumer.ts";
 import { handleDlq } from "../../src/queue/dlq-consumer.ts";
 import { makeTestBatch } from "../helpers/queue-batch.ts";
@@ -17,12 +20,6 @@ import {
   trackedMessage,
   seedCaseStatus,
 } from "./mode-b-helpers.ts";
-
-const EnqueueResponseSchema = z.object({
-  status: z.string(),
-  run_id: z.string(),
-  replay: z.boolean(),
-});
 
 async function runDlq(body: unknown) {
   const { message, ack } = trackedMessage(body);
@@ -80,7 +77,7 @@ describe("Mode B DLQ consumer", () => {
     expect(row?.status).toBe("ACTIONED");
   });
 
-  it("allows retry enqueue after DLQ flip via POST application/json", async () => {
+  it("allows retry enqueue after DLQ flip: POST returns 200 SSE with a fresh runId", async () => {
     const caseId = crypto.randomUUID();
     const runId = crypto.randomUUID();
     await insertDraftCase(caseId, adminUserId);
@@ -92,15 +89,20 @@ describe("Mode B DLQ consumer", () => {
         method: "POST",
         headers: {
           Cookie: adminCookie,
-          Accept: "application/json",
           "Idempotency-Key": crypto.randomUUID(),
         },
       }),
     );
-    expect(res.status).toBe(202);
-    const body = EnqueueResponseSchema.parse(await res.json());
-    expect(body).toMatchObject({ status: "QUEUED", replay: false });
-    expect(body.run_id).not.toBe(runId);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    res.body?.cancel();
+
+    const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(["QUEUED", "RUNNING"]).toContain(row?.status);
+    expect(row?.current_run_id).not.toBe(runId);
+    expect(typeof row?.current_run_id).toBe("string");
   });
 
   it("acks malformed DLQ messages without row mutation", async () => {
@@ -158,26 +160,26 @@ describe("Mode B DLQ consumer", () => {
       .first<{ status: string }>();
     expect(failedRow?.status).toBe("FAILED");
 
-    const res = await exports.default.fetch(
+    const freshRes = await exports.default.fetch(
       new Request(`${BASE}/api/cases/${caseId}/brief`, {
         method: "POST",
         headers: {
           Cookie: adminCookie,
-          Accept: "application/json",
           "Idempotency-Key": crypto.randomUUID(),
         },
       }),
     );
-    expect(res.status).toBe(202);
-    const next = EnqueueResponseSchema.parse(await res.json());
-    expect(next).toMatchObject({ status: "QUEUED", replay: false });
-    expect(next.run_id).not.toBe(runId);
+    expect(freshRes.status).toBe(200);
+    expect(freshRes.headers.get("content-type")).toContain("text/event-stream");
+    freshRes.body?.cancel();
+
     const restartedRow = await env.DB.prepare(
       "SELECT status, current_run_id FROM cases WHERE id = ?",
     )
       .bind(caseId)
       .first<{ status: string; current_run_id: string }>();
-    expect(restartedRow?.status).toBe("QUEUED");
-    expect(restartedRow?.current_run_id).toBe(next.run_id);
+    expect(["QUEUED", "RUNNING"]).toContain(restartedRow?.status);
+    expect(restartedRow?.current_run_id).not.toBe(runId);
+    expect(typeof restartedRow?.current_run_id).toBe("string");
   }, 60_000);
 });

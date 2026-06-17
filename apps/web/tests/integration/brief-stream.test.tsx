@@ -1,23 +1,27 @@
 /**
- * Integration: BriefStream's two failure-mode paths and the
- * onFinish → invalidate contract.
+ * Integration: BriefStream's durable-resume contract + failure-mode paths.
  *
- * AI SDK 6 `useChat` is mocked at the module boundary so the test
- * controls the messages stream, the error payload, and the lifecycle
- * callbacks directly. We assert:
- *   - 409 "case already running" payload renders InFlightNotice
- *     overlaid above any partial stream view
- *   - onFinish triggers invalidateQueries on the case-detail key
- *   - normal error (non-409) bubbles to onStreamError so the parent
- *     can flip its panel mode away from `stream`
+ * AI SDK 6 `useChat` is mocked at the module boundary so the test controls the
+ * options it receives, the lifecycle callbacks, and a STABLE `sendMessage` spy
+ * (returned identically on every render) so mount-time POST behaviour can be
+ * counted across re-renders. The durable-resume design treats ALL errors
+ * uniformly (no 409/InFlightNotice special-case). We assert:
+ *   - `resume: true` is passed to useChat (page-reload reconnect contract)
+ *   - autoStart:true fires exactly one `sendMessage({ text: "" })` and is
+ *     idempotent across re-renders of the same caseId (startedRef guard)
+ *   - autoStart:false never POSTs (resume-GET-only)
+ *   - changing caseId fires a fresh POST (startedRef resets)
+ *   - any fatal error renders the destructive alert
+ *   - onFinish invalidates the case-detail query; onError bubbles to onStreamError
  */
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 interface UseChatOptions {
   readonly id?: string;
   readonly transport?: unknown;
+  readonly resume?: boolean;
   readonly onFinish?: (() => void) | undefined;
   readonly onError?: ((err: Error) => void) | undefined;
 }
@@ -32,105 +36,148 @@ interface UseChatReturn {
   readonly status: "idle" | "submitted" | "streaming" | "ready" | "error";
 }
 
-const { useChatMock } = vi.hoisted(() => ({ useChatMock: vi.fn() }));
+/**
+ * `sendMessageSpy` is hoisted + stable across every useChat call so the
+ * component's `startedRef` effect (dep: `sendMessage`) does not re-fire from a
+ * changing function identity — only from caseId/autoStart changes. Cleared in
+ * beforeEach so per-test call counts are exact.
+ */
+const { useChatMock, sendMessageSpy } = vi.hoisted(() => ({
+  useChatMock: vi.fn(),
+  sendMessageSpy: vi.fn(),
+}));
 vi.mock("@ai-sdk/react", () => ({
   useChat: (opts: UseChatOptions) => useChatMock(opts),
 }));
 
 import { BriefStream } from "../../src/components/brief/stream.tsx";
 
-const CASE_ID = "11111111-1111-4111-8111-111111111111";
+const CASE_A = "11111111-1111-4111-8111-111111111111";
+const CASE_B = "22222222-2222-4222-8222-222222222222";
 
 function makeChat(overrides: Partial<UseChatReturn>): UseChatReturn {
   return {
     messages: [],
-    sendMessage: vi.fn(),
+    sendMessage: sendMessageSpy,
     error: undefined,
     status: "ready",
     ...overrides,
   };
 }
 
-function renderStream(onStreamError?: () => void): QueryClient {
+function withClient(node: React.ReactNode): { ui: React.ReactElement; queryClient: QueryClient } {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <BriefStream caseId={CASE_ID} onStreamError={onStreamError} />
-    </QueryClientProvider>,
-  );
-  return queryClient;
+  return {
+    queryClient,
+    ui: <QueryClientProvider client={queryClient}>{node}</QueryClientProvider>,
+  };
 }
 
-describe("<BriefStream />", () => {
-  test("409 in-flight renders InFlightNotice overlay", async () => {
-    useChatMock.mockImplementation(() =>
-      makeChat({
-        error: new Error("case already running"),
-        status: "error",
-      }),
-    );
-    const onStreamError = vi.fn();
-    renderStream(onStreamError);
-    expect(
-      await screen.findByText(/another session is already running the workflow/i),
-    ).toBeInTheDocument();
-    expect(onStreamError).not.toHaveBeenCalled();
+beforeEach(() => {
+  useChatMock.mockReset();
+  sendMessageSpy.mockReset();
+  useChatMock.mockImplementation(() => makeChat({}));
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("<BriefStream /> durable-resume contract", () => {
+  test("resume:true when autoStart is false (reload reconnects via GET)", () => {
+    const { ui } = withClient(<BriefStream caseId={CASE_A} autoStart={false} />);
+    render(ui);
+    const opts = useChatMock.mock.calls.at(-1)?.[0];
+    expect(opts?.resume).toBe(true);
   });
 
-  test("non-409 fatal error renders the destructive alert", async () => {
-    useChatMock.mockImplementation(() =>
-      makeChat({
-        error: new Error("upstream LLM down"),
-        status: "error",
-      }),
+  test("resume:false when autoStart is true (POST opens the stream, no redundant GET)", () => {
+    const { ui } = withClient(<BriefStream caseId={CASE_A} autoStart={true} />);
+    render(ui);
+    const opts = useChatMock.mock.calls.at(-1)?.[0];
+    expect(opts?.resume).toBe(false);
+  });
+
+  test("autoStart:true fires exactly one sendMessage({text:''}) and is idempotent on re-render", () => {
+    const { ui } = withClient(<BriefStream caseId={CASE_A} autoStart={true} />);
+    const { rerender } = render(ui);
+    expect(sendMessageSpy).toHaveBeenCalledTimes(1);
+    expect(sendMessageSpy).toHaveBeenCalledWith({ text: "" });
+
+    rerender(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <BriefStream caseId={CASE_A} autoStart={true} />
+      </QueryClientProvider>,
     );
-    renderStream();
+    expect(sendMessageSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("autoStart:false never POSTs (resume-GET only)", () => {
+    const { ui } = withClient(<BriefStream caseId={CASE_A} autoStart={false} />);
+    render(ui);
+    expect(sendMessageSpy).not.toHaveBeenCalled();
+  });
+
+  test("changing caseId fires a fresh sendMessage (startedRef resets)", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { rerender } = render(
+      <QueryClientProvider client={client}>
+        <BriefStream caseId={CASE_A} autoStart={true} />
+      </QueryClientProvider>,
+    );
+    expect(sendMessageSpy).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <QueryClientProvider client={client}>
+        <BriefStream caseId={CASE_B} autoStart={true} />
+      </QueryClientProvider>,
+    );
+    expect(sendMessageSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("<BriefStream /> failure + lifecycle", () => {
+  test("fatal error renders the destructive alert", async () => {
+    useChatMock.mockImplementation(() =>
+      makeChat({ error: new Error("upstream LLM down"), status: "error" }),
+    );
+    const { ui } = withClient(<BriefStream caseId={CASE_A} autoStart={false} />);
+    render(ui);
     expect(await screen.findByText(/brief stream failed/i)).toBeInTheDocument();
     expect(screen.getByText(/upstream LLM down/i)).toBeInTheDocument();
-    expect(screen.queryByText(/another session is already running/i)).toBeNull();
   });
 
-  test("onFinish callback invalidates the case-detail query", async () => {
+  test("onFinish invalidates the case-detail query", async () => {
     let capturedOnFinish: (() => Promise<void>) | undefined;
     useChatMock.mockImplementation((opts: UseChatOptions) => {
       capturedOnFinish = opts.onFinish as () => Promise<void>;
-      return makeChat({ status: "ready" });
+      return makeChat({});
     });
-    const queryClient = renderStream();
+    const { ui, queryClient } = withClient(<BriefStream caseId={CASE_A} autoStart={false} />);
+    render(ui);
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
     if (!capturedOnFinish) throw new Error("onFinish not captured");
     await capturedOnFinish();
     expect(invalidateSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryKey: ["cases", "detail", CASE_ID],
-        refetchType: "all",
-      }),
+      expect.objectContaining({ queryKey: ["cases", "detail", CASE_A], refetchType: "all" }),
     );
   });
 
-  test("onError with non-409 calls onStreamError", async () => {
+  test("onError bubbles to onStreamError so the parent flips off `stream`", async () => {
     let capturedOnError: ((err: Error) => void) | undefined;
     useChatMock.mockImplementation((opts: UseChatOptions) => {
       capturedOnError = opts.onError;
-      return makeChat({ status: "ready" });
+      return makeChat({});
     });
     const onStreamError = vi.fn();
-    renderStream(onStreamError);
+    const { ui } = withClient(
+      <BriefStream caseId={CASE_A} autoStart={false} onStreamError={onStreamError} />,
+    );
+    render(ui);
     if (!capturedOnError) throw new Error("onError not captured");
     capturedOnError(new Error("transport failed"));
     await waitFor(() => expect(onStreamError).toHaveBeenCalledTimes(1));
-  });
-
-  test("onError with 409 does NOT call onStreamError", async () => {
-    let capturedOnError: ((err: Error) => void) | undefined;
-    useChatMock.mockImplementation((opts: UseChatOptions) => {
-      capturedOnError = opts.onError;
-      return makeChat({ status: "ready" });
-    });
-    const onStreamError = vi.fn();
-    renderStream(onStreamError);
-    if (!capturedOnError) throw new Error("onError not captured");
-    capturedOnError(new Error("case already running"));
-    expect(onStreamError).not.toHaveBeenCalled();
   });
 });

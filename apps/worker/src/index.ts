@@ -55,6 +55,8 @@ const app = new Hono<{ Bindings: CloudflareBindings; Variables: AuthVariables }>
 
 export type AppType = typeof apiApp;
 
+export { BriefStreamDO } from "./durable/brief-stream-do.ts";
+
 /**
  * Module-Worker entry combining Hono's `fetch` handler with the queue
  * consumer. Pattern is per Hono Cloudflare Workers docs:

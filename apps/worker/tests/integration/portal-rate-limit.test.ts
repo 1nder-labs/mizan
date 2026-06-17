@@ -33,7 +33,7 @@ describe("portal write rate limit", () => {
 
     const limited = await send("DELETE", `${CAMPAIGNS_URL}/${missingId}`, client.cookie);
     expect(limited.status).toBe(429);
-    expect(limited.headers.get("Retry-After")).toBe("60");
+    expect(Number(limited.headers.get("Retry-After"))).toBeGreaterThan(0);
   });
 
   it("never limits read-only requests", async () => {
