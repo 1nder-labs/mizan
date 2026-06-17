@@ -1,0 +1,15 @@
+{
+  "id": "11111111-1111-4111-8111-111111111105",
+  "status": "DRAFT",
+  "title": "Help My Nephew Complete His Engineering Degree in Cairo",
+  "category": "school",
+  "geography": "EG",
+  "claimed_zakat_category": "school",
+  "organizer_name": "Karim Abdel-Hafiz",
+  "story": "My nephew Yousef Nabil is a third-year civil engineering student at Ain Shams University. His father passed away last spring and the family can no longer cover his tuition of EGP 18,500 for the upcoming academic year. Yousef has maintained strong grades despite these hardships and simply needs this one year of support to finish his degree. Any contribution will go directly toward his faculty registration fees.",
+  "r2_keys": {
+    "creator_id": "case-005/creator-id.pdf",
+    "bank_statement": "case-005/bank-statement.pdf",
+    "category_doc": "case-005/school-fees.pdf"
+  }
+}

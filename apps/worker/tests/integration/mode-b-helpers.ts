@@ -8,7 +8,7 @@ import { SeedCaseSchema, type CloudflareBindings } from "@mizan/shared";
 import { isCloudflareBindings } from "@mizan/mastra/testing";
 import { makeTestMessage } from "../helpers/queue-batch.ts";
 import { seedDocuments } from "./cases-test-helpers.ts";
-import seedCase001Raw from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
+import seedCase001Raw from "../../../../packages/mastra/src/seeds/cases/case-001/seed.json" with { type: "json" };
 
 const SEED_CACHE: Record<string, ReturnType<typeof SeedCaseSchema.parse>> = {
   "case-001.json": SeedCaseSchema.parse(seedCase001Raw),
