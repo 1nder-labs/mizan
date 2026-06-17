@@ -24,7 +24,7 @@ import {
   SEED_CASE_IDS,
   serializeMockResponses,
 } from "@mizan/mastra/testing";
-import seedCase001 from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
+import seedCase001 from "../../../../packages/mastra/src/seeds/cases/case-001/seed.json" with { type: "json" };
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
 import { seedDocuments } from "./cases-test-helpers.ts";

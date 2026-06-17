@@ -1,0 +1,15 @@
+{
+  "id": "11111111-1111-4111-8111-111111111109",
+  "status": "DRAFT",
+  "title": "Cardiac Surgery for Mariam Haddad — Beirut",
+  "category": "medical",
+  "geography": "LB",
+  "claimed_zakat_category": "medical",
+  "organizer_name": "Mariam Haddad",
+  "story": "I am Mariam Haddad, a 46-year-old teacher from Beirut. After months of worsening symptoms I was diagnosed with severe mitral valve stenosis and my cardiologist at the American University of Beirut Medical Center has scheduled urgent valve-replacement surgery for August 2026. With the currency collapse my family's savings no longer cover the operation and post-operative care. This fund goes directly to AUBMC for the procedure and recovery.",
+  "r2_keys": {
+    "creator_id": "case-009/creator-id.pdf",
+    "bank_statement": "case-009/bank-statement.pdf",
+    "category_doc": "case-009/medical-receipt.pdf"
+  }
+}

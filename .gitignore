@@ -90,3 +90,6 @@ apps/web/.playwright/
 /synthetic-campaigns/**/*.jpg
 /synthetic-campaigns/**/*.jpeg
 /synthetic-campaigns/**/*.png
+
+# Realistic-fixture generator (throwaway tooling — only the generated PDFs + seed JSON are committed)
+/scripts/fixtures/

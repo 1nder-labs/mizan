@@ -25,9 +25,9 @@ import {
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 import { RUN_REMOTE_VECTORIZE } from "./remote-deps.ts";
 import { seedDocuments } from "./cases-test-helpers.ts";
-import seedCase006Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-006.json" with { type: "json" };
-import seedCase007Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-007.json" with { type: "json" };
-import seedCase008Raw from "../../../../packages/mastra/src/seeds/community-vouching/case-008.json" with { type: "json" };
+import seedCase006Raw from "../../../../packages/mastra/src/seeds/cases/case-006/seed.json" with { type: "json" };
+import seedCase007Raw from "../../../../packages/mastra/src/seeds/cases/case-007/seed.json" with { type: "json" };
+import seedCase008Raw from "../../../../packages/mastra/src/seeds/cases/case-008/seed.json" with { type: "json" };
 
 const BASE = "http://localhost";
 

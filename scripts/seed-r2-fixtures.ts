@@ -18,7 +18,7 @@ async function uploadKey(key: string, filePath: string): Promise<void> {
       "--file",
       filePath,
       "--content-type",
-      "image/png",
+      "application/pdf",
       "--local",
     ],
     { cwd: "apps/worker", stdout: "pipe", stderr: "pipe" },

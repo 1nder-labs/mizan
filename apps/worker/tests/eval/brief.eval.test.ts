@@ -21,12 +21,12 @@ import { loadGoldSet, type GoldCase } from "@mizan/eval";
 import { MINIMAL_PNG_BYTES } from "../fixtures/minimal-png.ts";
 import { RUN_EVAL, RUN_REMOTE_VECTORIZE } from "../integration/remote-deps.ts";
 import { seedDocuments } from "../integration/cases-test-helpers.ts";
-import seedCase001 from "../../../../packages/mastra/src/seeds/documentary/case-001.json" with { type: "json" };
-import seedCase002 from "../../../../packages/mastra/src/seeds/documentary/case-002.json" with { type: "json" };
-import seedCase003 from "../../../../packages/mastra/src/seeds/documentary/case-003.json" with { type: "json" };
-import seedCase004 from "../../../../packages/mastra/src/seeds/documentary/case-004.json" with { type: "json" };
-import seedCase005 from "../../../../packages/mastra/src/seeds/documentary/case-005.json" with { type: "json" };
-import seedCase009 from "../../../../packages/mastra/src/seeds/documentary/case-009.json" with { type: "json" };
+import seedCase001 from "../../../../packages/mastra/src/seeds/cases/case-001/seed.json" with { type: "json" };
+import seedCase002 from "../../../../packages/mastra/src/seeds/cases/case-002/seed.json" with { type: "json" };
+import seedCase003 from "../../../../packages/mastra/src/seeds/cases/case-003/seed.json" with { type: "json" };
+import seedCase004 from "../../../../packages/mastra/src/seeds/cases/case-004/seed.json" with { type: "json" };
+import seedCase005 from "../../../../packages/mastra/src/seeds/cases/case-005/seed.json" with { type: "json" };
+import seedCase009 from "../../../../packages/mastra/src/seeds/cases/case-009/seed.json" with { type: "json" };
 
 const BASE = "http://localhost";
 
