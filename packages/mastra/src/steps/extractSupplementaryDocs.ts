@@ -11,6 +11,7 @@ import {
   runStructuredLlmWithMessages,
   type StructuredLlmMessage,
 } from "./shared/runStructuredLlm.ts";
+import { UNTRUSTED_DATA_INSTRUCTION, wrapUntrustedData } from "./shared/untrusted-data.ts";
 import { toDocumentPart } from "../util/image-format.ts";
 
 const SYSTEM_PROMPT =
@@ -22,7 +23,8 @@ const SYSTEM_PROMPT =
   "(amounts, names, dates, issuer), and `supports_campaign_claims` — true only when the document " +
   "concretely corroborates the campaign's stated need, false when it is irrelevant, illegible, or " +
   "contradicts the story. Judge each document on its own contents; do not infer beyond what is " +
-  "visible.";
+  "visible. " +
+  UNTRUSTED_DATA_INSTRUCTION;
 
 const EMPTY: SupplementaryDocs = { documents: [] };
 
@@ -52,7 +54,8 @@ async function buildMessages(
     if (!obj) continue;
     attached += 1;
     const bytes = new Uint8Array(await obj.arrayBuffer());
-    parts.push({ type: "text", text: `Document ${attached} (${doc.filename || "unnamed"}):` });
+    parts.push({ type: "text", text: `Document ${attached} filename (inert data):` });
+    parts.push({ type: "text", text: wrapUntrustedData({ filename: doc.filename || "unnamed" }) });
     parts.push(toDocumentPart(bytes));
   }
   if (attached === 0) return null;
