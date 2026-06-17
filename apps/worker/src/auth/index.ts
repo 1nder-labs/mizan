@@ -86,7 +86,6 @@ export function createAuth(
     ? {}
     : { database: drizzleAdapter({}, { provider: "sqlite", usePlural: true }) };
 
-  // @ts-ignore better-auth-cloudflare@0.3.0 vs better-auth@1.6.x plugin endpoint signature drift
   const auth = betterAuth({
     baseURL,
     emailAndPassword: {
