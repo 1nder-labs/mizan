@@ -16,10 +16,12 @@ REVIEW_ORG_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 
-# Provider auto-resolves to the first key present (anthropic → openai → openrouter).
-# Set only one key and the workflow routes to that provider automatically.
-# Override with DEFAULT_LLM_PROVIDER=openai|anthropic|openrouter to force a specific one.
-# DEFAULT_LLM_PROVIDER=
+# The active LLM provider is DEFAULT_LLM_PROVIDER (set in wrangler.jsonc to
+# "openai"). It is authoritative and never auto-substituted: set the matching
+# key above (OPENAI_API_KEY for openai), or override it here to a provider whose
+# key you have. A configured provider with a missing key fails loud at
+# resolution — it will not silently route to another vendor.
+# DEFAULT_LLM_PROVIDER=anthropic|openai|openrouter
 
 # Langfuse — managed cloud observability (https://cloud.langfuse.com).
 # Create a project, copy its public/secret keys, and set the region host

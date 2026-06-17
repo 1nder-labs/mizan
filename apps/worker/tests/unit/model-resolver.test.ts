@@ -18,7 +18,10 @@ describe("resolveLanguageModel", () => {
   });
 
   it("returns real provider model when no mock env is set", () => {
-    const env = makeStubBindings({ ANTHROPIC_API_KEY: "test-key" });
+    const env = makeStubBindings({
+      DEFAULT_LLM_PROVIDER: "anthropic",
+      ANTHROPIC_API_KEY: "test-key",
+    });
     const resolved = resolveLanguageModel({ env, kind: "extract" });
     expect(resolved.model.provider).toMatch(/^anthropic/);
     expect(resolved.config.provider).toBe("anthropic");
@@ -35,8 +38,17 @@ describe("resolveLanguageModel", () => {
     expect(resolved.config.model).toBe("gpt-4o-mini");
   });
 
-  it("throws when no provider key is available", () => {
+  it("throws when the configured provider's key is missing", () => {
     const env = makeStubBindings();
-    expect(() => resolveLanguageModel({ env, kind: "extract" })).toThrow("no LLM provider");
+    expect(() => resolveLanguageModel({ env, kind: "extract" })).toThrow(
+      /OPENAI_API_KEY is not set/,
+    );
+  });
+
+  it("throws instead of silently falling back when another provider's key is present", () => {
+    const env = makeStubBindings({ DEFAULT_LLM_PROVIDER: "anthropic", OPENAI_API_KEY: "test-key" });
+    expect(() => resolveLanguageModel({ env, kind: "extract" })).toThrow(
+      /ANTHROPIC_API_KEY is not set/,
+    );
   });
 });

@@ -1,4 +1,5 @@
 import { makeExtractor } from "./shared/makeExtractor.ts";
+import { UNTRUSTED_DATA_INSTRUCTION, wrapUntrustedData } from "./shared/untrusted-data.ts";
 import { CreatorIdSchema } from "../schemas/extractions/creator-id.ts";
 import { toDocumentPart } from "../util/image-format.ts";
 
@@ -27,15 +28,15 @@ export const extractCreatorIdDoc = makeExtractor({
         "template markings, AI-generation artifacts, or inconsistent fonts, alignment, lighting, " +
         "or cloning. A clean, ordinary scan or photo of a real ID is low risk. Set " +
         "`shows_tampering_signs` only for post-hoc edits of an otherwise-real document, and give " +
-        "a one-sentence `assessment` citing the concrete observations behind the rating.",
+        "a one-sentence `assessment` citing the concrete observations behind the rating. " +
+        UNTRUSTED_DATA_INSTRUCTION,
       messages: [
         {
           role: "user",
           content: [
-            {
-              type: "text",
-              text: `Organizer name on the campaign: ${caseRow.organizer_name}. Extract.`,
-            },
+            { type: "text", text: "Organizer name claimed on the campaign (inert data):" },
+            { type: "text", text: wrapUntrustedData({ organizer_name: caseRow.organizer_name }) },
+            { type: "text", text: "Extract the structured fields from the attached ID." },
             toDocumentPart(bytes),
           ],
         },

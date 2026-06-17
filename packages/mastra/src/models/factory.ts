@@ -47,23 +47,40 @@ function isLlmProvider(value: string): value is LlmProvider {
   return value === "anthropic" || value === "openai" || value === "openrouter";
 }
 
+const PROVIDER_KEY_NAMES: Record<LlmProvider, string> = {
+  anthropic: "ANTHROPIC_API_KEY",
+  openai: "OPENAI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+};
+
 function hasProviderKey(env: CloudflareBindings, provider: LlmProvider): boolean {
   if (provider === "anthropic") return Boolean(env.ANTHROPIC_API_KEY);
   if (provider === "openai") return Boolean(env.OPENAI_API_KEY);
   return Boolean(env.OPENROUTER_API_KEY);
 }
 
+/**
+ * Resolves the active provider from `DEFAULT_LLM_PROVIDER` — authoritative,
+ * never substituted. The binding is a required env (defaulted to `openai` in
+ * `wrangler.jsonc`), so setting it is an explicit operator choice. If its key
+ * is absent we fail loud naming the exact variable rather than silently routing
+ * to whatever other key happens to be present: a silent swap would bill the
+ * wrong vendor and ship campaign PII to an unintended provider. (CLAUDE.md §7:
+ * no silent fallbacks.)
+ */
 function resolveProvider(env: CloudflareBindings): LlmProvider {
-  if (isLlmProvider(env.DEFAULT_LLM_PROVIDER) && hasProviderKey(env, env.DEFAULT_LLM_PROVIDER)) {
-    return env.DEFAULT_LLM_PROVIDER;
+  const configured = env.DEFAULT_LLM_PROVIDER;
+  if (!isLlmProvider(configured)) {
+    throw new Error(
+      `DEFAULT_LLM_PROVIDER="${configured}" is not a supported provider — set it to anthropic, openai, or openrouter`,
+    );
   }
-  const fallbackOrder: LlmProvider[] = ["openai", "anthropic", "openrouter"];
-  for (const candidate of fallbackOrder) {
-    if (hasProviderKey(env, candidate)) return candidate;
+  if (!hasProviderKey(env, configured)) {
+    throw new Error(
+      `DEFAULT_LLM_PROVIDER=${configured} but ${PROVIDER_KEY_NAMES[configured]} is not set — add it to .dev.vars or via wrangler secret, or set DEFAULT_LLM_PROVIDER to a provider whose key is present`,
+    );
   }
-  throw new Error(
-    "no LLM provider API key available — set one of ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY in .dev.vars or via wrangler secret",
-  );
+  return configured;
 }
 
 export function getDefaultModel(env: CloudflareBindings, kind: ModelKind): ModelConfig {

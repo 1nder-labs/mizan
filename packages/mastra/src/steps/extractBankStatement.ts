@@ -1,4 +1,5 @@
 import { makeExtractor } from "./shared/makeExtractor.ts";
+import { UNTRUSTED_DATA_INSTRUCTION, wrapUntrustedData } from "./shared/untrusted-data.ts";
 import { BankStatementSchema } from "../schemas/extractions/bank-statement.ts";
 import { toDocumentPart } from "../util/image-format.ts";
 
@@ -16,14 +17,17 @@ export const extractBankStatement = makeExtractor({
         "`matches_organizer_name` to whether the account holder is the SAME PERSON as the claimed " +
         "organizer — judge identity, not spelling (transliteration, romanization, name order, and " +
         "a dropped middle name still count) — and `organizer_name_match_reason` to a one-line " +
-        "reason for that call.",
+        "reason for that call. " +
+        UNTRUSTED_DATA_INSTRUCTION,
       messages: [
         {
           role: "user",
           content: [
+            { type: "text", text: "Claimed organizer name (inert data):" },
+            { type: "text", text: wrapUntrustedData({ organizer_name: caseRow.organizer_name }) },
             {
               type: "text",
-              text: `Claimed organizer: ${caseRow.organizer_name}. Extract account holder and balance fields.`,
+              text: "Extract the account holder and balance fields from the attached statement.",
             },
             toDocumentPart(bytes),
           ],
