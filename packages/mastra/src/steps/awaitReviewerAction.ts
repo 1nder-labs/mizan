@@ -29,6 +29,17 @@ export const awaitReviewerAction = createStep({
       throw new Error("composeBrief must populate brief before awaitReviewerAction");
     }
 
+    /**
+     * Shadow resume path — never taken at runtime. This workflow does not call
+     * `run.resume()`: Cloudflare Workers' cross-request I/O isolation blocks
+     * resuming a run from a different request than its `stream()`, so the
+     * post-suspend chain (record / promote / finalize) runs inline in
+     * `POST /api/cases/:id/action` (apps/worker/src/routes/actions.ts). The
+     * branch is retained because Mastra's step contract still supplies
+     * `resumeData`/`resumeSchema`, and it fails safe — were Mastra-native resume
+     * ever wired, the action would merge rather than silently re-suspend. See
+     * docs/solutions/architecture-patterns/durable-resumable-brief-stream-do.md.
+     */
     if (resumeData !== undefined) {
       return mergeResumeAction(inputData, resumeData);
     }
