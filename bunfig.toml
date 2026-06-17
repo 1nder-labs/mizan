@@ -10,6 +10,7 @@ minimumReleaseAgeExcludes = [
   "@socketsecurity/bun-security-scanner",
   "esbuild",
   "form-data",
+  "hono",
 ]
 ignoreScripts = true
 registry = "https://registry.npmjs.org"
