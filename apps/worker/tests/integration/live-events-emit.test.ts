@@ -156,12 +156,13 @@ describe("live event emission", () => {
         method: "POST",
         headers: {
           Cookie: cookie,
-          Accept: "application/json",
+          Accept: "text/event-stream",
           "Idempotency-Key": crypto.randomUUID(),
         },
       }),
     );
-    expect(res.status).toBe(202);
+    expect(res.status).toBe(200);
+    await res.body?.cancel();
 
     const orgTopic = `org:${organizationId}`;
     const events = await loadLiveEvents(orgTopic, "case.status_changed");

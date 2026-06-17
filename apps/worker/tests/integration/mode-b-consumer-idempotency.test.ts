@@ -63,47 +63,60 @@ describe("Mode B consumer idempotency", () => {
     60_000,
   );
 
-  it("acks duplicate delivery without re-running workflow", async () => {
-    const caseId = crypto.randomUUID();
-    const runId = crypto.randomUUID();
-    await insertDraftCase(caseId, adminUserId);
-    await seedCaseStatus({ caseId, status: "QUEUED", runId });
+  /**
+   * Requires remote Vectorize: the duplicate-delivery idempotency contract only
+   * holds once the FIRST delivery's workflow reaches a settled state
+   * (SUSPENDED_HITL). Locally `matchPolicy` fails on the Vectorize binding, so
+   * the run settles `failed` → the consumer (correctly) reverts to QUEUED +
+   * retries rather than acking, and a second delivery legitimately re-claims.
+   * The prior local pass relied on the old bug where a failed run was acked +
+   * left RUNNING, making the second delivery look like a concurrent duplicate.
+   */
+  it.skipIf(!RUN_REMOTE_VECTORIZE)(
+    "acks duplicate delivery without re-running workflow",
+    async () => {
+      const caseId = crypto.randomUUID();
+      const runId = crypto.randomUUID();
+      await insertDraftCase(caseId, adminUserId);
+      await seedCaseStatus({ caseId, status: "QUEUED", runId });
 
-    env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
-    const first = trackedMessage({
-      caseId,
-      runId,
-      enqueuedAt: Date.now(),
-      requestedBy: adminUserId,
-    });
-    const ctx1 = createExecutionContext();
-    await handleBriefQueue(makeTestBatch([first.message]), getTestBindings(), ctx1);
-    await waitOnExecutionContext(ctx1);
+      env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
+      const first = trackedMessage({
+        caseId,
+        runId,
+        enqueuedAt: Date.now(),
+        requestedBy: adminUserId,
+      });
+      const ctx1 = createExecutionContext();
+      await handleBriefQueue(makeTestBatch([first.message]), getTestBindings(), ctx1);
+      await waitOnExecutionContext(ctx1);
 
-    const signalCountBefore = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
-    )
-      .bind(caseId, runId)
-      .first<{ count: number }>();
+      const signalCountBefore = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+      )
+        .bind(caseId, runId)
+        .first<{ count: number }>();
 
-    const second = trackedMessage({
-      caseId,
-      runId,
-      enqueuedAt: Date.now(),
-      requestedBy: adminUserId,
-    });
-    const ctx2 = createExecutionContext();
-    await handleBriefQueue(makeTestBatch([second.message]), getTestBindings(), ctx2);
-    await waitOnExecutionContext(ctx2);
+      const second = trackedMessage({
+        caseId,
+        runId,
+        enqueuedAt: Date.now(),
+        requestedBy: adminUserId,
+      });
+      const ctx2 = createExecutionContext();
+      await handleBriefQueue(makeTestBatch([second.message]), getTestBindings(), ctx2);
+      await waitOnExecutionContext(ctx2);
 
-    expect(second.ack).toHaveBeenCalledTimes(1);
-    const signalCountAfter = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
-    )
-      .bind(caseId, runId)
-      .first<{ count: number }>();
-    expect(signalCountAfter?.count).toBe(signalCountBefore?.count);
-  }, 60_000);
+      expect(second.ack).toHaveBeenCalledTimes(1);
+      const signalCountAfter = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM signals WHERE case_id = ? AND run_id = ?",
+      )
+        .bind(caseId, runId)
+        .first<{ count: number }>();
+      expect(signalCountAfter?.count).toBe(signalCountBefore?.count);
+    },
+    60_000,
+  );
 
   it.skipIf(!RUN_REMOTE_VECTORIZE)(
     "reverts to QUEUED and retries when workflow throws, then succeeds on redelivery",
@@ -148,6 +161,41 @@ describe("Mode B consumer idempotency", () => {
     },
     60_000,
   );
+
+  /**
+   * Status-gate regression (the stuck-RUNNING fix): a workflow that settles
+   * `failed` MUST revert the claim to QUEUED + `msg.retry()`, never ack. Locally
+   * `matchPolicy` fails on the Vectorize binding, giving a deterministic
+   * `status=failed` run without remote deps. Before the gate, Mastra's
+   * `run.stream()` resolved `failed` WITHOUT throwing, so the consumer acked and
+   * left the case RUNNING — which the producer guard rejects as a re-brief
+   * source, bricking the case (the original "stuck at generating brief" bug).
+   */
+  it("reverts to QUEUED and retries when the workflow run settles failed", async () => {
+    const caseId = crypto.randomUUID();
+    const runId = crypto.randomUUID();
+    await insertDraftCase(caseId, adminUserId);
+    await seedCaseStatus({ caseId, status: "QUEUED", runId });
+
+    env.MOCK_LLM_RESPONSES = serializeMockResponses(case001Responses());
+    const { message, ack, retry } = trackedMessage({
+      caseId,
+      runId,
+      enqueuedAt: Date.now(),
+      requestedBy: adminUserId,
+    });
+    const ctx = createExecutionContext();
+    await handleBriefQueue(makeTestBatch([message]), getTestBindings(), ctx);
+    await waitOnExecutionContext(ctx);
+
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(ack).not.toHaveBeenCalled();
+    const row = await env.DB.prepare("SELECT status, current_run_id FROM cases WHERE id = ?")
+      .bind(caseId)
+      .first<{ status: string; current_run_id: string }>();
+    expect(row?.status).toBe("QUEUED");
+    expect(row?.current_run_id).toBe(runId);
+  }, 60_000);
 
   it("acks malformed messages without mutating the case row", async () => {
     const caseId = crypto.randomUUID();

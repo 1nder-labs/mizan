@@ -5,21 +5,16 @@
  * machine; no boolean state masquerades as a state machine.
  *
  * Panel modes:
- *   stream   — user just clicked Generate and the local stream has not
- *              yet errored; mounts <BriefStream> which POSTs /brief
- *   inflight — server says the case is already RUNNING/QUEUED from a
- *              prior tab or session; the workflow_events tape drives a
- *              passive refetch when the run finishes. Never POSTs.
+ *   stream (autoStart:true)  — reviewer clicked Generate; POSTs /brief
+ *   stream (autoStart:false) — case is RUNNING/QUEUED; resume-GET
+ *                              reconnects to the durable-buffer stream
  *   action   — SUSPENDED_HITL awaiting reviewer input
  *   summary  — terminal status with a non-null brief payload
  *   empty    — every other state
  *
- * The split between `stream` and `inflight` is the bug fix for the
- * "page-load fires POST /brief" issue: visiting a RUNNING case from a
- * URL paste or a refresh used to auto-mount `<BriefStream>` (which
- * POSTs on every render), re-firing the producer guard and hammering
- * the worker with 409s. The user must explicitly press Generate to
- * own a new run; an already-running run is observed passively.
+ * The autoStart gate prevents spurious POSTs on URL-paste or reload:
+ * an already-running case mounts BriefStream with autoStart=false so
+ * only the resume-GET fires, not a second workflow POST.
  */
 import { useEffect, useReducer } from "react";
 import {
@@ -56,6 +51,7 @@ interface DetailLayoutProps {
   readonly archived: boolean;
   readonly rerunAffordance: BriefRerunAffordance;
   readonly mode: BriefPanelMode;
+  readonly autoStart: boolean;
   readonly onGenerate: () => void;
   readonly onStreamError: () => void;
 }
@@ -69,6 +65,7 @@ function DetailLayout({
   archived,
   rerunAffordance,
   mode,
+  autoStart,
   onGenerate,
   onStreamError,
 }: DetailLayoutProps): React.JSX.Element {
@@ -89,6 +86,7 @@ function DetailLayout({
         brief={brief}
         overlay={overlay}
         mode={mode}
+        autoStart={autoStart}
         canRerun={rerunAffordance === "in-tab"}
         onGenerate={onGenerate}
         onStreamError={onStreamError}
@@ -117,6 +115,7 @@ export function CaseDetail({
   }, [caseRow.status]);
 
   const disposition = caseRow.disposition;
+  const { mode, autoStart } = deriveMode(caseRow.status, brief, phase);
 
   return (
     <DetailLayout
@@ -126,7 +125,8 @@ export function CaseDetail({
       disposition={disposition}
       archived={archived}
       rerunAffordance={briefRerunAffordance(disposition)}
-      mode={deriveMode(caseRow.status, brief, phase)}
+      mode={mode}
+      autoStart={autoStart}
       onGenerate={() => dispatchPhase({ type: "user-generated" })}
       onStreamError={() => dispatchPhase({ type: "stream-errored" })}
     />

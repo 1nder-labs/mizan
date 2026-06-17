@@ -17,6 +17,10 @@
   "r2_buckets": [{ "binding": "R2_BUCKET", "bucket_name": "mizan-uploads" }],
   "vectorize": [{ "binding": "VECTORIZE", "index_name": "mizan-policy-corpus", "remote": true }],
   "kv_namespaces": [{ "binding": "KV", "id": "597f67d85db94ae4b4a90175fa465605" }],
+  "durable_objects": {
+    "bindings": [{ "name": "BRIEF_STREAM", "class_name": "BriefStreamDO" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BriefStreamDO"] }],
   "queues": {
     "producers": [{ "binding": "BRIEF_QUEUE", "queue": "mizan-brief-jobs" }],
     "consumers": [

@@ -1,5 +1,6 @@
 import type { ExecutionContext, MessageBatch } from "@cloudflare/workers-types";
 import { emitWorkflowEvent } from "@mizan/mastra/runtime";
+import { bestEffortFinishBriefStream, publishBriefChunk } from "../durable/brief-stream-client.ts";
 import {
   batchTransitionWithEmits,
   buildStatusChangedEmits,
@@ -90,19 +91,48 @@ async function revertClaim(db: Db, caseId: string, runId: string): Promise<void>
   );
 }
 
-async function runWorkflow(
+/**
+ * Relays the run's SSE stream to the brief-stream DO chunk by chunk. Publishes
+ * ONLY — it never finishes the DO: a mid-stream throw propagates so the consumer
+ * retries (Mastra resumes the same runId from its last persisted step and keeps
+ * appending). The DO is finished by the caller only on the terminal outcome —
+ * success (`runWorkflow`) or DLQ exhaustion — so a retry's chunks are never
+ * dropped. The DO buffers + broadcasts each chunk to connected reviewers. After
+ * the read loop the decoder is flushed to recover any trailing multibyte UTF-8
+ * sequence (relevant for Arabic campaign text that may span a chunk boundary).
+ */
+async function relayToBriefStream(
   env: CloudflareBindings,
-  executionCtx: ExecutionContext,
+  runId: string,
+  body: ReadableStream<Uint8Array> | null,
+): Promise<void> {
+  if (!body) return;
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) await publishBriefChunk(env, runId, decoder.decode(value, { stream: true }));
+  }
+  const tail = decoder.decode();
+  if (tail) await publishBriefChunk(env, runId, tail);
+}
+
+type BriefRunHandle = Awaited<ReturnType<typeof createBriefRunHandle>>;
+
+/**
+ * Boots a Mastra brief run for the message. Dynamic import keeps the heavy
+ * Mastra/AI-SDK graph out of the worker's static boot (see
+ * `@mizan/mastra/runtime`'s docstring); the modules are evaluated once per
+ * isolate on the first consumed brief.
+ */
+async function createBriefRunHandle(
+  env: CloudflareBindings,
   message: BriefQueueMessage,
   caseRow: Case,
-): Promise<void> {
-  /**
-   * Dynamic import keeps the heavy Mastra/AI-SDK graph out of the worker's
-   * static boot (see `@mizan/mastra/runtime`'s docstring); the module is
-   * evaluated once per isolate on the first consumed brief.
-   */
-  const { createBriefRun, flushLangfuse } = await import("@mizan/mastra");
-  const { run, requestContext, langfuse, tracingOptions } = await createBriefRun(env, {
+) {
+  const { createBriefRun } = await import("@mizan/mastra");
+  return createBriefRun(env, {
     caseId: message.caseId,
     runId: message.runId,
     reviewerId: message.requestedBy,
@@ -110,14 +140,80 @@ async function runWorkflow(
     category: caseRow.category,
     geography: caseRow.geography,
   });
+}
+
+/** Settled Mastra workflow run statuses (`stream.result.status`). */
+type BriefRunStatus = "suspended" | "success" | "failed" | "tripwire" | "paused";
+
+/**
+ * Workflow run-result statuses that mean the run reached a clean terminal
+ * state: `success` (ran to the end) or `suspended` (paused for HITL — the brief
+ * is persisted). Any other settled status (`failed`/`canceled`/`tripwire`) is a
+ * failure the consumer must retry. Mastra's `run.stream()` resolves
+ * `stream.result` with `{ status }` and does NOT throw on a failed step, so the
+ * status gate below is the ONLY thing that turns an internal step failure into
+ * a queue retry — without it a failed run would ack + strand the case in RUNNING
+ * (which the producer guard rejects as a re-brief source, bricking the case).
+ * Typed to `BriefRunStatus` (not `string`) so a status typo fails to compile.
+ */
+const TERMINAL_OK_STATUSES: ReadonlySet<BriefRunStatus> = new Set(["success", "suspended"]);
+
+/**
+ * Streams the run (not `run.start()`) and PIPES its SSE into the brief-stream
+ * DO, which buffers + broadcasts it to any connected reviewer. Awaiting the DO
+ * ingest holds this consumer (and the run) open until the workflow
+ * completes/suspends — the workflow's own steps persist the brief + flip the
+ * case to SUSPENDED_HITL. Execution lives here in the durable consumer; the DO
+ * is only the resumable-stream store. After the stream drains, `stream.result`
+ * carries the settled status: a non-OK status THROWS so the caller reverts +
+ * retries (the DO stays open so the retried run resumes into the same buffer).
+ */
+async function pipeRunToBriefStream(
+  env: CloudflareBindings,
+  message: BriefQueueMessage,
+  handle: BriefRunHandle,
+): Promise<void> {
+  const { toAISdkStream } = await import("@mastra/ai-sdk");
+  const { createUIMessageStream, createUIMessageStreamResponse } = await import("ai");
+  const workflowStream = handle.run.stream({
+    inputData: { caseId: message.caseId, runId: message.runId },
+    requestContext: handle.requestContext,
+    tracingOptions: handle.tracingOptions,
+  });
+  const uiStream = createUIMessageStream({
+    execute: ({ writer }) => {
+      writer.merge(toAISdkStream(workflowStream, { from: "workflow", version: "v6" }));
+    },
+  });
+  const response = createUIMessageStreamResponse({ stream: uiStream });
+  await relayToBriefStream(env, message.runId, response.body);
+  const result = await workflowStream.result;
+  if (!TERMINAL_OK_STATUSES.has(result.status)) {
+    throw new Error(
+      `brief workflow run settled non-OK (status=${result.status} case=${message.caseId} run=${message.runId})`,
+    );
+  }
+}
+
+async function runWorkflow(
+  env: CloudflareBindings,
+  executionCtx: ExecutionContext,
+  message: BriefQueueMessage,
+  caseRow: Case,
+): Promise<void> {
+  const { flushLangfuse } = await import("@mizan/mastra");
+  const handle = await createBriefRunHandle(env, message, caseRow);
   try {
-    await run.start({
-      inputData: { caseId: message.caseId, runId: message.runId },
-      requestContext,
-      tracingOptions,
-    });
+    await pipeRunToBriefStream(env, message, handle);
+    /**
+     * Reached only when the stream ended NORMALLY — the workflow suspended for
+     * HITL (the brief is persisted). Finish the DO so live subscribers get the
+     * complete buffer + a clean close. A throw above skips this, leaving the DO
+     * open for the retry; terminal failure is finished by the DLQ consumer.
+     */
+    await bestEffortFinishBriefStream(env, message.runId);
   } finally {
-    flushLangfuse(langfuse, executionCtx);
+    flushLangfuse(handle.langfuse, executionCtx);
   }
 }
 

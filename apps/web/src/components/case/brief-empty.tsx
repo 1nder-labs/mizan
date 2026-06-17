@@ -6,18 +6,20 @@
  *   - DRAFT: never generated, primary CTA
  *   - FAILED: errored mid-flight, destructive variant with retry CTA
  *   - RUNNING: only reachable here when the parent's stream-phase
- *     machine flipped to `streamErrored` (SSE died mid-flight). The
- *     producer-guard at `apps/worker/src/routes/cases.ts` will return
- *     409 if a real run is still owned by another session; in that
- *     case BriefStream's InFlightNotice + poll loop takes over.
- *   - ACTIONED with null brief (degraded parse path in
- *     `apps/worker/src/routes/cases-list.ts`) so the reviewer can
- *     re-trigger composition instead of hitting a dead-end card.
+ *     machine flipped to `streamErrored` (SSE died and the resume-GET
+ *     could not reconnect). The reviewer clicks Generate to re-attach
+ *     to the still-RUNNING DO stream (producer guard REJOINS, no 409).
  *
- * Statuses without an affordance (waiting on someone else):
+ * Statuses without an affordance (waiting on someone else or terminal):
  *   - QUEUED / SUSPENDED_HITL — owned by the queue consumer or HITL
  *     resume flow; surfacing a Generate button here would race the
- *     producer-guard.
+ *     producer-guard. QUEUED renders BriefStream with autoStart=false
+ *     (resume-only) so this empty card is never shown for QUEUED unless
+ *     the stream errored.
+ *   - ACTIONED — terminal status; the producer guard correctly 409s any
+ *     POST on an ACTIONED case, so no Generate affordance is shown. The
+ *     ACTIONED+null-brief path (degraded parse) shows an admin-contact
+ *     message instead.
  */
 import { BrainCircuit } from "lucide-react";
 import type { CaseStatus } from "@mizan/shared";
@@ -32,24 +34,29 @@ interface StatusCopy {
 
 const FALLBACK_COPY: StatusCopy = {
   title: "No brief on file",
-  body: "The case is marked reviewed but we couldn't load a composed brief. You can re-run composition to recover it.",
+  body: "The case is marked reviewed but a composed brief could not be loaded. Contact an admin to investigate — this brief cannot be regenerated after a decision.",
 };
 
 const RUNNING_ERROR_COPY: StatusCopy = {
   title: "Stream interrupted",
-  body: "The live brief stream closed before completing. You can try again — if another session is still composing, you'll see an in-progress notice.",
+  body: "The live brief stream closed before completing. The workflow is still running in the background — click Generate to re-attach to the live stream.",
 };
 
-const STATUSES_WITH_GENERATE: ReadonlySet<CaseStatus> = new Set(["DRAFT", "RUNNING", "ACTIONED"]);
+const STATUSES_WITH_GENERATE: ReadonlySet<CaseStatus> = new Set(["DRAFT", "QUEUED", "RUNNING"]);
 
 const EMPTY_COPY: Record<CaseStatus, StatusCopy> = {
   DRAFT: {
     title: "No brief yet",
     body: "Start a workflow to compose the reviewer brief. You'll see live progress as it runs.",
   },
+  /**
+   * QUEUED only reaches this empty card when the live stream errored (the normal
+   * QUEUED path mounts the resume-only stream). Mirror RUNNING's reconnect CTA —
+   * the run is still queued/in-flight, so Generate rejoins rather than 409s.
+   */
   QUEUED: {
-    title: "Waiting to start",
-    body: "This case is queued. A background worker will pick it up in a moment.",
+    title: "Stream interrupted",
+    body: "The live brief stream dropped. The case is still queued in the background — click Generate to re-attach to the live stream.",
   },
   SUSPENDED_HITL: {
     title: "Awaiting your input",

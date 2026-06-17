@@ -115,7 +115,7 @@ describe("<CaseDetail /> integration", () => {
     expect(screen.getByText(/Verified humanitarian/i)).toBeInTheDocument();
   });
 
-  test("ACTIONED + degraded null brief surfaces a re-generate affordance", async () => {
+  test("ACTIONED + degraded null brief shows a terminal message, NOT a re-generate button", async () => {
     await renderDetail(
       <CaseDetail
         caseRow={{ ...baseCase, status: "ACTIONED" }}
@@ -125,7 +125,13 @@ describe("<CaseDetail /> integration", () => {
       />,
     );
     expect(await screen.findByText(/no brief on file/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /generate brief/i })).toBeInTheDocument();
+    /**
+     * ACTIONED is terminal — the producer guard 409s a re-brief POST, so the
+     * Generate affordance is intentionally absent. Showing it created a silent
+     * 409-loop (#1). The degraded-null-brief copy directs to an admin instead.
+     */
+    expect(screen.queryByRole("button", { name: /generate brief/i })).toBeNull();
+    expect(screen.getByText(/contact an admin/i)).toBeInTheDocument();
   });
 
   test("SUSPENDED_HITL renders the action panel instead of stream or empty", async () => {

@@ -1,26 +1,29 @@
 /**
- * Live brief stream — wires `useChat` against the worker's Mode A
- * SSE endpoint at `POST /api/cases/:id/brief`. The worker reads its
- * inputs from URL params + producer-guard context, so the canonical
- * stream-open trigger is `sendMessage({ text: '' })` on mount — the
- * empty payload is intentional, do NOT "fix" it.
+ * Live brief stream — wires `useChat` against the worker's durable
+ * SSE endpoints:
+ *   POST /api/cases/:id/brief  — enqueue/rejoin and stream live SSE
+ *   GET  /api/cases/:id/brief/stream — reconnect/resume buffered SSE
  *
- * On `onFinish` we invalidate the case detail query so the parent
- * route re-fetches the persisted brief + flipped status. The derived
- * view (text, tools, steps) is folded each render via `foldParts` so
- * component state remains a pure function of streamed parts.
+ * `resume` is `!autoStart`: a resume-only mount (autoStart=false, e.g. a
+ * reload of an in-flight case) fires a GET to the resume endpoint to reconnect
+ * to the buffered stream; a 204 (no active run) is a SDK-level no-op. When
+ * autoStart=true (the reviewer clicked Generate/Reconnect) the mount-time POST
+ * already opens the stream, so resume-GET is disabled to avoid a redundant
+ * second DO subscriber for the same run.
  *
- * In-flight handling: when the case is already RUNNING from a prior
- * POST, the worker's producer-guard returns 409 with
- * `{ "error": "case already running" }`. This component detects that
- * shape, overlays an in-progress notice above any partial progress
- * already streamed (instead of replacing it), and polls the case-detail
- * query so the surface flips to the persisted brief the moment the
- * other stream finishes.
+ * `autoStart` gates the mount-time POST. Set `false` when the parent
+ * already knows a run is in flight (RUNNING / QUEUED) so we rely on
+ * resume-GET rather than POSTing a duplicate request. Set `true` only
+ * when the reviewer explicitly clicked Generate.
  *
- * Orchestrator only: transport / opener / poll / view live in sibling
- * modules. Keep this file thin — it composes hooks and routes UI, it
- * does not own any of them.
+ * The worker returns 409 ONLY for terminal cases (SUSPENDED_HITL /
+ * ACTIONED) whose brief is already persisted. `onError` handles that
+ * by invalidating the case-detail query so the parent flips to the
+ * persisted-brief panel.
+ *
+ * Orchestrator only: transport / stream-view live in sibling modules.
+ * Keep this file thin — it composes hooks and routes UI, it does not
+ * own any of them.
  */
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -28,34 +31,30 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { queryKeys } from "@/lib/query-keys.ts";
 import { foldParts, type FoldedStream } from "./stream-parts.ts";
 import { buildTransport } from "./transport.ts";
-import { useStreamOpener } from "./use-stream-opener.ts";
-import { useInflightPoll } from "./use-inflight-poll.ts";
-import { InFlightNotice } from "./inflight-notice.tsx";
 import { BriefStreamView } from "./stream-view.tsx";
 
 interface BriefStreamProps {
   readonly caseId: string;
   /**
+   * When true the component fires `sendMessage({ text: '' })` on mount
+   * to POST a new (or rejoined) brief run. Set false when the case is
+   * already in-flight and we want resume-GET to reconnect instead of
+   * issuing a redundant POST.
+   */
+  readonly autoStart: boolean;
+  /**
    * Fires once when the stream settles in an error state (worker
-   * rejected the POST, transport failed, SSE closed unexpectedly).
-   * Parent uses it to flip its derived panel mode away from
-   * `stream` so the reviewer gets a retry CTA instead of a frozen
-   * view. Does NOT fire on a 409 in-flight signal — that's not a
-   * failure, the poll loop owns recovery.
+   * rejected the POST for a terminal case, or SSE closed unexpectedly).
+   * Parent uses it to flip its derived panel mode away from `stream`
+   * so the reviewer gets the persisted brief or a retry CTA instead of
+   * a frozen view.
    */
   readonly onStreamError?: () => void;
-}
-
-const ALREADY_RUNNING_RE = /case already running/i;
-
-function isAlreadyRunning(message: string): boolean {
-  return ALREADY_RUNNING_RE.test(message);
 }
 
 interface StreamSignals {
   readonly view: FoldedStream;
   readonly fatalMessage: string | null;
-  readonly inflight: boolean;
 }
 
 function deriveSignals(
@@ -63,15 +62,15 @@ function deriveSignals(
   errorMessage: string | null,
   status: string,
 ): StreamSignals {
-  const fatalRaw = errorMessage ?? (status === "error" ? "Stream closed unexpectedly" : null);
-  const inflight =
-    (view.errorText !== null && isAlreadyRunning(view.errorText)) ||
-    (fatalRaw !== null && isAlreadyRunning(fatalRaw));
-  const fatalMessage = inflight ? null : fatalRaw;
-  return { view, fatalMessage, inflight };
+  const fatalMessage = errorMessage ?? (status === "error" ? "Stream closed unexpectedly" : null);
+  return { view, fatalMessage };
 }
 
-export function BriefStream({ caseId, onStreamError }: BriefStreamProps): React.JSX.Element {
+export function BriefStream({
+  caseId,
+  autoStart,
+  onStreamError,
+}: BriefStreamProps): React.JSX.Element {
   const queryClient = useQueryClient();
   const transport = useMemo(() => buildTransport(caseId), [caseId]);
   const invalidateDetail = useCallback(async () => {
@@ -88,30 +87,31 @@ export function BriefStream({ caseId, onStreamError }: BriefStreamProps): React.
   const { messages, sendMessage, error, status } = useChat({
     id: `case-${caseId}`,
     transport,
+    resume: !autoStart,
     onFinish: invalidateDetail,
-    onError: (err) => {
+    onError: () => {
       void invalidateDetail();
-      if (!isAlreadyRunning(err.message)) onStreamErrorRef.current?.();
+      onStreamErrorRef.current?.();
     },
   });
 
-  useStreamOpener(caseId, (input) => {
-    void sendMessage(input);
-  });
+  const startedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoStart) return;
+    if (startedRef.current === caseId) return;
+    startedRef.current = caseId;
+    void sendMessage({ text: "" });
+  }, [caseId, autoStart, sendMessage]);
 
   const assistantParts = useMemo(
     () => messages.flatMap((message) => (message.role === "assistant" ? message.parts : [])),
     [messages],
   );
   const view = useMemo(() => foldParts(assistantParts), [assistantParts]);
-  const { fatalMessage, inflight } = deriveSignals(view, error?.message ?? null, status);
-  const refreshing = useInflightPoll(caseId, inflight);
+  const { fatalMessage } = deriveSignals(view, error?.message ?? null, status);
 
   return (
     <div className="space-y-3">
-      {inflight ? (
-        <InFlightNotice onRefresh={() => void invalidateDetail()} refreshing={refreshing} />
-      ) : null}
       <BriefStreamView view={view} fatalMessage={fatalMessage} />
     </div>
   );

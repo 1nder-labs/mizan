@@ -8,9 +8,11 @@
  * import surface for code inside `apps/worker` (route handlers,
  * middleware, fetch entrypoint).
  *
- * `wrangler.jsonc` is still the runtime source of truth — rerun
- * `bunx wrangler types` from this directory after binding changes to
- * refresh `worker-configuration.d.ts`, and update the shared interface
- * to match.
+ * `BRIEF_STREAM` stays a plain `DurableObjectNamespace` here — the DO is
+ * addressed over its `fetch()` interface (not typed RPC), which keeps the
+ * binding free of the deep, recursively-instantiated RPC stub type.
+ *
+ * `wrangler.jsonc` is the runtime source of truth — rerun `bunx wrangler types`
+ * after binding changes and keep the shared interface in sync.
  */
 export type { CloudflareBindings } from "@mizan/shared";
