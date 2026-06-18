@@ -2,9 +2,8 @@
 CLAUDE.md
 AGENTS.md
 
-# docs/ — only ship prd.md + solutions/ to the repo
+# docs/ — only ship solutions/ to the repo; prd.md + plans stay local
 /docs/*
-!/docs/prd.md
 !/docs/solutions/
 !/docs/solutions/**
 
