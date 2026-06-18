@@ -184,9 +184,9 @@ the resolution is:
 | Queue (primary) | mizan-brief-jobs     | (name is identifier)                 |
 | Queue (DLQ)     | mizan-brief-jobs-dlq | (name is identifier)                 |
 
-Account: `558c97456d4a969cb82bee23d2054613` (`Eddie@algominds.ai's Account`).
-Account ID is checked into `apps/worker/wrangler.jsonc` `account_id` field
-(public; an account ID does NOT grant access, only the OAuth token does).
+The Cloudflare account ID is supplied via the `CLOUDFLARE_ACCOUNT_ID`
+environment variable, which Wrangler reads natively. An account ID does not
+grant access on its own — only the OAuth token / API token does.
 
 ## Phase-0-specific environmental quirks
 
