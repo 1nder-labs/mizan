@@ -11,8 +11,10 @@ BETTER_AUTH_SECRET=
 REVIEW_ORG_ID=
 
 # R2 API token — create at Cloudflare dashboard → R2 → Manage R2 API Tokens.
-# Scope MUST be "Object Read Only" on the `mizan-uploads` bucket.
-# Account ID + bucket name live in `wrangler.jsonc` `vars` (non-secret).
+# Scope MUST be "Object Read Only" on the `mizan-uploads` bucket. Set all three
+# R2 values together — if any is missing, presigned document downloads are
+# disabled and `readR2Creds` returns null (the rest of the app is unaffected).
+R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 

@@ -14,7 +14,7 @@ declare namespace Cloudflare {
     BRIEF_QUEUE: Queue;
     ASSETS: Fetcher;
     DEFAULT_LLM_PROVIDER: "openai";
-    R2_ACCOUNT_ID: "558c97456d4a969cb82bee23d2054613";
+    R2_ACCOUNT_ID: string;
     R2_BUCKET_NAME: "mizan-uploads";
     OPENAI_API_KEY: string;
     LANGFUSE_SECRET_KEY: string;

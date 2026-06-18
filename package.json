@@ -2,6 +2,13 @@
   "name": "mizan",
   "version": "0.0.0",
   "private": true,
+  "homepage": "https://github.com/1nder-labs/mizan#readme",
+  "license": "MIT",
+  "author": "Lahfir",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1nder-labs/mizan.git"
+  },
   "workspaces": {
     "packages": [
       "apps/*",
